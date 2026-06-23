@@ -1,0 +1,115 @@
+# Production Docker Compose — deploy after Phase 8
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - jebdekho-internal
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - jebdekho-internal
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    restart: always
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - "3001"
+    networks:
+      - jebdekho-internal
+    deploy:
+      replicas: 2
+
+  buyer-web:
+    build:
+      context: .
+      dockerfile: docker/buyer-web/Dockerfile
+    restart: always
+    env_file: .env
+    expose:
+      - "3000"
+    networks:
+      - jebdekho-internal
+
+  merchant-web:
+    build:
+      context: .
+      dockerfile: docker/merchant-web/Dockerfile
+    restart: always
+    env_file: .env
+    expose:
+      - "3002"
+    networks:
+      - jebdekho-internal
+
+  # Rider app is React Native (EAS) — not served via Nginx; API only
+  # rider-mobile builds are distributed through App Store / Play Store
+
+  admin-web:
+    build:
+      context: .
+      dockerfile: docker/admin-web/Dockerfile
+    restart: always
+    env_file: .env
+    expose:
+      - "3004"
+    networks:
+      - jebdekho-internal
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+      - buyer-web
+      - merchant-web
+      - admin-web
+    networks:
+      - jebdekho-internal
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  jebdekho-internal:
+    driver: bridge

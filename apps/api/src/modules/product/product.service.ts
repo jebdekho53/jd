@@ -1,0 +1,755 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  DomainEventType,
+  Inventory,
+  Prisma,
+  Product,
+  ProductVariant,
+} from '@prisma/client';
+import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { DomainEventsService } from '../domain-events/domain-events.service';
+import { MerchantService } from '../merchant/merchant.service';
+import { CreateProductDto, CreateVariantDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateInventoryDto } from './dto/update-inventory.dto';
+import { UpdatePriceDto } from './dto/update-price.dto';
+import { UpdateProductStatusDto } from './dto/update-status.dto';
+import { ListProductsDto } from './dto/list-products.dto';
+
+type VariantWithInventory = ProductVariant & { inventory: Inventory | null };
+
+type ProductWithRelations = Product & {
+  variants: VariantWithInventory[];
+  category: { id: string; name: string; slug: string } | null;
+};
+
+@Injectable()
+export class ProductService {
+  private readonly logger = new Logger(ProductService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly merchantService: MerchantService,
+    private readonly audit: AuditService,
+    private readonly domainEvents: DomainEventsService,
+  ) {}
+
+  // ---------------------------------------------------------------------------
+  // Create product
+  // ---------------------------------------------------------------------------
+
+  async createProduct(
+    userId: string,
+    storeId: string,
+    dto: CreateProductDto,
+    ipAddress?: string,
+  ): Promise<ProductWithRelations> {
+    await this.assertStoreOwnership(userId, storeId);
+
+    // Validate MRP ≥ basePrice
+    if (dto.mrp !== undefined && dto.mrp < dto.basePrice) {
+      throw new BadRequestException('Selling price (basePrice) cannot exceed MRP');
+    }
+
+    // Validate category exists if provided
+    if (dto.categoryId) {
+      const cat = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
+      if (!cat) throw new BadRequestException(`Category not found: ${dto.categoryId}`);
+    }
+
+    // Check product-level SKU uniqueness within store
+    if (dto.sku) {
+      await this.assertSkuUnique(storeId, dto.sku);
+    }
+
+    // Validate all variant SKUs are unique within the store
+    if (dto.variants?.length) {
+      for (const v of dto.variants) {
+        if (dto.mrp !== undefined && v.mrp !== undefined && v.mrp < v.price) {
+          throw new BadRequestException(
+            `Variant "${v.name}" selling price cannot exceed its MRP`,
+          );
+        }
+        await this.assertVariantSkuUnique(storeId, v.sku);
+      }
+    }
+
+    const slug = await this.generateUniqueProductSlug(storeId, dto.name);
+
+    const product = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.product.create({
+        data: {
+          storeId,
+          name: dto.name,
+          slug,
+          description: dto.description,
+          brand: dto.brand,
+          sku: dto.sku,
+          categoryId: dto.categoryId,
+          imageUrls: dto.imageUrls ?? [],
+          basePrice: dto.basePrice,
+          mrp: dto.mrp,
+          unit: dto.unit ?? 'piece',
+          weightGrams: dto.weightGrams,
+          tags: dto.tags ?? [],
+          isVeg: dto.isVeg,
+          sortOrder: dto.sortOrder ?? 0,
+          isActive: true,
+        },
+      });
+
+      // Build all variants to create
+      const variantsToCreate: CreateVariantDto[] = [];
+
+      // Always create a default variant (even for single-variant products)
+      variantsToCreate.push({
+        sku: dto.sku ?? `${slug}-default`,
+        name: 'Default',
+        price: dto.basePrice,
+        mrp: dto.mrp,
+        weightGrams: dto.weightGrams,
+        quantity: dto.quantity ?? 0,
+        lowStockThreshold: dto.lowStockThreshold ?? 5,
+        isDefault: true,
+      });
+
+      // Additional variants from DTO
+      if (dto.variants?.length) {
+        for (const v of dto.variants) {
+          variantsToCreate.push({ ...v, isDefault: false });
+        }
+      }
+
+      // Create variants + inventory in sequence
+      for (const v of variantsToCreate) {
+        const variant = await tx.productVariant.create({
+          data: {
+            productId: created.id,
+            sku: v.sku,
+            name: v.name,
+            price: v.price,
+            mrp: v.mrp,
+            weightGrams: v.weightGrams,
+            isDefault: v.isDefault ?? false,
+            isActive: true,
+          },
+        });
+
+        await tx.inventory.create({
+          data: {
+            variantId: variant.id,
+            quantity: v.quantity ?? 0,
+            reserved: 0,
+            lowStockThreshold: v.lowStockThreshold ?? 5,
+            version: 0,
+          },
+        });
+      }
+
+      // Create / upsert search index entry
+      const categoryName = dto.categoryId
+        ? (await tx.category.findUnique({ where: { id: dto.categoryId } }))?.name
+        : undefined;
+
+      const searchText = [
+        dto.name,
+        dto.brand,
+        dto.description,
+        categoryName,
+        ...(dto.tags ?? []),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      await tx.productSearchIndex.upsert({
+        where: { productId: created.id },
+        update: {
+          name: dto.name,
+          description: dto.description,
+          categoryName,
+          brand: dto.brand,
+          tags: dto.tags ?? [],
+          searchText,
+          isActive: true,
+        },
+        create: {
+          productId: created.id,
+          storeId,
+          name: dto.name,
+          description: dto.description,
+          categoryName,
+          brand: dto.brand,
+          tags: dto.tags ?? [],
+          searchText,
+          isActive: true,
+        },
+      });
+
+      return created;
+    });
+
+    await Promise.all([
+      this.audit.log({
+        actorId: userId,
+        action: 'PRODUCT_CREATED',
+        resourceType: 'product',
+        resourceId: product.id,
+        ipAddress,
+        metadata: {
+          name: product.name,
+          storeId,
+          sku: dto.sku,
+        } as Prisma.InputJsonValue,
+      }),
+      this.domainEvents.emit(
+        DomainEventType.PRODUCT_CREATED,
+        'product',
+        product.id,
+        { storeId, name: product.name, slug: product.slug },
+        { userId, ipAddress: ipAddress ?? null },
+      ),
+    ]);
+
+    this.logger.log({ userId, storeId, productId: product.id }, 'Product created');
+    return this.fetchProductWithRelations(product.id);
+  }
+
+  // ---------------------------------------------------------------------------
+  // List products
+  // ---------------------------------------------------------------------------
+
+  async listProducts(
+    userId: string,
+    storeId: string,
+    dto: ListProductsDto,
+  ): Promise<{ products: ProductWithRelations[]; total: number }> {
+    await this.assertStoreOwnership(userId, storeId);
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ProductWhereInput = {
+      storeId,
+      deletedAt: null,
+      ...(dto.categoryId && { categoryId: dto.categoryId }),
+      ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      ...(dto.search && {
+        name: { contains: dto.search, mode: 'insensitive' },
+      }),
+    };
+
+    const [products, total] = await this.prisma.$transaction([
+      this.prisma.product.findMany({
+        where,
+        include: {
+          variants: { include: { inventory: true }, orderBy: { isDefault: 'desc' } },
+          category: { select: { id: true, name: true, slug: true } },
+        },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return { products: products as ProductWithRelations[], total };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Get single product
+  // ---------------------------------------------------------------------------
+
+  async getProduct(
+    userId: string,
+    storeId: string,
+    productId: string,
+  ): Promise<ProductWithRelations> {
+    await this.assertStoreOwnership(userId, storeId);
+    return this.fetchProductWithRelations(productId, storeId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Update product
+  // ---------------------------------------------------------------------------
+
+  async updateProduct(
+    userId: string,
+    storeId: string,
+    productId: string,
+    dto: UpdateProductDto,
+    ipAddress?: string,
+  ): Promise<ProductWithRelations> {
+    await this.assertStoreOwnership(userId, storeId);
+    const product = await this.fetchProductWithRelations(productId, storeId);
+
+    // Validate MRP vs price
+    const effectiveMrp = dto.mrp ?? (product.mrp ? Number(product.mrp) : undefined);
+    const effectivePrice = dto.basePrice ?? Number(product.basePrice);
+    if (effectiveMrp !== undefined && effectivePrice > effectiveMrp) {
+      throw new BadRequestException('Selling price (basePrice) cannot exceed MRP');
+    }
+
+    // SKU uniqueness (if changing)
+    if (dto.sku && dto.sku !== product.sku) {
+      await this.assertSkuUnique(storeId, dto.sku, productId);
+    }
+
+    // Regenerate slug if name changed
+    let slug = product.slug;
+    if (dto.name && dto.name !== product.name) {
+      slug = await this.generateUniqueProductSlug(storeId, dto.name, productId);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.product.update({
+        where: { id: productId },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name, slug }),
+          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.brand !== undefined && { brand: dto.brand }),
+          ...(dto.sku !== undefined && { sku: dto.sku }),
+          ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
+          ...(dto.imageUrls !== undefined && { imageUrls: dto.imageUrls }),
+          ...(dto.basePrice !== undefined && { basePrice: dto.basePrice }),
+          ...(dto.mrp !== undefined && { mrp: dto.mrp }),
+          ...(dto.unit !== undefined && { unit: dto.unit }),
+          ...(dto.weightGrams !== undefined && { weightGrams: dto.weightGrams }),
+          ...(dto.tags !== undefined && { tags: dto.tags }),
+          ...(dto.isVeg !== undefined && { isVeg: dto.isVeg }),
+          ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+        },
+      });
+
+      // Sync default variant price if basePrice or mrp changed
+      if (dto.basePrice !== undefined || dto.mrp !== undefined) {
+        const defaultVariant = product.variants.find((v) => v.isDefault);
+        if (defaultVariant) {
+          await tx.productVariant.update({
+            where: { id: defaultVariant.id },
+            data: {
+              ...(dto.basePrice !== undefined && { price: dto.basePrice }),
+              ...(dto.mrp !== undefined && { mrp: dto.mrp }),
+            },
+          });
+        }
+      }
+
+      // Refresh search index
+      const catName = dto.categoryId
+        ? (await tx.category.findUnique({ where: { id: dto.categoryId } }))?.name
+        : product.category?.name;
+
+      const searchText = [
+        dto.name ?? product.name,
+        dto.brand ?? product.brand,
+        dto.description ?? product.description,
+        catName,
+        ...(dto.tags ?? product.tags),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      await tx.productSearchIndex.upsert({
+        where: { productId },
+        update: {
+          name: dto.name ?? product.name,
+          description: dto.description ?? product.description,
+          brand: dto.brand ?? product.brand,
+          categoryName: catName,
+          tags: dto.tags ?? product.tags,
+          searchText,
+        },
+        create: {
+          productId,
+          storeId,
+          name: dto.name ?? product.name,
+          description: dto.description ?? product.description,
+          brand: dto.brand ?? product.brand,
+          categoryName: catName,
+          tags: dto.tags ?? product.tags,
+          searchText,
+          isActive: true,
+        },
+      });
+    });
+
+    await Promise.all([
+      this.audit.log({
+        actorId: userId,
+        action: 'PRODUCT_UPDATED',
+        resourceType: 'product',
+        resourceId: productId,
+        ipAddress,
+        metadata: { changedFields: Object.keys(dto) } as Prisma.InputJsonValue,
+      }),
+      this.domainEvents.emit(
+        DomainEventType.PRODUCT_UPDATED,
+        'product',
+        productId,
+        { storeId, changedFields: Object.keys(dto) },
+        { userId, ipAddress: ipAddress ?? null },
+      ),
+    ]);
+
+    return this.fetchProductWithRelations(productId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Soft-delete product
+  // ---------------------------------------------------------------------------
+
+  async deleteProduct(
+    userId: string,
+    storeId: string,
+    productId: string,
+    ipAddress?: string,
+  ): Promise<void> {
+    await this.assertStoreOwnership(userId, storeId);
+    await this.fetchProductWithRelations(productId, storeId);
+
+    await this.prisma.$transaction([
+      this.prisma.product.update({
+        where: { id: productId },
+        data: { deletedAt: new Date(), isActive: false },
+      }),
+      this.prisma.productSearchIndex.updateMany({
+        where: { productId },
+        data: { isActive: false },
+      }),
+    ]);
+
+    await Promise.all([
+      this.audit.log({
+        actorId: userId,
+        action: 'PRODUCT_DELETED',
+        resourceType: 'product',
+        resourceId: productId,
+        ipAddress,
+      }),
+      this.domainEvents.emit(
+        DomainEventType.PRODUCT_DELETED,
+        'product',
+        productId,
+        { storeId },
+        { userId, ipAddress: ipAddress ?? null },
+      ),
+    ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Update inventory
+  // ---------------------------------------------------------------------------
+
+  async updateInventory(
+    userId: string,
+    storeId: string,
+    productId: string,
+    variantId: string,
+    dto: UpdateInventoryDto,
+    ipAddress?: string,
+  ): Promise<Inventory> {
+    await this.assertStoreOwnership(userId, storeId);
+    await this.assertVariantBelongsToProduct(variantId, productId, storeId);
+
+    const inventory = await this.prisma.inventory.findUnique({
+      where: { variantId },
+    });
+    if (!inventory) throw new NotFoundException(`Inventory not found for variant: ${variantId}`);
+
+    const previousQty = inventory.quantity;
+
+    const updated = await this.prisma.inventory.update({
+      where: { variantId },
+      data: {
+        quantity: dto.quantity,
+        ...(dto.lowStockThreshold !== undefined && {
+          lowStockThreshold: dto.lowStockThreshold,
+        }),
+        version: { increment: 1 },
+      },
+    });
+
+    await Promise.all([
+      this.audit.log({
+        actorId: userId,
+        action: 'INVENTORY_UPDATED',
+        resourceType: 'inventory',
+        resourceId: inventory.id,
+        ipAddress,
+        metadata: {
+          productId,
+          variantId,
+          previousQty,
+          newQty: dto.quantity,
+          delta: dto.quantity - previousQty,
+        } as Prisma.InputJsonValue,
+      }),
+      this.domainEvents.emit(
+        DomainEventType.INVENTORY_CHANGED,
+        'inventory',
+        inventory.id,
+        {
+          productId,
+          variantId,
+          storeId,
+          previousQty,
+          newQty: dto.quantity,
+          isLowStock: dto.quantity <= (dto.lowStockThreshold ?? inventory.lowStockThreshold),
+        },
+        { userId, ipAddress: ipAddress ?? null },
+      ),
+    ]);
+
+    return updated;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Update price
+  // ---------------------------------------------------------------------------
+
+  async updatePrice(
+    userId: string,
+    storeId: string,
+    productId: string,
+    variantId: string,
+    dto: UpdatePriceDto,
+    ipAddress?: string,
+  ): Promise<ProductVariant> {
+    await this.assertStoreOwnership(userId, storeId);
+    const variant = await this.assertVariantBelongsToProduct(variantId, productId, storeId);
+
+    const effectiveMrp = dto.mrp ?? (variant.mrp ? Number(variant.mrp) : undefined);
+    if (effectiveMrp !== undefined && dto.price > effectiveMrp) {
+      throw new BadRequestException(
+        `Selling price (${dto.price}) cannot exceed MRP (${effectiveMrp})`,
+      );
+    }
+
+    const previousPrice = Number(variant.price);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const v = await tx.productVariant.update({
+        where: { id: variantId },
+        data: {
+          price: dto.price,
+          ...(dto.mrp !== undefined && { mrp: dto.mrp }),
+        },
+      });
+
+      // Keep product.basePrice in sync if this is the default variant
+      if (variant.isDefault) {
+        await tx.product.update({
+          where: { id: productId },
+          data: {
+            basePrice: dto.price,
+            ...(dto.mrp !== undefined && { mrp: dto.mrp }),
+          },
+        });
+      }
+
+      return v;
+    });
+
+    await Promise.all([
+      this.audit.log({
+        actorId: userId,
+        action: 'PRICE_UPDATED',
+        resourceType: 'product_variant',
+        resourceId: variantId,
+        ipAddress,
+        metadata: {
+          productId,
+          variantId,
+          previousPrice,
+          newPrice: dto.price,
+          mrp: dto.mrp,
+        } as Prisma.InputJsonValue,
+      }),
+      this.domainEvents.emit(
+        DomainEventType.PRICE_CHANGED,
+        'product_variant',
+        variantId,
+        { productId, storeId, previousPrice, newPrice: dto.price },
+        { userId, ipAddress: ipAddress ?? null },
+      ),
+    ]);
+
+    return updated;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Update product status (active/inactive)
+  // ---------------------------------------------------------------------------
+
+  async updateStatus(
+    userId: string,
+    storeId: string,
+    productId: string,
+    dto: UpdateProductStatusDto,
+    ipAddress?: string,
+  ): Promise<{ id: string; isActive: boolean }> {
+    await this.assertStoreOwnership(userId, storeId);
+    await this.fetchProductWithRelations(productId, storeId);
+
+    const updated = await this.prisma.$transaction([
+      this.prisma.product.update({
+        where: { id: productId },
+        data: { isActive: dto.isActive },
+        select: { id: true, isActive: true },
+      }),
+      this.prisma.productSearchIndex.updateMany({
+        where: { productId },
+        data: { isActive: dto.isActive },
+      }),
+    ]);
+
+    await this.audit.log({
+      actorId: userId,
+      action: dto.isActive ? 'PRODUCT_ACTIVATED' : 'PRODUCT_DEACTIVATED',
+      resourceType: 'product',
+      resourceId: productId,
+      ipAddress,
+      metadata: { storeId, isActive: dto.isActive } as Prisma.InputJsonValue,
+    });
+
+    return updated[0];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Public helpers
+  // ---------------------------------------------------------------------------
+
+  async resolveDefaultVariantId(productId: string): Promise<string> {
+    const variant = await this.prisma.productVariant.findFirst({
+      where: { productId, isDefault: true },
+      select: { id: true },
+    });
+    if (!variant) throw new NotFoundException(`No default variant found for product ${productId}`);
+    return variant.id;
+  }
+
+  async fetchProductWithRelations(
+    productId: string,
+    storeId?: string,
+  ): Promise<ProductWithRelations> {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId, deletedAt: null },
+      include: {
+        variants: {
+          where: { isActive: true },
+          include: { inventory: true },
+          orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+        },
+        category: { select: { id: true, name: true, slug: true } },
+      },
+    });
+
+    if (!product) throw new NotFoundException(`Product not found: ${productId}`);
+    if (storeId && product.storeId !== storeId) {
+      throw new ForbiddenException('Product does not belong to this store');
+    }
+
+    return product as ProductWithRelations;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  private async assertStoreOwnership(userId: string, storeId: string): Promise<void> {
+    const profile = await this.merchantService.requireMerchantProfile(userId);
+    const store = await this.prisma.store.findFirst({
+      where: { id: storeId, merchantProfileId: profile.id, deletedAt: null },
+    });
+    if (!store) throw new ForbiddenException('Store not found or not owned by you');
+  }
+
+  private async assertSkuUnique(
+    storeId: string,
+    sku: string,
+    excludeProductId?: string,
+  ): Promise<void> {
+    const existing = await this.prisma.product.findFirst({
+      where: {
+        storeId,
+        sku,
+        deletedAt: null,
+        ...(excludeProductId && { id: { not: excludeProductId } }),
+      },
+    });
+    if (existing) {
+      throw new BadRequestException(`SKU "${sku}" is already in use in this store`);
+    }
+  }
+
+  private async assertVariantSkuUnique(
+    storeId: string,
+    sku: string,
+    excludeVariantId?: string,
+  ): Promise<void> {
+    const existing = await this.prisma.productVariant.findFirst({
+      where: {
+        sku,
+        product: { storeId, deletedAt: null },
+        ...(excludeVariantId && { id: { not: excludeVariantId } }),
+      },
+    });
+    if (existing) {
+      throw new BadRequestException(`Variant SKU "${sku}" is already in use in this store`);
+    }
+  }
+
+  private async assertVariantBelongsToProduct(
+    variantId: string,
+    productId: string,
+    storeId: string,
+  ): Promise<ProductVariant> {
+    const variant = await this.prisma.productVariant.findFirst({
+      where: { id: variantId, productId, product: { storeId } },
+    });
+    if (!variant) {
+      throw new NotFoundException(`Variant ${variantId} not found on product ${productId}`);
+    }
+    return variant;
+  }
+
+  private async generateUniqueProductSlug(
+    storeId: string,
+    name: string,
+    excludeProductId?: string,
+  ): Promise<string> {
+    const base = name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim()
+      .slice(0, 60);
+
+    let slug = base;
+    let counter = 1;
+
+    while (true) {
+      const existing = await this.prisma.product.findFirst({
+        where: {
+          storeId,
+          slug,
+          deletedAt: null,
+          ...(excludeProductId && { id: { not: excludeProductId } }),
+        },
+      });
+      if (!existing) return slug;
+      slug = `${base}-${counter++}`;
+    }
+  }
+}

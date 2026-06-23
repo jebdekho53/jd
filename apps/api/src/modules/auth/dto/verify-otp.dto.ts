@@ -1,0 +1,26 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsString, Length, Matches } from 'class-validator';
+import { PHONE_E164_REGEX } from '../../../common/constants';
+
+export class VerifyOtpDto {
+  @ApiProperty({ example: '+919876543210' })
+  @Matches(PHONE_E164_REGEX, {
+    message: 'Phone must be in E.164 format',
+  })
+  phone: string;
+
+  @ApiProperty({ example: '123456', description: '6-digit OTP code' })
+  @IsString()
+  @Length(4, 8)
+  code: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  deviceId?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  deviceName?: string;
+}
