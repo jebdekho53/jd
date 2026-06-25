@@ -41,26 +41,26 @@ export const validationSchema = Joi.object({
   OTP_RATE_LIMIT_REQUESTS: Joi.number().integer().default(3),
   OTP_RATE_LIMIT_WINDOW_MINUTES: Joi.number().integer().default(10),
 
-  // Dev-only demo login (fixed OTP for demo phone)
-  DEV_DEMO_PHONE: Joi.string().default('+919876543210'),
-  DEV_DEMO_MERCHANT_PHONE: Joi.string().default('+919876543211'),
-  DEV_DEMO_MERCHANT_EMAIL: Joi.string().email().default('merchant@demo.jebdekho.com'),
-  DEV_DEMO_MERCHANT_PHONE_2: Joi.string().default('+919876543213'),
-  DEV_DEMO_MERCHANT_EMAIL_2: Joi.string().email().default('merchant2@demo.jebdekho.com'),
-  DEV_DEMO_ADMIN_PHONE: Joi.string().default('+919876543212'),
-  DEV_DEMO_ADMIN_EMAIL: Joi.string().email().default('admin@demo.jebdekho.com'),
-  DEV_DEMO_RIDER_PHONE: Joi.string().default('+919876543214'),
-  DEV_DEMO_OTP: Joi.string().length(6).pattern(/^\d+$/).default('123456'),
+  // Dev-only demo login (fixed OTP for demo phone) — empty values disabled in production
+  DEV_DEMO_PHONE: Joi.string().empty('').default('+919876543210'),
+  DEV_DEMO_MERCHANT_PHONE: Joi.string().empty('').default('+919876543211'),
+  DEV_DEMO_MERCHANT_EMAIL: Joi.string().email().empty('').default('merchant@demo.jebdekho.com'),
+  DEV_DEMO_MERCHANT_PHONE_2: Joi.string().empty('').default('+919876543213'),
+  DEV_DEMO_MERCHANT_EMAIL_2: Joi.string().email().empty('').default('merchant2@demo.jebdekho.com'),
+  DEV_DEMO_ADMIN_PHONE: Joi.string().empty('').default('+919876543212'),
+  DEV_DEMO_ADMIN_EMAIL: Joi.string().email().empty('').default('admin@demo.jebdekho.com'),
+  DEV_DEMO_RIDER_PHONE: Joi.string().empty('').default('+919876543214'),
+  DEV_DEMO_OTP: Joi.string().length(6).pattern(/^\d+$/).empty('').default('123456'),
 
   // SMS Provider
   SMS_PROVIDER: Joi.string().valid('msg91', 'console').default('console'),
-  MSG91_AUTH_KEY: Joi.string().when('SMS_PROVIDER', {
+  MSG91_AUTH_KEY: Joi.string().empty('').when('SMS_PROVIDER', {
     is: 'msg91',
     then: Joi.required(),
     otherwise: Joi.optional(),
   }),
   MSG91_SENDER_ID: Joi.string().default('JEBDKH'),
-  MSG91_TEMPLATE_ID: Joi.string().when('SMS_PROVIDER', {
+  MSG91_TEMPLATE_ID: Joi.string().empty('').when('SMS_PROVIDER', {
     is: 'msg91',
     then: Joi.required(),
     otherwise: Joi.optional(),

@@ -1,9 +1,20 @@
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 
-/** Monorepo root `.env` — API runs from `apps/api` in dev and `apps/api/dist` in prod. */
+/** Monorepo root env files — API runs from repo root in prod (PM2 cwd). */
 export function resolveEnvFilePaths(): string[] {
+  const isProd = process.env.NODE_ENV === 'production';
   const candidates = [
+    ...(isProd
+      ? [
+          resolve(process.cwd(), '.env.production'),
+          resolve(process.cwd(), '../../.env.production'),
+          resolve(__dirname, '../../.env.production'),
+          resolve(__dirname, '../../../.env.production'),
+          resolve(__dirname, '../../../../.env.production'),
+          resolve(__dirname, '../../../../../.env.production'),
+        ]
+      : []),
     resolve(process.cwd(), '.env'),
     resolve(process.cwd(), '../../.env'),
     resolve(__dirname, '../../.env'),

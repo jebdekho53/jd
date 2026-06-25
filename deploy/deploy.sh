@@ -46,14 +46,32 @@ chmod +x deploy/scripts/build-production.sh
 ./deploy/scripts/build-production.sh
 
 log "Restarting PM2 processes..."
-pm2 reload deploy/ecosystem.config.js --update-env || pm2 start deploy/ecosystem.config.js
+ln -sf .env.production .env
+pm2 delete deploy/ecosystem.config.js 2>/dev/null || true
+pm2 start deploy/ecosystem.config.js
 pm2 save
 
 log "Health checks..."
-sleep 5
-API_PORT_VAL=$(grep -E '^API_PORT=' .env.production | cut -d= -f2 || echo 3001)
-if ! curl -fsS "http://127.0.0.1:${API_PORT_VAL}/health" > /dev/null; then
-  log "ERROR: API health check failed — run deploy/rollback.sh"
+API_PORT_VAL=$(grep -E '^API_PORT=' .env.production | cut -d= -f2- | tr -d '"' | tr -d "'" || echo 3001)
+API_HEALTH_OK=false
+for attempt in $(seq 1 24); do
+  if curl -fsS "http://127.0.0.1:${API_PORT_VAL}/health" > /dev/null; then
+    API_HEALTH_OK=true
+    log "API health OK (attempt $attempt)"
+    break
+  fi
+  sleep 5
+done
+
+if [[ "$API_HEALTH_OK" != "true" ]]; then
+  log "ERROR: API health check failed on port ${API_PORT_VAL}"
+  pm2 status || true
+  pm2 logs jebdekho-api --lines 40 --nostream 2>/dev/null || true
+  if [[ -f /var/log/jebdekho/api-error.log ]]; then
+    log "--- api-error.log (last 40 lines) ---"
+    tail -40 /var/log/jebdekho/api-error.log | tee -a "$LOG_FILE"
+  fi
+  log "Run deploy/rollback.sh to revert, or fix .env.production and pm2 restart deploy/ecosystem.config.js"
   exit 1
 fi
 

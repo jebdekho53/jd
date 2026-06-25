@@ -2,15 +2,50 @@
  * PM2 ecosystem — JebDekho Production
  * Usage:
  *   cd /var/www/jebdekho
- *   source .env.production
  *   pm2 start deploy/ecosystem.config.js
  *   pm2 save && pm2 startup
  */
+const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const LOG_DIR = process.env.JD_LOG_DIR || '/var/log/jebdekho';
 const ENV_FILE = path.join(ROOT, '.env.production');
+
+/** Parse KEY=VALUE lines (supports quoted values). */
+function parseEnvFile(filePath) {
+  const env = {};
+  if (!fs.existsSync(filePath)) {
+    return env;
+  }
+
+  for (const line of fs.readFileSync(filePath, 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const eq = trimmed.indexOf('=');
+    if (eq < 1) continue;
+
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    env[key] = value;
+  }
+
+  return env;
+}
+
+const productionEnv = {
+  ...parseEnvFile(ENV_FILE),
+  NODE_ENV: 'production',
+};
 
 const appDefaults = {
   cwd: ROOT,
@@ -22,10 +57,7 @@ const appDefaults = {
   max_memory_restart: '512M',
   merge_logs: true,
   time: true,
-  env_file: ENV_FILE,
-  env: {
-    NODE_ENV: 'production',
-  },
+  env: productionEnv,
 };
 
 module.exports = {
