@@ -6,10 +6,11 @@ import type { RequestOtpInput } from '@/services/auth/auth-api';
 import { useAuthStore } from '@/store/auth-store';
 import { useStoreStore } from '@/store/store-store';
 
-export function useSessionQuery() {
+export function useSessionQuery(enabled = true) {
   const { setSession, clearSession } = useAuthStore();
   return useQuery({
     queryKey: ['auth', 'me'],
+    enabled,
     queryFn: async () => {
       const user = await fetchMe();
       if (user) setSession(user);

@@ -15,8 +15,15 @@ import {
   saveBankAccount,
   validateGst,
   submitApplication,
+  fetchApplication,
 } from '@/services/onboarding/onboarding-api';
 import type { VerifyOtpResult } from '@/types/auth';
+import {
+  formatPhoneDisplay,
+  isPlaceholderPhone,
+  isValidIndianPhone,
+  normalizeIndianPhone,
+} from '@/lib/phone';
 
 const STEPS = [
   'Verify',
@@ -58,6 +65,8 @@ export function MerchantSignupContent() {
   const [step, setStep] = useState(0);
   const [verifiedEmail, setVerifiedEmail] = useState('');
   const [verifiedPhone, setVerifiedPhone] = useState('');
+  const [needsPhone, setNeedsPhone] = useState(false);
+  const [contactPhone, setContactPhone] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState<Set<string>>(new Set());
 
@@ -86,8 +95,20 @@ export function MerchantSignupContent() {
   const { data: cities = [] } = useCitiesQuery();
 
   const handleVerified = async (result: VerifyOtpResult) => {
-    setVerifiedPhone(result.user.phone ?? '');
-    setVerifiedEmail(result.user.email ?? '');
+    const phone = result.user.phone ?? '';
+    const email = result.user.email ?? '';
+    setVerifiedPhone(phone);
+    setVerifiedEmail(email);
+    setNeedsPhone(isPlaceholderPhone(phone));
+    if (!isPlaceholderPhone(phone)) {
+      setContactPhone(phone.replace(/\D/g, '').slice(-10));
+    }
+    try {
+      await fetchApplication();
+    } catch (e) {
+      toast((e as Error).message, 'error');
+      return;
+    }
     setStep(1);
     toast('Verified! Complete your merchant application.', 'success');
   };
@@ -96,6 +117,8 @@ export function MerchantSignupContent() {
     setSaving(true);
     try {
       await updateOnboardingStep({ stepKey, ...extra });
+    } catch (e) {
+      throw e;
     } finally {
       setSaving(false);
     }
@@ -106,12 +129,25 @@ export function MerchantSignupContent() {
       toast('Owner name is required', 'error');
       return;
     }
-    await saveStep('PERSONAL_DETAILS', {
-      ownerName: form.ownerName.trim(),
-      ownerEmail: verifiedEmail || undefined,
-      ownerPhone: verifiedPhone,
-    });
-    setStep(2);
+    const phoneForSave = needsPhone
+      ? normalizeIndianPhone(contactPhone)
+      : normalizeIndianPhone(verifiedPhone);
+    if (!isValidIndianPhone(phoneForSave)) {
+      toast('Enter a valid 10-digit mobile number', 'error');
+      return;
+    }
+    try {
+      await saveStep('PERSONAL_DETAILS', {
+        ownerName: form.ownerName.trim(),
+        ownerEmail: verifiedEmail || undefined,
+        ownerPhone: phoneForSave,
+      });
+      setVerifiedPhone(phoneForSave);
+      setNeedsPhone(false);
+      setStep(2);
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   };
 
   const nextFromBusiness = async () => {
@@ -261,10 +297,35 @@ export function MerchantSignupContent() {
             {step === 1 && (
               <div className="space-y-4">
                 <StepHeader title="Personal details" subtitle="Tell us about the store owner" />
-                {(verifiedPhone || verifiedEmail) && (
-                  <div className="rounded-xl border border-brand-100 bg-brand-50/50 px-4 py-3 text-sm text-slate-700">
-                    {verifiedPhone && <p>Phone: <span className="font-medium">{verifiedPhone}</span></p>}
-                    {verifiedEmail && <p>Email: <span className="font-medium">{verifiedEmail}</span></p>}
+                <div className="rounded-xl border border-brand-100 bg-brand-50/50 px-4 py-3 text-sm text-slate-700">
+                  {verifiedEmail && (
+                    <p>
+                      Email (verified):{' '}
+                      <span className="font-medium">{verifiedEmail}</span>
+                    </p>
+                  )}
+                  {!needsPhone && verifiedPhone && !isPlaceholderPhone(verifiedPhone) && (
+                    <p>
+                      Mobile (verified):{' '}
+                      <span className="font-medium">{formatPhoneDisplay(verifiedPhone)}</span>
+                    </p>
+                  )}
+                </div>
+                {needsPhone && (
+                  <div className="flex gap-2">
+                    <span className="flex h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-600">
+                      +91
+                    </span>
+                    <Input
+                      label="Store contact mobile"
+                      type="tel"
+                      value={contactPhone}
+                      onChange={(e) =>
+                        setContactPhone(e.target.value.replace(/\D/g, '').slice(0, 10))
+                      }
+                      placeholder="10-digit number for orders & OTP"
+                      className="flex-1"
+                    />
                   </div>
                 )}
                 <Input

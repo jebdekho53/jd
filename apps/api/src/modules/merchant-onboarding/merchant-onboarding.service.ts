@@ -133,12 +133,16 @@ export class MerchantOnboardingService {
   }
 
   async updateStep(userId: string, dto: UpdateOnboardingStepDto, ipAddress?: string) {
+    await this.getOrCreateApplication(userId);
     const app = await this.requireDraftApplication(userId);
     const data: Prisma.MerchantApplicationUpdateInput = {};
 
     if (dto.ownerName) data.ownerName = dto.ownerName;
     if (dto.ownerEmail) data.ownerEmail = dto.ownerEmail.trim().toLowerCase();
-    if (dto.ownerPhone) data.ownerPhone = dto.ownerPhone;
+    if (dto.ownerPhone) {
+      data.ownerPhone = dto.ownerPhone;
+      await this.syncUserPhoneIfNeeded(userId, dto.ownerPhone);
+    }
     if (dto.businessName) data.businessName = dto.businessName;
     if (dto.businessType) data.businessType = dto.businessType;
     if (dto.gstNumber) {
@@ -720,6 +724,32 @@ export class MerchantOnboardingService {
         select: { id: true, businessName: true, kycStatus: true, isBlacklisted: true },
       },
     } satisfies Prisma.MerchantApplicationInclude;
+  }
+
+  private async syncUserPhoneIfNeeded(userId: string, ownerPhone: string) {
+    const normalized = ownerPhone.startsWith('+') ? ownerPhone : `+91${ownerPhone.replace(/\D/g, '')}`;
+    if (!/^\+91[6-9]\d{9}$/.test(normalized)) {
+      throw new BadRequestException('Enter a valid 10-digit Indian mobile number');
+    }
+
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const isPlaceholder = /^\+910000\d{7}$/.test(user.phone);
+
+    if (!isPlaceholder && user.phone === normalized) return;
+
+    if (!isPlaceholder && user.phoneVerified) return;
+
+    const taken = await this.prisma.user.findFirst({
+      where: { phone: normalized, NOT: { id: userId } },
+    });
+    if (taken) {
+      throw new ConflictException('This mobile number is already registered to another account');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { phone: normalized, phoneVerified: true },
+    });
   }
 
   private async requireDraftApplication(userId: string) {

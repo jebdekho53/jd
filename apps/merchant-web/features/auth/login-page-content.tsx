@@ -26,19 +26,19 @@ export function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { data: session } = useSessionQuery();
-  const { user } = useAuthStore();
+  const { user: storedUser } = useAuthStore();
+  const { data: session } = useSessionQuery(!!storedUser);
 
   const notMerchantError = searchParams.get('error') === 'not_merchant';
 
   useEffect(() => {
-    const u = session ?? user;
+    const u = session ?? storedUser;
     if (!u) return;
     void (async () => {
       const dest = await resolvePostLoginRoute(u);
       if (dest !== '/signup') router.replace(searchParams.get('next') ?? dest);
     })();
-  }, [session, user, router, searchParams]);
+  }, [session, storedUser, router, searchParams]);
 
   useEffect(() => {
     if (notMerchantError) {

@@ -67,13 +67,13 @@ export function MerchantOtpFlow({
         const normalizedEmail = email.trim().toLowerCase();
         const result = await requestOtp.mutateAsync({ email: normalizedEmail });
         if (!result.phone) {
-          toast('No account found for this email. Start signup instead.', 'error');
+          toast('No account with this email. Use Mobile for a new merchant account.', 'error');
           return;
         }
         setResolvedPhone(result.phone);
         setStep('otp');
         setResendTimer(60);
-        toast(result.message ?? 'OTP sent to your registered mobile', 'success');
+        toast(result.message ?? 'OTP sent to your email', 'success');
       }
     } catch (err) {
       toast((err as Error).message ?? 'Failed to send OTP', 'error');
@@ -91,7 +91,11 @@ export function MerchantOtpFlow({
   };
 
   const otpDestination =
-    mode === 'phone' ? `+91 ${phone.replace(/\D/g, '')}` : maskPhone(resolvedPhone);
+    mode === 'phone'
+      ? `+91 ${phone.replace(/\D/g, '')}`
+      : step === 'otp' && email.trim()
+        ? email.trim().toLowerCase()
+        : maskPhone(resolvedPhone);
 
   return (
     <div className="space-y-4">
