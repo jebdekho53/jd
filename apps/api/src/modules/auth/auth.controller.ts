@@ -27,6 +27,10 @@ import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { LogoutDto } from './dto/logout.dto';
+import { EmailSignupDto } from './dto/signup.dto';
+import { EmailLoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags(Tags.AUTH)
 @Controller('auth')
@@ -54,6 +58,15 @@ export class AuthController {
     };
   }
 
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000 * 10, limit: 3 } })
+  @Post('send-otp')
+  @ApiOperation({ summary: 'Alias for request-otp' })
+  async sendOtp(@Body() dto: RequestOtpDto, @Ip() ip: string) {
+    return this.requestOtp(dto, ip);
+  }
+
   // --------------------------------------------------------------------------
   // POST /auth/verify-otp
   // --------------------------------------------------------------------------
@@ -74,6 +87,66 @@ export class AuthController {
       success: true,
       data: result,
     };
+  }
+
+  // --------------------------------------------------------------------------
+  // POST /auth/signup — email registration
+  // --------------------------------------------------------------------------
+  @Public()
+  @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { ttl: 60000 * 10, limit: 5 } })
+  @Post('signup')
+  @ApiOperation({ summary: 'Register with email and password' })
+  async signup(
+    @Body() dto: EmailSignupDto,
+    @Ip() ip: string,
+    @Req() req: Request,
+  ) {
+    const result = await this.authService.signup(dto, ip, req.headers['user-agent']);
+    return { success: true, data: result };
+  }
+
+  // --------------------------------------------------------------------------
+  // POST /auth/login — email + password
+  // --------------------------------------------------------------------------
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000 * 5, limit: 10 } })
+  @Post('login')
+  @ApiOperation({ summary: 'Login with email and password' })
+  async login(
+    @Body() dto: EmailLoginDto,
+    @Ip() ip: string,
+    @Req() req: Request,
+  ) {
+    const result = await this.authService.login(dto, ip, req.headers['user-agent']);
+    return { success: true, data: result };
+  }
+
+  // --------------------------------------------------------------------------
+  // POST /auth/forgot-password
+  // --------------------------------------------------------------------------
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000 * 10, limit: 3 } })
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Request password reset via email link or mobile OTP' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    const result = await this.authService.forgotPassword(dto);
+    return { success: true, data: result };
+  }
+
+  // --------------------------------------------------------------------------
+  // POST /auth/reset-password
+  // --------------------------------------------------------------------------
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000 * 5, limit: 10 } })
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password with email token or mobile OTP' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    const result = await this.authService.resetPassword(dto);
+    return { success: true, data: result };
   }
 
   // --------------------------------------------------------------------------

@@ -14,11 +14,14 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { MerchantModule } from '../merchant/merchant.module';
 import { TrustSafetyModule } from '../trust-safety/trust-safety.module';
+import { WalletLoyaltyModule } from '../wallet-loyalty/wallet-loyalty.module';
+import { PasswordService } from './password.service';
 
 @Module({
   imports: [
     MerchantModule,
     TrustSafetyModule,
+    WalletLoyaltyModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -44,6 +47,7 @@ import { TrustSafetyModule } from '../trust-safety/trust-safety.module';
     Msg91Service,
     OtpService,
     TokenService,
+    PasswordService,
     AuthService,
     // Export guards so other modules can use them as app-level guards
     JwtAuthGuard,

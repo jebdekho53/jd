@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import Link from 'next/link';
 import { Button, Input } from '@/design-system/primitives';
 import { useToast } from '@/design-system/primitives';
 import { AuthShell } from '@/features/auth/components/auth-shell';
@@ -16,57 +15,66 @@ import { OtpInput } from '@/features/auth/components/otp-input';
 import { PhoneInput } from '@/features/auth/components/phone-input';
 import { applyAuthSession } from '@/features/auth/auth-provider';
 import {
-  useEmailLoginMutation,
+  useEmailSignupMutation,
   useRequestOtpMutation,
   useVerifyOtpMutation,
   SessionError,
 } from '@/hooks/use-auth';
 import { isValidIndianPhone, normalizeIndianPhone } from '@/lib/phone';
-import { DEMO_OTP, DEMO_PHONE_DIGITS, DEMO_PHONE_E164, IS_DEV } from '@/lib/demo-auth';
 
-type LoginTab = 'mobile' | 'email';
-type MobileStep = 'phone' | 'otp';
+type SignupTab = 'mobile' | 'email';
+type MobileStep = 'details' | 'otp';
 
-const phoneSchema = z.object({
+const mobileSchema = z.object({
+  name: z.string().min(2, 'Enter your name'),
   phone: z
     .string()
     .min(10, 'Enter a 10-digit mobile number')
     .refine(isValidIndianPhone, 'Enter a valid Indian mobile number'),
+  referralCode: z.string().optional(),
 });
 
-const emailSchema = z.object({
-  email: z.string().email('Enter a valid email address'),
-  password: z.string().min(1, 'Password is required'),
-});
+const emailSchema = z
+  .object({
+    name: z.string().min(2, 'Enter your full name'),
+    email: z.string().email('Enter a valid email address'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string(),
+    referralCode: z.string().optional(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 
-type PhoneForm = z.infer<typeof phoneSchema>;
+type MobileForm = z.infer<typeof mobileSchema>;
 type EmailForm = z.infer<typeof emailSchema>;
 
-export function LoginPageContent() {
+export function SignupPageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
-  const returnUrl = searchParams.get('returnUrl') ?? '/stores';
 
-  const [tab, setTab] = useState<LoginTab>('mobile');
-  const [mobileStep, setMobileStep] = useState<MobileStep>('phone');
+  const [tab, setTab] = useState<SignupTab>('mobile');
+  const [mobileStep, setMobileStep] = useState<MobileStep>('details');
   const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
+  const [referralCode, setReferralCode] = useState<string | undefined>();
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState<string | null>(null);
   const [resendSeconds, setResendSeconds] = useState(0);
 
   const requestOtp = useRequestOtpMutation();
   const verifyOtp = useVerifyOtpMutation();
-  const emailLogin = useEmailLoginMutation();
+  const emailSignup = useEmailSignupMutation();
 
-  const phoneForm = useForm<PhoneForm>({
-    resolver: zodResolver(phoneSchema),
-    defaultValues: { phone: '' },
+  const mobileForm = useForm<MobileForm>({
+    resolver: zodResolver(mobileSchema),
+    defaultValues: { name: '', phone: '', referralCode: '' },
   });
 
   const emailForm = useForm<EmailForm>({
     resolver: zodResolver(emailSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { name: '', email: '', password: '', confirmPassword: '', referralCode: '' },
   });
 
   useEffect(() => {
@@ -75,9 +83,11 @@ export function LoginPageContent() {
     return () => clearInterval(t);
   }, [resendSeconds]);
 
-  const sendOtp = async (phoneDigits: string) => {
-    const e164 = normalizeIndianPhone(phoneDigits);
+  const onMobileDetailsSubmit = mobileForm.handleSubmit(async (values) => {
+    const e164 = normalizeIndianPhone(values.phone);
     setPhone(e164);
+    setName(values.name.trim());
+    setReferralCode(values.referralCode?.trim() || undefined);
     try {
       const result = await requestOtp.mutateAsync({ phone: e164 });
       setMobileStep('otp');
@@ -86,38 +96,29 @@ export function LoginPageContent() {
       setResendSeconds(result.expiresIn ?? 300);
       toast('OTP sent to your phone', 'success');
     } catch (err) {
-      const msg =
-        err instanceof SessionError
-          ? err.status === 429
-            ? 'Too many OTP requests. Please wait and try again.'
-            : err.message
-          : 'Failed to send OTP';
+      const msg = err instanceof SessionError ? err.message : 'Failed to send OTP';
       toast(msg, 'error');
     }
-  };
-
-  const onPhoneSubmit = phoneForm.handleSubmit(async ({ phone: digits }) => {
-    await sendOtp(digits);
   });
 
-  const onVerifyOtp = async () => {
+  const onVerifyAndCreate = async () => {
     if (otp.length < 6) {
       setOtpError('Enter the complete 6-digit OTP');
       return;
     }
     setOtpError(null);
     try {
-      const result = await verifyOtp.mutateAsync({ phone, code: otp });
+      const result = await verifyOtp.mutateAsync({
+        phone,
+        code: otp,
+        name,
+        referralCode,
+      });
       applyAuthSession(result.user, result.isNewUser);
-      toast('Logged in successfully', 'success');
-      router.replace(result.isNewUser ? '/onboarding' : returnUrl);
+      toast('Account created successfully', 'success');
+      router.replace('/onboarding');
     } catch (err) {
-      const msg =
-        err instanceof SessionError
-          ? err.message.includes('expired') || err.message.includes('Invalid')
-            ? 'Invalid or expired OTP. Request a new one.'
-            : err.message
-          : 'Verification failed';
+      const msg = err instanceof SessionError ? err.message : 'Verification failed';
       setOtpError(msg);
       toast(msg, 'error');
     }
@@ -125,62 +126,59 @@ export function LoginPageContent() {
 
   const onEmailSubmit = emailForm.handleSubmit(async (values) => {
     try {
-      const result = await emailLogin.mutateAsync(values);
+      const result = await emailSignup.mutateAsync({
+        name: values.name.trim(),
+        email: values.email.trim(),
+        password: values.password,
+        referralCode: values.referralCode?.trim() || undefined,
+      });
       applyAuthSession(result.user, result.isNewUser);
-      toast('Logged in successfully', 'success');
-      router.replace(returnUrl);
+      toast('Account created successfully', 'success');
+      router.replace('/onboarding');
     } catch (err) {
-      const msg = err instanceof SessionError ? err.message : 'Login failed';
+      const msg = err instanceof SessionError ? err.message : 'Signup failed';
       toast(msg, 'error');
     }
   });
 
   return (
     <AuthShell
-      title="Welcome back"
-      subtitle="Login to continue shopping from nearby stores"
-      footer={<AuthSwitchLink prompt="Don't have an account?" linkText="Sign Up" href="/signup" />}
+      title="Create your account"
+      subtitle="Join JebDekho and shop from stores near you"
+      footer={<AuthSwitchLink prompt="Already have an account?" linkText="Login" href="/login" />}
     >
       <AuthTabs
         tabs={[
-          { id: 'mobile', label: 'Mobile Number' },
-          { id: 'email', label: 'Email' },
+          { id: 'mobile', label: 'Mobile Signup' },
+          { id: 'email', label: 'Email Signup' },
         ]}
         active={tab}
         onChange={(next) => {
           setTab(next);
-          setMobileStep('phone');
+          setMobileStep('details');
           setOtp('');
           setOtpError(null);
         }}
       />
 
-      {tab === 'mobile' && mobileStep === 'phone' && (
-        <form onSubmit={onPhoneSubmit} className="space-y-5">
-          {IS_DEV && (
-            <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4 text-center">
-              <p className="text-sm font-semibold text-jd-text-primary">Demo login</p>
-              <p className="mt-1 text-xs text-jd-text-muted">
-                Phone <span className="font-mono font-medium">{DEMO_PHONE_DIGITS}</span>
-                {' · '}
-                OTP <span className="font-mono font-medium">{DEMO_OTP}</span>
-              </p>
-              <button
-                type="button"
-                className="mt-3 text-sm font-semibold text-primary hover:underline"
-                onClick={() => {
-                  phoneForm.setValue('phone', DEMO_PHONE_DIGITS, { shouldValidate: true });
-                }}
-              >
-                Use demo number
-              </button>
-            </div>
-          )}
+      {tab === 'mobile' && mobileStep === 'details' && (
+        <form onSubmit={onMobileDetailsSubmit} className="space-y-5">
+          <Input
+            label="Name"
+            placeholder="Your name"
+            error={mobileForm.formState.errors.name?.message}
+            {...mobileForm.register('name')}
+          />
           <PhoneInput
-            value={phoneForm.watch('phone')}
-            onChange={(v) => phoneForm.setValue('phone', v, { shouldValidate: true })}
-            error={phoneForm.formState.errors.phone?.message}
+            value={mobileForm.watch('phone')}
+            onChange={(v) => mobileForm.setValue('phone', v, { shouldValidate: true })}
+            error={mobileForm.formState.errors.phone?.message}
             disabled={requestOtp.isPending}
+          />
+          <Input
+            label="Referral Code (optional)"
+            placeholder="Enter referral code"
+            {...mobileForm.register('referralCode')}
           />
           <Button type="submit" fullWidth loading={requestOtp.isPending}>
             Send OTP
@@ -194,20 +192,15 @@ export function LoginPageContent() {
             <p className="text-sm text-jd-text-muted">
               OTP sent to <span className="font-medium text-neutral-900">{phone}</span>
             </p>
-            {IS_DEV && phone === DEMO_PHONE_E164 && (
-              <p className="mt-2 rounded-lg bg-primary/10 px-3 py-2 text-sm font-mono font-semibold text-primary">
-                Demo OTP: {DEMO_OTP}
-              </p>
-            )}
             <button
               type="button"
               className="mt-2 text-sm font-medium text-jd-primary hover:underline"
               onClick={() => {
-                setMobileStep('phone');
+                setMobileStep('details');
                 setOtp('');
               }}
             >
-              Change number
+              Change details
             </button>
           </div>
 
@@ -218,8 +211,8 @@ export function LoginPageContent() {
             error={otpError ?? undefined}
           />
 
-          <Button fullWidth loading={verifyOtp.isPending} onClick={onVerifyOtp}>
-            Verify &amp; Login
+          <Button fullWidth loading={verifyOtp.isPending} onClick={onVerifyAndCreate}>
+            Create Account
           </Button>
 
           <div className="text-center">
@@ -229,7 +222,16 @@ export function LoginPageContent() {
               <button
                 type="button"
                 className="text-sm font-medium text-jd-primary hover:underline"
-                onClick={() => sendOtp(phone.replace(/^\+91/, ''))}
+                onClick={async () => {
+                  try {
+                    const result = await requestOtp.mutateAsync({ phone });
+                    setResendSeconds(result.expiresIn ?? 300);
+                    toast('OTP resent', 'success');
+                  } catch (err) {
+                    const msg = err instanceof SessionError ? err.message : 'Failed to resend OTP';
+                    toast(msg, 'error');
+                  }
+                }}
                 disabled={requestOtp.isPending}
               >
                 Resend OTP
@@ -242,6 +244,12 @@ export function LoginPageContent() {
       {tab === 'email' && (
         <form onSubmit={onEmailSubmit} className="space-y-5">
           <Input
+            label="Full Name"
+            placeholder="Your full name"
+            error={emailForm.formState.errors.name?.message}
+            {...emailForm.register('name')}
+          />
+          <Input
             label="Email"
             type="email"
             autoComplete="email"
@@ -252,18 +260,26 @@ export function LoginPageContent() {
           <Input
             label="Password"
             type="password"
-            autoComplete="current-password"
-            placeholder="Enter your password"
+            autoComplete="new-password"
+            placeholder="At least 8 characters"
             error={emailForm.formState.errors.password?.message}
             {...emailForm.register('password')}
           />
-          <div className="text-right">
-            <Link href="/forgot-password" className="text-sm font-medium text-jd-primary hover:underline">
-              Forgot Password?
-            </Link>
-          </div>
-          <Button type="submit" fullWidth loading={emailLogin.isPending}>
-            Login
+          <Input
+            label="Confirm Password"
+            type="password"
+            autoComplete="new-password"
+            placeholder="Re-enter password"
+            error={emailForm.formState.errors.confirmPassword?.message}
+            {...emailForm.register('confirmPassword')}
+          />
+          <Input
+            label="Referral Code (optional)"
+            placeholder="Enter referral code"
+            {...emailForm.register('referralCode')}
+          />
+          <Button type="submit" fullWidth loading={emailSignup.isPending}>
+            Create Account
           </Button>
         </form>
       )}

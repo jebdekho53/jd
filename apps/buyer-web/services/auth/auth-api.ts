@@ -57,10 +57,67 @@ export async function verifyOtp(
   phone: string,
   code: string,
   deviceId?: string,
+  extras?: { name?: string; referralCode?: string },
 ): Promise<VerifyOtpResult> {
   const res = await sessionFetch<ApiResponse<VerifyOtpResult>>('/api/auth/verify-otp', {
     method: 'POST',
-    body: JSON.stringify({ phone, code, deviceId, deviceName: 'buyer-web' }),
+    body: JSON.stringify({
+      phone,
+      code,
+      deviceId,
+      deviceName: 'buyer-web',
+      ...extras,
+    }),
+  });
+  return res.data;
+}
+
+export async function emailLogin(
+  email: string,
+  password: string,
+  deviceId?: string,
+): Promise<VerifyOtpResult> {
+  const res = await sessionFetch<ApiResponse<VerifyOtpResult>>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password, deviceId, deviceName: 'buyer-web' }),
+  });
+  return res.data;
+}
+
+export async function emailSignup(input: {
+  name: string;
+  email: string;
+  password: string;
+  referralCode?: string;
+  deviceId?: string;
+}): Promise<VerifyOtpResult> {
+  const res = await sessionFetch<ApiResponse<VerifyOtpResult>>('/api/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify({ ...input, deviceName: 'buyer-web' }),
+  });
+  return res.data;
+}
+
+export async function forgotPassword(input: {
+  email?: string;
+  phone?: string;
+}): Promise<{ message: string; expiresIn?: number; phone?: string }> {
+  const res = await sessionFetch<ApiResponse<{ message: string; expiresIn?: number; phone?: string }>>(
+    '/api/auth/forgot-password',
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+  return res.data;
+}
+
+export async function resetPassword(input: {
+  token?: string;
+  phone?: string;
+  code?: string;
+  newPassword: string;
+}): Promise<{ message: string }> {
+  const res = await sessionFetch<ApiResponse<{ message: string }>>('/api/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(input),
   });
   return res.data;
 }

@@ -23,4 +23,14 @@ export class VerifyOtpDto {
   @IsOptional()
   @IsString()
   deviceName?: string;
+
+  @ApiProperty({ required: false, description: 'Display name for new signups' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  referralCode?: string;
 }

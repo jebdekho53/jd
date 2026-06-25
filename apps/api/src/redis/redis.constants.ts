@@ -7,6 +7,7 @@ export const REDIS_KEYS = {
   refreshTokenRevoked: (tokenHash: string) => `rt:revoked:${tokenHash}`,
   userSessions: (userId: string) => `sessions:${userId}`,
   rateLimit: (ip: string, endpoint: string) => `rate:${ip}:${endpoint}`,
+  passwordReset: (tokenHash: string) => `pwdreset:${tokenHash}`,
   zoneStores: (zoneId: string) => `zone:stores:${zoneId}`,
   riderOnline: (zoneId: string) => `rider:online:${zoneId}`,
 } as const;
@@ -17,4 +18,5 @@ export const REDIS_TTL = {
   REFRESH_TOKEN_REVOKED: 60 * 60 * 24 * 31, // 31 days
   ZONE_STORES: 60,               // 1 minute
   SESSION_METADATA: 60 * 60 * 24 * 7,  // 7 days
+  PASSWORD_RESET: 60 * 60,             // 1 hour
 } as const;

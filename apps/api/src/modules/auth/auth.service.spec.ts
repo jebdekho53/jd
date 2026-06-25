@@ -1,12 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { UserStatus } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
 import { TokenService } from './token.service';
+import { PasswordService } from './password.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
+import { TrustSafetyHookService } from '../trust-safety/trust-safety-hook.service';
+import { RiskEngineService } from '../trust-safety/risk-engine.service';
+import { ReferralService } from '../wallet-loyalty/referral.service';
+import { WalletService } from '../wallet-loyalty/wallet.service';
+import { RedisService } from '../../redis/redis.service';
 import { PrismaService } from '../../database/prisma.service';
 
 const mockPrismaService = {
@@ -18,6 +24,7 @@ const mockPrismaService = {
   role: { findUniqueOrThrow: jest.fn() },
   userRole: { upsert: jest.fn() },
   buyerProfile: { create: jest.fn() },
+  notificationPreference: { upsert: jest.fn() },
   $transaction: jest.fn(),
 };
 
@@ -33,12 +40,39 @@ const mockTokenService = {
   revokeAllUserSessions: jest.fn(),
 };
 
+const mockPasswordService = {
+  hash: jest.fn(),
+  verify: jest.fn(),
+};
+
+const mockWalletService = {
+  getOrCreateWallet: jest.fn(),
+};
+
+const mockReferralService = {
+  applyReferralCode: jest.fn(),
+};
+
+const mockRiskEngine = {
+  getOrCreateProfile: jest.fn(),
+};
+
+const mockRedisService = {
+  set: jest.fn(),
+  get: jest.fn(),
+  del: jest.fn(),
+};
+
 const mockAuditService = { log: jest.fn() };
 const mockDomainEvents = { emit: jest.fn() };
 const mockBlocklist = {
   assertNotBlocked: jest.fn(),
   assertUserNotBlacklisted: jest.fn(),
   assertMerchantProfileNotBlacklisted: jest.fn(),
+};
+const mockTrustSafety = {
+  onOtpRequest: jest.fn().mockResolvedValue(undefined),
+  onOtpVerified: jest.fn().mockResolvedValue(undefined),
 };
 
 describe('AuthService', () => {
@@ -51,21 +85,31 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: OtpService, useValue: mockOtpService },
         { provide: TokenService, useValue: mockTokenService },
+        { provide: PasswordService, useValue: mockPasswordService },
+        { provide: WalletService, useValue: mockWalletService },
+        { provide: ReferralService, useValue: mockReferralService },
+        { provide: RiskEngineService, useValue: mockRiskEngine },
+        { provide: RedisService, useValue: mockRedisService },
         { provide: AuditService, useValue: mockAuditService },
         { provide: DomainEventsService, useValue: mockDomainEvents },
         { provide: VerificationBlocklistService, useValue: mockBlocklist },
+        { provide: TrustSafetyHookService, useValue: mockTrustSafety },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
     jest.clearAllMocks();
+    mockBlocklist.assertNotBlocked.mockResolvedValue(undefined);
+    mockBlocklist.assertUserNotBlacklisted.mockResolvedValue(undefined);
+    mockRiskEngine.getOrCreateProfile.mockResolvedValue({});
+    mockWalletService.getOrCreateWallet.mockResolvedValue({ id: 'wallet-1' });
+    mockReferralService.applyReferralCode.mockResolvedValue({});
+    mockPasswordService.hash.mockResolvedValue('hashed-password');
+    mockPasswordService.verify.mockResolvedValue(true);
   });
-
-  // ── requestOtp ────────────────────────────────────────────────────────────
 
   describe('requestOtp', () => {
     it('creates a new user when phone does not exist', async () => {
-      mockBlocklist.assertNotBlocked.mockResolvedValue(undefined);
       mockBlocklist.assertUserNotBlacklisted.mockResolvedValue(undefined);
       mockPrismaService.user.findUnique.mockResolvedValue(null);
       mockPrismaService.user.create.mockResolvedValue({
@@ -77,10 +121,7 @@ describe('AuthService', () => {
       mockOtpService.requestOtp.mockResolvedValue({ expiresIn: 300 });
       mockDomainEvents.emit.mockResolvedValue('event-1');
 
-      const result = await service.requestOtp(
-        { phone: '+919876543210' },
-        '127.0.0.1',
-      );
+      const result = await service.requestOtp({ phone: '+919876543210' }, '127.0.0.1');
 
       expect(mockPrismaService.user.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ phone: '+919876543210' }) }),
@@ -96,13 +137,11 @@ describe('AuthService', () => {
         phoneVerified: true,
       });
 
-      await expect(
-        service.requestOtp({ phone: '+919876543210' }, '127.0.0.1'),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.requestOtp({ phone: '+919876543210' }, '127.0.0.1')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
-
-  // ── verifyOtp ────────────────────────────────────────────────────────────
 
   describe('verifyOtp', () => {
     it('issues tokens for existing active user', async () => {
@@ -127,8 +166,15 @@ describe('AuthService', () => {
         refreshToken: 'refresh-token',
         expiresIn: 900,
       });
-      mockPrismaService.user.findUnique.mockResolvedValueOnce(mockUser)
-        .mockResolvedValueOnce({ ...mockUser, roles: mockUser.roles.map(r => ({ ...r, role: { ...r.role, permissions: [] } })) });
+      mockPrismaService.user.findUnique
+        .mockResolvedValueOnce(mockUser)
+        .mockResolvedValueOnce({
+          ...mockUser,
+          roles: mockUser.roles.map((r) => ({
+            ...r,
+            role: { ...r.role, permissions: [] },
+          })),
+        });
       mockAuditService.log.mockResolvedValue(undefined);
       mockDomainEvents.emit.mockResolvedValue('event-1');
 
@@ -142,7 +188,41 @@ describe('AuthService', () => {
     });
   });
 
-  // ── logoutAll ─────────────────────────────────────────────────────────────
+  describe('signup', () => {
+    it('rejects duplicate email', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'existing' });
+
+      await expect(
+        service.signup({
+          name: 'Test User',
+          email: 'test@example.com',
+          password: 'password123',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('login', () => {
+    it('rejects invalid credentials', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        passwordHash: 'hash',
+        status: UserStatus.ACTIVE,
+      });
+      mockPasswordService.verify.mockResolvedValue(false);
+
+      await expect(
+        service.login({ email: 'test@example.com', password: 'wrong' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('forgotPassword', () => {
+    it('requires email or phone', async () => {
+      await expect(service.forgotPassword({})).rejects.toThrow(BadRequestException);
+    });
+  });
 
   describe('logoutAll', () => {
     it('revokes all sessions and emits events', async () => {
