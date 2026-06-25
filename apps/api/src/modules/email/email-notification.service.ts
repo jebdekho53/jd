@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
-import { getConfig } from '../../config/configuration';
 import { EMAIL_TEMPLATE } from './email.constants';
 import { EmailService } from './email.service';
 import { EmailTemplateService } from './email-template.service';
@@ -10,6 +9,7 @@ import { EmailTemplateService } from './email-template.service';
 export class EmailNotificationService {
   private readonly logger = new Logger(EmailNotificationService.name);
   private readonly buyerSiteUrl: string;
+  private readonly adminSiteUrl: string;
 
   constructor(
     private readonly email: EmailService,
@@ -17,8 +17,8 @@ export class EmailNotificationService {
     private readonly prisma: PrismaService,
     configService: ConfigService,
   ) {
-    const cfg = getConfig(configService);
     this.buyerSiteUrl = configService.get<string>('BUYER_SITE_URL', 'https://jebdekho.com');
+    this.adminSiteUrl = configService.get<string>('ADMIN_URL', 'https://admin.jebdekho.com');
   }
 
   async sendOtpEmail(to: string, code: string, expiresInSeconds: number): Promise<void> {
@@ -175,6 +175,47 @@ export class EmailNotificationService {
       templateCode: EMAIL_TEMPLATE.TEST,
     });
     return { success: result.success };
+  }
+
+  async sendAdminWelcomeEmail(to: string, name: string): Promise<void> {
+    const tpl = this.templates.adminWelcome(name);
+    await this.safeSend({
+      to,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.ADMIN_WELCOME,
+      metadata: { name },
+    });
+  }
+
+  async sendAdminPasswordResetEmail(to: string, token: string, expiresMinutes: number): Promise<void> {
+    const resetUrl = `${this.adminSiteUrl.replace(/\/$/, '')}/reset-password?token=${token}`;
+    const tpl = this.templates.adminPasswordReset(resetUrl, expiresMinutes);
+    await this.safeSend({
+      to,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.ADMIN_PASSWORD_RESET,
+      metadata: { expiresMinutes },
+    });
+  }
+
+  async sendAdminSecurityAlert(to: string, message: string): Promise<void> {
+    const tpl = this.templates.adminSecurityAlert(message);
+    await this.safeSend({
+      to,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.ADMIN_SECURITY_ALERT,
+      metadata: { message },
+    });
+  }
+
+  async sendAdminNewDeviceLogin(to: string, name: string, ipAddress: string): Promise<void> {
+    const tpl = this.templates.adminNewDeviceLogin(name, ipAddress);
+    await this.safeSend({
+      to,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.ADMIN_NEW_DEVICE,
+      metadata: { ipAddress },
+    });
   }
 
   private async safeSend(input: Parameters<EmailService['send']>[0]): Promise<void> {

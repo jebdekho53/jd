@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
-import { clearAuthCookies, fetchWithAuth } from '@/lib/auth/session';
+import { clearAuthCookies, fetchWithAuth, getRefreshToken } from '@/lib/auth/session';
 
 export async function POST() {
   try {
-    await fetchWithAuth('/auth/logout', { method: 'POST', body: '{}' });
+    const refreshToken = await getRefreshToken();
+    await fetchWithAuth('/admin-auth/logout', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    });
   } catch {
     /* ignore */
   }

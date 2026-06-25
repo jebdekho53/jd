@@ -7,6 +7,38 @@ export interface AuthUser {
   roles: string[];
   permissions: string[];
   createdAt: string;
+  adminProfile?: {
+    name: string;
+    department: string | null;
+    isSuperAdmin: boolean;
+  } | null;
+}
+
+export interface AdminSettings {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  department: string | null;
+  credentialSource: string;
+  lastLoginAt: string | null;
+  passwordChangedAt: string | null;
+}
+
+export interface AdminSession {
+  id: string;
+  deviceName: string | null;
+  ipAddress: string | null;
+  rememberMe: boolean;
+  lastActiveAt: string;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+export interface LoginStats {
+  activeStores: number;
+  totalOrders: number;
+  activeRiders: number;
+  merchants: number;
 }
 
 export interface ApiResponse<T> {
@@ -37,6 +69,11 @@ export interface RequestOtpResult {
 export interface VerifyOtpResult {
   user: AuthUser;
   isNewUser: boolean;
+  expiresIn: number;
+}
+
+export interface LoginResult {
+  user: AuthUser;
   expiresIn: number;
 }
 

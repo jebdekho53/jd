@@ -20,6 +20,7 @@ import {
   Radio,
   Headphones,
   Package,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useSessionQuery, useLogoutMutation } from '@/hooks/use-auth';
@@ -29,6 +30,7 @@ const NAV = [
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/control-room', label: 'Control Room', icon: Radio },
   { href: '/stores', label: 'Stores', icon: Store },
+  { href: '/merchant-applications', label: 'Applications', icon: Store },
   { href: '/reviews', label: 'Reviews', icon: Star },
   { href: '/promotions', label: 'Promotions', icon: Tag },
   { href: '/campaigns', label: 'Campaigns', icon: Tag },
@@ -59,6 +61,7 @@ const NAV = [
   { href: '/seo', label: 'SEO & GEO', icon: BarChart3 },
   { href: '/users', label: 'Users', icon: Users },
   { href: '/monitoring', label: 'Monitoring', icon: Activity },
+  { href: '/settings/security', label: 'Security', icon: Settings },
 ] as const;
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {

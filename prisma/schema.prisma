@@ -102,6 +102,58 @@ enum MerchantBlocklistType {
   PAN_NUMBER
 }
 
+enum MerchantApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  KYC_PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MerchantBusinessType {
+  GROCERY
+  RESTAURANT
+  PHARMACY
+  ELECTRONICS
+  FASHION
+  PET_STORE
+  BEAUTY
+  HEALTH_NUTRITION
+  BAKERY
+  STATIONERY
+  OTHER
+}
+
+enum MerchantDocumentType {
+  GST_CERTIFICATE
+  PAN_CARD
+  SHOP_LICENSE
+  FSSAI_LICENSE
+  CANCELLED_CHEQUE
+  OWNER_PHOTO
+  STORE_PHOTO
+  TRADE_LICENSE
+  BANK_PROOF
+  OTHER
+}
+
+enum MerchantOnboardingStepKey {
+  PERSONAL_DETAILS
+  BUSINESS_DETAILS
+  STORE_DETAILS
+  DOCUMENTS
+  BANK_DETAILS
+  REVIEW
+}
+
+enum MerchantKycStatus {
+  PENDING
+  SUBMITTED
+  VERIFIED
+  REJECTED
+}
+
 enum CategoryScope {
   GLOBAL
   STORE
@@ -424,6 +476,8 @@ model User {
   franchisePartner FranchisePartner?
   riderProfile    RiderProfile?
   adminProfile    AdminProfile?
+  adminSessions   AdminSession[]
+  adminLoginAudits AdminLoginAudit[]
   notifications   Notification[]
   reviews         Review[]
   auditLogs       AuditLog[]
@@ -449,6 +503,7 @@ model User {
   corporateUsers        CorporateUser[]
   adImpressions         AdImpression[]
   adClicks              AdClick[]
+  merchantApplications  MerchantApplication[]
 
   @@index([status])
   @@index([createdAt])
@@ -521,6 +576,7 @@ model RefreshToken {
   createdAt DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminSession AdminSession?
 
   @@index([userId])
   @@index([expiresAt])
@@ -614,10 +670,117 @@ model MerchantProfile {
   vendorRatings        VendorRating[]
   procurementWishlists ProcurementWishlist[]
   adCampaigns          AdCampaign[]
+  merchantApplication  MerchantApplication?
 
   @@index([kycStatus])
   @@index([isBlacklisted])
   @@map("merchant_profiles")
+}
+
+model MerchantApplication {
+  id                String                    @id @default(cuid())
+  userId            String                    @map("user_id")
+  merchantProfileId String?                   @unique @map("merchant_profile_id")
+  storeId           String?                   @unique @map("store_id")
+  status            MerchantApplicationStatus @default(DRAFT)
+  ownerName         String?                   @map("owner_name")
+  ownerEmail        String?                   @map("owner_email")
+  ownerPhone        String?                   @map("owner_phone")
+  businessName      String?                   @map("business_name")
+  businessType      MerchantBusinessType?     @map("business_type")
+  gstNumber         String?                   @map("gst_number")
+  gstVerified       Boolean                   @default(false) @map("gst_verified")
+  panNumber         String?                   @map("pan_number")
+  storeName         String?                   @map("store_name")
+  storeAddress      String?                   @map("store_address") @db.Text
+  state             String?
+  city              String?
+  cityId            String?                   @map("city_id")
+  pincode           String?
+  latitude          Float?
+  longitude         Float?
+  deliveryRadiusKm  Float?                    @map("delivery_radius_km")
+  rejectionReason   String?                   @map("rejection_reason") @db.Text
+  adminNotes        String?                   @map("admin_notes") @db.Text
+  riskScore         Int                       @default(0) @map("risk_score")
+  riskFlags         Json?                     @map("risk_flags")
+  submittedAt       DateTime?                 @map("submitted_at")
+  reviewedAt        DateTime?                 @map("reviewed_at")
+  reviewedBy        String?                   @map("reviewed_by")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchantProfile MerchantProfile?        @relation(fields: [merchantProfileId], references: [id], onDelete: SetNull)
+  store           Store?                  @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  documents       MerchantDocument[]
+  kyc             MerchantKyc?
+  bankAccount     MerchantBankAccount?
+  steps           MerchantOnboardingStep[]
+
+  @@index([userId])
+  @@index([status, createdAt])
+  @@map("merchant_applications")
+}
+
+model MerchantDocument {
+  id            String               @id @default(cuid())
+  applicationId String               @map("application_id")
+  documentType  MerchantDocumentType @map("document_type")
+  fileName      String               @map("file_name")
+  fileUrl       String               @map("file_url") @db.Text
+  mimeType      String               @map("mime_type")
+  uploadedAt    DateTime             @default(now()) @map("uploaded_at")
+
+  application MerchantApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("merchant_documents")
+}
+
+model MerchantKyc {
+  id            String            @id @default(cuid())
+  applicationId String            @unique @map("application_id")
+  status        MerchantKycStatus @default(PENDING)
+  verifiedAt    DateTime?         @map("verified_at")
+  verifiedBy    String?           @map("verified_by")
+  notes         String?           @db.Text
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  application MerchantApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("merchant_kyc")
+}
+
+model MerchantBankAccount {
+  id                String   @id @default(cuid())
+  applicationId     String   @unique @map("application_id")
+  accountHolderName String   @map("account_holder_name")
+  accountNumber     String   @map("account_number")
+  ifsc              String
+  upiId             String?  @map("upi_id")
+  bankName          String?  @map("bank_name")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  application MerchantApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("merchant_bank_accounts")
+}
+
+model MerchantOnboardingStep {
+  id            String                  @id @default(cuid())
+  applicationId String                  @map("application_id")
+  stepKey       MerchantOnboardingStepKey @map("step_key")
+  completed     Boolean                 @default(false)
+  completedAt   DateTime?               @map("completed_at")
+  data          Json?
+
+  application MerchantApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, stepKey])
+  @@map("merchant_onboarding_steps")
 }
 
 model RiderProfile {
@@ -660,17 +823,75 @@ model RiderProfile {
 }
 
 model AdminProfile {
-  id          String   @id @default(cuid())
-  userId      String   @unique @map("user_id")
-  name        String
-  department  String?
-  isSuperAdmin Boolean @default(false) @map("is_super_admin")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                 String                 @id @default(cuid())
+  userId             String                 @unique @map("user_id")
+  name               String
+  phone              String?
+  department         String?
+  isSuperAdmin       Boolean                @default(false) @map("is_super_admin")
+  credentialSource   AdminCredentialSource  @default(DATABASE) @map("credential_source")
+  failedLoginAttempts Int                   @default(0) @map("failed_login_attempts")
+  lockedUntil        DateTime?              @map("locked_until")
+  lastLoginAt        DateTime?              @map("last_login_at")
+  passwordChangedAt  DateTime?              @map("password_changed_at")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("admin_profiles")
+}
+
+enum AdminCredentialSource {
+  DATABASE
+  ENV_BOOTSTRAP
+}
+
+model AdminSession {
+  id             String    @id @default(cuid())
+  userId         String    @map("user_id")
+  refreshTokenId String?   @unique @map("refresh_token_id")
+  ipAddress      String?   @map("ip_address")
+  userAgent      String?   @map("user_agent") @db.Text
+  deviceName     String?   @map("device_name")
+  rememberMe     Boolean   @default(false) @map("remember_me")
+  lastActiveAt   DateTime  @default(now()) @map("last_active_at")
+  revokedAt      DateTime? @map("revoked_at")
+  loggedOutAt    DateTime? @map("logged_out_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken RefreshToken? @relation(fields: [refreshTokenId], references: [id], onDelete: SetNull)
+
+  @@index([userId, revokedAt])
+  @@map("admin_sessions")
+}
+
+model AdminLoginAudit {
+  id            String   @id @default(cuid())
+  userId        String?  @map("user_id")
+  email         String
+  success       Boolean
+  failureReason String?  @map("failure_reason")
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email, createdAt])
+  @@index([userId, createdAt])
+  @@map("admin_login_audits")
+}
+
+model AdminSettings {
+  id                String   @id @default("default")
+  maxFailedAttempts Int      @default(10) @map("max_failed_attempts")
+  lockoutMinutes    Int      @default(30) @map("lockout_minutes")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  updatedBy         String?  @map("updated_by")
+
+  @@map("admin_settings")
 }
 
 model Address {
@@ -903,6 +1124,7 @@ model Store {
   sponsoredStores        SponsoredStore[]
   seoPages               SeoPage[]
   seoKeywords            SeoKeyword[]
+  merchantApplication    MerchantApplication?
 
   @@unique([merchantProfileId, slug])
   @@index([cityId, isActive])
@@ -3663,6 +3885,9 @@ enum MarketingEventType {
   CAMPAIGN_CLICK
   CAMPAIGN_OPEN
   NOTIFICATION_OPEN
+  MERCHANT_SIGNUP
+  MERCHANT_APPLICATION_SUBMITTED
+  MERCHANT_APPROVED
 }
 
 enum JourneyStatus {

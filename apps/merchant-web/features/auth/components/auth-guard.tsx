@@ -19,7 +19,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
       return;
     }
     if (status === 'success' && data && !isMerchant) {
-      router.replace('/login?error=not_merchant');
+      router.replace('/signup');
     }
   }, [status, data, isMerchant, router]);
 

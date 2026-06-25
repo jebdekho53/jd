@@ -18,6 +18,10 @@ export const EMAIL_TEMPLATE = {
   REFUND: 'refund',
   GST_INVOICE: 'gst_invoice',
   TEST: 'test',
+  ADMIN_WELCOME: 'admin_welcome',
+  ADMIN_PASSWORD_RESET: 'admin_password_reset',
+  ADMIN_SECURITY_ALERT: 'admin_security_alert',
+  ADMIN_NEW_DEVICE: 'admin_new_device',
 } as const;
 
 export type EmailTemplateCode = (typeof EMAIL_TEMPLATE)[keyof typeof EMAIL_TEMPLATE];

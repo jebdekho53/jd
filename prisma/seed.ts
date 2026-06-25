@@ -5,6 +5,7 @@
  */
 
 import { NotificationChannel, PrismaClient, RoleName, StoreStatus, UserStatus, MerchantCategoryStatus, CategoryScope, KycStatus, RiderStatus, VehicleType, VendorType, FranchisePartnerStatus, CityLaunchStatus } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -534,6 +535,8 @@ async function seedDemoMerchants(): Promise<void> {
 async function seedDemoAdmin(): Promise<void> {
   const demoPhone = process.env.DEV_DEMO_ADMIN_PHONE ?? '+919876543212';
   const demoEmail = process.env.DEV_DEMO_ADMIN_EMAIL ?? 'admin@demo.jebdekho.com';
+  const demoPassword = process.env.DEV_DEMO_ADMIN_PASSWORD ?? 'Admin@123456';
+  const passwordHash = await bcrypt.hash(demoPassword, 12);
   console.log(`  Seeding demo admin (${demoPhone})...`);
 
   const adminRole = await prisma.role.findUnique({ where: { name: RoleName.ADMIN } });
@@ -546,6 +549,7 @@ async function seedDemoAdmin(): Promise<void> {
     where: { phone: demoPhone },
     update: {
       email: demoEmail,
+      passwordHash,
       status: UserStatus.ACTIVE,
       phoneVerified: true,
       emailVerified: true,
@@ -553,6 +557,7 @@ async function seedDemoAdmin(): Promise<void> {
     create: {
       phone: demoPhone,
       email: demoEmail,
+      passwordHash,
       status: UserStatus.ACTIVE,
       phoneVerified: true,
       emailVerified: true,

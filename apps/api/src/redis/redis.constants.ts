@@ -8,6 +8,7 @@ export const REDIS_KEYS = {
   userSessions: (userId: string) => `sessions:${userId}`,
   rateLimit: (ip: string, endpoint: string) => `rate:${ip}:${endpoint}`,
   passwordReset: (tokenHash: string) => `pwdreset:${tokenHash}`,
+  adminPasswordReset: (tokenHash: string) => `admin:pwdreset:${tokenHash}`,
   zoneStores: (zoneId: string) => `zone:stores:${zoneId}`,
   riderOnline: (zoneId: string) => `rider:online:${zoneId}`,
 } as const;

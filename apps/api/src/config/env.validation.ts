@@ -113,4 +113,10 @@ export const validationSchema = Joi.object({
   // IMAP (future inbound mail — optional)
   IMAP_HOST: Joi.string().empty('').optional(),
   IMAP_PORT: Joi.number().default(993),
+
+  // Admin bootstrap credentials (fallback when no DB admin exists)
+  ADMIN_EMAIL: Joi.string().email().empty('').optional(),
+  ADMIN_PASSWORD: Joi.string().empty('').optional(),
+  ADMIN_NAME: Joi.string().empty('').default('Platform Admin'),
+  ADMIN_URL: Joi.string().uri().empty('').default('https://admin.jebdekho.com'),
 });

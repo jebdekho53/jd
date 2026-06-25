@@ -191,6 +191,52 @@ export class EmailTemplateService {
     return { subject, html: this.layout(subject, body, 'SMTP test successful'), text };
   }
 
+  adminWelcome(name: string): { subject: string; html: string; text: string } {
+    const subject = 'Welcome to JebDekho Admin Control Tower';
+    const body = `
+      <p>Hi ${this.escape(name)},</p>
+      <p>Your administrator account is ready. You can sign in to the Admin Control Tower to manage stores, orders, finance, compliance, and platform operations.</p>
+      <p class="muted">For security, change your password after first login if you used bootstrap credentials.</p>
+      <p>JebDekho Platform Security</p>`;
+    const text = `Hi ${name},\n\nYour JebDekho admin account is ready. Sign in at the Admin Control Tower.\n\nJebDekho Platform Security`;
+    return { subject, html: this.layout(subject, body, 'Your admin account is ready'), text };
+  }
+
+  adminPasswordReset(resetUrl: string, expiresMinutes: number): { subject: string; html: string; text: string } {
+    const subject = 'Reset Your Admin Password';
+    const body = `
+      <p>We received a request to reset your JebDekho admin password.</p>
+      <a class="btn" href="${this.escape(resetUrl)}">Reset Admin Password</a>
+      <p class="muted">This link expires in ${expiresMinutes} minutes and can only be used once.</p>
+      <p class="muted">If you did not request this, contact platform security immediately.</p>
+      <p>JebDekho Platform Security</p>`;
+    const text = `Reset your admin password: ${resetUrl}\n\nExpires in ${expiresMinutes} minutes.`;
+    return { subject, html: this.layout(subject, body, 'Reset your admin password'), text };
+  }
+
+  adminSecurityAlert(message: string): { subject: string; html: string; text: string } {
+    const subject = 'JebDekho Admin Security Alert';
+    const body = `
+      <p><strong>Security notice</strong></p>
+      <p>${this.escape(message)}</p>
+      <p class="muted">If this was not you, reset your password and revoke all sessions from Admin Settings.</p>
+      <p>JebDekho Platform Security</p>`;
+    const text = `Security alert: ${message}`;
+    return { subject, html: this.layout(subject, body, 'Admin security alert'), text };
+  }
+
+  adminNewDeviceLogin(name: string, ipAddress: string): { subject: string; html: string; text: string } {
+    const subject = 'New Admin Login Detected';
+    const body = `
+      <p>Hi ${this.escape(name)},</p>
+      <p>A new sign-in to your admin account was detected.</p>
+      <p><strong>IP Address:</strong> ${this.escape(ipAddress)}</p>
+      <p class="muted">If this was you, no action is needed. Otherwise, change your password and log out all devices.</p>
+      <p>JebDekho Platform Security</p>`;
+    const text = `New admin login for ${name} from ${ipAddress}`;
+    return { subject, html: this.layout(subject, body, 'New admin login detected'), text };
+  }
+
   private escape(value: string): string {
     return value
       .replace(/&/g, '&amp;')

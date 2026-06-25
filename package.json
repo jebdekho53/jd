@@ -26,9 +26,11 @@
     "deploy:rollback": "bash deploy/rollback.sh"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.0"
+    "@prisma/client": "^6.19.0",
+    "bcrypt": "^5.1.1"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "prisma": "^6.19.0",
     "turbo": "^2.5.4",
     "tsx": "^4.19.0",

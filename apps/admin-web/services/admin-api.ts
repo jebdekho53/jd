@@ -6,9 +6,13 @@ import { adminFetch, buildQuery } from '@/services/api/admin-client';
 import type {
   ApiResponse,
   AuthUser,
+  AdminSession,
+  AdminSettings,
+  LoginStats,
   PaginatedResponse,
   PaginationMeta,
   RequestOtpResult,
+  LoginResult,
   VerifyOtpResult,
 } from '@/types/admin';
 import type {
@@ -32,6 +36,78 @@ import type {
 } from '@/types/category-governance';
 
 // ─── Auth (BFF: /api/auth/*) ─────────────────────────────────────────────────
+
+export async function loginWithPassword(payload: {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
+}): Promise<LoginResult> {
+  const res = await adminFetch<ApiResponse<LoginResult>>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.data;
+}
+
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  const res = await adminFetch<ApiResponse<{ message: string }>>('/api/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+  return res.data;
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  const res = await adminFetch<ApiResponse<{ message: string }>>('/api/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword }),
+  });
+  return res.data;
+}
+
+export async function fetchLoginStats(): Promise<LoginStats> {
+  const res = await adminFetch<ApiResponse<LoginStats>>('/api/auth/login-stats');
+  return res.data;
+}
+
+export async function fetchAdminSettings(): Promise<AdminSettings> {
+  const res = await adminFetch<ApiResponse<AdminSettings>>('/api/auth/settings');
+  return res.data;
+}
+
+export async function updateAdminSettings(
+  payload: Partial<Pick<AdminSettings, 'name' | 'email' | 'phone'>>,
+): Promise<AdminSettings> {
+  const res = await adminFetch<ApiResponse<AdminSettings>>('/api/auth/settings', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+  return res.data;
+}
+
+export async function changeAdminPassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ message: string }> {
+  const res = await adminFetch<ApiResponse<{ message: string }>>('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  return res.data;
+}
+
+export async function listAdminSessions(): Promise<AdminSession[]> {
+  const res = await adminFetch<ApiResponse<AdminSession[]>>('/api/auth/sessions');
+  return res.data;
+}
+
+export async function revokeAdminSession(sessionId: string): Promise<void> {
+  await adminFetch<ApiResponse<unknown>>(`/api/auth/sessions/${sessionId}`, { method: 'DELETE' });
+}
+
+export async function logoutAllDevices(): Promise<void> {
+  await adminFetch<ApiResponse<unknown>>('/api/auth/logout-all', { method: 'POST', body: '{}' });
+}
 
 export async function requestOtp(phone: string): Promise<RequestOtpResult> {
   const res = await adminFetch<ApiResponse<RequestOtpResult>>('/api/auth/request-otp', {
@@ -135,6 +211,39 @@ export async function suspendStore(id: string, payload: SuspendStorePayload): Pr
   const res = await adminFetch<ApiResponse<AdminStoreDetail>>(`/api/admin/stores/${id}/suspend`, {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+  return res.data;
+}
+
+// ─── Merchant applications (BFF: /api/admin/merchant-applications/*) ─────────
+
+export async function listMerchantApplications(params: {
+  status?: string;
+  page?: number;
+  limit?: number;
+} = {}) {
+  const res = await adminFetch<ApiResponse<{ applications: unknown[]; total: number }>>(
+    `/api/admin/merchant-applications${buildQuery(params)}`,
+  );
+  return res.data;
+}
+
+export async function getMerchantApplication(id: string) {
+  const res = await adminFetch<ApiResponse<unknown>>(`/api/admin/merchant-applications/${id}`);
+  return res.data;
+}
+
+export async function approveMerchantApplication(id: string) {
+  const res = await adminFetch<ApiResponse<unknown>>(`/api/admin/merchant-applications/${id}/approve`, {
+    method: 'POST',
+  });
+  return res.data;
+}
+
+export async function rejectMerchantApplication(id: string, reason: string) {
+  const res = await adminFetch<ApiResponse<unknown>>(`/api/admin/merchant-applications/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
   });
   return res.data;
 }

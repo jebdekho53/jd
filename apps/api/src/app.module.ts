@@ -55,6 +55,8 @@ import { MembershipModule } from './modules/membership/membership.module';
 import { CorporateModule } from './modules/corporate/corporate.module';
 import { SeoModule } from './modules/seo/seo.module';
 import { EmailModule } from './modules/email/email.module';
+import { MerchantOnboardingModule } from './modules/merchant-onboarding/merchant-onboarding.module';
+import { AdminAuthModule } from './modules/admin-auth/admin-auth.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
@@ -105,6 +107,8 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     // ── Feature modules ───────────────────────────────────────────────────────
     HealthModule,
     EmailModule,
+    MerchantOnboardingModule,
+    AdminAuthModule,
     AuditModule,
     DomainEventsModule,
     AuthModule,

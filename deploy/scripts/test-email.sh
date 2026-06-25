@@ -2,17 +2,21 @@
 # Send test email via Hostinger SMTP config
 set -euo pipefail
 
+APP_DIR="${JD_APP_DIR:-/var/www/jebdekho}"
 TO="${1:-admin@jebdekho.com}"
 
-if [[ -f /var/www/jebdekho/.env.production ]]; then
+if [[ -f "$APP_DIR/.env.production" ]]; then
   set -a
   # shellcheck disable=SC1091
-  source /var/www/jebdekho/.env.production
+  source "$APP_DIR/.env.production"
   set +a
 fi
 
 SMTP_PASS="${SMTP_PASS:-${SMTP_PASSWORD:-}}"
 SMTP_SECURE="${SMTP_SECURE:-true}"
+
+# nodemailer is a dependency of apps/api, not the monorepo root
+cd "$APP_DIR/apps/api"
 
 node -e "
 const nodemailer = require('nodemailer');
