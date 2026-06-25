@@ -23,7 +23,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const user = await fetchMe();
-      setUser(user);
+      if (user) {
+        setUser(user);
+      } else {
+        clearSession();
+      }
     } catch {
       clearSession();
     }
@@ -56,10 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             : input instanceof Request
               ? input.url
               : '';
-      if (
-        res.status === 401 &&
-        (url.endsWith('/api/auth/me') || url.endsWith('/api/auth/refresh'))
-      ) {
+      if (res.status === 401 && url.endsWith('/api/auth/refresh')) {
         clearSession();
       }
       return res;

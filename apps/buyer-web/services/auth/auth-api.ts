@@ -122,9 +122,9 @@ export async function resetPassword(input: {
   return res.data;
 }
 
-export async function fetchMe(): Promise<AuthUser> {
-  const res = await sessionFetch<ApiResponse<AuthUser>>('/api/auth/me');
-  return res.data;
+export async function fetchMe(): Promise<AuthUser | null> {
+  const res = await sessionFetch<ApiResponse<AuthUser | null>>('/api/auth/me');
+  return res.data ?? null;
 }
 
 export async function logoutSession(): Promise<void> {

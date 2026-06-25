@@ -136,7 +136,14 @@ export function SignupPageContent() {
       toast('Account created successfully', 'success');
       router.replace('/onboarding');
     } catch (err) {
-      const msg = err instanceof SessionError ? err.message : 'Signup failed';
+      let msg = 'Signup failed';
+      if (err instanceof SessionError) {
+        if (err.status === 409) {
+          msg = 'An account with this email already exists. Please log in instead.';
+        } else {
+          msg = err.message;
+        }
+      }
       toast(msg, 'error');
     }
   });

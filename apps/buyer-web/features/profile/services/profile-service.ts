@@ -17,6 +17,9 @@ function getPreferences() {
 
 export async function getProfile(): Promise<ProfileUser> {
   const auth = await fetchMe();
+  if (!auth) {
+    throw new Error('Not authenticated');
+  }
   const local = getLocalProfile();
   const prefs = getPreferences();
   prefs.initReferralCode(auth.id);
