@@ -41,6 +41,12 @@ fi
 log "Running database migrations..."
 ./deploy/scripts/db-migrate.sh
 
+log "Seeding platform roles (idempotent)..."
+(
+  unset NODE_ENV
+  pnpm db:seed:platform
+)
+
 log "Building production apps..."
 chmod +x deploy/scripts/build-production.sh
 ./deploy/scripts/build-production.sh

@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { DomainEventType, OtpPurpose, Prisma, RoleName, UserStatus } from '@prisma/client';
@@ -285,24 +286,39 @@ export class AuthService {
     const phone = await this.generatePlaceholderPhone();
     const passwordHash = await this.passwordService.hash(dto.password);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        phone,
-        passwordHash,
-        status: UserStatus.PENDING_VERIFICATION,
-        emailVerified: false,
-        phoneVerified: false,
-      },
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email,
+          phone,
+          passwordHash,
+          status: UserStatus.PENDING_VERIFICATION,
+          emailVerified: false,
+          phoneVerified: false,
+        },
+      });
+
+      await this.applyBuyerRegistration(
+        created.id,
+        {
+          name: dto.name.trim(),
+          phone,
+          emailVerified: true,
+          verifyPhone: false,
+        },
+        tx,
+      );
+
+      return created;
     });
 
-    await this.registerNewBuyer(user.id, {
-      name: dto.name.trim(),
-      phone,
+    const buyerProfile = await this.prisma.buyerProfile.findUniqueOrThrow({
+      where: { userId: user.id },
+    });
+    await this.finalizeBuyerRegistration(user.id, buyerProfile.id, {
       referralCode: dto.referralCode,
       deviceId: dto.deviceId,
-      emailVerified: true,
-      verifyPhone: false,
+      phone,
     });
 
     return this.completeAuthentication(user.id, {
@@ -578,6 +594,48 @@ export class AuthService {
   // Private: create BuyerProfile + assign BUYER role for new users
   // ---------------------------------------------------------------------------
 
+  private async resolveBuyerRole(client: Prisma.TransactionClient | PrismaService = this.prisma) {
+    const buyerRole = await client.role.findUnique({ where: { name: RoleName.BUYER } });
+    if (!buyerRole) {
+      throw new ServiceUnavailableException(
+        'Buyer signup is temporarily unavailable. Please contact support.',
+      );
+    }
+    return buyerRole;
+  }
+
+  private async ensureBuyerAccess(
+    userId: string,
+    opts?: {
+      name?: string;
+      referralCode?: string;
+      deviceId?: string;
+      emailVerified?: boolean;
+      verifyPhone?: boolean;
+    },
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        buyerProfile: true,
+        roles: { include: { role: true } },
+      },
+    });
+    if (!user) return;
+
+    const hasBuyerRole = user.roles.some((r) => r.role.name === RoleName.BUYER);
+    if (hasBuyerRole && user.buyerProfile) return;
+
+    await this.registerNewBuyer(userId, {
+      name: opts?.name ?? user.buyerProfile?.name ?? user.email?.split('@')[0] ?? user.phone,
+      phone: user.phone,
+      referralCode: opts?.referralCode,
+      deviceId: opts?.deviceId,
+      emailVerified: opts?.emailVerified ?? user.emailVerified,
+      verifyPhone: opts?.verifyPhone ?? user.phoneVerified,
+    });
+  }
+
   private async registerNewBuyer(
     userId: string,
     opts: {
@@ -589,28 +647,59 @@ export class AuthService {
       verifyPhone?: boolean;
     },
   ): Promise<void> {
-    const buyerRole = await this.prisma.role.findUniqueOrThrow({
-      where: { name: RoleName.BUYER },
+    const buyerProfile = await this.prisma.$transaction(async (tx) =>
+      this.applyBuyerRegistration(userId, opts, tx),
+    );
+
+    await this.finalizeBuyerRegistration(userId, buyerProfile.id, opts);
+    this.logger.log({ userId, phone: opts.phone }, 'New buyer registered and activated');
+  }
+
+  private async applyBuyerRegistration(
+    userId: string,
+    opts: {
+      name: string;
+      phone: string;
+      emailVerified?: boolean;
+      verifyPhone?: boolean;
+    },
+    tx: Prisma.TransactionClient,
+  ) {
+    const buyerRole = await this.resolveBuyerRole(tx);
+
+    const existing = await tx.user.findUnique({
+      where: { id: userId },
+      include: {
+        buyerProfile: true,
+        roles: { include: { role: true } },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('User not found');
+    }
+
+    const hasBuyerRole = existing.roles.some((r) => r.role.name === RoleName.BUYER);
+
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        status: UserStatus.ACTIVE,
+        phoneVerified: opts.verifyPhone ?? true,
+        lastLoginAt: new Date(),
+        ...(opts.emailVerified !== undefined ? { emailVerified: opts.emailVerified } : {}),
+      },
     });
 
-    const buyerProfile = await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: userId },
-        data: {
-          status: UserStatus.ACTIVE,
-          phoneVerified: opts.verifyPhone ?? true,
-          lastLoginAt: new Date(),
-          ...(opts.emailVerified !== undefined ? { emailVerified: opts.emailVerified } : {}),
-        },
-      });
-
-      const profile = await tx.buyerProfile.create({
+    const profile =
+      existing.buyerProfile ??
+      (await tx.buyerProfile.create({
         data: {
           userId,
           name: opts.name,
         },
-      });
+      }));
 
+    if (!hasBuyerRole) {
       await tx.userRole.upsert({
         where: {
           userId_roleId: { userId, roleId: buyerRole.id },
@@ -618,23 +707,29 @@ export class AuthService {
         update: {},
         create: { userId, roleId: buyerRole.id },
       });
+    }
 
-      await tx.notificationPreference.upsert({
-        where: { userId },
-        create: { userId },
-        update: {},
-      });
-
-      return profile;
+    await tx.notificationPreference.upsert({
+      where: { userId },
+      create: { userId },
+      update: {},
     });
 
+    return profile;
+  }
+
+  private async finalizeBuyerRegistration(
+    userId: string,
+    buyerProfileId: string,
+    opts: { referralCode?: string; deviceId?: string; phone?: string },
+  ): Promise<void> {
     await this.riskEngine.getOrCreateProfile(userId);
-    await this.wallet.getOrCreateWallet(buyerProfile.id);
+    await this.wallet.getOrCreateWallet(buyerProfileId);
 
     if (opts.referralCode?.trim()) {
       try {
         await this.referral.applyReferralCode(
-          buyerProfile.id,
+          buyerProfileId,
           opts.referralCode.trim(),
           opts.deviceId,
         );
@@ -645,8 +740,6 @@ export class AuthService {
         );
       }
     }
-
-    this.logger.log({ userId, phone: opts.phone }, 'New buyer registered and activated');
   }
 
   private async completeAuthentication(
@@ -661,6 +754,8 @@ export class AuthService {
       metadata: Record<string, unknown>;
     },
   ): Promise<VerifyOtpResponse> {
+    await this.ensureBuyerAccess(userId);
+
     const refreshedUser = await this.tokenService.buildUserForToken(userId);
 
     const tokens = await this.tokenService.generateTokenPair(

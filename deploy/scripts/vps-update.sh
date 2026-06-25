@@ -19,6 +19,9 @@ corepack enable
 echo "==> Migrate database"
 ./deploy/scripts/db-migrate.sh
 
+echo "==> Seed platform roles"
+pnpm db:seed:platform
+
 echo "==> Build"
 ./deploy/scripts/build-production.sh
 
