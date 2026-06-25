@@ -27,6 +27,12 @@ import { BuyerInvoiceController } from './buyer-invoice.controller';
     GstConfigService,
     ComplianceService,
   ],
-  exports: [InvoiceEngineService, CreditNoteService, ComplianceService, GstConfigService],
+  exports: [
+    InvoiceEngineService,
+    CreditNoteService,
+    ComplianceService,
+    GstConfigService,
+    TdsTcsService,
+  ],
 })
 export class ComplianceModule {}
