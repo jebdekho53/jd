@@ -26,7 +26,12 @@ git pull origin "$BRANCH"
 
 log "Installing dependencies..."
 corepack enable
-pnpm install --frozen-lockfile
+# Keep devDependencies (prisma CLI, turbo, typescript) even if the shell exported NODE_ENV=production.
+(
+  unset NODE_ENV
+  export CI=true
+  pnpm install --frozen-lockfile --prod=false
+)
 
 if [[ ! -f .env.production ]]; then
   log "ERROR: .env.production not found at $APP_DIR/.env.production"

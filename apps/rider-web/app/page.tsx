@@ -96,7 +96,11 @@ export default async function Home() {
           value={apiStatus === 'online' ? 'Online' : 'Offline'}
           tone={apiStatus === 'online' ? 'ok' : 'error'}
         />
-        <StatusCard label="Backend" value={API_BASE.replace('http://', '')} tone="neutral" />
+        <StatusCard
+          label="Backend"
+          value={getApiOrigin().replace(/^https?:\/\//, '')}
+          tone="neutral"
+        />
       </div>
 
       <section style={{ marginBottom: 32 }}>
