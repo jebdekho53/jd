@@ -103,7 +103,11 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         lowStockThreshold: editProduct.variants[0]?.inventory?.lowStockThreshold ?? undefined,
       });
     } else {
-      reset({});
+      reset({
+        quantity: 10,
+        lowStockThreshold: 5,
+        unit: 'piece',
+      });
     }
   }, [editProduct, reset, open, categories]);
 

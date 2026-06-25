@@ -33,6 +33,7 @@ import { RejectStoreDto } from './dto/reject-store.dto';
 import { RequestDocumentsDto } from './dto/request-documents.dto';
 import { RevokeRejectionDto } from './dto/revoke-rejection.dto';
 import { SuspendStoreDto } from './dto/suspend-store.dto';
+import { DeleteStoreDto } from './dto/delete-store.dto';
 
 @ApiTags(Tags.ADMIN)
 @ApiBearerAuth('access-token')
@@ -230,6 +231,32 @@ export class AdminStoreController {
     const data = await this.adminStoreService.reinstateStore(
       user.id,
       storeId,
+      ip,
+      req.headers['user-agent'],
+    );
+    return { success: true, data };
+  }
+
+  // --------------------------------------------------------------------------
+  // POST /admin/store-approvals/:id/delete
+  // --------------------------------------------------------------------------
+  @Post(':id/delete')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('stores:suspend')
+  @ApiParam({ name: 'id', description: 'Store ID' })
+  @ApiOperation({ summary: 'Soft-delete a store — removes it from buyer discovery permanently' })
+  @ApiResponse({ status: 200, description: 'Store deleted' })
+  async deleteStore(
+    @CurrentUser() user: RequestUser,
+    @Param('id') storeId: string,
+    @Body() dto: DeleteStoreDto,
+    @Ip() ip: string,
+    @Req() req: Request,
+  ) {
+    const data = await this.adminStoreService.deleteStore(
+      user.id,
+      storeId,
+      dto,
       ip,
       req.headers['user-agent'],
     );

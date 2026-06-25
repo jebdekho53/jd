@@ -24,6 +24,7 @@ import {
   REVOCABLE_REJECTION_TYPES,
 } from '@/types/store';
 import { Button } from '@/design-system';
+import { StoreModerationActions } from './components/store-moderation-actions';
 
 type TabKey = StoreStatus | 'BLACKLISTED';
 
@@ -279,6 +280,19 @@ export function StoreApprovalsContent() {
                   >
                     Request more documents
                   </Button>
+                </div>
+              )}
+
+              {(item.status === 'APPROVED' || item.status === 'SUSPENDED' || item.status === 'REJECTED' || item.status === 'DRAFT') && (
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <StoreModerationActions
+                    storeId={item.id}
+                    storeName={item.name}
+                    status={item.status}
+                    onSuccess={() => qc.invalidateQueries({ queryKey: ['admin', 'stores'] })}
+                    disabled={actionPending}
+                    size="sm"
+                  />
                 </div>
               )}
             </li>

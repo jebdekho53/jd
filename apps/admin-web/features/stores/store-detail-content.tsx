@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   getStore,
   approveStore,
@@ -20,6 +21,7 @@ import {
 } from '@/types/store';
 import { Button } from '@/design-system';
 import { VerificationDocumentsPanel } from './components/verification-documents-panel';
+import { StoreModerationActions } from './components/store-moderation-actions';
 
 const DEFAULT_DOC_TYPES: StoreDocumentType[] = ['GST_CERTIFICATE', 'PAN_CARD', 'FSSAI_LICENSE'];
 
@@ -33,6 +35,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export function StoreDetailContent({ storeId }: { storeId: string }) {
+  const router = useRouter();
   const qc = useQueryClient();
   const { data: session } = useSessionQuery();
   const { data: store, isLoading } = useQuery({
@@ -169,6 +172,26 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
             <Button variant="outline" onClick={handleRequestDocuments} disabled={actionPending}>
               Request documents
             </Button>
+          </div>
+        )}
+
+        {(store.status === 'APPROVED' || store.status === 'SUSPENDED' || store.status === 'REJECTED' || store.status === 'DRAFT' || store.status === 'PENDING_REVIEW' || store.status === 'UNDER_REVIEW' || store.status === 'DOCUMENTS_REQUIRED') && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+            <StoreModerationActions
+              storeId={storeId}
+              storeName={store.name}
+              status={store.status}
+              onSuccess={invalidate}
+              onDeleted={() => router.push('/stores')}
+              disabled={actionPending}
+            />
+          </div>
+        )}
+
+        {store.status === 'SUSPENDED' && store.rejectionReason && (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <span className="font-medium">Suspension reason: </span>
+            {store.rejectionReason}
           </div>
         )}
 

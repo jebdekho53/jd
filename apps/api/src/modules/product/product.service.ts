@@ -23,6 +23,7 @@ import { UpdatePriceDto } from './dto/update-price.dto';
 import { UpdateProductStatusDto } from './dto/update-status.dto';
 import { StoreCategoryAccessService } from '../category-governance/store-category-access.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { InventoryCacheService } from '../inventory/inventory-cache.service';
 import { ListProductsDto } from './dto/list-products.dto';
 
 type VariantWithInventory = ProductVariant & { inventory: Inventory | null };
@@ -43,6 +44,7 @@ export class ProductService {
     private readonly domainEvents: DomainEventsService,
     private readonly storeCategoryAccess: StoreCategoryAccessService,
     private readonly inventoryService: InventoryService,
+    private readonly inventoryCache: InventoryCacheService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -220,6 +222,7 @@ export class ProductService {
         { storeId, name: product.name, slug: product.slug },
         { userId, ipAddress: ipAddress ?? null },
       ),
+      this.inventoryCache.invalidateForStores([storeId]),
     ]);
 
     this.logger.log({ userId, storeId, productId: product.id }, 'Product created');

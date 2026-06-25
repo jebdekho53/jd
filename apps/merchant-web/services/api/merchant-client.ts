@@ -20,22 +20,37 @@ export class ApiError extends Error {
 }
 
 export async function merchantFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(path, {
-      ...init,
-      credentials: 'include',
-      headers: {
-        Accept: 'application/json',
-        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-        ...init?.headers,
-      },
-    });
-  } catch {
-    throw new ApiError('No internet connection', 0);
-  }
+  const doFetch = async () => {
+    let res: Response;
+    try {
+      res = await fetch(path, {
+        ...init,
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+          ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+          ...init?.headers,
+        },
+      });
+    } catch {
+      throw new ApiError('No internet connection', 0);
+    }
+    const body = await res.json().catch(() => ({}));
+    return { res, body };
+  };
 
-  const body = await res.json().catch(() => ({}));
+  let { res, body } = await doFetch();
+
+  // Stale JWT after MERCHANT role assignment — refresh once and retry.
+  if (res.status === 403 && path !== '/api/auth/refresh') {
+    const refreshed = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (refreshed.ok) {
+      ({ res, body } = await doFetch());
+    }
+  }
 
   if (res.status === 401 && path !== '/api/auth/me') {
     useAuthStore.getState().clearSession();

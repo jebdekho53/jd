@@ -1,12 +1,18 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MarketingShell } from '@/features/marketing/components/marketing-shell';
 import { Button, Spinner } from '@/design-system/primitives';
 import { fetchOnboardingStatus, fetchPostApprovalChecklist } from '@/services/onboarding/onboarding-api';
+import { refreshSession } from '@/services/auth/auth-api';
+import { useAuthStore } from '@/store/auth-store';
 
 export function OnboardingStatusContent() {
+  const router = useRouter();
+  const { setSession } = useAuthStore();
   const { data: status, isLoading } = useQuery({
     queryKey: ['merchant', 'onboarding', 'status'],
     queryFn: fetchOnboardingStatus,
@@ -17,6 +23,13 @@ export function OnboardingStatusContent() {
     queryFn: fetchPostApprovalChecklist,
     enabled: status?.storeStatus === 'APPROVED',
   });
+
+  useEffect(() => {
+    if (status?.storeStatus !== 'APPROVED') return;
+    void refreshSession().then((user) => {
+      if (user) setSession(user);
+    });
+  }, [status?.storeStatus, setSession]);
 
   if (isLoading) {
     return (
@@ -91,9 +104,17 @@ export function OnboardingStatusContent() {
               ))}
             </ul>
             <p className="mt-3 text-sm text-slate-500">{checklist.progressPct}% complete</p>
-            <Link href="/dashboard" className="mt-4 inline-block">
-              <Button>Go to Dashboard</Button>
-            </Link>
+            <Button
+              className="mt-4"
+              onClick={() => {
+                void refreshSession().then((user) => {
+                  if (user) setSession(user);
+                  router.push('/dashboard');
+                });
+              }}
+            >
+              Go to Dashboard
+            </Button>
           </div>
         ) : !approved ? (
           <p className="mt-8 text-sm text-slate-500">

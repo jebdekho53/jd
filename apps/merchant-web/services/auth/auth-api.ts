@@ -31,6 +31,14 @@ export async function fetchMe(): Promise<AuthUser | null> {
   }
 }
 
+export async function refreshSession(): Promise<AuthUser | null> {
+  const res = await merchantFetch<ApiResponse<{ refreshed: boolean }>>('/api/auth/refresh', {
+    method: 'POST',
+  });
+  if (!res.data?.refreshed) return null;
+  return fetchMe();
+}
+
 export async function logoutSession(): Promise<void> {
   await merchantFetch<ApiResponse<unknown>>('/api/auth/logout', {
     method: 'POST',

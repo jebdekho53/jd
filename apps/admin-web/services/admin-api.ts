@@ -215,6 +215,22 @@ export async function suspendStore(id: string, payload: SuspendStorePayload): Pr
   return res.data;
 }
 
+export async function reinstateStore(id: string): Promise<AdminStoreDetail> {
+  const res = await adminFetch<ApiResponse<AdminStoreDetail>>(`/api/admin/stores/${id}/reinstate`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  return res.data;
+}
+
+export async function deleteStore(id: string, payload: SuspendStorePayload): Promise<AdminStoreDetail> {
+  const res = await adminFetch<ApiResponse<AdminStoreDetail>>(`/api/admin/stores/${id}/delete`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.data;
+}
+
 // ─── Merchant applications (BFF: /api/admin/merchant-applications/*) ─────────
 
 export async function listMerchantApplications(params: {

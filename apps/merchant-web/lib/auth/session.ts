@@ -78,18 +78,21 @@ export async function fetchWithAuth<T>(path: string, init?: RequestInit): Promis
     throw new BackendError('Not authenticated', 401);
   }
 
-  try {
-    const { data } = await backendFetch<ApiResponse<T>>(path, { ...init, accessToken });
+  const attempt = async (token: string) => {
+    const { data } = await backendFetch<ApiResponse<T>>(path, { ...init, accessToken: token });
     return data.data;
+  };
+
+  try {
+    return await attempt(accessToken);
   } catch (err) {
-    if (err instanceof BackendError && err.status === 401) {
+    if (
+      err instanceof BackendError &&
+      (err.status === 401 || err.status === 403)
+    ) {
       const refreshed = await refreshAccessToken();
       if (refreshed) {
-        const { data } = await backendFetch<ApiResponse<T>>(path, {
-          ...init,
-          accessToken: refreshed,
-        });
-        return data.data;
+        return await attempt(refreshed);
       }
     }
     throw err;

@@ -630,6 +630,58 @@ export class AdminStoreService {
     return updated;
   }
 
+  async deleteStore(
+    adminUserId: string,
+    storeId: string,
+    dto: { reason: string },
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{ id: string; deletedAt: Date }> {
+    const store = await this.findStoreOrThrow(storeId);
+
+    const now = new Date();
+
+    const updated = await this.prisma.store.update({
+      where: { id: storeId },
+      data: {
+        deletedAt: now,
+        isActive: false,
+        reviewedAt: now,
+        reviewedBy: adminUserId,
+        rejectionReason: dto.reason,
+      },
+      select: { id: true, deletedAt: true },
+    });
+
+    await Promise.all([
+      this.audit.log({
+        actorId: adminUserId,
+        action: 'STORE_DELETED',
+        resourceType: 'store',
+        resourceId: storeId,
+        ipAddress,
+        userAgent,
+        metadata: {
+          reason: dto.reason,
+          storeName: store.name,
+          previousStatus: store.status,
+        } as Prisma.InputJsonValue,
+      }),
+      this.domainEvents.emit(
+        DomainEventType.STORE_SUSPENDED,
+        'store',
+        storeId,
+        { storeName: store.name, reason: dto.reason, deletedBy: adminUserId, deleted: true },
+        { userId: adminUserId, ipAddress: ipAddress ?? null },
+      ),
+    ]);
+
+    await this.buyerCache.invalidateStoreCache(store.slug);
+
+    this.logger.log({ adminUserId, storeId }, 'Store soft-deleted');
+    return { id: updated.id, deletedAt: updated.deletedAt! };
+  }
+
   async getStoreDetail(storeId: string) {
     const store = await this.prisma.store.findUnique({
       where: { id: storeId, deletedAt: null },

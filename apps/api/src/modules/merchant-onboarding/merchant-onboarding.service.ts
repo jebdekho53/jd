@@ -318,6 +318,8 @@ export class MerchantOnboardingService {
         },
         ipAddress,
       );
+    } else {
+      await this.merchantService.ensureMerchantRole(userId);
     }
 
     let storeId = app.storeId;
@@ -605,6 +607,8 @@ export class MerchantOnboardingService {
         data: { kycStatus: KycStatus.APPROVED },
       });
     }
+
+    await this.merchantService.ensureMerchantRole(app.userId);
 
     await this.marketingEvents.track({
       userId: app.userId,

@@ -87,6 +87,18 @@ export class MerchantService {
     return profile;
   }
 
+  /** Idempotent — safe to call after onboarding submit or admin approval. */
+  async ensureMerchantRole(userId: string): Promise<void> {
+    const merchantRole = await this.prisma.role.findUniqueOrThrow({
+      where: { name: RoleName.MERCHANT },
+    });
+    await this.prisma.userRole.upsert({
+      where: { userId_roleId: { userId, roleId: merchantRole.id } },
+      update: {},
+      create: { userId, roleId: merchantRole.id },
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Get merchant profile (own)
   // ---------------------------------------------------------------------------
