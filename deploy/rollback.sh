@@ -17,7 +17,11 @@ cd "$APP_DIR"
 git checkout "$PREV_SHA"
 
 corepack enable
-pnpm install --frozen-lockfile
+(
+  unset NODE_ENV
+  export CI=true
+  pnpm install --frozen-lockfile --prod=false
+)
 
 if [[ -f .env.production ]]; then
   set -a
