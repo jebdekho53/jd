@@ -47,6 +47,8 @@ chmod +x deploy/scripts/build-production.sh
 
 log "Restarting PM2 processes..."
 ln -sf .env.production .env
+chmod +x deploy/scripts/verify-production-env.sh
+./deploy/scripts/verify-production-env.sh
 pm2 delete deploy/ecosystem.config.js 2>/dev/null || true
 pm2 start deploy/ecosystem.config.js
 pm2 save

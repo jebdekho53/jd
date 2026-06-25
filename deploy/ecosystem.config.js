@@ -4,6 +4,8 @@
  *   cd /var/www/jebdekho
  *   pm2 start deploy/ecosystem.config.js
  *   pm2 save && pm2 startup
+ *
+ * Node 20+ loads .env.production via --env-file (reliable PEM / quoted URLs).
  */
 const fs = require('fs');
 const path = require('path');
@@ -12,52 +14,27 @@ const ROOT = path.resolve(__dirname, '..');
 const LOG_DIR = process.env.JD_LOG_DIR || '/var/log/jebdekho';
 const ENV_FILE = path.join(ROOT, '.env.production');
 
-/** Parse KEY=VALUE lines (supports quoted values). */
-function parseEnvFile(filePath) {
-  const env = {};
-  if (!fs.existsSync(filePath)) {
-    return env;
-  }
-
-  for (const line of fs.readFileSync(filePath, 'utf8').split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-
-    const eq = trimmed.indexOf('=');
-    if (eq < 1) continue;
-
-    const key = trimmed.slice(0, eq).trim();
-    let value = trimmed.slice(eq + 1).trim();
-
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    env[key] = value;
-  }
-
-  return env;
+if (!fs.existsSync(ENV_FILE)) {
+  console.error(`ERROR: ${ENV_FILE} not found — copy from .env.production.example`);
+  process.exit(1);
 }
 
-const productionEnv = {
-  ...parseEnvFile(ENV_FILE),
-  NODE_ENV: 'production',
-};
+const nodeEnvFile = `--env-file=${ENV_FILE}`;
 
 const appDefaults = {
   cwd: ROOT,
   instances: 1,
   exec_mode: 'fork',
   autorestart: true,
-  max_restarts: 10,
+  max_restarts: 15,
   min_uptime: '10s',
   max_memory_restart: '512M',
   merge_logs: true,
   time: true,
-  env: productionEnv,
+  node_args: nodeEnvFile,
+  env: {
+    NODE_ENV: 'production',
+  },
 };
 
 module.exports = {

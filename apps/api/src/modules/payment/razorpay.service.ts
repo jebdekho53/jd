@@ -13,17 +13,26 @@ export class RazorpayService implements OnModuleInit {
   private readonly webhookSecret: string;
 
   constructor(private readonly config: ConfigService) {
-    this.keyId = this.config.getOrThrow<string>('RAZORPAY_KEY_ID');
-    this.keySecret = this.config.getOrThrow<string>('RAZORPAY_KEY_SECRET');
-    this.webhookSecret = this.config.getOrThrow<string>('RAZORPAY_WEBHOOK_SECRET');
+    this.keyId = this.config.get<string>('RAZORPAY_KEY_ID', '') ?? '';
+    this.keySecret = this.config.get<string>('RAZORPAY_KEY_SECRET', '') ?? '';
+    this.webhookSecret = this.config.get<string>('RAZORPAY_WEBHOOK_SECRET', '') ?? '';
   }
 
   onModuleInit(): void {
+    if (!this.keyId || !this.keySecret) {
+      this.logger.warn('Razorpay keys not configured — online payments disabled (COD still works)');
+      return;
+    }
+
     this.client = new Razorpay({
       key_id: this.keyId,
       key_secret: this.keySecret,
     });
     this.logger.log('Razorpay client initialized');
+  }
+
+  isConfigured(): boolean {
+    return Boolean(this.client);
   }
 
   /**
@@ -35,6 +44,9 @@ export class RazorpayService implements OnModuleInit {
     amountRupees: number,
     receipt: string,
   ): Promise<{ id: string; amount: number; currency: string }> {
+    if (!this.client) {
+      throw new Error('Razorpay is not configured');
+    }
     const amountPaise = Math.round(amountRupees * 100);
     const order = await this.client.orders.create({
       amount: amountPaise,
