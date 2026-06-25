@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { getSiteUrl } from '@jebdekho/web-config';
+import { BRAND_LOGO_SRC, BRAND_NAME } from '@/lib/brand';
 
-const SITE_NAME = 'JebDekho';
+const SITE_NAME = BRAND_NAME;
 
 export function createPageMetadata(opts: {
   title: string;

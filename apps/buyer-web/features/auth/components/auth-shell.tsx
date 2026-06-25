@@ -1,7 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Text } from '@/design-system/primitives';
+import { Logo, LogoLink } from '@/components/brand/logo';
+import { BRAND_TAGLINE } from '@/lib/brand';
 
 const BENEFITS = [
   'Fast Delivery',
@@ -23,12 +24,10 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
     <div className="s2-root min-h-screen bg-neutral-50">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col lg:flex-row">
         <aside className="hidden flex-1 flex-col justify-center bg-gradient-to-br from-jd-primary to-jd-secondary px-10 py-16 text-white lg:flex">
-          <Text variant="display" as="h1" className="text-white">
-            JebDekho
-          </Text>
-          <p className="mt-3 max-w-md text-lg text-white/90">
-            Your neighbourhood store, delivered in minutes.
-          </p>
+          <div className="rounded-2xl bg-white/95 p-4 shadow-lg">
+            <Logo size="xl" priority />
+          </div>
+          <p className="mt-6 max-w-md text-lg text-white/90">{BRAND_TAGLINE}</p>
           <ul className="mt-10 space-y-4">
             {BENEFITS.map((benefit) => (
               <li key={benefit} className="flex items-center gap-3 text-base">
@@ -46,10 +45,8 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
 
         <main className="flex flex-1 flex-col justify-center px-4 py-10 sm:px-8">
           <div className="mx-auto w-full max-w-md">
-            <div className="mb-8 text-center lg:hidden">
-              <Text variant="display" as="h1">
-                JebDekho
-              </Text>
+            <div className="mb-8 flex justify-center lg:hidden">
+              <LogoLink size="lg" priority />
             </div>
 
             <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-8">

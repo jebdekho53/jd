@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Button, Input, Modal, Text } from '@/design-system/primitives';
+import { Logo } from '@/components/brand/logo';
+import { BRAND_NAME } from '@/lib/brand';
 import { useProfileStore } from '@/store/profile-store';
 
 interface ProfileSetupModalProps {
@@ -34,11 +36,14 @@ export function ProfileSetupModal({
       open={open}
       onClose={onClose ?? (() => {})}
       dismissible={dismissible}
-      title="Welcome to Jebdekho"
+      title={`Welcome to ${BRAND_NAME}`}
       description="Tell us a bit about yourself. You can skip the name for now."
       size="md"
     >
       <div className="space-y-4">
+        <div className="flex justify-center">
+          <Logo size="md" />
+        </div>
         <div className="rounded-lg bg-neutral-50 px-4 py-3">
           <Text variant="caption">Phone (verified)</Text>
           <Text variant="body" className="font-medium">

@@ -12,6 +12,8 @@ import {
   User,
   Package,
 } from 'lucide-react';
+import { Logo, LogoLink } from '@/components/brand/logo';
+import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
 import { useCartQuery } from '@/hooks/use-cart';
 import { useAuthStore } from '@/store/auth-store';
 import { useLocationStore } from '@/store/ui-store';
@@ -47,13 +49,7 @@ export function SiteHeader() {
       <div className="mx-auto max-w-6xl px-4">
         {/* Desktop: single row */}
         <div className="hidden items-center gap-4 py-3 md:flex">
-          <Link
-            href="/"
-            className="shrink-0 text-xl font-bold tracking-tight text-primary"
-            aria-label="JebDekho home"
-          >
-            Jeb<span className="text-secondary">Dekho</span>
-          </Link>
+          <LogoLink size="md" priority />
 
           <button
             type="button"
@@ -106,9 +102,7 @@ export function SiteHeader() {
         {/* Mobile: stacked */}
         <div className="space-y-2 py-3 md:hidden">
           <div className="flex items-center justify-between">
-            <Link href="/" className="text-lg font-bold text-primary" aria-label="JebDekho home">
-              Jeb<span className="text-secondary">Dekho</span>
-            </Link>
+            <LogoLink size="sm" priority />
             <div className="flex items-center gap-2">
               <Link
                 href="/cart"
@@ -230,6 +224,10 @@ export function SiteFooter() {
     <footer className="mt-12 border-t border-border/50 bg-cream-4" role="contentinfo">
       <div className="mx-auto max-w-6xl px-4 py-10">
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+          <div className="col-span-2 sm:col-span-4">
+            <Logo size="sm" />
+            <p className="mt-2 text-sm text-jd-text-muted">{BRAND_TAGLINE}</p>
+          </div>
           <div>
             <h3 className="text-sm font-semibold text-jd-text-primary">Company</h3>
             <ul className="mt-3 space-y-2 text-sm text-jd-text-muted">
@@ -263,7 +261,7 @@ export function SiteFooter() {
           </div>
         </div>
         <p className="mt-8 border-t border-border/40 pt-6 text-center text-xs text-jd-text-muted">
-          © {new Date().getFullYear()} JebDekho. Compare prices. Save more.
+          © {new Date().getFullYear()} {BRAND_NAME}. {BRAND_TAGLINE}
         </p>
       </div>
     </footer>

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { getSiteUrl } from '@jebdekho/web-config';
+import { BRAND_LOGO_SRC, BRAND_NAME } from '@/lib/brand';
 import { QueryProvider } from '@/components/providers/query-provider';
 import './globals.css';
 
@@ -16,7 +17,10 @@ export const metadata: Metadata = {
   description: 'Discover nearby stores and order fresh groceries delivered to your door.',
   manifest: '/manifest.json',
   icons: {
-    icon: [{ url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+    icon: [
+      { url: BRAND_LOGO_SRC, sizes: '1254x1254', type: 'image/png' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
     apple: [{ url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
   },
   alternates: { canonical: siteUrl },
@@ -24,7 +28,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_IN',
     url: siteUrl,
-    siteName: 'JebDekho',
+    siteName: BRAND_NAME,
+    images: [{ url: BRAND_LOGO_SRC, width: 1254, height: 1254, alt: BRAND_NAME }],
   },
 };
 

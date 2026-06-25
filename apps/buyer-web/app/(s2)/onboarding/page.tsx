@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, User } from 'lucide-react';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
+import { Logo } from '@/components/brand/logo';
 import { LocationPickerModal } from '@/features/location/components/location-picker-modal';
 import { ProfileSetupModal } from '@/features/profile/components/profile-setup-modal';
 import { Button, Container, Text } from '@/design-system/primitives';
@@ -33,6 +34,9 @@ export default function OnboardingPage() {
     <AuthGuard>
       <div className="s2-root min-h-screen bg-neutral-50">
         <Container size="sm" className="py-12">
+          <div className="mb-6 flex justify-center">
+            <Logo size="lg" priority />
+          </div>
           <Text variant="h1" as="h1" className="text-center">
             Welcome aboard
           </Text>

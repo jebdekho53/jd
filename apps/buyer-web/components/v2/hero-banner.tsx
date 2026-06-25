@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Logo } from '@/components/brand/logo';
 import { cn } from '@/lib/utils';
 
 export interface HeroSlide {
@@ -72,7 +73,9 @@ export function HeroBanner({ slides = DEFAULT_SLIDES, className }: HeroBannerPro
             )}
           >
             <div className="relative z-10 max-w-md">
-              <p className="text-sm font-medium text-white/80">Jebdekho</p>
+              <div className="inline-flex rounded-xl bg-white/95 p-2 shadow-sm">
+                <Logo size="sm" />
+              </div>
               <h2 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">{slide.title}</h2>
               <p className="mt-2 text-sm text-white/90 md:text-base">{slide.subtitle}</p>
               <Link

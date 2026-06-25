@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Home, Store, Grid3X3 } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
+import { Logo } from '@/components/brand/logo';
 import { Button } from '@/components/ui/button';
 
 export function NotFoundContent() {
@@ -12,6 +13,7 @@ export function NotFoundContent() {
   return (
     <PageShell>
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
+        <Logo size="lg" className="mb-6" />
         <p className="text-8xl font-bold text-primary/20" aria-hidden>
           404
         </p>
