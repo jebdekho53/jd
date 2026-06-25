@@ -88,4 +88,29 @@ export const validationSchema = Joi.object({
   LOG_LEVEL: Joi.string()
     .valid('trace', 'debug', 'info', 'warn', 'error', 'fatal')
     .default('debug'),
+
+  // Email (SMTP) — required in production
+  EMAIL_FROM: Joi.string().default('JebDekho <support@jebdekho.com>'),
+  SMTP_HOST: Joi.string().empty('').when('NODE_ENV', {
+    is: 'production',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+  SMTP_PORT: Joi.number().default(465),
+  SMTP_SECURE: Joi.string().valid('true', 'false').default('true'),
+  SMTP_USER: Joi.string().empty('').when('NODE_ENV', {
+    is: 'production',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+  SMTP_PASS: Joi.string().empty('').when('NODE_ENV', {
+    is: 'production',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+  SMTP_PASSWORD: Joi.string().empty('').optional(),
+
+  // IMAP (future inbound mail — optional)
+  IMAP_HOST: Joi.string().empty('').optional(),
+  IMAP_PORT: Joi.number().default(993),
 });

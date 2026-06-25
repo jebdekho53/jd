@@ -19,6 +19,7 @@ import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { ReservationService } from '../checkout/reservation.service';
 import { OrderStatusHistoryService } from '../order/order-status-history.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 import { RazorpayService } from './razorpay.service';
 import { CreateRazorpayOrderDto } from './dto/create-razorpay-order.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
@@ -34,6 +35,7 @@ export class PaymentService {
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
     private readonly statusHistory: OrderStatusHistoryService,
+    private readonly emailNotifications: EmailNotificationService,
   ) {}
 
   // ── Create Razorpay order for a reserved checkout ─────────────────────────
@@ -237,6 +239,10 @@ export class PaymentService {
       { userId, orderId: checkout.order.id, razorpayPaymentId: dto.razorpayPaymentId },
       'Payment verified, order confirmed',
     );
+
+    void this.emailNotifications.sendOrderConfirmation(checkout.order!.id).catch((err) => {
+      this.logger.error({ err, orderId: checkout.order!.id }, 'Order confirmation email failed');
+    });
 
     return { success: true, orderId: checkout.order.id, orderNumber: checkout.order.orderNumber };
   }

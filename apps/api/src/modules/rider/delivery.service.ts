@@ -27,6 +27,7 @@ import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.
 import { TRACKING_EVENTS } from '../delivery-tracking/delivery-tracking.events';
 import { WalletLoyaltyCheckoutService } from '../wallet-loyalty/wallet-loyalty-checkout.service';
 import { ReferralService } from '../wallet-loyalty/referral.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 import { InvoiceEngineService } from '../compliance/invoice-engine.service';
 import { TdsTcsService } from '../compliance/tds-tcs.service';
 import { TrustSafetyHookService } from '../trust-safety/trust-safety-hook.service';
@@ -87,6 +88,7 @@ export class DeliveryService {
     private readonly invoiceEngine: InvoiceEngineService,
     private readonly tdsTcs: TdsTcsService,
     private readonly trustSafety: TrustSafetyHookService,
+    private readonly emailNotifications: EmailNotificationService,
   ) {}
 
   // ── Get delivery for a rider ───────────────────────────────────────────────
@@ -385,6 +387,9 @@ export class DeliveryService {
       });
       void this.syncMonthlyTdsTcs().catch(() => {});
       void this.trustSafety.onOrderDelivered(delivery.orderId, riderProfileId).catch(() => {});
+      void this.emailNotifications.sendOrderDelivered(delivery.orderId).catch((err) => {
+        this.logger.error({ err, orderId: delivery.orderId }, 'Order delivered email failed');
+      });
     }
 
     const orderMeta = await this.prisma.order.findUnique({

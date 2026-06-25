@@ -113,6 +113,29 @@ export function getConfig(configService: ConfigService) {
       keySecret: configService.get<string>('RAZORPAY_KEY_SECRET', ''),
       webhookSecret: configService.get<string>('RAZORPAY_WEBHOOK_SECRET', ''),
     },
+
+    buyerSiteUrl: configService.get<string>('BUYER_SITE_URL', 'https://jebdekho.com'),
+
+    smtp: (() => {
+      const host = configService.get<string>('SMTP_HOST', '');
+      const user = configService.get<string>('SMTP_USER', '');
+      const pass =
+        configService.get<string>('SMTP_PASS', '') ||
+        configService.get<string>('SMTP_PASSWORD', '');
+      const enabled = Boolean(host && user && pass);
+      return {
+        enabled,
+        host,
+        port: configService.get<number>('SMTP_PORT', 465),
+        secure: configService.get<string>('SMTP_SECURE', 'true') === 'true',
+        user,
+        pass,
+        from: configService.get<string>(
+          'EMAIL_FROM',
+          'JebDekho <support@jebdekho.com>',
+        ),
+      };
+    })(),
   } as const;
 }
 

@@ -12,6 +12,7 @@ import { TrustSafetyHookService } from '../trust-safety/trust-safety-hook.servic
 import { RiskEngineService } from '../trust-safety/risk-engine.service';
 import { ReferralService } from '../wallet-loyalty/referral.service';
 import { WalletService } from '../wallet-loyalty/wallet.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 import { RedisService } from '../../redis/redis.service';
 import { PrismaService } from '../../database/prisma.service';
 
@@ -26,6 +27,12 @@ const mockPrismaService = {
   buyerProfile: { create: jest.fn() },
   notificationPreference: { upsert: jest.fn() },
   $transaction: jest.fn(),
+};
+
+const mockEmailNotifications = {
+  sendOtpEmail: jest.fn(),
+  sendWelcomeEmail: jest.fn(),
+  sendPasswordResetEmail: jest.fn(),
 };
 
 const mockOtpService = {
@@ -94,6 +101,7 @@ describe('AuthService', () => {
         { provide: DomainEventsService, useValue: mockDomainEvents },
         { provide: VerificationBlocklistService, useValue: mockBlocklist },
         { provide: TrustSafetyHookService, useValue: mockTrustSafety },
+        { provide: EmailNotificationService, useValue: mockEmailNotifications },
       ],
     }).compile();
 
@@ -118,7 +126,7 @@ describe('AuthService', () => {
         status: UserStatus.PENDING_VERIFICATION,
         phoneVerified: false,
       });
-      mockOtpService.requestOtp.mockResolvedValue({ expiresIn: 300 });
+      mockOtpService.requestOtp.mockResolvedValue({ expiresIn: 300, code: '123456' });
       mockDomainEvents.emit.mockResolvedValue('event-1');
 
       const result = await service.requestOtp({ phone: '+919876543210' }, '127.0.0.1');

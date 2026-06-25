@@ -54,6 +54,7 @@ import { AdsModule } from './modules/ads/ads.module';
 import { MembershipModule } from './modules/membership/membership.module';
 import { CorporateModule } from './modules/corporate/corporate.module';
 import { SeoModule } from './modules/seo/seo.module';
+import { EmailModule } from './modules/email/email.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
@@ -103,6 +104,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
     // ── Feature modules ───────────────────────────────────────────────────────
     HealthModule,
+    EmailModule,
     AuditModule,
     DomainEventsModule,
     AuthModule,

@@ -19,6 +19,7 @@ import { TrustSafetyHookService } from '../trust-safety/trust-safety-hook.servic
 import { RiskEngineService } from '../trust-safety/risk-engine.service';
 import { ReferralService } from '../wallet-loyalty/referral.service';
 import { WalletService } from '../wallet-loyalty/wallet.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 import { OtpService } from './otp.service';
 import { PasswordService } from './password.service';
 import { TokenService } from './token.service';
@@ -71,6 +72,7 @@ export class AuthService {
     private readonly domainEvents: DomainEventsService,
     private readonly blocklist: VerificationBlocklistService,
     private readonly trustSafety: TrustSafetyHookService,
+    private readonly emailNotifications: EmailNotificationService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -126,7 +128,16 @@ export class AuthService {
     const purpose =
       user.phoneVerified ? OtpPurpose.LOGIN : OtpPurpose.REGISTRATION;
 
-    const { expiresIn } = await this.otpService.requestOtp(phone, purpose, user.id);
+    const { expiresIn, code } = await this.otpService.requestOtp(phone, purpose, user.id);
+
+    const emailRecipient = viaEmail
+      ? dto.email!.trim().toLowerCase()
+      : user.email?.trim().toLowerCase();
+    if (emailRecipient && code) {
+      void this.emailNotifications
+        .sendOtpEmail(emailRecipient, code, expiresIn)
+        .catch((err) => this.logger.error({ err, emailRecipient }, 'OTP email failed'));
+    }
 
     void this.trustSafety.onOtpRequest(phone, ipAddress, dto.deviceId, userAgent).catch(() => {});
 
@@ -245,6 +256,12 @@ export class AuthService {
 
     const me = await this.getMe(user.id);
 
+    if (isNewUser) {
+      void this.sendWelcomeEmailIfPossible(user.id, dto.name?.trim()).catch((err) =>
+        this.logger.error({ err, userId: user.id }, 'Welcome email failed'),
+      );
+    }
+
     return { ...tokens, user: me, isNewUser };
   }
 
@@ -296,6 +313,11 @@ export class AuthService {
       userAgent,
       auditAction: 'USER_REGISTERED',
       metadata: { email, signupMethod: 'email' },
+    }).then(async (result) => {
+      void this.emailNotifications
+        .sendWelcomeEmail(email, dto.name.trim())
+        .catch((err) => this.logger.error({ err, email }, 'Welcome email failed'));
+      return result;
     });
   }
 
@@ -369,10 +391,13 @@ export class AuthService {
         REDIS_TTL.PASSWORD_RESET,
       );
 
-      this.logger.log(
-        { email, resetLink: `/forgot-password?token=${rawToken}` },
-        'Password reset link generated (wire SMTP in production)',
-      );
+      void this.emailNotifications
+        .sendPasswordResetEmail(
+          email,
+          rawToken,
+          Math.round(REDIS_TTL.PASSWORD_RESET / 60),
+        )
+        .catch((err) => this.logger.error({ err, email }, 'Password reset email failed'));
 
       return { message: 'If an account exists, a reset link has been sent to your email' };
     }
@@ -683,5 +708,15 @@ export class AuthService {
       if (!exists) return phone;
     }
     throw new BadRequestException('Unable to create account. Please try again.');
+  }
+
+  private async sendWelcomeEmailIfPossible(userId: string, preferredName?: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { buyerProfile: { select: { name: true } } },
+    });
+    if (!user?.email) return;
+    const name = preferredName || user.buyerProfile?.name || 'there';
+    await this.emailNotifications.sendWelcomeEmail(user.email, name);
   }
 }

@@ -18,5 +18,5 @@ export const REDIS_TTL = {
   REFRESH_TOKEN_REVOKED: 60 * 60 * 24 * 31, // 31 days
   ZONE_STORES: 60,               // 1 minute
   SESSION_METADATA: 60 * 60 * 24 * 7,  // 7 days
-  PASSWORD_RESET: 60 * 60,             // 1 hour
+  PASSWORD_RESET: 15 * 60,          // 15 minutes
 } as const;

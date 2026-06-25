@@ -23,6 +23,7 @@ export function createPageMetadata(opts: {
       siteName: SITE_NAME,
       type: 'website',
       locale: 'en_IN',
+      images: [{ url: BRAND_LOGO_SRC, width: 1254, height: 1254, alt: SITE_NAME }],
     },
     twitter: {
       card: 'summary_large_image',

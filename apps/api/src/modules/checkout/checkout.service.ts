@@ -37,6 +37,7 @@ import { SmartFulfillmentService } from '../fulfillment-network/smart-fulfillmen
 import { CorporateWalletService } from '../corporate/corporate-wallet.service';
 import { ApprovalService } from '../corporate/approval.service';
 import { PurchaseRequestStatus } from '@prisma/client';
+import { EmailNotificationService } from '../email/email-notification.service';
 
 const CHECKOUT_TTL_MINUTES = 15;
 
@@ -68,6 +69,7 @@ export class CheckoutService {
     private readonly smartFulfillment: SmartFulfillmentService,
     private readonly corporateWallet: CorporateWalletService,
     private readonly corporateApproval: ApprovalService,
+    private readonly emailNotifications: EmailNotificationService,
   ) {}
 
   // ── Initiate checkout (Razorpay / online payment) ──────────────────────────
@@ -381,6 +383,10 @@ export class CheckoutService {
       },
       'ORDER_CREATED (COD)',
     );
+
+    void this.emailNotifications.sendOrderConfirmation(order.id).catch((err) => {
+      this.logger.error({ err, orderId: order.id }, 'Order confirmation email failed');
+    });
 
     return { orderId: order.id, orderNumber: order.orderNumber, status: order.status };
   }

@@ -33,6 +33,7 @@ import { ReservationService } from '../checkout/reservation.service';
 import { RewardService } from '../wallet-loyalty/reward.service';
 import { LedgerService } from '../finance/ledger.service';
 import { CreditNoteService } from '../compliance/credit-note.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 import { ListOrdersDto, ListMerchantOrdersDto, ListAdminOrdersDto } from './dto/list-orders.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import {
@@ -238,6 +239,7 @@ export class OrderService implements OnModuleInit {
     private readonly rewards: RewardService,
     private readonly ledger: LedgerService,
     private readonly creditNotes: CreditNoteService,
+    private readonly emailNotifications: EmailNotificationService,
   ) {}
 
   // ── Buyer: list orders ────────────────────────────────────────────────────
@@ -957,6 +959,9 @@ export class OrderService implements OnModuleInit {
       void this.ledger.recordRefund(orderId, Number(order.totalAmount)).catch(() => {});
       void this.creditNotes.createForRefund(orderId, 'Order refund / cancellation').catch((err) => {
         this.logger.error({ err, orderId }, 'Credit note creation failed');
+      });
+      void this.emailNotifications.sendRefundProcessed(orderId).catch((err) => {
+        this.logger.error({ err, orderId }, 'Refund email failed');
       });
     }
   }

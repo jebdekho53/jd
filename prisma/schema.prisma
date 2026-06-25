@@ -5704,3 +5704,29 @@ model AiCrawlerVisit {
   @@index([path])
   @@map("ai_crawler_visits")
 }
+
+// =============================================================================
+// EMAIL DELIVERY LOGS
+// =============================================================================
+
+enum EmailDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model EmailLog {
+  id               String               @id @default(cuid())
+  recipient        String
+  subject          String
+  templateCode     String?              @map("template_code")
+  status           EmailDeliveryStatus
+  providerResponse String?              @map("provider_response") @db.Text
+  metadata         Json?
+  sentAt           DateTime?            @map("sent_at")
+  createdAt        DateTime             @default(now()) @map("created_at")
+
+  @@index([recipient, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("email_logs")
+}

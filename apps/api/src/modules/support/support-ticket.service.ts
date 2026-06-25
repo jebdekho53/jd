@@ -17,6 +17,7 @@ import { SupportSlaService } from './support-sla.service';
 import { TicketAssignmentService } from './ticket-assignment.service';
 import { SupportAutomationService } from './support-automation.service';
 import { MembershipBenefitService } from '../membership/membership-benefit.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 
 export interface CreateTicketInput {
   requesterUserId: string;
@@ -41,6 +42,7 @@ export class SupportTicketService {
     private readonly assignment: TicketAssignmentService,
     private readonly automation: SupportAutomationService,
     private readonly membershipBenefits: MembershipBenefitService,
+    private readonly emailNotifications: EmailNotificationService,
   ) {}
 
   async createTicket(input: CreateTicketInput, ipAddress?: string) {
@@ -99,6 +101,8 @@ export class SupportTicketService {
       ipAddress,
       metadata: { ticketNumber, category: category.code } as Prisma.InputJsonValue,
     });
+
+    void this.emailNotifications.sendSupportTicketCreated(ticket.id).catch(() => {});
 
     return ticket;
   }

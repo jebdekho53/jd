@@ -37,7 +37,7 @@ export class OtpService {
     phone: string,
     purpose: OtpPurpose,
     userId?: string,
-  ): Promise<{ expiresIn: number }> {
+  ): Promise<{ expiresIn: number; code: string }> {
     if (!isDemoPhone(phone, this.cfg)) {
       await this.enforceRateLimit(phone);
     }
@@ -76,7 +76,7 @@ export class OtpService {
 
     this.logger.debug({ phone, purpose }, 'OTP dispatched');
 
-    return { expiresIn: this.cfg.otp.expiresMinutes * 60 };
+    return { expiresIn: this.cfg.otp.expiresMinutes * 60, code };
   }
 
   /**
