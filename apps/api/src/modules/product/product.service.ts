@@ -21,6 +21,8 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { UpdatePriceDto } from './dto/update-price.dto';
 import { UpdateProductStatusDto } from './dto/update-status.dto';
+import { StoreCategoryAccessService } from '../category-governance/store-category-access.service';
+import { InventoryService } from '../inventory/inventory.service';
 import { ListProductsDto } from './dto/list-products.dto';
 
 type VariantWithInventory = ProductVariant & { inventory: Inventory | null };
@@ -39,6 +41,8 @@ export class ProductService {
     private readonly merchantService: MerchantService,
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
+    private readonly storeCategoryAccess: StoreCategoryAccessService,
+    private readonly inventoryService: InventoryService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -58,10 +62,9 @@ export class ProductService {
       throw new BadRequestException('Selling price (basePrice) cannot exceed MRP');
     }
 
-    // Validate category exists if provided
+    // Validate category is approved for merchant
     if (dto.categoryId) {
-      const cat = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
-      if (!cat) throw new BadRequestException(`Category not found: ${dto.categoryId}`);
+      await this.validateProductCategory(storeId, dto.categoryId);
     }
 
     // Check product-level SKU uniqueness within store
@@ -145,8 +148,9 @@ export class ProductService {
         await tx.inventory.create({
           data: {
             variantId: variant.id,
-            quantity: v.quantity ?? 0,
-            reserved: 0,
+            availableQty: v.quantity ?? 0,
+            reservedQty: 0,
+            soldQty: 0,
             lowStockThreshold: v.lowStockThreshold ?? 5,
             version: 0,
           },
@@ -301,6 +305,10 @@ export class ProductService {
     // SKU uniqueness (if changing)
     if (dto.sku && dto.sku !== product.sku) {
       await this.assertSkuUnique(storeId, dto.sku, productId);
+    }
+
+    if (dto.categoryId) {
+      await this.validateProductCategory(storeId, dto.categoryId);
     }
 
     // Regenerate slug if name changed
@@ -466,18 +474,14 @@ export class ProductService {
     });
     if (!inventory) throw new NotFoundException(`Inventory not found for variant: ${variantId}`);
 
-    const previousQty = inventory.quantity;
+    const previousQty = inventory.availableQty;
 
-    const updated = await this.prisma.inventory.update({
-      where: { variantId },
-      data: {
-        quantity: dto.quantity,
-        ...(dto.lowStockThreshold !== undefined && {
-          lowStockThreshold: dto.lowStockThreshold,
-        }),
-        version: { increment: 1 },
-      },
-    });
+    const updated = await this.inventoryService.adjustAvailableQty(
+      variantId,
+      dto.quantity,
+      dto.lowStockThreshold,
+      userId,
+    );
 
     await Promise.all([
       this.audit.log({
@@ -510,7 +514,7 @@ export class ProductService {
       ),
     ]);
 
-    return updated;
+    return this.prisma.inventory.findUniqueOrThrow({ where: { variantId } });
   }
 
   // ---------------------------------------------------------------------------
@@ -721,6 +725,30 @@ export class ProductService {
       throw new NotFoundException(`Variant ${variantId} not found on product ${productId}`);
     }
     return variant;
+  }
+
+  private async validateProductCategory(
+    storeId: string,
+    categoryId: string,
+  ): Promise<void> {
+    const store = await this.prisma.store.findFirst({
+      where: { id: storeId, deletedAt: null },
+      select: { merchantProfileId: true },
+    });
+    if (!store) throw new NotFoundException('Store not found');
+
+    const cat = await this.prisma.category.findUnique({ where: { id: categoryId } });
+    if (!cat) throw new BadRequestException(`Category not found: ${categoryId}`);
+
+    if (cat.storeId === null && cat.scope === 'GLOBAL') {
+      await this.storeCategoryAccess.assertProductCategoryAllowed(
+        storeId,
+        store.merchantProfileId,
+        categoryId,
+      );
+    } else if (cat.storeId !== storeId) {
+      throw new ForbiddenException('Category does not belong to this store');
+    }
   }
 
   private async generateUniqueProductSlug(

@@ -32,6 +32,7 @@ import { StoreService } from './store.service';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
 import { ListStoresDto } from './dto/list-stores.dto';
+import { UploadVerificationDocumentDto } from './dto/upload-verification-document.dto';
 
 @ApiTags(Tags.STORES)
 @ApiBearerAuth('access-token')
@@ -108,7 +109,7 @@ export class StoreController {
   @Patch(':id')
   @Permissions('stores:write')
   @ApiParam({ name: 'id', description: 'Store ID' })
-  @ApiOperation({ summary: 'Update store — full edit for DRAFT/REJECTED, settings-only for APPROVED' })
+  @ApiOperation({ summary: 'Update store — full edit for DRAFT, settings-only for APPROVED' })
   @ApiResponse({ status: 200, description: 'Store updated' })
   @ApiResponse({ status: 403, description: 'Cannot edit in current status or not owner' })
   async updateStore(
@@ -128,7 +129,7 @@ export class StoreController {
   @HttpCode(HttpStatus.OK)
   @Permissions('stores:submit')
   @ApiParam({ name: 'id', description: 'Store ID' })
-  @ApiOperation({ summary: 'Submit DRAFT/REJECTED store for admin review' })
+  @ApiOperation({ summary: 'Submit DRAFT store for admin review' })
   @ApiResponse({ status: 200, description: 'Store submitted — status: PENDING_REVIEW' })
   @ApiResponse({ status: 400, description: 'Store not ready (missing required fields)' })
   @ApiResponse({ status: 400, description: 'Invalid status transition' })
@@ -139,6 +140,43 @@ export class StoreController {
     @Req() req: Request,
   ) {
     const data = await this.storeService.submitForReview(user.id, storeId, ip);
+    return { success: true, data };
+  }
+
+  // --------------------------------------------------------------------------
+  // POST /merchant/stores/:id/documents
+  // --------------------------------------------------------------------------
+  @Post(':id/documents')
+  @HttpCode(HttpStatus.CREATED)
+  @Permissions('stores:write')
+  @ApiParam({ name: 'id', description: 'Store ID' })
+  @ApiOperation({ summary: 'Upload a verification document when DOCUMENTS_REQUIRED' })
+  @ApiResponse({ status: 201, description: 'Document uploaded' })
+  async uploadVerificationDocument(
+    @CurrentUser() user: RequestUser,
+    @Param('id') storeId: string,
+    @Body() dto: UploadVerificationDocumentDto,
+    @Ip() ip: string,
+  ) {
+    const data = await this.storeService.uploadVerificationDocument(user.id, storeId, dto, ip);
+    return { success: true, data };
+  }
+
+  // --------------------------------------------------------------------------
+  // POST /merchant/stores/:id/submit-documents
+  // --------------------------------------------------------------------------
+  @Post(':id/submit-documents')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('stores:submit')
+  @ApiParam({ name: 'id', description: 'Store ID' })
+  @ApiOperation({ summary: 'Submit uploaded documents — DOCUMENTS_REQUIRED → UNDER_REVIEW' })
+  @ApiResponse({ status: 200, description: 'Documents submitted for admin review' })
+  async submitDocumentsForReview(
+    @CurrentUser() user: RequestUser,
+    @Param('id') storeId: string,
+    @Ip() ip: string,
+  ) {
+    const data = await this.storeService.submitDocumentsForReview(user.id, storeId, ip);
     return { success: true, data };
   }
 }

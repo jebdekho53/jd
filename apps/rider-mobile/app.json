@@ -7,13 +7,19 @@
     "scheme": "jebdekho-rider",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#0f766e"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.jebdekho.rider"
+      "bundleIdentifier": "com.jebdekho.rider",
+      "infoPlist": {
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,6 +30,14 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0f766e",
+          "resizeMode": "contain"
+        }
+      ],
       [
         "expo-location",
         {

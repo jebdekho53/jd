@@ -1,0 +1,62 @@
+'use client';
+
+import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
+import { AlertTriangle } from 'lucide-react';
+import { checkDeliverability } from '@/services/geo/map-api';
+
+interface DeliverabilityPanelProps {
+  storeId: string;
+  lat: number;
+  lng: number;
+}
+
+async function fetchDeliverability(storeId: string, lat: number, lng: number) {
+  const res = await fetch(
+    `/api/buyer/geo/deliverability?storeId=${encodeURIComponent(storeId)}&lat=${lat}&lng=${lng}`,
+  );
+  if (!res.ok) throw new Error('Failed to check delivery coverage');
+  const json = await res.json();
+  return json.data as Awaited<ReturnType<typeof checkDeliverability>>;
+}
+
+export function DeliverabilityPanel({ storeId, lat, lng }: DeliverabilityPanelProps) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['deliverability', storeId, lat, lng],
+    queryFn: () => fetchDeliverability(storeId, lat, lng),
+    enabled: Boolean(storeId && lat && lng),
+    staleTime: 15_000,
+  });
+
+  if (isLoading || !data || data.deliverable) return null;
+
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
+      <div className="flex items-start gap-2 text-amber-900">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="space-y-2">
+          <p className="font-medium">Not deliverable to this address</p>
+          <p className="text-amber-800">
+            {data.reason ?? 'This store does not deliver to your location.'}
+            {data.distanceKm != null && ` (${data.distanceKm} km away, max ${data.deliveryRadiusKm} km).`}
+          </p>
+          {data.nearestStores.length > 0 && (
+            <div>
+              <p className="font-medium">Nearest available stores:</p>
+              <ul className="mt-1 list-inside list-disc">
+                {data.nearestStores.map((s) => (
+                  <li key={s.id}>
+                    <Link href={`/stores/${s.slug}`} className="underline">
+                      {s.name}
+                    </Link>
+                    {s.distanceKm != null && ` — ${s.distanceKm} km`}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

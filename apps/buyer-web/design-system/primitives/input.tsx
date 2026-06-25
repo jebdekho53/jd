@@ -24,7 +24,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           className={cn(
             'flex h-11 w-full rounded-lg border bg-white px-4 text-base text-neutral-900',
             'placeholder:text-neutral-400',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-1',
             'disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:opacity-60',
             error ? 'border-red-500' : 'border-neutral-200',
             className,

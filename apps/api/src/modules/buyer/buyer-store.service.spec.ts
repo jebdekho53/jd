@@ -7,6 +7,7 @@ import { BuyerCacheService } from './buyer-cache.service';
 
 const makeStore = (overrides: Partial<Record<string, unknown>> = {}) => ({
   id: 's-1',
+  merchantProfileId: 'mp-1',
   name: 'Test Store',
   slug: 'test-store',
   logoUrl: null,
@@ -19,6 +20,7 @@ const makeStore = (overrides: Partial<Record<string, unknown>> = {}) => ({
   pincode: '110001',
   latitude: 28.6139,
   longitude: 77.209,
+  deliveryRadiusKm: 5,
   status: StoreStatus.APPROVED,
   isActive: true,
   deletedAt: null,
@@ -51,6 +53,12 @@ const mockPrisma = {
     findMany: jest.fn(),
     findFirst: jest.fn(),
   },
+  merchantCategory: {
+    findMany: jest.fn().mockResolvedValue([]),
+  },
+  category: {
+    findMany: jest.fn().mockResolvedValue([]),
+  },
 };
 
 describe('BuyerStoreService', () => {
@@ -66,6 +74,8 @@ describe('BuyerStoreService', () => {
     }).compile();
     service = module.get<BuyerStoreService>(BuyerStoreService);
     jest.clearAllMocks();
+    mockPrisma.merchantCategory.findMany.mockResolvedValue([]);
+    mockPrisma.category.findMany.mockResolvedValue([]);
     // Reset cache mock to passthrough
     mockCache.wrap.mockImplementation((_, fn: () => Promise<unknown>) => fn());
   });
@@ -85,9 +95,58 @@ describe('BuyerStoreService', () => {
         limit: 20,
       });
 
+      expect(mockPrisma.store.findMany).toHaveBeenCalledTimes(2);
       expect(stores).toHaveLength(1);
       expect(stores[0].distanceKm).toBeLessThanOrEqual(5);
       expect(total).toBe(1);
+    });
+
+    it('includes store when buyer is in a linked service area', async () => {
+      const store = makeStore({
+        latitude: 19.076,
+        longitude: 72.877,
+        storeServiceAreas: [
+          {
+            serviceArea: {
+              centerLat: 28.6139,
+              centerLng: 77.209,
+              radiusKm: 3,
+            },
+          },
+        ],
+      });
+      mockPrisma.store.findMany.mockResolvedValue([store]);
+
+      const { stores } = await service.discoverStores({
+        lat: 28.6139,
+        lng: 77.209,
+        radiusKm: 5,
+      });
+
+      expect(stores).toHaveLength(1);
+    });
+
+    it('includes store near buyer even when service areas do not cover buyer', async () => {
+      const store = makeStore({
+        storeServiceAreas: [
+          {
+            serviceArea: {
+              centerLat: 19.076,
+              centerLng: 72.877,
+              radiusKm: 2,
+            },
+          },
+        ],
+      });
+      mockPrisma.store.findMany.mockResolvedValue([store]);
+
+      const { stores } = await service.discoverStores({
+        lat: 28.6139,
+        lng: 77.209,
+        radiusKm: 5,
+      });
+
+      expect(stores).toHaveLength(1);
     });
 
     it('excludes stores outside the radius', async () => {
@@ -138,11 +197,15 @@ describe('BuyerStoreService', () => {
   // ── getStoreBySlug ──────────────────────────────────────────────────────
 
   describe('getStoreBySlug', () => {
-    it('returns store detail', async () => {
+    it('returns store detail with global catalog categories', async () => {
       mockPrisma.store.findFirst.mockResolvedValue(makeStore());
+      mockPrisma.category.findMany.mockResolvedValue([
+        { id: 'c-1', name: 'Dairy', slug: 'dairy', imageUrl: null, parentId: null, sortOrder: 0, children: [] },
+      ]);
 
       const detail = await service.getStoreBySlug('test-store');
       expect(detail.slug).toBe('test-store');
+      expect(detail.categories).toHaveLength(1);
       expect(detail.productCount).toBe(5);
       expect(detail.hours).toBeInstanceOf(Array);
     });

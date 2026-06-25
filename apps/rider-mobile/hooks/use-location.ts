@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useRiderStore } from '@/store/rider-store';
-import { startGpsTracking, stopGpsTracking, syncGpsWithAvailability } from '@/services/gps-service';
+import { startGpsTracking, stopGpsTracking, syncGpsWithAvailability } from '@/services/live-location.service';
 
 export function useGpsLifecycle() {
   const availability = useRiderStore((s) => s.availability);

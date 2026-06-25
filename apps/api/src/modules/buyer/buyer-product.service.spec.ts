@@ -12,6 +12,8 @@ const PRODUCT = {
   id: 'p-1',
   name: 'Amul Milk',
   slug: 'amul-milk',
+  categoryId: 'c-1',
+  storeId: 's-1',
   description: null,
   brand: 'Amul',
   imageUrls: [],
@@ -29,10 +31,18 @@ const PRODUCT = {
       mrp: { toNumber: () => 59 },
       weightGrams: null,
       isDefault: true,
-      inventory: { quantity: 10, reserved: 0 },
+      inventory: { availableQty: 10, reservedQty: 0 },
     },
   ],
-  store: { id: 's-1', name: 'Test Store', slug: 'test-store' },
+  store: {
+    id: 's-1',
+    name: 'Test Store',
+    slug: 'test-store',
+    latitude: 28.61,
+    longitude: 77.21,
+    ratingAvg: 4.5,
+    avgPrepTimeMins: 15,
+  },
 };
 
 const mockPrisma = {
@@ -42,7 +52,12 @@ const mockPrisma = {
   },
   category: {
     findMany: jest.fn().mockResolvedValue([]),
+    findFirst: jest.fn(),
   },
+  store: { findFirst: jest.fn() },
+  merchantCategory: { findMany: jest.fn() },
+  storeCategory: { findMany: jest.fn(), findFirst: jest.fn() },
+  storePromotion: { findMany: jest.fn().mockResolvedValue([]) },
   $transaction: jest.fn().mockImplementation(async (arr: unknown[]) =>
     Promise.all(arr.map((p) => (p instanceof Promise ? p : Promise.resolve(p)))),
   ),
@@ -67,6 +82,22 @@ describe('BuyerProductService', () => {
     );
     mockPrisma.product.findMany.mockResolvedValue([PRODUCT]);
     mockPrisma.product.count.mockResolvedValue(1);
+    mockPrisma.store.findFirst.mockResolvedValue({
+      id: 's-1',
+      merchantProfileId: 'mp-1',
+      status: StoreStatus.APPROVED,
+      isActive: true,
+      deletedAt: null,
+    });
+    mockPrisma.merchantCategory.findMany.mockResolvedValue([{ categoryId: 'c-1' }]);
+    mockPrisma.storeCategory.findMany.mockResolvedValue([
+      { storeId: 's-1', subcategoryId: 'c-1' },
+    ]);
+    mockPrisma.storeCategory.findFirst.mockResolvedValue({
+      storeId: 's-1',
+      subcategoryId: 'c-1',
+    });
+    mockPrisma.category.findFirst.mockResolvedValue({ id: 'c-1', parentId: null });
   });
 
   describe('listStoreProducts', () => {
@@ -120,7 +151,7 @@ describe('BuyerProductService', () => {
   });
 
   describe('listCategories', () => {
-    it('fetches categories with children', async () => {
+    it('returns all active global categories from admin catalog', async () => {
       mockPrisma.category.findMany.mockResolvedValue([
         {
           id: 'c-1',
@@ -136,13 +167,15 @@ describe('BuyerProductService', () => {
       const cats = await service.listCategories();
       expect(cats).toHaveLength(1);
       expect(cats[0].slug).toBe('dairy');
+      expect(mockPrisma.merchantCategory.findMany).not.toHaveBeenCalled();
     });
 
     it('uses cache wrapper', async () => {
+      mockPrisma.store.findFirst.mockResolvedValue({ id: 's-1' });
       mockPrisma.category.findMany.mockResolvedValue([]);
       await service.listCategories('s-1');
       expect(mockCache.wrap).toHaveBeenCalledWith(
-        expect.stringContaining('buyer:categories:s'),
+        'buyer:categories:ss-1',
         expect.any(Function),
       );
     });

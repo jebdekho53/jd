@@ -30,7 +30,7 @@ const mockConfig = {
       JWT_ACCESS_EXPIRES_IN: '15m',
       JWT_REFRESH_EXPIRES_IN: '30d',
       JWT_ISSUER: 'jebdekho-api',
-      JWT_AUDIENCE: 'jebdekho-clients',
+      CORS_ORIGINS: 'https://jebdekho.com',
     };
     return map[key];
   }),

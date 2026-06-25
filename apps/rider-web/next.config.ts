@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['@jebdekho/web-config'],
   async headers() {
     return [
       {

@@ -11,6 +11,7 @@ import { PhoneInput } from '@/features/auth/components/phone-input';
 import { applyAuthSession } from '@/features/auth/auth-provider';
 import { useRequestOtpMutation, useVerifyOtpMutation, SessionError } from '@/hooks/use-auth';
 import { isValidIndianPhone, normalizeIndianPhone } from '@/lib/phone';
+import { DEMO_OTP, DEMO_PHONE_DIGITS, DEMO_PHONE_E164, IS_DEV } from '@/lib/demo-auth';
 import { useToast } from '@/design-system/primitives';
 
 const phoneSchema = z.object({
@@ -118,6 +119,25 @@ export function LoginPageContent() {
           <CardBody className="space-y-6">
             {step === 'phone' && (
               <form onSubmit={onPhoneSubmit} className="space-y-6">
+                {IS_DEV && (
+                  <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4 text-center">
+                    <p className="text-sm font-semibold text-jd-text-primary">Demo login</p>
+                    <p className="mt-1 text-xs text-jd-text-muted">
+                      Phone <span className="font-mono font-medium">{DEMO_PHONE_DIGITS}</span>
+                      {' · '}
+                      OTP <span className="font-mono font-medium">{DEMO_OTP}</span>
+                    </p>
+                    <button
+                      type="button"
+                      className="mt-3 text-sm font-semibold text-primary hover:underline"
+                      onClick={() => {
+                        phoneForm.setValue('phone', DEMO_PHONE_DIGITS, { shouldValidate: true });
+                      }}
+                    >
+                      Use demo number
+                    </button>
+                  </div>
+                )}
                 <PhoneInput
                   value={phoneForm.watch('phone')}
                   onChange={(v) => phoneForm.setValue('phone', v, { shouldValidate: true })}
@@ -136,6 +156,11 @@ export function LoginPageContent() {
                   <Text variant="bodySm">
                     OTP sent to <span className="font-medium text-neutral-900">{phone}</span>
                   </Text>
+                  {IS_DEV && phone === DEMO_PHONE_E164 && (
+                    <p className="mt-2 rounded-lg bg-primary/10 px-3 py-2 text-sm font-mono font-semibold text-primary">
+                      Demo OTP: {DEMO_OTP}
+                    </p>
+                  )}
                   <button
                     type="button"
                     className="mt-2 text-sm font-medium text-emerald-700 hover:underline"

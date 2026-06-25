@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useRequestOtpMutation, useVerifyOtpMutation } from '@/hooks/use-auth';
+import { fetchRiderMe } from '@/services/rider-api';
 import { isKycApproved, isRiderUser } from '@/types/rider';
 
 type Step = 'phone' | 'otp';
@@ -47,7 +48,8 @@ export function LoginScreen() {
         setStep('phone');
         return;
       }
-      if (!isKycApproved(result.profile)) {
+      const profile = result.profile ?? (await fetchRiderMe()).profile;
+      if (!isKycApproved(profile)) {
         setError('KYC not approved. Contact support to go online.');
         setStep('phone');
         return;

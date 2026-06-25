@@ -6,16 +6,20 @@ import {
   getOrderDetail,
   confirmOrder,
   markPreparing,
+  markPacking,
   markReady,
+  markIssue,
   cancelOrder,
 } from '@/services/orders/orders-api';
 import type { ListOrdersParams } from '@/types/order';
 
-export function useOrdersQuery(params: ListOrdersParams = {}) {
+export function useOrdersQuery(params: ListOrdersParams = {}, options?: { refetchInterval?: number }) {
   return useQuery({
     queryKey: ['orders', params],
     queryFn: () => listOrders(params),
-    refetchInterval: 30_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchInterval: options?.refetchInterval ?? 15_000,
   });
 }
 
@@ -24,6 +28,7 @@ export function useOrderDetailQuery(orderId: string) {
     queryKey: ['orders', orderId],
     queryFn: () => getOrderDetail(orderId),
     enabled: Boolean(orderId),
+    refetchInterval: 15_000,
   });
 }
 
@@ -40,7 +45,19 @@ function useOrderActionMutation(actionFn: (id: string) => Promise<unknown>, orde
 
 export const useConfirmOrderMutation = (orderId?: string) => useOrderActionMutation(confirmOrder, orderId);
 export const useMarkPreparingMutation = (orderId?: string) => useOrderActionMutation(markPreparing, orderId);
+export const useMarkPackingMutation = (orderId?: string) => useOrderActionMutation(markPacking, orderId);
 export const useMarkReadyMutation = (orderId?: string) => useOrderActionMutation(markReady, orderId);
+
+export function useMarkIssueMutation(orderId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) => markIssue(id, note),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      if (orderId) qc.invalidateQueries({ queryKey: ['orders', orderId] });
+    },
+  });
+}
 
 export function useCancelOrderMutation(orderId?: string) {
   const qc = useQueryClient();

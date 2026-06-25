@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { StoreStatus } from '@prisma/client';
 
 export class ListStoreApprovalsDto {
@@ -7,11 +8,20 @@ export class ListStoreApprovalsDto {
     required: false,
     enum: StoreStatus,
     default: StoreStatus.PENDING_REVIEW,
-    description: 'Filter by store status',
+    description: 'Filter by store status (ignored when blacklisted=true)',
   })
   @IsOptional()
   @IsEnum(StoreStatus)
   status?: StoreStatus = StoreStatus.PENDING_REVIEW;
+
+  @ApiProperty({
+    required: false,
+    description: 'When true, list stores whose merchant profile is blacklisted',
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  blacklisted?: boolean;
 
   @ApiProperty({ required: false, description: 'Filter by city ID' })
   @IsOptional()

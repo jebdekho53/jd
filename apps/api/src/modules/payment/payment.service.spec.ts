@@ -45,7 +45,8 @@ const mockRazorpay = {
 };
 
 const mockReservation = {
-  consumeReservations: jest.fn(),
+  linkReservationsToOrder: jest.fn(),
+  fulfillOnDelivery: jest.fn(),
   releaseReservations: jest.fn(),
 };
 
@@ -174,7 +175,7 @@ describe('PaymentService', () => {
         return Promise.all(cb);
       });
       mockPrisma.checkout.update.mockResolvedValue({});
-      mockReservation.consumeReservations.mockResolvedValue(undefined);
+      mockReservation.linkReservationsToOrder.mockResolvedValue(undefined);
       mockAudit.log.mockResolvedValue(undefined);
       mockDomainEvents.emit.mockResolvedValue(undefined);
     });

@@ -1,4 +1,4 @@
-/**
- * System monitoring hooks — implemented in Phase 2.
- */
-export {};
+export {
+  useAdminOverviewQuery as useMetricsOverviewQuery,
+  adminDashboardKeys,
+} from './use-dashboard';

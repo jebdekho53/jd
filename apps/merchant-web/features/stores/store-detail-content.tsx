@@ -1,14 +1,20 @@
 'use client';
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowLeft, CheckCircle, Send } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Send, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardHeader, CardBody, Button, Input, Textarea, Spinner } from '@/design-system/primitives';
 import { StoreStatusBadge } from './components/store-status-badge';
-import { useStoreQuery, useUpdateStoreMutation, useSubmitStoreForReviewMutation } from '@/hooks/use-stores';
+import { StoreDocumentsPanel } from './components/store-documents-panel';
+import {
+  useStoreQuery,
+  useUpdateStoreMutation,
+  useSubmitStoreForReviewMutation,
+  useUploadVerificationDocumentMutation,
+  useSubmitDocumentsForReviewMutation,
+} from '@/hooks/use-stores';
 import { useToast } from '@/design-system/primitives';
 
 const schema = z.object({
@@ -30,6 +36,8 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
   const { data: store, isLoading } = useStoreQuery(storeId);
   const updateMutation = useUpdateStoreMutation(storeId);
   const submitMutation = useSubmitStoreForReviewMutation(storeId);
+  const uploadDocMutation = useUploadVerificationDocumentMutation(storeId);
+  const submitDocsMutation = useSubmitDocumentsForReviewMutation(storeId);
 
   const { register, handleSubmit, formState: { errors, isDirty } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -70,8 +78,10 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
 
   if (!store) return <p className="text-red-600">Store not found.</p>;
 
-  const canEdit = store.status === 'DRAFT' || store.status === 'REJECTED';
-  const canSubmit = store.status === 'DRAFT' || store.status === 'REJECTED';
+  const canEdit = store.status === 'DRAFT' && !store.merchantProfile?.isBlacklisted;
+  const canSubmit = store.status === 'DRAFT' && !store.merchantProfile?.isBlacklisted;
+  const showDocumentsPanel =
+    store.status === 'DOCUMENTS_REQUIRED' && !store.merchantProfile?.isBlacklisted;
 
   return (
     <>
@@ -96,15 +106,79 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
         )}
       </div>
 
+      {store.status === 'DRAFT' && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <strong>Draft store:</strong> Click <em>Submit for Review</em> above to send your application to the admin queue.
+        </div>
+      )}
+
       {store.status === 'PENDING_REVIEW' && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <strong>Under review:</strong> Your store is being reviewed by our team. This typically takes 24–48 hours.
+          <strong>Pending review:</strong> Your store is in the admin queue. This typically takes 24–48 hours.
         </div>
+      )}
+
+      {store.status === 'UNDER_REVIEW' && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <strong>Under review:</strong> Your submitted documents are being reviewed by our compliance team.
+        </div>
+      )}
+
+      {showDocumentsPanel && (
+        <StoreDocumentsPanel
+          store={store}
+          isUploading={uploadDocMutation.isPending}
+          isSubmitting={submitDocsMutation.isPending}
+          onUpload={async (payload) => {
+            try {
+              await uploadDocMutation.mutateAsync(payload);
+              toast('Document uploaded', 'success');
+            } catch (err) {
+              toast((err as Error).message, 'error');
+              throw err;
+            }
+          }}
+          onSubmitDocuments={async () => {
+            try {
+              await submitDocsMutation.mutateAsync();
+              toast('Documents submitted for review!', 'success');
+            } catch (err) {
+              toast((err as Error).message, 'error');
+            }
+          }}
+        />
       )}
 
       {store.status === 'APPROVED' && (
         <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 flex items-center gap-2">
           <CheckCircle className="h-4 w-4" /> Your store is approved and live!
+        </div>
+      )}
+
+      {store.status === 'REJECTED' && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <div className="flex items-center gap-2 font-semibold">
+            <XCircle className="h-4 w-4" />
+            {store.merchantProfile?.isBlacklisted ? 'Account permanently blocked' : 'Application rejected'}
+          </div>
+          {store.rejectionType && (
+            <p className="mt-1 text-xs uppercase tracking-wide text-red-700">
+              {store.rejectionType.replace(/_/g, ' ')}
+            </p>
+          )}
+          {store.rejectionReason && <p className="mt-1">{store.rejectionReason}</p>}
+          {store.merchantProfile?.isBlacklisted ? (
+            <p className="mt-2 text-xs">
+              This merchant account has been permanently blocked due to policy violations.
+            </p>
+          ) : store.rejectionType &&
+            (['DOCUMENT_ISSUE', 'COMPLIANCE_ISSUE'] as const).includes(
+              store.rejectionType as 'DOCUMENT_ISSUE' | 'COMPLIANCE_ISSUE',
+            ) ? (
+            <p className="mt-2 text-xs">
+              Your application may be reopened by the compliance team after review.
+            </p>
+          ) : null}
         </div>
       )}
 
@@ -123,9 +197,9 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
             <Input label="Address line 1" error={errors.line1?.message} disabled={!canEdit} {...register('line1')} />
             <Input label="Address line 2" {...register('line2')} disabled={!canEdit} />
             <div className="grid grid-cols-3 gap-3">
-              <Input label="Min order (₹)" type="number" {...register('minOrderAmount')} />
-              <Input label="Delivery fee (₹)" type="number" {...register('deliveryFee')} />
-              <Input label="Prep time (min)" type="number" {...register('avgPrepTimeMins')} />
+              <Input label="Min order (₹)" type="number" {...register('minOrderAmount')} disabled={!canEdit} />
+              <Input label="Delivery fee (₹)" type="number" {...register('deliveryFee')} disabled={!canEdit} />
+              <Input label="Prep time (min)" type="number" {...register('avgPrepTimeMins')} disabled={!canEdit} />
             </div>
             {canEdit && (
               <div className="flex justify-end">

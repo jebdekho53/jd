@@ -25,6 +25,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { RequestUser } from '../../common/types/index';
 import { DeliveryService } from './delivery.service';
 import { RiderLocationService } from './rider-location.service';
+import { RiderAssignmentService } from '../rider-assignment/rider-assignment.service';
 import { PrismaService } from '../../database/prisma.service';
 import { UpdateRiderLocationDto } from './dto/update-rider-location.dto';
 import { UpdateRiderStatusDto } from './dto/update-rider-status.dto';
@@ -39,6 +40,7 @@ export class RiderController {
   constructor(
     private readonly deliveryService: DeliveryService,
     private readonly locationService: RiderLocationService,
+    private readonly assignmentService: RiderAssignmentService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -118,6 +120,19 @@ export class RiderController {
   ) {
     const data = await this.deliveryService.acceptDelivery(user.id, orderId, ip);
     return { success: true, data };
+  }
+
+  @Patch('orders/:orderId/reject')
+  @Permissions('deliveries:update')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'orderId' })
+  @ApiOperation({ summary: 'Reject delivery offer (within offer window)' })
+  async rejectDelivery(
+    @CurrentUser() user: RequestUser,
+    @Param('orderId') orderId: string,
+  ) {
+    await this.assignmentService.rejectOffer(user.id, orderId);
+    return { success: true };
   }
 
   @Patch('orders/:orderId/arrived-store')

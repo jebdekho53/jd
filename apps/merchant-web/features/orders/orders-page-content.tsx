@@ -1,74 +1,104 @@
 'use client';
 
 import { useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { LayoutGrid, List, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { Card, Select, Skeleton, Table, THead, TBody, Tr, Th, Td, Button } from '@/design-system/primitives';
+import { Card, Skeleton, Table, THead, TBody, Tr, Th, Td, Button } from '@/design-system/primitives';
 import { OrderStatusBadge } from './components/order-status-badge';
+import { OrderPipelineBoard } from './components/order-pipeline-board';
+import {
+  OrderPipelineFilters,
+  filtersToParams,
+  type PipelineFilters,
+} from './components/order-pipeline-filters';
+import { OrderSlaBadge } from './components/order-sla-badge';
 import { useOrdersQuery } from '@/hooks/use-orders';
 import { useStoreStore } from '@/store/store-store';
-import type { OrderStatus } from '@/types/order';
+import { cn } from '@/lib/cn';
 
-const STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: '', label: 'All orders' },
-  { value: 'PAID', label: 'New (Paid)' },
-  { value: 'MERCHANT_ACCEPTED', label: 'Accepted' },
-  { value: 'PREPARING', label: 'Preparing' },
-  { value: 'READY_FOR_PICKUP', label: 'Ready' },
-  { value: 'CANCELLED_BY_BUYER', label: 'Cancelled' },
-];
+type ViewMode = 'kanban' | 'table';
+
+const DEFAULT_FILTERS: PipelineFilters = {
+  datePreset: 'today',
+  dateFrom: '',
+  dateTo: '',
+  pipelineColumn: '',
+  paymentMethod: '',
+  search: '',
+};
 
 export function OrdersPageContent() {
   const { currentStore } = useStoreStore();
-  const [statusFilter, setStatusFilter] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('kanban');
+  const [filters, setFilters] = useState<PipelineFilters>(DEFAULT_FILTERS);
 
-  const { data, isLoading, refetch, isFetching } = useOrdersQuery({
-    storeId: currentStore?.id,
-    status: statusFilter as OrderStatus | undefined,
-  });
-
+  const queryParams = filtersToParams(filters, currentStore?.id);
+  const { data, isLoading, refetch, isFetching } = useOrdersQuery(queryParams);
   const orders = data?.orders ?? [];
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Orders</h1>
+          <h1 className="text-xl font-bold text-slate-900">Order Pipeline</h1>
           <p className="text-sm text-slate-500">
             {currentStore ? currentStore.name : 'All stores'} · Auto-refreshes every 30s
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} loading={isFetching}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link href="/orders/live">
+            <Button variant="outline" size="sm">Live mode</Button>
+          </Link>
+          <div className="flex rounded-lg border border-slate-200 p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode('kanban')}
+              className={cn(
+                'rounded-md px-2 py-1.5 text-slate-600',
+                viewMode === 'kanban' && 'bg-brand-50 text-brand-700',
+              )}
+              aria-label="Kanban view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={cn(
+                'rounded-md px-2 py-1.5 text-slate-600',
+                viewMode === 'table' && 'bg-brand-50 text-brand-700',
+              )}
+              aria-label="Table view"
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()} loading={isFetching}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
-      <Card>
-        <div className="border-b border-slate-100 px-4 py-3">
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-56"
-          >
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </Select>
-        </div>
+      <Card className="overflow-hidden">
+        <OrderPipelineFilters filters={filters} onChange={setFilters} />
 
         {isLoading ? (
           <div className="space-y-2 p-4">
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
           </div>
+        ) : viewMode === 'kanban' ? (
+          <OrderPipelineBoard orders={orders} />
         ) : (
           <Table>
             <THead>
               <Tr>
                 <Th>Order</Th>
+                <Th>Customer</Th>
                 <Th>Items</Th>
                 <Th>Amount</Th>
                 <Th>Payment</Th>
                 <Th>Status</Th>
+                <Th>SLA</Th>
                 <Th>Time</Th>
                 <Th />
               </Tr>
@@ -78,15 +108,33 @@ export function OrdersPageContent() {
                 <Tr key={o.id}>
                   <Td>
                     <p className="font-mono text-sm font-semibold">{o.orderNumber}</p>
-                    {o.store && <p className="text-xs text-slate-400">{o.store.name}</p>}
                   </Td>
                   <Td>
-                    <p className="text-sm">{o.items.map((i) => `${i.productName} ×${i.quantity}`).join(', ')}</p>
+                    <p className="text-sm">{o.buyerProfile?.name ?? '—'}</p>
+                    {o.buyerProfile?.phone && (
+                      <p className="text-xs text-slate-400">{o.buyerProfile.phone}</p>
+                    )}
+                  </Td>
+                  <Td>
+                    <p className="max-w-xs truncate text-sm">
+                      {o.items.map((i) => `${i.productName} ×${i.quantity}`).join(', ')}
+                    </p>
                   </Td>
                   <Td><span className="font-semibold">₹{o.totalAmount}</span></Td>
                   <Td><span className="text-xs text-slate-500">{o.paymentMethod}</span></Td>
                   <Td><OrderStatusBadge status={o.status} /></Td>
-                  <Td className="text-xs text-slate-400">{new Date(o.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</Td>
+                  <Td>
+                    {o.operations?.sinceAcceptedMins != null && (
+                      <OrderSlaBadge
+                        label="Prep"
+                        mins={o.operations.sinceAcceptedMins}
+                        level={o.operations.prepSla}
+                      />
+                    )}
+                  </Td>
+                  <Td className="text-xs text-slate-400">
+                    {new Date(o.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </Td>
                   <Td>
                     <Link href={`/orders/${o.id}`}>
                       <Button variant="ghost" size="sm">View</Button>
@@ -96,8 +144,8 @@ export function OrdersPageContent() {
               ))}
               {orders.length === 0 && (
                 <Tr>
-                  <Td colSpan={7} className="py-10 text-center text-slate-400">
-                    No orders yet
+                  <Td colSpan={9} className="py-10 text-center text-slate-400">
+                    No orders match your filters
                   </Td>
                 </Tr>
               )}

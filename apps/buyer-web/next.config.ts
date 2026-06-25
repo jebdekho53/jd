@@ -1,10 +1,11 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['@jebdekho/order-timeline', '@jebdekho/web-config'],
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
-      { protocol: 'http', hostname: 'localhost' },
+      { protocol: 'https', hostname: 'api.jebdekho.com' },
     ],
   },
 };

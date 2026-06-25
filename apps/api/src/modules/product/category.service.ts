@@ -7,6 +7,7 @@ import {
 import { Category, CategoryScope } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { MerchantService } from '../merchant/merchant.service';
+import { StoreCategoryAccessService } from '../category-governance/store-category-access.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
 
 @Injectable()
@@ -16,39 +17,64 @@ export class CategoryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly merchantService: MerchantService,
+    private readonly storeCategoryAccess: StoreCategoryAccessService,
   ) {}
 
   /**
-   * List all categories visible to a store:
-   *   - Global categories (storeId = null)
-   *   - Store-specific categories (storeId = this store)
-   * Active only.
+   * List categories the merchant may use when creating products:
+   * approved global categories + store-specific categories.
    */
-  async listCategories(storeId: string): Promise<Category[]> {
-    return this.prisma.category.findMany({
-      where: {
-        OR: [
-          { storeId: null, scope: CategoryScope.GLOBAL },
-          { storeId },
-        ],
-        isActive: true,
-      },
-      include: {
-        children: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
-      },
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-    });
+  async listCategories(storeId: string, userId: string): Promise<Category[]> {
+    const profile = await this.merchantService.requireMerchantProfile(userId);
+    await this.verifyStoreOwnership(profile.id, storeId);
+
+    const approvedTree = await this.storeCategoryAccess.listApprovedCategoryTree(storeId);
+    const approvedIds = new Set<string>();
+    for (const parent of approvedTree) {
+      approvedIds.add(parent.id);
+      for (const child of parent.children) approvedIds.add(child.id);
+    }
+
+    const [globalApproved, storeCategories] = await Promise.all([
+      approvedIds.size
+        ? this.prisma.category.findMany({
+            where: {
+              id: { in: [...approvedIds] },
+              storeId: null,
+              scope: CategoryScope.GLOBAL,
+              isActive: true,
+              deletedAt: null,
+            },
+          include: {
+            children: {
+              where: { isActive: true, deletedAt: null, id: { in: [...approvedIds] } },
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+          })
+        : Promise.resolve([]),
+      this.prisma.category.findMany({
+        where: { storeId, scope: CategoryScope.STORE, isActive: true },
+        include: {
+          children: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
+        },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      }),
+    ]);
+
+    return [...globalApproved, ...storeCategories];
   }
 
-  /**
-   * Create a store-specific category.
-   */
   async createCategory(
     userId: string,
     storeId: string,
     dto: CreateCategoryDto,
   ): Promise<Category> {
-    await this.verifyStoreOwnership(userId, storeId);
+    await this.verifyStoreOwnership(
+      (await this.merchantService.requireMerchantProfile(userId)).id,
+      storeId,
+    );
 
     const slug = this.toSlug(dto.name);
 
@@ -81,16 +107,16 @@ export class CategoryService {
     return category;
   }
 
-  /**
-   * Update a store-specific category.
-   */
   async updateCategory(
     userId: string,
     storeId: string,
     categoryId: string,
     dto: UpdateCategoryDto,
   ): Promise<Category> {
-    await this.verifyStoreOwnership(userId, storeId);
+    await this.verifyStoreOwnership(
+      (await this.merchantService.requireMerchantProfile(userId)).id,
+      storeId,
+    );
 
     const category = await this.prisma.category.findFirst({
       where: { id: categoryId, storeId, scope: CategoryScope.STORE },
@@ -121,12 +147,12 @@ export class CategoryService {
     });
   }
 
-  // ---------------------------------------------------------------------------
-
-  private async verifyStoreOwnership(userId: string, storeId: string): Promise<void> {
-    const profile = await this.merchantService.requireMerchantProfile(userId);
+  private async verifyStoreOwnership(
+    merchantProfileId: string,
+    storeId: string,
+  ): Promise<void> {
     const store = await this.prisma.store.findFirst({
-      where: { id: storeId, merchantProfileId: profile.id, deletedAt: null },
+      where: { id: storeId, merchantProfileId, deletedAt: null },
     });
     if (!store) throw new NotFoundException('Store not found or not owned by you');
   }

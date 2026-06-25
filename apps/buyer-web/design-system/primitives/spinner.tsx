@@ -17,7 +17,7 @@ export function Spinner({ size = 'md', className, label = 'Loading' }: SpinnerPr
     <div className={cn('inline-flex items-center gap-2', className)} role="status">
       <span
         className={cn(
-          'animate-spin rounded-full border-emerald-600 border-t-transparent',
+          'animate-spin rounded-full border-brand-500 border-t-transparent',
           sizes[size],
         )}
         aria-hidden

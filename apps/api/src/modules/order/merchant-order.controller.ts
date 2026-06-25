@@ -28,6 +28,7 @@ import { RequestUser } from '../../common/types/index';
 import { OrderService } from './order.service';
 import { ListMerchantOrdersDto } from './dto/list-orders.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
+import { MarkOrderIssueDto } from './dto/mark-issue.dto';
 
 @ApiTags('merchant / orders')
 @ApiBearerAuth('access-token')
@@ -48,7 +49,7 @@ export class MerchantOrderController {
     @Query() dto: ListMerchantOrdersDto,
   ) {
     const data = await this.orderService.listMerchantOrders(user.id, dto);
-    return { success: true, ...data };
+    return { success: true, data };
   }
 
   @Get(':orderId')
@@ -103,11 +104,27 @@ export class MerchantOrderController {
     return { success: true, data };
   }
 
+  @Patch(':orderId/packing')
+  @Permissions('orders:update_status')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'orderId' })
+  @ApiOperation({ summary: 'Start packing (PREPARING → PACKING)' })
+  async markPacking(
+    @CurrentUser() user: RequestUser,
+    @Param('orderId') orderId: string,
+    @Ip() ip: string,
+  ) {
+    const data = await this.orderService.advanceMerchantOrder(
+      user.id, orderId, OrderStatus.PACKING, undefined, ip,
+    );
+    return { success: true, data };
+  }
+
   @Patch(':orderId/ready')
   @Permissions('orders:update_status')
   @HttpCode(HttpStatus.OK)
   @ApiParam({ name: 'orderId' })
-  @ApiOperation({ summary: 'Mark order as ready for pickup (PREPARING → READY_FOR_PICKUP)' })
+  @ApiOperation({ summary: 'Mark ready for pickup (PACKING → READY_FOR_PICKUP, auto-assign rider)' })
   @ApiResponse({ status: 200, description: 'Order now READY_FOR_PICKUP' })
   async markReady(
     @CurrentUser() user: RequestUser,
@@ -137,6 +154,21 @@ export class MerchantOrderController {
     @Ip() ip: string,
   ) {
     const data = await this.orderService.cancelByMerchant(user.id, orderId, dto, ip);
+    return { success: true, data };
+  }
+
+  @Patch(':orderId/issue')
+  @Permissions('orders:update_status')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'orderId' })
+  @ApiOperation({ summary: 'Flag an operational issue without changing order status' })
+  async markIssue(
+    @CurrentUser() user: RequestUser,
+    @Param('orderId') orderId: string,
+    @Body() dto: MarkOrderIssueDto,
+    @Ip() ip: string,
+  ) {
+    const data = await this.orderService.markOrderIssue(user.id, orderId, dto.note, ip);
     return { success: true, data };
   }
 }

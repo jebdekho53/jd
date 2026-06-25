@@ -55,7 +55,7 @@ export function AddressForm({ onNext }: AddressFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+      <div className="flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">
         <MapPin className="h-4 w-4 shrink-0" />
         <span>
           {location.isReady

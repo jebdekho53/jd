@@ -25,12 +25,29 @@ export interface CartItem {
   availableQty: number;
 }
 
+export interface CartPromoBreakdown {
+  catalogSavings: number;
+  offerDiscount: number;
+  couponDiscount: number;
+  deliveryDiscount: number;
+  totalSavings: number;
+  appliedCoupon: { id: string; code: string; name: string } | null;
+  appliedPromotion: { id: string; name: string; offerType: string } | null;
+  freeDelivery: boolean;
+}
+
 export interface CartTotals {
   subtotal: number;
   discount: number;
+  catalogSavings?: number;
+  offerDiscount?: number;
+  couponDiscount?: number;
+  deliveryDiscount?: number;
+  totalSavings?: number;
   tax: number;
   deliveryFee: number;
   grandTotal: number;
+  promo?: CartPromoBreakdown;
 }
 
 export interface CartStore {
@@ -47,6 +64,7 @@ export interface Cart {
   items: CartItem[];
   totals: CartTotals;
   itemCount: number;
+  appliedCouponCode?: string | null;
 }
 
 export interface AddCartItemPayload {

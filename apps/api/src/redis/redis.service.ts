@@ -10,7 +10,12 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit(): void {
-    const url = this.configService.get<string>('REDIS_URL', 'redis://localhost:6379');
+    const configured = this.configService.get<string>('REDIS_URL');
+    const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
+    if (!configured && nodeEnv === 'production') {
+      throw new Error('REDIS_URL is required in production');
+    }
+    const url = configured ?? 'redis://127.0.0.1:6379';
 
     this.client = new Redis(url, {
       maxRetriesPerRequest: 3,

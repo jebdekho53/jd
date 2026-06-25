@@ -55,9 +55,12 @@ export class ProductController {
   @Get('categories')
   @Permissions('products:read')
   @ApiParam({ name: 'storeId' })
-  @ApiOperation({ summary: 'List categories (global + store-specific)' })
-  async listCategories(@Param('storeId') storeId: string) {
-    const data = await this.categoryService.listCategories(storeId);
+  @ApiOperation({ summary: 'List approved categories for product creation' })
+  async listCategories(
+    @CurrentUser() user: RequestUser,
+    @Param('storeId') storeId: string,
+  ) {
+    const data = await this.categoryService.listCategories(storeId, user.id);
     return { success: true, data };
   }
 

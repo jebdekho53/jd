@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import {
   LayoutDashboard,
   Store,
@@ -9,7 +10,13 @@ import {
   Layers,
   ShoppingBag,
   LogOut,
-  ChevronDown,
+  Tags,
+  Wallet,
+  Monitor,
+  Star,
+  Tag,
+  Headphones,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useAuthStore } from '@/store/auth-store';
@@ -20,9 +27,24 @@ import { useStoresQuery } from '@/hooks/use-stores';
 const nav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/stores', label: 'My Stores', icon: Store },
+  { href: '/categories', label: 'Categories', icon: Tags },
   { href: '/products', label: 'Products', icon: Package },
   { href: '/inventory', label: 'Inventory', icon: Layers },
   { href: '/orders', label: 'Orders', icon: ShoppingBag },
+  { href: '/orders/live', label: 'Live Orders', icon: Monitor },
+  { href: '/reviews', label: 'Reviews', icon: Star },
+  { href: '/promotions', label: 'Promotions', icon: Tag },
+  { href: '/earnings', label: 'Earnings', icon: Wallet },
+  { href: '/finance', label: 'Finance', icon: Wallet },
+  { href: '/gst', label: 'GST & Tax', icon: Wallet },
+  { href: '/support', label: 'Support', icon: Headphones },
+  { href: '/customers', label: 'Customers', icon: Users },
+  { href: '/growth', label: 'Growth', icon: Star },
+  { href: '/ai', label: 'AI Commerce', icon: Star },
+  { href: '/network', label: 'Network', icon: Layers },
+  { href: '/procurement', label: 'Procurement', icon: Package },
+  { href: '/ads', label: 'Ads', icon: Tag },
+  { href: '/seo', label: 'SEO', icon: Tag },
 ];
 
 export function Sidebar({ onClose }: { onClose?: () => void }) {
@@ -33,6 +55,17 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const { data: storeData } = useStoresQuery();
 
   const stores = storeData?.data ?? [];
+
+  useEffect(() => {
+    if (stores.length === 0) {
+      if (currentStore) setCurrentStore(null);
+      return;
+    }
+    const owned = currentStore && stores.some((s) => s.id === currentStore.id);
+    if (!owned) {
+      setCurrentStore(stores[0] ?? null);
+    }
+  }, [stores, currentStore, setCurrentStore]);
 
   return (
     <aside className="flex h-full w-64 flex-col border-r border-slate-200 bg-white">

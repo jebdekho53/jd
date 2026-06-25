@@ -7,9 +7,12 @@ import { ConfigService } from '@nestjs/config';
 export function getConfig(configService: ConfigService) {
   // RSA PEM keys may be stored with literal \n in env vars; normalise here.
   const normalisePem = (raw: string) => raw.replace(/\\n/g, '\n');
+  const nodeEnv = configService.get<string>('NODE_ENV', 'development');
+  const productionCors =
+    'https://jebdekho.com,https://www.jebdekho.com,https://admin.jebdekho.com,https://merchant.jebdekho.com,https://rider.jebdekho.com,https://vendor.jebdekho.com,https://franchise.jebdekho.com';
 
   return {
-    nodeEnv: configService.get<string>('NODE_ENV', 'development'),
+    nodeEnv,
     port: configService.get<number>('API_PORT', 3001),
 
     jwt: {
@@ -30,6 +33,39 @@ export function getConfig(configService: ConfigService) {
       rateLimitWindowMinutes: configService.get<number>('OTP_RATE_LIMIT_WINDOW_MINUTES', 10),
     },
 
+    dev: {
+      demoPhone: configService.get<string>('DEV_DEMO_PHONE', '+919876543210'),
+      demoMerchantPhone: configService.get<string>(
+        'DEV_DEMO_MERCHANT_PHONE',
+        '+919876543211',
+      ),
+      demoMerchantEmail: configService.get<string>(
+        'DEV_DEMO_MERCHANT_EMAIL',
+        'merchant@demo.jebdekho.com',
+      ),
+      demoMerchantPhone2: configService.get<string>(
+        'DEV_DEMO_MERCHANT_PHONE_2',
+        '+919876543213',
+      ),
+      demoMerchantEmail2: configService.get<string>(
+        'DEV_DEMO_MERCHANT_EMAIL_2',
+        'merchant2@demo.jebdekho.com',
+      ),
+      demoAdminPhone: configService.get<string>(
+        'DEV_DEMO_ADMIN_PHONE',
+        '+919876543212',
+      ),
+      demoAdminEmail: configService.get<string>(
+        'DEV_DEMO_ADMIN_EMAIL',
+        'admin@demo.jebdekho.com',
+      ),
+      demoRiderPhone: configService.get<string>(
+        'DEV_DEMO_RIDER_PHONE',
+        '+919876543214',
+      ),
+      demoOtp: configService.get<string>('DEV_DEMO_OTP', '123456'),
+    },
+
     sms: {
       provider: configService.get<string>('SMS_PROVIDER', 'console'),
       msg91: {
@@ -42,10 +78,25 @@ export function getConfig(configService: ConfigService) {
 
     cors: {
       origins: configService
-        .get<string>('CORS_ORIGINS', 'http://localhost:3000')
+        .get<string>(
+          'CORS_ORIGINS',
+          nodeEnv === 'production' ? productionCors : '',
+        )
         .split(',')
-        .map((o) => o.trim()),
+        .map((o) => o.trim())
+        .filter(Boolean),
     },
+
+    storage: {
+      provider: configService.get<string>('STORAGE_PROVIDER', 'local'),
+      uploadDir: configService.get<string>('UPLOAD_DIR', '/var/www/jebdekho/uploads'),
+      uploadPublicUrl: configService.get<string>(
+        'UPLOAD_PUBLIC_URL',
+        'https://api.jebdekho.com/uploads',
+      ),
+    },
+
+    trustProxy: configService.get<string>('TRUST_PROXY', 'false') === 'true',
 
     logging: {
       level: configService.get<string>('LOG_LEVEL', 'debug'),

@@ -39,14 +39,15 @@ export function InventoryPageContent() {
       variantId: v.id,
       variantName: v.name,
       sku: v.sku,
-      qty: v.inventory?.quantity ?? 0,
-      reserved: v.inventory?.reserved ?? 0,
-      available: Math.max(0, (v.inventory?.quantity ?? 0) - (v.inventory?.reserved ?? 0)),
+      qty: v.inventory?.availableQty ?? 0,
+      reserved: v.inventory?.reservedQty ?? 0,
+      sold: v.inventory?.soldQty ?? 0,
+      available: Math.max(0, v.inventory?.availableQty ?? 0),
       threshold: v.inventory?.lowStockThreshold ?? null,
     })),
   );
 
-  const filtered = filterLow ? rows.filter((r) => r.threshold !== null && r.qty <= r.threshold) : rows;
+  const filtered = filterLow ? rows.filter((r) => r.threshold !== null && r.available <= r.threshold) : rows;
 
   return (
     <>
@@ -84,14 +85,15 @@ export function InventoryPageContent() {
                 <Th>SKU</Th>
                 <Th>Stock</Th>
                 <Th>Reserved</Th>
+                <Th>Sold</Th>
                 <Th>Available</Th>
                 <Th>Status</Th>
               </Tr>
             </THead>
             <TBody>
               {filtered.map((r) => {
-                const isLow = r.threshold !== null && r.qty <= r.threshold;
-                const isOut = r.qty === 0;
+                const isLow = r.threshold !== null && r.available <= r.threshold;
+                const isOut = r.available <= 0;
                 return (
                   <Tr key={`${r.productId}-${r.variantId}`}>
                     <Td>
@@ -108,6 +110,7 @@ export function InventoryPageContent() {
                       />
                     </Td>
                     <Td className="text-slate-500">{r.reserved}</Td>
+                    <Td className="text-slate-500">{r.sold}</Td>
                     <Td className="font-medium">{r.available}</Td>
                     <Td>
                       {isOut ? (

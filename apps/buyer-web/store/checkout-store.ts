@@ -6,6 +6,8 @@ interface CheckoutState {
   paymentMethod: PaymentMethod;
   deliveryAddress: DeliveryAddress | null;
   buyerNote: string;
+  walletAmountToUse: number;
+  rewardPointsToRedeem: number;
   /** checkoutId from POST /checkout (online payment flow) */
   checkoutId: string | null;
   /** Final orderId after successful payment or COD */
@@ -16,6 +18,8 @@ interface CheckoutState {
   setPaymentMethod: (method: PaymentMethod) => void;
   setDeliveryAddress: (address: DeliveryAddress) => void;
   setBuyerNote: (note: string) => void;
+  setWalletAmountToUse: (amount: number) => void;
+  setRewardPointsToRedeem: (points: number) => void;
   setCheckoutId: (id: string) => void;
   setConfirmed: (orderId: string, orderNumber: string) => void;
   reset: () => void;
@@ -27,6 +31,8 @@ const INITIAL: Omit<
   | 'setPaymentMethod'
   | 'setDeliveryAddress'
   | 'setBuyerNote'
+  | 'setWalletAmountToUse'
+  | 'setRewardPointsToRedeem'
   | 'setCheckoutId'
   | 'setConfirmed'
   | 'reset'
@@ -35,6 +41,8 @@ const INITIAL: Omit<
   paymentMethod: 'COD',
   deliveryAddress: null,
   buyerNote: '',
+  walletAmountToUse: 0,
+  rewardPointsToRedeem: 0,
   checkoutId: null,
   confirmedOrderId: null,
   confirmedOrderNumber: null,
@@ -46,6 +54,8 @@ export const useCheckoutStore = create<CheckoutState>((set) => ({
   setPaymentMethod: (paymentMethod) => set({ paymentMethod }),
   setDeliveryAddress: (deliveryAddress) => set({ deliveryAddress }),
   setBuyerNote: (buyerNote) => set({ buyerNote }),
+  setWalletAmountToUse: (walletAmountToUse) => set({ walletAmountToUse }),
+  setRewardPointsToRedeem: (rewardPointsToRedeem) => set({ rewardPointsToRedeem }),
   setCheckoutId: (checkoutId) => set({ checkoutId }),
   setConfirmed: (confirmedOrderId, confirmedOrderNumber) =>
     set({ confirmedOrderId, confirmedOrderNumber, step: 'done' }),

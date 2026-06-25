@@ -1,59 +1,110 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { PageShell } from '@/components/layout/site-shell';
+import { SmartSearchSection } from '@/components/discovery/smart-search-section';
+import { CategoryExplorer } from '@/components/discovery/category-explorer';
 import { EmptyState, ErrorState } from '@/components/common/state-blocks';
 import { ProductGridSkeleton } from '@/components/common/skeletons';
-import { Button } from '@/components/ui/button';
 import { CategoryFilter } from '@/features/categories/category-filter';
 import { ProductCard } from '@/features/products/product-card';
-import { SearchInput } from '@/features/search/search-input';
-import { useCategories, useProductSearch } from '@/hooks/use-buyer-queries';
+import { StoreCardItem } from '@/features/stores/store-card';
+import { useCategories, useUnifiedSearch } from '@/hooks/use-buyer-queries';
 import { useDebounce } from '@/hooks/use-debounce';
-import type { BuyerProductWithStore } from '@/types/buyer';
+import { useSearchHistory } from '@/hooks/use-search-history';
+import { useLocationStore } from '@/store/ui-store';
+import { resolveCollection } from '@/lib/search-collections';
+import { SectionHeader } from '@/components/v2/section-header';
+import type { UnifiedSearchProduct } from '@/types/buyer';
 
-export function SearchPageContent() {
+const TABS = ['all', 'products', 'stores', 'categories'] as const;
+const SORTS = [
+  { value: 'relevance', label: 'Relevance' },
+  { value: 'distance', label: 'Nearest' },
+  { value: 'price_low_high', label: 'Price: Low to High' },
+  { value: 'price_high_low', label: 'Price: High to Low' },
+  { value: 'rating', label: 'Top rated' },
+  { value: 'fastest_delivery', label: 'Fastest delivery' },
+] as const;
+
+function toProductCard(p: UnifiedSearchProduct) {
+  return {
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    description: null,
+    brand: p.brand,
+    imageUrls: p.imageUrls,
+    basePrice: p.basePrice,
+    mrp: p.mrp,
+    unit: 'piece',
+    isVeg: null,
+    tags: [],
+    category: p.category,
+    variants: [
+      {
+        id: `${p.id}-default`,
+        name: 'Default',
+        price: p.basePrice,
+        mrp: p.mrp,
+        weightGrams: null,
+        isDefault: true,
+        availableQty: p.availableQty,
+      },
+    ],
+    store: p.store,
+  };
+}
+
+interface SearchPageContentProps {
+  forcedDeals?: boolean;
+}
+
+export function SearchPageContent({ forcedDeals = false }: SearchPageContentProps) {
   const searchParams = useSearchParams();
+  const { lat, lng } = useLocationStore();
+  const storeIdParam = searchParams.get('storeId');
   const initialCategory = searchParams.get('categoryId');
-  const initialQuery = searchParams.get('q') ?? '';
+  const collectionParam = searchParams.get('collection');
+  const collection = resolveCollection(collectionParam);
+  const initialQuery = searchParams.get('q') ?? collection?.q ?? '';
 
   const [query, setQuery] = useState(initialQuery);
   const [categoryId, setCategoryId] = useState<string | null>(initialCategory);
-  const [page, setPage] = useState(1);
-  const [accumulated, setAccumulated] = useState<BuyerProductWithStore[]>([]);
+  const [tab, setTab] = useState<(typeof TABS)[number]>('all');
+  const [sort, setSort] = useState<string>('relevance');
+  const { add: addHistory } = useSearchHistory();
 
   const debouncedQuery = useDebounce(query, 400);
 
-  useEffect(() => {
-    setPage(1);
-    setAccumulated([]);
-  }, [debouncedQuery, categoryId]);
-
-  const { data: categories = [] } = useCategories();
+  const { data: categories = [] } = useCategories(storeIdParam ?? undefined);
 
   const searchParams_ = useMemo(
     () => ({
       q: debouncedQuery.trim() || undefined,
       categoryId: categoryId ?? undefined,
-      page,
-      limit: 20,
+      storeId: storeIdParam ?? undefined,
+      lat: lat ?? undefined,
+      lng: lng ?? undefined,
+      sort,
+      tab,
+      page: 1,
+      limit: 24,
     }),
-    [debouncedQuery, categoryId, page],
+    [debouncedQuery, categoryId, storeIdParam, lat, lng, sort, tab],
   );
 
-  const canSearch =
-    debouncedQuery.trim().length >= 2 || Boolean(categoryId);
+  const canSearch = debouncedQuery.trim().length >= 2 || Boolean(categoryId);
 
-  const { data, isLoading, isFetching, isError, error, refetch } = useProductSearch(
-    searchParams_,
-    canSearch,
-  );
+  const { data, isLoading, isError, error, refetch } = useUnifiedSearch(searchParams_, canSearch);
 
   useEffect(() => {
-    if (!data?.data) return;
-    setAccumulated((prev) => (page === 1 ? data.data : [...prev, ...data.data]));
-  }, [data, page]);
+    if (canSearch && debouncedQuery.trim().length >= 2) {
+      addHistory(debouncedQuery.trim());
+    }
+  }, [data, canSearch, debouncedQuery, addHistory]);
 
   const showEmptyPrompt = !canSearch;
 
@@ -61,34 +112,63 @@ export function SearchPageContent() {
     <PageShell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Search products</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Find groceries across nearby stores
+          <h1 className="text-2xl font-bold text-jd-text-primary">
+            {collection ? collection.title : 'Search & Discover'}
+          </h1>
+          <p className="mt-1 text-sm text-jd-text-muted">
+            Nearby in-stock products from top-rated stores — ranked for your location
           </p>
         </div>
 
-        <SearchInput
-          value={query}
-          onChange={setQuery}
-          placeholder="Search by product, brand, or tag…"
-          autoFocus
-        />
-
-        <CategoryFilter
-          categories={categories}
-          selectedId={categoryId}
-          onSelect={setCategoryId}
-        />
+        <SmartSearchSection initialQuery={query} autoFocus />
 
         {showEmptyPrompt && (
-          <EmptyState
-            variant="search"
-            title="Start typing to search"
-            description="Enter at least 2 characters, or pick a category to browse products."
-          />
+          <>
+            <section aria-labelledby="popular-cat">
+              <SectionHeader title="Popular categories" />
+              <CategoryExplorer categories={categories} />
+            </section>
+            <EmptyState
+              variant="search"
+              title="Start typing to search"
+              description="Search products, stores, brands, and categories near you."
+            />
+          </>
         )}
 
-        {!showEmptyPrompt && isLoading && page === 1 && <ProductGridSkeleton />}
+        {!showEmptyPrompt && (
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap gap-1 rounded-xl bg-cream-2 p-1">
+              {TABS.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTab(t)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize ${
+                    tab === t ? 'bg-card text-primary shadow-sm' : 'text-jd-text-muted'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="rounded-lg border border-border/60 bg-card px-3 py-1.5 text-xs"
+              aria-label="Sort results"
+            >
+              {SORTS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            <CategoryFilter categories={categories} selectedId={categoryId} onSelect={setCategoryId} />
+          </div>
+        )}
+
+        {!showEmptyPrompt && isLoading && <ProductGridSkeleton />}
 
         {!showEmptyPrompt && isError && (
           <ErrorState
@@ -97,42 +177,111 @@ export function SearchPageContent() {
           />
         )}
 
-        {!showEmptyPrompt && !isLoading && !isError && accumulated.length === 0 && (
-          <EmptyState
-            variant="search"
-            title="No products found"
-            description={
-              debouncedQuery
-                ? `No results for "${debouncedQuery}". Try a different search term.`
-                : 'No products in this category right now.'
-            }
-          />
-        )}
-
-        {!showEmptyPrompt && !isError && accumulated.length > 0 && (
-          <>
-            <p className="text-sm text-muted-foreground" role="status">
-              {data?.meta.total ?? accumulated.length} result
-              {(data?.meta.total ?? 0) !== 1 ? 's' : ''} found
-            </p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {accumulated.map((product) => (
-                <ProductCard key={`${product.id}-${product.store.id}`} product={product} showStore />
-              ))}
-            </div>
-
-            {data && data.meta.page < data.meta.totalPages && (
-              <div className="flex justify-center pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={isFetching}
-                >
-                  {isFetching ? 'Loading…' : 'Load more results'}
-                </Button>
-              </div>
+        {!showEmptyPrompt && !isLoading && !isError && data && (
+          <div className="space-y-8">
+            {(tab === 'all' || tab === 'products') && data.products.length > 0 && (
+              <section>
+                <SectionHeader title="Products" subtitle={`${data.meta.totalProducts} results`} />
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {data.products.map((product) => (
+                    <div key={product.id} className="relative">
+                      {product.store.distanceKm != null && (
+                        <span className="absolute right-2 top-2 z-10 rounded-full bg-card/90 px-2 py-0.5 text-[10px] font-medium text-jd-text-muted">
+                          {product.store.distanceKm.toFixed(1)} km
+                        </span>
+                      )}
+                      {product.store.hasOffer && (
+                        <span className="absolute left-2 top-2 z-10 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-white">
+                          Offer
+                        </span>
+                      )}
+                      {!product.inStock && (
+                        <span className="absolute bottom-16 left-2 z-10 rounded bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">
+                          Low stock
+                        </span>
+                      )}
+                      <ProductCard product={toProductCard(product)} showStore trackView />
+                    </div>
+                  ))}
+                </div>
+              </section>
             )}
-          </>
+
+            {(tab === 'all' || tab === 'stores') && data.stores.length > 0 && (
+              <section>
+                <SectionHeader title="Stores" />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {data.stores.map((store) => (
+                    <StoreCardItem
+                      key={store.id}
+                      store={{
+                        id: store.id,
+                        name: store.name,
+                        slug: store.slug,
+                        logoUrl: store.logoUrl,
+                        bannerUrl: null,
+                        description: null,
+                        address: { line1: '', line2: null, pincode: '' },
+                        ratingAvg: store.ratingAvg,
+                        ratingCount: 0,
+                        deliveryFee: 0,
+                        minOrderAmount: 0,
+                        avgPrepTimeMins: store.etaMins,
+                        distanceKm: store.distanceKm,
+                        isOpen: true,
+                        todayHours: null,
+                      }}
+                      variant="compact"
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {(tab === 'all' || tab === 'categories') && data.categories.length > 0 && (
+              <section>
+                <SectionHeader title="Categories" />
+                <div className="flex flex-wrap gap-2">
+                  {data.categories.map((c) => (
+                    <Link
+                      key={c.id}
+                      href={`/search?categoryId=${c.id}`}
+                      className="rounded-full border px-4 py-2 text-sm hover:border-primary hover:text-primary"
+                    >
+                      {c.name}
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {tab === 'all' && data.brands.length > 0 && (
+              <section>
+                <SectionHeader title="Brands" />
+                <div className="flex flex-wrap gap-2">
+                  {data.brands.map((b) => (
+                    <Link
+                      key={b.name}
+                      href={`/search?q=${encodeURIComponent(b.name)}`}
+                      className="rounded-full bg-cream-3 px-4 py-2 text-sm font-medium"
+                    >
+                      {b.name}
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {data.products.length === 0 &&
+              data.stores.length === 0 &&
+              data.categories.length === 0 && (
+                <EmptyState
+                  variant="search"
+                  title="No results found"
+                  description={`Nothing matched "${debouncedQuery}". Try a different term or browse categories.`}
+                />
+              )}
+          </div>
         )}
       </div>
     </PageShell>

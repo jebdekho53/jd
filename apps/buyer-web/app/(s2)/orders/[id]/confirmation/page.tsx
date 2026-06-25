@@ -1,10 +1,10 @@
 'use client';
 
 import { use } from 'react';
-import Link from 'next/link';
 import { CheckCircle } from 'lucide-react';
+import { PageShell } from '@/components/layout/site-shell';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
-import { ButtonLink, Container, Spinner, Text } from '@/design-system/primitives';
+import { ButtonLink, Spinner } from '@/design-system/primitives';
 import { useOrderDetailQuery } from '@/hooks/use-orders';
 
 export default function OrderConfirmationPage({
@@ -17,45 +17,39 @@ export default function OrderConfirmationPage({
 
   return (
     <AuthGuard>
-      <div className="s2-root min-h-screen bg-neutral-50">
-        <Container size="sm" className="flex min-h-screen flex-col items-center justify-center py-12 text-center">
+      <PageShell>
+        <div className="mx-auto flex max-w-md flex-col items-center py-8 text-center">
           {isLoading ? (
             <Spinner size="lg" />
           ) : !order ? (
-            <Text variant="bodySm">Order not found</Text>
+            <p className="text-sm text-muted-foreground">Order not found</p>
           ) : (
             <>
-              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
-                <CheckCircle className="h-10 w-10 text-emerald-600" />
+              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-brand-100">
+                <CheckCircle className="h-10 w-10 text-primary" aria-hidden />
               </div>
 
-              <Text variant="display" as="h1" className="mb-2">
-                Order placed!
-              </Text>
-              <Text variant="body" className="mb-1 text-neutral-600">
-                Order #{order.orderNumber}
-              </Text>
-              <Text variant="bodySm" className="mb-8">
+              <h1 className="mb-2 text-3xl font-bold tracking-tight">Order placed!</h1>
+              <p className="mb-1 text-muted-foreground">Order #{order.orderNumber}</p>
+              <p className="mb-8 text-sm text-muted-foreground">
                 {order.paymentMethod === 'COD'
-                  ? 'Pay ₹' + order.totalAmount.toFixed(2) + ' when your order arrives.'
+                  ? `Pay ₹${order.totalAmount.toFixed(2)} when your order arrives.`
                   : 'Payment received. Your order is confirmed.'}
-              </Text>
+              </p>
 
-              <div className="mb-8 w-full rounded-xl bg-white p-5 text-left shadow-sm">
-                <Text variant="label" className="mb-3 block">
-                  {order.store.name}
-                </Text>
+              <div className="mb-8 w-full rounded-2xl border bg-card p-5 text-left shadow-sm">
+                <p className="mb-3 text-sm font-semibold">{order.store.name}</p>
                 {order.items.map((item) => (
-                  <div key={item.id} className="flex justify-between py-1.5">
-                    <Text variant="bodySm">
+                  <div key={item.id} className="flex justify-between py-1.5 text-sm">
+                    <span>
                       {item.productName} × {item.quantity}
-                    </Text>
-                    <Text variant="bodySm">₹{item.totalPrice.toFixed(2)}</Text>
+                    </span>
+                    <span>₹{item.totalPrice.toFixed(2)}</span>
                   </div>
                 ))}
-                <div className="mt-3 flex justify-between border-t border-neutral-100 pt-3">
-                  <Text variant="label">Total</Text>
-                  <Text variant="label">₹{order.totalAmount.toFixed(2)}</Text>
+                <div className="mt-3 flex justify-between border-t border-border/60 pt-3 font-semibold">
+                  <span>Total</span>
+                  <span>₹{order.totalAmount.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -69,8 +63,8 @@ export default function OrderConfirmationPage({
               </div>
             </>
           )}
-        </Container>
-      </div>
+        </div>
+      </PageShell>
     </AuthGuard>
   );
 }

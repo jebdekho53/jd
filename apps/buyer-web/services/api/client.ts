@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from '@jebdekho/web-config';
 import type { ApiResponse, PaginatedResponse } from '@/types/buyer';
 
 export class ApiError extends Error {
@@ -11,10 +12,8 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
-
-function buildUrl(path: string, params?: Record<string, string | number | undefined>): string {
-  const url = new URL(`${API_BASE}${path}`);
+export function buildUrl(path: string, params?: Record<string, string | number | undefined>): string {
+  const url = new URL(`${getApiBaseUrl()}${path}`);
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== '') {

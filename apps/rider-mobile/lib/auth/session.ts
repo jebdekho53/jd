@@ -1,26 +1,26 @@
-import * as SecureStore from 'expo-secure-store';
+import { deleteSecureItem, getSecureItem, setSecureItem } from '@/lib/secure-storage';
 
 const ACCESS_KEY = 'jd_rider_access_token';
 const REFRESH_KEY = 'jd_rider_refresh_token';
 
 export async function getAccessToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(ACCESS_KEY);
+  return getSecureItem(ACCESS_KEY);
 }
 
 export async function getRefreshToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(REFRESH_KEY);
+  return getSecureItem(REFRESH_KEY);
 }
 
 export async function setTokens(accessToken: string, refreshToken: string): Promise<void> {
-  await SecureStore.setItemAsync(ACCESS_KEY, accessToken);
-  await SecureStore.setItemAsync(REFRESH_KEY, refreshToken);
+  await setSecureItem(ACCESS_KEY, accessToken);
+  await setSecureItem(REFRESH_KEY, refreshToken);
 }
 
 export async function clearTokens(): Promise<void> {
-  await SecureStore.deleteItemAsync(ACCESS_KEY);
-  await SecureStore.deleteItemAsync(REFRESH_KEY);
+  await deleteSecureItem(ACCESS_KEY);
+  await deleteSecureItem(REFRESH_KEY);
 }
 
 export function getBffBaseUrl(): string {
-  return process.env.EXPO_PUBLIC_BFF_URL ?? 'http://localhost:3004';
+  return process.env.EXPO_PUBLIC_BFF_URL ?? 'https://rider.jebdekho.com';
 }

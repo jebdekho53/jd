@@ -4,15 +4,35 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { DomainEventType, Prisma, StoreStatus } from '@prisma/client';
+import { DomainEventType, Prisma, RejectionType, StoreDocumentType, StoreStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
+import { isBlacklistRejection, isRevocableRejection } from '../../common/constants/rejection.constants';
 import { ListStoreApprovalsDto } from './dto/list-store-approvals.dto';
 import { RejectStoreDto } from './dto/reject-store.dto';
+import { RequestDocumentsDto } from './dto/request-documents.dto';
 import { SuspendStoreDto } from './dto/suspend-store.dto';
+import { RevokeRejectionDto } from './dto/revoke-rejection.dto';
 import { StoreService } from '../store/store.service';
 import { BuyerCacheService } from '../buyer/buyer-cache.service';
+import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
+
+const APPROVABLE_STATUSES: StoreStatus[] = [
+  StoreStatus.PENDING_REVIEW,
+  StoreStatus.UNDER_REVIEW,
+];
+
+const REJECTABLE_STATUSES: StoreStatus[] = [
+  StoreStatus.PENDING_REVIEW,
+  StoreStatus.UNDER_REVIEW,
+];
+
+const REQUEST_DOCUMENTS_STATUSES: StoreStatus[] = [
+  StoreStatus.PENDING_REVIEW,
+  StoreStatus.UNDER_REVIEW,
+  StoreStatus.DOCUMENTS_REQUIRED,
+];
 
 type StoreApprovalItem = {
   id: string;
@@ -22,6 +42,11 @@ type StoreApprovalItem = {
   submittedAt: Date | null;
   reviewedAt: Date | null;
   rejectionReason: string | null;
+  rejectionType: RejectionType | null;
+  reviewedBy: string | null;
+  documentRequestReason: string | null;
+  documentRequestAt: Date | null;
+  requestedDocumentTypes: unknown;
   cityId: string;
   pincode: string;
   line1: string;
@@ -31,6 +56,8 @@ type StoreApprovalItem = {
     businessName: string;
     gstNumber: string | null;
     kycStatus: string;
+    isBlacklisted: boolean;
+    blacklistReason: string | null;
     user: { id: string; phone: string; email: string | null };
   };
   _count: { products: number; orders: number };
@@ -46,11 +73,8 @@ export class AdminStoreService {
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
     private readonly buyerCache: BuyerCacheService,
+    private readonly blocklist: VerificationBlocklistService,
   ) {}
-
-  // ---------------------------------------------------------------------------
-  // List stores for review
-  // ---------------------------------------------------------------------------
 
   async listStoreApprovals(
     dto: ListStoreApprovalsDto,
@@ -58,17 +82,29 @@ export class AdminStoreService {
     const page = dto.page ?? 1;
     const limit = dto.limit ?? 20;
     const skip = (page - 1) * limit;
-    const status = dto.status ?? StoreStatus.PENDING_REVIEW;
 
-    const where: Prisma.StoreWhereInput = {
-      status,
-      deletedAt: null,
-      ...(dto.cityId && { cityId: dto.cityId }),
-    };
+    const where: Prisma.StoreWhereInput = dto.blacklisted
+      ? {
+          deletedAt: null,
+          merchantProfile: { isBlacklisted: true },
+          ...(dto.cityId && { cityId: dto.cityId }),
+        }
+      : {
+          status: dto.status ?? StoreStatus.PENDING_REVIEW,
+          deletedAt: null,
+          ...(dto.cityId && { cityId: dto.cityId }),
+        };
 
-    const orderBy: Prisma.StoreOrderByWithRelationInput =
-      status === StoreStatus.PENDING_REVIEW
-        ? { submittedAt: 'asc' }  // oldest submissions first (FIFO review)
+    const fifoStatuses: StoreStatus[] = [
+      StoreStatus.PENDING_REVIEW,
+      StoreStatus.DOCUMENTS_REQUIRED,
+      StoreStatus.UNDER_REVIEW,
+    ];
+
+    const orderBy: Prisma.StoreOrderByWithRelationInput = dto.blacklisted
+      ? { createdAt: 'desc' }
+      : fifoStatuses.includes(dto.status ?? StoreStatus.PENDING_REVIEW)
+        ? { submittedAt: 'asc' }
         : { createdAt: 'desc' };
 
     const [stores, total] = await this.prisma.$transaction([
@@ -82,6 +118,11 @@ export class AdminStoreService {
           submittedAt: true,
           reviewedAt: true,
           rejectionReason: true,
+          rejectionType: true,
+          reviewedBy: true,
+          documentRequestReason: true,
+          documentRequestAt: true,
+          requestedDocumentTypes: true,
           cityId: true,
           pincode: true,
           line1: true,
@@ -92,6 +133,8 @@ export class AdminStoreService {
               businessName: true,
               gstNumber: true,
               kycStatus: true,
+              isBlacklisted: true,
+              blacklistReason: true,
               user: { select: { id: true, phone: true, email: true } },
             },
           },
@@ -107,10 +150,6 @@ export class AdminStoreService {
     return { stores: stores as StoreApprovalItem[], total };
   }
 
-  // ---------------------------------------------------------------------------
-  // Approve store
-  // ---------------------------------------------------------------------------
-
   async approveStore(
     adminUserId: string,
     storeId: string,
@@ -119,10 +158,10 @@ export class AdminStoreService {
   ): Promise<{ id: string; status: StoreStatus; isActive: boolean; reviewedAt: Date | null }> {
     const store = await this.findStoreOrThrow(storeId);
 
-    if (store.status !== StoreStatus.PENDING_REVIEW) {
+    if (!APPROVABLE_STATUSES.includes(store.status)) {
       throw new BadRequestException(
         `Store cannot be approved from status: ${store.status}. ` +
-          `Only PENDING_REVIEW stores can be approved.`,
+          `Only PENDING_REVIEW or UNDER_REVIEW stores can be approved.`,
       );
     }
 
@@ -136,6 +175,10 @@ export class AdminStoreService {
         reviewedAt: now,
         reviewedBy: adminUserId,
         rejectionReason: null,
+        documentRequestReason: null,
+        documentRequestAt: null,
+        documentRequestBy: null,
+        requestedDocumentTypes: Prisma.JsonNull,
       },
       select: { id: true, status: true, isActive: true, reviewedAt: true },
     });
@@ -163,16 +206,100 @@ export class AdminStoreService {
       ),
     ]);
 
-    // Invalidate buyer discovery + detail caches (fire-and-forget)
-    void this.buyerCache.invalidateStoreCache(store.slug);
+    await this.buyerCache.invalidateStoreCache(store.slug);
 
-    this.logger.log({ adminUserId, storeId }, 'Store approved');
+    this.logger.log(
+      { adminUserId, storeId, slug: store.slug },
+      'Store approved — buyer store cache invalidated',
+    );
     return updated;
   }
 
-  // ---------------------------------------------------------------------------
-  // Reject store
-  // ---------------------------------------------------------------------------
+  async requestDocuments(
+    adminUserId: string,
+    storeId: string,
+    dto: RequestDocumentsDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{
+    id: string;
+    status: StoreStatus;
+    documentRequestReason: string | null;
+    requestedDocumentTypes: unknown;
+  }> {
+    const store = await this.findStoreOrThrow(storeId);
+
+    if (!REQUEST_DOCUMENTS_STATUSES.includes(store.status)) {
+      throw new BadRequestException(
+        `Documents cannot be requested from status: ${store.status}.`,
+      );
+    }
+
+    const now = new Date();
+    const documentTypes = dto.documentTypes as StoreDocumentType[];
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.store.update({
+        where: { id: storeId },
+        data: {
+          status: StoreStatus.DOCUMENTS_REQUIRED,
+          documentRequestReason: dto.reason,
+          documentRequestAt: now,
+          documentRequestBy: adminUserId,
+          requestedDocumentTypes: documentTypes,
+        },
+        select: {
+          id: true,
+          status: true,
+          documentRequestReason: true,
+          requestedDocumentTypes: true,
+        },
+      });
+
+      await tx.storeDocumentRequest.create({
+        data: {
+          storeId,
+          reason: dto.reason,
+          documentTypes,
+          requestedBy: adminUserId,
+        },
+      });
+
+      return result;
+    });
+
+    await Promise.all([
+      this.audit.log({
+        actorId: adminUserId,
+        action: 'STORE_DOCUMENTS_REQUESTED',
+        resourceType: 'store',
+        resourceId: storeId,
+        ipAddress,
+        userAgent,
+        metadata: {
+          previousStatus: store.status,
+          reason: dto.reason,
+          documentTypes,
+          storeName: store.name,
+        } as Prisma.InputJsonValue,
+      }),
+      this.domainEvents.emit(
+        DomainEventType.STORE_DOCUMENTS_REQUESTED,
+        'store',
+        storeId,
+        {
+          storeName: store.name,
+          reason: dto.reason,
+          documentTypes,
+          requestedBy: adminUserId,
+        },
+        { userId: adminUserId, ipAddress: ipAddress ?? null },
+      ),
+    ]);
+
+    this.logger.log({ adminUserId, storeId }, 'Store documents requested');
+    return updated;
+  }
 
   async rejectStore(
     adminUserId: string,
@@ -180,26 +307,117 @@ export class AdminStoreService {
     dto: RejectStoreDto,
     ipAddress?: string,
     userAgent?: string,
-  ): Promise<{ id: string; status: StoreStatus; rejectionReason: string | null }> {
-    const store = await this.findStoreOrThrow(storeId);
+  ): Promise<{
+    id: string;
+    status: StoreStatus;
+    rejectionReason: string | null;
+    rejectionType: RejectionType | null;
+  }> {
+    const store = await this.findStoreWithMerchantOrThrow(storeId);
 
-    if (store.status !== StoreStatus.PENDING_REVIEW) {
+    if (!REJECTABLE_STATUSES.includes(store.status)) {
       throw new BadRequestException(
-        `Store cannot be rejected from status: ${store.status}.`,
+        `Store cannot be rejected from status: ${store.status}. ` +
+          `Only PENDING_REVIEW or UNDER_REVIEW stores can be rejected.`,
       );
     }
 
-    const updated = await this.prisma.store.update({
-      where: { id: storeId },
-      data: {
-        status: StoreStatus.REJECTED,
-        isActive: false,
-        reviewedAt: new Date(),
-        reviewedBy: adminUserId,
-        rejectionReason: dto.reason,
-      },
-      select: { id: true, status: true, rejectionReason: true },
+    const now = new Date();
+    const isPermanent = isBlacklistRejection(dto.rejectionType);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.store.update({
+        where: { id: storeId },
+        data: {
+          status: StoreStatus.REJECTED,
+          isActive: false,
+          reviewedAt: now,
+          reviewedBy: adminUserId,
+          rejectionReason: dto.reason,
+          rejectionType: dto.rejectionType,
+          rejectionRevokedAt: null,
+          rejectionRevokedBy: null,
+          rejectionRevokeReason: null,
+          documentRequestReason: null,
+          documentRequestAt: null,
+          documentRequestBy: null,
+          requestedDocumentTypes: Prisma.JsonNull,
+        },
+        select: {
+          id: true,
+          status: true,
+          rejectionReason: true,
+          rejectionType: true,
+        },
+      });
+
+      if (isPermanent) {
+        await tx.merchantProfile.update({
+          where: { id: store.merchantProfileId },
+          data: {
+            isBlacklisted: true,
+            blacklistReason: dto.reason,
+            blacklistedAt: now,
+            blacklistedBy: adminUserId,
+            blacklistRemovedAt: null,
+            blacklistRemovedBy: null,
+          },
+        });
+      }
+
+      return result;
     });
+
+    if (isPermanent) {
+      await this.blocklist.blockMerchantIdentifiers(
+        {
+          phone: store.merchantProfile.user.phone,
+          email: store.merchantProfile.user.email ?? store.email,
+          gstNumber: store.merchantProfile.gstNumber,
+          panNumber: store.merchantProfile.panNumber,
+        },
+        dto.reason,
+        adminUserId,
+        storeId,
+      );
+
+      if (store.phone && store.phone !== store.merchantProfile.user.phone) {
+        await this.blocklist.blockMerchantIdentifiers(
+          { phone: store.phone },
+          dto.reason,
+          adminUserId,
+          storeId,
+        );
+      }
+
+      await this.domainEvents.emit(
+        DomainEventType.MERCHANT_BLACKLISTED,
+        'merchant_profile',
+        store.merchantProfileId,
+        {
+          storeId,
+          storeName: store.name,
+          reason: dto.reason,
+          rejectionType: dto.rejectionType,
+          blacklistedBy: adminUserId,
+        },
+        { userId: adminUserId, ipAddress: ipAddress ?? null },
+      );
+
+      await this.audit.log({
+        actorId: adminUserId,
+        action: 'MERCHANT_BLACKLISTED',
+        resourceType: 'merchant_profile',
+        resourceId: store.merchantProfileId,
+        ipAddress,
+        userAgent,
+        metadata: {
+          storeId,
+          rejectionType: dto.rejectionType,
+          reason: dto.reason,
+        } as Prisma.InputJsonValue,
+      });
+    }
 
     await Promise.all([
       this.audit.log({
@@ -212,6 +430,9 @@ export class AdminStoreService {
         metadata: {
           previousStatus: store.status,
           reason: dto.reason,
+          rejectionType: dto.rejectionType,
+          revocable: isRevocableRejection(dto.rejectionType),
+          blacklisted: isPermanent,
           storeName: store.name,
         } as Prisma.InputJsonValue,
       }),
@@ -219,20 +440,98 @@ export class AdminStoreService {
         DomainEventType.STORE_REJECTED,
         'store',
         storeId,
-        { storeName: store.name, reason: dto.reason, rejectedBy: adminUserId },
+        {
+          storeName: store.name,
+          reason: dto.reason,
+          rejectionType: dto.rejectionType,
+          rejectedBy: adminUserId,
+          revocable: isRevocableRejection(dto.rejectionType),
+          blacklisted: isPermanent,
+        },
         { userId: adminUserId, ipAddress: ipAddress ?? null },
       ),
     ]);
 
-    void this.buyerCache.invalidateStoreCache(store.slug);
+    await this.buyerCache.invalidateStoreCache(store.slug);
 
-    this.logger.log({ adminUserId, storeId }, 'Store rejected');
+    this.logger.log({ adminUserId, storeId, rejectionType: dto.rejectionType }, 'Store rejected');
     return updated;
   }
 
-  // ---------------------------------------------------------------------------
-  // Suspend store (APPROVED → SUSPENDED)
-  // ---------------------------------------------------------------------------
+  async revokeRejection(
+    adminUserId: string,
+    storeId: string,
+    dto: RevokeRejectionDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{ id: string; status: StoreStatus }> {
+    const store = await this.findStoreWithMerchantOrThrow(storeId);
+
+    if (store.status !== StoreStatus.REJECTED) {
+      throw new BadRequestException('Only REJECTED stores can have their rejection revoked.');
+    }
+
+    if (!isRevocableRejection(store.rejectionType)) {
+      throw new BadRequestException(
+        `Rejection type ${store.rejectionType ?? 'unknown'} cannot be revoked. ` +
+          'Only DOCUMENT_ISSUE and COMPLIANCE_ISSUE rejections are revocable.',
+      );
+    }
+
+    if (store.merchantProfile.isBlacklisted) {
+      throw new BadRequestException(
+        'Cannot revoke rejection for a blacklisted merchant. SUPER_ADMIN must remove the blacklist first.',
+      );
+    }
+
+    const now = new Date();
+
+    const updated = await this.prisma.store.update({
+      where: { id: storeId },
+      data: {
+        status: StoreStatus.UNDER_REVIEW,
+        isActive: false,
+        reviewedAt: now,
+        reviewedBy: adminUserId,
+        rejectionRevokedAt: now,
+        rejectionRevokedBy: adminUserId,
+        rejectionRevokeReason: dto.reason,
+      },
+      select: { id: true, status: true },
+    });
+
+    await Promise.all([
+      this.audit.log({
+        actorId: adminUserId,
+        action: 'STORE_REJECTION_REVOKED',
+        resourceType: 'store',
+        resourceId: storeId,
+        ipAddress,
+        userAgent,
+        metadata: {
+          reason: dto.reason,
+          previousRejectionType: store.rejectionType,
+          previousRejectionReason: store.rejectionReason,
+          storeName: store.name,
+        } as Prisma.InputJsonValue,
+      }),
+      this.domainEvents.emit(
+        DomainEventType.STORE_REJECTION_REVOKED,
+        'store',
+        storeId,
+        {
+          storeName: store.name,
+          reason: dto.reason,
+          revokedBy: adminUserId,
+          previousRejectionType: store.rejectionType,
+        },
+        { userId: adminUserId, ipAddress: ipAddress ?? null },
+      ),
+    ]);
+
+    this.logger.log({ adminUserId, storeId }, 'Store rejection revoked');
+    return updated;
+  }
 
   async suspendStore(
     adminUserId: string,
@@ -283,15 +582,11 @@ export class AdminStoreService {
       ),
     ]);
 
-    void this.buyerCache.invalidateStoreCache(store.slug);
+    await this.buyerCache.invalidateStoreCache(store.slug);
 
     this.logger.log({ adminUserId, storeId }, 'Store suspended');
     return updated;
   }
-
-  // ---------------------------------------------------------------------------
-  // Reinstate suspended store → APPROVED
-  // ---------------------------------------------------------------------------
 
   async reinstateStore(
     adminUserId: string,
@@ -329,25 +624,61 @@ export class AdminStoreService {
       metadata: { storeName: store.name } as Prisma.InputJsonValue,
     });
 
-    void this.buyerCache.invalidateStoreCache(store.slug);
+    await this.buyerCache.invalidateStoreCache(store.slug);
 
     this.logger.log({ adminUserId, storeId }, 'Store reinstated');
     return updated;
   }
 
-  // ---------------------------------------------------------------------------
-  // Get store approval detail (admin view — sees all stores)
-  // ---------------------------------------------------------------------------
+  async getStoreDetail(storeId: string) {
+    const store = await this.prisma.store.findUnique({
+      where: { id: storeId, deletedAt: null },
+      include: {
+        storeZones: {
+          include: { zone: { select: { id: true, name: true, slug: true } } },
+        },
+        verificationDocuments: {
+          orderBy: { uploadedAt: 'desc' },
+          select: {
+            id: true,
+            documentType: true,
+            fileName: true,
+            fileUrl: true,
+            mimeType: true,
+            uploadedAt: true,
+          },
+        },
+        documentRequests: {
+          orderBy: { requestedAt: 'desc' },
+          select: {
+            id: true,
+            reason: true,
+            documentTypes: true,
+            requestedAt: true,
+            fulfilledAt: true,
+          },
+        },
+        merchantProfile: {
+          select: {
+            id: true,
+            businessName: true,
+            gstNumber: true,
+            panNumber: true,
+            kycStatus: true,
+            isBlacklisted: true,
+            blacklistReason: true,
+            user: { select: { id: true, phone: true, email: true } },
+          },
+        },
+      },
+    });
 
-  async getStoreDetail(
-    storeId: string,
-  ) {
-    return this.storeService.fetchStoreWithRelations(storeId);
+    if (!store) {
+      throw new NotFoundException(`Store not found: ${storeId}`);
+    }
+
+    return store;
   }
-
-  // ---------------------------------------------------------------------------
-  // Private helpers
-  // ---------------------------------------------------------------------------
 
   private async findStoreOrThrow(storeId: string) {
     const store = await this.prisma.store.findUnique({
@@ -359,6 +690,35 @@ export class AdminStoreService {
         status: true,
         merchantProfileId: true,
         isActive: true,
+      },
+    });
+    if (!store) throw new NotFoundException(`Store not found: ${storeId}`);
+    return store;
+  }
+
+  private async findStoreWithMerchantOrThrow(storeId: string) {
+    const store = await this.prisma.store.findUnique({
+      where: { id: storeId, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+        merchantProfileId: true,
+        isActive: true,
+        phone: true,
+        email: true,
+        merchantProfile: {
+          select: {
+            id: true,
+            gstNumber: true,
+            panNumber: true,
+            isBlacklisted: true,
+            user: { select: { phone: true, email: true } },
+          },
+        },
+        rejectionReason: true,
+        rejectionType: true,
       },
     });
     if (!store) throw new NotFoundException(`Store not found: ${storeId}`);

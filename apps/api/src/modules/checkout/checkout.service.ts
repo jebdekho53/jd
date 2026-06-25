@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -8,11 +9,14 @@ import {
 import {
   CheckoutStatus,
   DomainEventType,
+  OrderActorType,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
   Prisma,
+  RewardTransactionType,
   StoreStatus,
+  WalletTransactionType,
 } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
@@ -20,7 +24,19 @@ import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { CartService } from '../cart/cart.service';
 import { ReservationService } from './reservation.service';
+import { OrderCacheService } from '../order/order-cache.service';
 import { InitiateCheckoutDto } from './dto/initiate-checkout.dto';
+import { StorePromotionService } from '../promotion/store-promotion.service';
+import { GeospatialService } from '../geospatial/geospatial.service';
+import { WalletLoyaltyCheckoutService } from '../wallet-loyalty/wallet-loyalty-checkout.service';
+import { ReferralService } from '../wallet-loyalty/referral.service';
+import { WalletService } from '../wallet-loyalty/wallet.service';
+import { OrderFinancialsService } from '../finance/order-financials.service';
+import { TrustSafetyHookService } from '../trust-safety/trust-safety-hook.service';
+import { SmartFulfillmentService } from '../fulfillment-network/smart-fulfillment.service';
+import { CorporateWalletService } from '../corporate/corporate-wallet.service';
+import { ApprovalService } from '../corporate/approval.service';
+import { PurchaseRequestStatus } from '@prisma/client';
 
 const CHECKOUT_TTL_MINUTES = 15;
 
@@ -41,6 +57,17 @@ export class CheckoutService {
     private readonly reservation: ReservationService,
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
+    private readonly orderCache: OrderCacheService,
+    private readonly promotions: StorePromotionService,
+    private readonly geospatial: GeospatialService,
+    private readonly walletCheckout: WalletLoyaltyCheckoutService,
+    private readonly referral: ReferralService,
+    private readonly wallet: WalletService,
+    private readonly orderFinancials: OrderFinancialsService,
+    private readonly trustSafety: TrustSafetyHookService,
+    private readonly smartFulfillment: SmartFulfillmentService,
+    private readonly corporateWallet: CorporateWalletService,
+    private readonly corporateApproval: ApprovalService,
   ) {}
 
   // ── Initiate checkout (Razorpay / online payment) ──────────────────────────
@@ -56,6 +83,11 @@ export class CheckoutService {
     }
 
     await this.validateCartForCheckout(cart);
+    await this.geospatial.validateCheckoutLocation(cart.storeId, dto.deliveryAddress.lat, dto.deliveryAddress.lng);
+
+    if (dto.corporatePurchaseRequestId) {
+      await this.validateCorporatePurchaseRequest(userId, dto.corporatePurchaseRequestId, cart.totals.grandTotal);
+    }
 
     const buyerProfile = await this.prisma.buyerProfile.findUnique({
       where: { userId },
@@ -76,6 +108,9 @@ export class CheckoutService {
         sku: i.variant.sku,
       })),
       totals: cart.totals,
+      promo: cart.totals.promo,
+      appliedCouponCode: cart.appliedCouponCode,
+      corporatePurchaseRequestId: dto.corporatePurchaseRequestId,
     });
 
     const address = dto.deliveryAddress;
@@ -109,7 +144,11 @@ export class CheckoutService {
     try {
       await this.reservation.reserveInventory(
         checkout.id,
-        cart.items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
+        cart.items.map((i) => ({
+          variantId: i.variantId,
+          productId: i.productId,
+          quantity: i.quantity,
+        })),
         userId,
         ipAddress,
       );
@@ -130,7 +169,16 @@ export class CheckoutService {
       address,
       dto.buyerNote,
       PaymentMethod.RAZORPAY,
+      {
+        walletAmountToUse: dto.walletAmountToUse,
+        rewardPointsToRedeem: dto.rewardPointsToRedeem,
+        referralCode: dto.referralCode,
+        deviceFingerprint: dto.deviceFingerprint,
+      },
     );
+
+    // Link reservations to pending order — stock held until delivery
+    await this.reservation.linkReservationsToOrder(checkout.id, order.id);
 
     // Mark checkout as RESERVED + link the pending order
     const reserved = await this.prisma.checkout.update({
@@ -190,12 +238,22 @@ export class CheckoutService {
     }
 
     await this.validateCartForCheckout(cart);
+    await this.geospatial.validateCheckoutLocation(cart.storeId, dto.deliveryAddress.lat, dto.deliveryAddress.lng);
 
     const buyerProfile = await this.prisma.buyerProfile.findUnique({
       where: { userId },
       select: { id: true },
     });
     if (!buyerProfile) throw new BadRequestException('Buyer profile not found');
+
+    const codCheck = await this.trustSafety.beforeCodCheckout(userId);
+    if (!codCheck.allowed) {
+      throw new BadRequestException(codCheck.reason ?? 'COD not available');
+    }
+
+    if (dto.corporatePurchaseRequestId) {
+      await this.validateCorporatePurchaseRequest(userId, dto.corporatePurchaseRequestId, cart.totals.grandTotal);
+    }
 
     const expiresAt = new Date(Date.now() + CHECKOUT_TTL_MINUTES * 60 * 1000);
     const address = dto.deliveryAddress;
@@ -212,6 +270,9 @@ export class CheckoutService {
         sku: i.variant.sku,
       })),
       totals: cart.totals,
+      promo: cart.totals.promo,
+      appliedCouponCode: cart.appliedCouponCode,
+      corporatePurchaseRequestId: dto.corporatePurchaseRequestId,
     });
 
     const checkout = await this.prisma.checkout.create({
@@ -233,7 +294,11 @@ export class CheckoutService {
     try {
       await this.reservation.reserveInventory(
         checkout.id,
-        cart.items.map((i) => ({ variantId: i.variantId, quantity: i.quantity })),
+        cart.items.map((i) => ({
+          variantId: i.variantId,
+          productId: i.productId,
+          quantity: i.quantity,
+        })),
         userId,
         ipAddress,
       );
@@ -251,10 +316,28 @@ export class CheckoutService {
     });
 
     // ── Create Order immediately (COD) ──────────────────────────────────────
-    const order = await this.createOrderFromCheckout(checkout.id, cart, buyerProfile.id, address, dto.buyerNote, PaymentMethod.COD);
+    const order = await this.createOrderFromCheckout(
+      checkout.id,
+      cart,
+      buyerProfile.id,
+      address,
+      dto.buyerNote,
+      PaymentMethod.COD,
+      {
+        walletAmountToUse: dto.walletAmountToUse,
+        rewardPointsToRedeem: dto.rewardPointsToRedeem,
+        referralCode: dto.referralCode,
+        deviceFingerprint: dto.deviceFingerprint,
+        corporatePurchaseRequestId: dto.corporatePurchaseRequestId,
+      },
+    );
 
-    // Consume reservations
-    await this.reservation.consumeReservations(checkout.id);
+    if (dto.corporatePurchaseRequestId) {
+      await this.settleCorporateWallet(userId, dto.corporatePurchaseRequestId, cart.totals.grandTotal);
+    }
+
+    // Link reservations to order — stock stays reserved until delivery or cancellation
+    await this.reservation.linkReservationsToOrder(checkout.id, order.id);
 
     // Mark checkout as COMPLETED + link to order
     await this.prisma.checkout.update({
@@ -288,7 +371,16 @@ export class CheckoutService {
       ),
     ]);
 
-    this.logger.log({ userId, orderId: order.id, orderNumber: order.orderNumber }, 'COD order created');
+    this.logger.log(
+      {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        buyerProfileId: buyerProfile.id,
+        storeId: cart.storeId,
+        status: order.status,
+      },
+      'ORDER_CREATED (COD)',
+    );
 
     return { orderId: order.id, orderNumber: order.orderNumber, status: order.status };
   }
@@ -351,7 +443,7 @@ export class CheckoutService {
       paymentMethod,
     );
 
-    await this.reservation.consumeReservations(checkoutId);
+    await this.reservation.linkReservationsToOrder(checkoutId, order.id);
 
     await this.prisma.checkout.update({
       where: { id: checkoutId },
@@ -380,10 +472,9 @@ export class CheckoutService {
       ),
     ]);
 
+    void this.orderCache.invalidateAll(order.id);
     return order;
   }
-
-  // ── Private: create Order + OrderItems from checkout data ─────────────────
 
   private async createOrderFromCheckout(
     checkoutId: string,
@@ -391,46 +482,103 @@ export class CheckoutService {
     buyerProfileId: string,
     address: any,
     buyerNote?: string,
-    paymentMethod: PaymentMethod = PaymentMethod.RAZORPAY,
+    paymentMethodInput: PaymentMethod = PaymentMethod.RAZORPAY,
+    walletOpts?: {
+      walletAmountToUse?: number;
+      rewardPointsToRedeem?: number;
+      referralCode?: string;
+      deviceFingerprint?: string;
+      corporatePurchaseRequestId?: string;
+    },
   ) {
-    const totals = cart.totals ?? { subtotal: 0, discount: 0, deliveryFee: 0, tax: 0, grandTotal: 0 };
+    const totals = cart.totals ?? {
+      subtotal: 0,
+      discount: 0,
+      catalogSavings: 0,
+      offerDiscount: 0,
+      couponDiscount: 0,
+      deliveryDiscount: 0,
+      totalSavings: 0,
+      deliveryFee: 0,
+      tax: 0,
+      grandTotal: 0,
+      promo: null,
+    };
     const items: any[] = cart.items ?? [];
+    const promoDiscount = (totals.offerDiscount ?? 0) + (totals.couponDiscount ?? 0);
+    const discountAmount = promoDiscount + (totals.catalogSavings ?? totals.discount ?? 0);
+    const couponId = totals.promo?.appliedCoupon?.id ?? null;
+    const promotionId = totals.promo?.appliedPromotion?.id ?? null;
+    const offerId = totals.promo?.appliedOffer?.id ?? null;
+    const cashbackAmount = totals.promo?.cashbackAmount ?? 0;
+    const rewardPointsBonus = totals.promo?.rewardPointsBonus ?? 0;
+    const gmvImpact = totals.grandTotal ?? 0;
+
+    const pmBase = paymentMethodInput === PaymentMethod.COD ? 'COD' : 'RAZORPAY';
+    const paymentPlan = await this.walletCheckout.computeCheckoutPayment({
+      buyerProfileId,
+      grandTotal: totals.grandTotal,
+      walletAmountToUse: walletOpts?.walletAmountToUse,
+      rewardPointsToRedeem: walletOpts?.rewardPointsToRedeem,
+      paymentMethod: pmBase,
+    });
+
+    const buyerWallet = await this.wallet.getOrCreateWallet(
+      buyerProfileId,
+      walletOpts?.referralCode,
+    );
+    if (walletOpts?.referralCode && !buyerWallet.referredById) {
+      try {
+        await this.referral.applyReferralCode(
+          buyerProfileId,
+          walletOpts.referralCode,
+          walletOpts.deviceFingerprint,
+        );
+      } catch {
+        // non-fatal at checkout
+      }
+    }
+
+    const orderDiscount = discountAmount + paymentPlan.pointsDiscount;
 
     return this.prisma.$transaction(async (tx) => {
       let orderNumber: string;
       let attempts = 0;
 
-      // Ensure unique order number (extremely low collision probability)
       do {
         orderNumber = generateOrderNumber();
         attempts++;
         if (attempts > 5) throw new Error('Could not generate unique order number');
-      } while (
-        await tx.order.findUnique({ where: { orderNumber } })
-      );
+      } while (await tx.order.findUnique({ where: { orderNumber } }));
 
       const order = await tx.order.create({
         data: {
           orderNumber,
           buyerProfileId,
           storeId: cart.storeId,
-          status: paymentMethod === PaymentMethod.COD
-            ? OrderStatus.MERCHANT_ACCEPTED
-            : OrderStatus.PAYMENT_PENDING,
-          paymentMethod,
-          paymentStatus: paymentMethod === PaymentMethod.COD
-            ? PaymentStatus.PENDING   // COD: payment pending on delivery
-            : PaymentStatus.PENDING,
+          status: paymentPlan.initialOrderStatus,
+          paymentMethod: paymentPlan.resolvedPaymentMethod,
+          paymentStatus: paymentPlan.initialPaymentStatus,
           subtotal: totals.subtotal,
-          discountAmount: totals.discount ?? 0,
+          discountAmount: orderDiscount,
           deliveryFee: totals.deliveryFee ?? 0,
           taxAmount: totals.tax ?? 0,
-          totalAmount: totals.grandTotal,
-          deliveryAddress: { line1: address.line1, line2: address.line2, city: address.city, pincode: address.pincode },
+          totalAmount: paymentPlan.amountDue,
+          walletAmountUsed: paymentPlan.walletAmountUsed,
+          rewardPointsUsed: paymentPlan.rewardPointsUsed,
+          razorpayAmount: paymentPlan.razorpayAmount > 0 ? paymentPlan.razorpayAmount : null,
+          couponId,
+          deliveryAddress: {
+            line1: address.line1,
+            line2: address.line2,
+            city: address.city,
+            pincode: address.pincode,
+          },
           deliveryLat: address.lat ?? 0,
           deliveryLng: address.lng ?? 0,
           buyerNote,
-          idempotencyKey: checkoutId, // checkoutId → idempotency for order creation
+          idempotencyKey: checkoutId,
+          ...(paymentPlan.initialPaymentStatus === PaymentStatus.PAID && { paidAt: new Date() }),
           items: {
             create: items.map((i: any) => ({
               productId: i.productId,
@@ -449,16 +597,102 @@ export class CheckoutService {
         include: { items: true },
       });
 
-      // Create initial status history entry
       await tx.orderStatusHistory.create({
         data: {
           orderId: order.id,
           status: order.status,
-          note: paymentMethod === PaymentMethod.COD
-            ? 'COD order created'
-            : 'Order created, awaiting payment',
+          note:
+            paymentPlan.resolvedPaymentMethod === PaymentMethod.COD ||
+            paymentPlan.resolvedPaymentMethod === PaymentMethod.WALLET_COD
+              ? 'COD order created'
+              : paymentPlan.resolvedPaymentMethod === PaymentMethod.WALLET
+                ? 'Order paid via wallet'
+                : 'Order created, awaiting payment',
+          actorType: OrderActorType.BUYER,
         },
       });
+
+      await this.promotions.redeemOnOrder(
+        tx,
+        order.id,
+        buyerProfileId,
+        couponId,
+        promotionId,
+        offerId,
+        totals.couponDiscount ?? 0,
+        totals.offerDiscount ?? 0,
+        cashbackAmount,
+        rewardPointsBonus,
+        gmvImpact,
+      );
+
+      await this.walletCheckout.applyCheckoutDeductions(
+        tx,
+        buyerWallet.id,
+        order.id,
+        paymentPlan.walletAmountUsed,
+        paymentPlan.rewardPointsUsed,
+      );
+
+      return order;
+    }).then(async (order) => {
+      void this.orderFinancials
+        .freezeOnOrderCreate({
+          orderId: order.id,
+          storeId: cart.storeId,
+          subtotal: totals.subtotal,
+          discountAmount: orderDiscount,
+          offerSubsidy: totals.offerDiscount ?? 0,
+          deliveryFee: totals.deliveryFee ?? 0,
+          taxAmount: totals.tax ?? 0,
+          paymentMethod: order.paymentMethod,
+        })
+        .catch((err) => this.logger.warn(`Financial freeze failed: ${(err as Error).message}`));
+
+      if (paymentPlan.walletAmountUsed > 0) {
+        await this.wallet.emitWalletDebited(
+          buyerWallet.id,
+          buyerProfileId,
+          paymentPlan.walletAmountUsed,
+          order.id,
+        );
+      }
+      if (cashbackAmount > 0) {
+        await this.prisma.$transaction(async (tx) => {
+          await this.wallet.creditWallet(tx, buyerWallet.id, cashbackAmount, WalletTransactionType.CREDIT, {
+            description: `Offer cashback for order ${order.orderNumber}`,
+            referenceType: 'order',
+            referenceId: order.id,
+            idempotencyKey: `offer-cashback:${order.id}`,
+          });
+        });
+      }
+      if (rewardPointsBonus > 0) {
+        await this.prisma.$transaction(async (tx) => {
+          const wallet = await tx.buyerWallet.findUnique({ where: { id: buyerWallet.id } });
+          if (!wallet) return;
+          const after = wallet.rewardPoints + rewardPointsBonus;
+          await tx.buyerWallet.update({
+            where: { id: buyerWallet.id },
+            data: { rewardPoints: after, lifetimePoints: { increment: rewardPointsBonus } },
+          });
+          await tx.rewardTransaction.create({
+            data: {
+              walletId: buyerWallet.id,
+              type: RewardTransactionType.EARN,
+              points: rewardPointsBonus,
+              pointsAfter: after,
+              orderId: order.id,
+              description: 'Campaign offer bonus points',
+              idempotencyKey: `offer-bonus:${order.id}`,
+            },
+          });
+        });
+      }
+
+      void this.smartFulfillment.allocateOrder(order.id).catch((err) =>
+        this.logger.warn(`Fulfillment allocation failed for ${order.id}: ${(err as Error).message}`),
+      );
 
       return order;
     });
@@ -467,7 +701,6 @@ export class CheckoutService {
   // ── Private: validate cart before checkout ─────────────────────────────────
 
   private async validateCartForCheckout(cart: { storeId: string; items: any[] }): Promise<void> {
-    // Re-validate store is still active
     const store = await this.prisma.store.findFirst({
       where: {
         id: cart.storeId,
@@ -478,7 +711,6 @@ export class CheckoutService {
     });
     if (!store) throw new BadRequestException('Store is no longer accepting orders');
 
-    // Re-validate each product + available inventory
     for (const item of cart.items) {
       const variant = await this.prisma.productVariant.findFirst({
         where: {
@@ -496,14 +728,51 @@ export class CheckoutService {
       }
 
       const available = variant.inventory
-        ? variant.inventory.quantity - variant.inventory.reserved
+        ? variant.inventory.availableQty
         : 0;
 
       if (available < item.quantity) {
-        throw new BadRequestException(
-          `Only ${available} unit(s) available for "${item.product?.name ?? item.variantId}"`,
-        );
+        throw new ConflictException({
+          code: 'INVENTORY_CHANGED',
+          message: `Only ${available} unit(s) available for "${item.product?.name ?? item.variantId}"`,
+        });
       }
     }
+  }
+
+  private async validateCorporatePurchaseRequest(
+    userId: string,
+    requestId: string,
+    amount: number,
+  ): Promise<void> {
+    const employee = await this.prisma.corporateUser.findFirst({ where: { userId } });
+    if (!employee) throw new BadRequestException('Corporate account required');
+
+    const req = await this.prisma.purchaseRequest.findFirst({
+      where: { id: requestId, employeeId: employee.id },
+      include: { employee: { include: { account: { include: { approvalWorkflows: true } } } } },
+    });
+    if (!req) throw new BadRequestException('Purchase request not found');
+    if (req.status !== PurchaseRequestStatus.APPROVED) {
+      throw new BadRequestException('Purchase request not approved');
+    }
+    if (Number(req.amount) < amount) {
+      throw new BadRequestException('Purchase request amount insufficient');
+    }
+
+    const limit = Number(req.employee.account.approvalWorkflows[0]?.approvalLimit ?? 0);
+    if (this.corporateApproval.needsApproval(amount, limit) && req.status !== PurchaseRequestStatus.APPROVED) {
+      throw new BadRequestException('Order requires corporate approval');
+    }
+  }
+
+  private async settleCorporateWallet(userId: string, requestId: string, amount: number) {
+    const employee = await this.prisma.corporateUser.findFirst({ where: { userId } });
+    if (!employee) return;
+    await this.corporateWallet.debit(employee.accountId, amount);
+    await this.prisma.purchaseRequest.update({
+      where: { id: requestId },
+      data: { status: PurchaseRequestStatus.APPROVED },
+    });
   }
 }

@@ -27,15 +27,13 @@ export class CreateStoreDto {
   @Length(0, 500)
   description?: string;
 
-  @ApiProperty({ required: false, example: '+919876543210' })
-  @IsOptional()
+  @ApiProperty({ example: '+919876543210' })
   @Matches(PHONE_E164_REGEX, { message: 'Phone must be in E.164 format' })
-  phone?: string;
+  phone: string;
 
-  @ApiProperty({ required: false, example: 'store@example.com' })
-  @IsOptional()
+  @ApiProperty({ example: 'store@example.com' })
   @IsEmail()
-  email?: string;
+  email: string;
 
   @ApiProperty({ example: '42, Hauz Khas Village' })
   @IsString()

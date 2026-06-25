@@ -8,6 +8,7 @@ import {
 import {
   CheckoutStatus,
   DomainEventType,
+  OrderActorType,
   OrderStatus,
   PaymentStatus,
   Prisma,
@@ -17,6 +18,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { ReservationService } from '../checkout/reservation.service';
+import { OrderStatusHistoryService } from '../order/order-status-history.service';
 import { RazorpayService } from './razorpay.service';
 import { CreateRazorpayOrderDto } from './dto/create-razorpay-order.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
@@ -31,6 +33,7 @@ export class PaymentService {
     private readonly reservationService: ReservationService,
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
+    private readonly statusHistory: OrderStatusHistoryService,
   ) {}
 
   // ── Create Razorpay order for a reserved checkout ─────────────────────────
@@ -70,9 +73,17 @@ export class PaymentService {
       throw new NotFoundException('Order not found for this checkout');
     }
 
-    // Create Razorpay order
+    const chargeAmount =
+      checkout.order.razorpayAmount != null
+        ? Number(checkout.order.razorpayAmount)
+        : Number(checkout.totalAmount);
+
+    if (chargeAmount <= 0) {
+      throw new BadRequestException('No Razorpay payment required for this order');
+    }
+
     const rzpOrder = await this.razorpay.createOrder(
-      Number(checkout.totalAmount),
+      chargeAmount,
       checkout.order.orderNumber,
     );
 
@@ -81,7 +92,7 @@ export class PaymentService {
       where: { orderId: checkout.order.id },
       create: {
         orderId: checkout.order.id,
-        amount: checkout.totalAmount,
+        amount: chargeAmount,
         method: 'RAZORPAY',
         status: PaymentStatus.PENDING,
         razorpayOrderId: rzpOrder.id,
@@ -157,7 +168,6 @@ export class PaymentService {
 
     // ── Confirm in a single transaction ──────────────────────────────────────
     await this.prisma.$transaction(async (tx) => {
-      // Update payment
       await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -166,25 +176,26 @@ export class PaymentService {
           razorpaySignature: dto.razorpaySignature,
         },
       });
-
-      // Advance order status
-      await tx.order.update({
-        where: { id: checkout.order!.id },
-        data: { status: OrderStatus.CREATED, paymentStatus: PaymentStatus.PAID, paidAt: new Date() },
-      });
-      await tx.orderStatusHistory.create({
-        data: { orderId: checkout.order!.id, status: OrderStatus.CREATED, note: 'Payment verified' },
-      });
-
-      // Mark checkout completed
       await tx.checkout.update({
         where: { id: checkout.id },
         data: { status: CheckoutStatus.COMPLETED },
       });
     });
 
-    // Consume inventory reservations (OUTSIDE the main tx to reduce lock duration)
-    await this.reservationService.consumeReservations(checkout.id);
+    await this.statusHistory.transition({
+      orderId: checkout.order!.id,
+      toStatus: OrderStatus.PAID,
+      actorType: OrderActorType.BUYER,
+      actorId: userId,
+      note: 'Payment verified',
+      extraOrderData: { paymentStatus: PaymentStatus.PAID },
+      skipIfAlreadyStatus: true,
+    });
+
+    // Stock remains reserved until delivery — no consumption on payment
+    if (checkout.order?.id) {
+      await this.reservationService.linkReservationsToOrder(checkout.id, checkout.order.id);
+    }
 
     await Promise.all([
       this.audit.log({
@@ -289,21 +300,28 @@ export class PaymentService {
         where: { id: payment.id },
         data: { status: PaymentStatus.PAID, razorpayPaymentId: razorpayPaymentId ?? undefined },
       });
-      await tx.order.update({
-        where: { id: payment.order.id },
-        data: { status: OrderStatus.CREATED, paymentStatus: PaymentStatus.PAID, paidAt: new Date() },
-      });
       await tx.checkout.updateMany({
         where: { orderId: payment.order.id },
         data: { status: CheckoutStatus.COMPLETED },
       });
     });
 
+    await this.statusHistory.transition({
+      orderId: payment.order.id,
+      toStatus: OrderStatus.PAID,
+      actorType: OrderActorType.SYSTEM,
+      note: 'Payment captured (webhook)',
+      extraOrderData: { paymentStatus: PaymentStatus.PAID },
+      skipIfAlreadyStatus: true,
+    });
+
     // Find checkout for inventory
     const checkout = await this.prisma.checkout.findFirst({
       where: { orderId: payment.order.id },
     });
-    if (checkout) await this.reservationService.consumeReservations(checkout.id);
+    if (checkout?.orderId) {
+      await this.reservationService.linkReservationsToOrder(checkout.id, checkout.orderId);
+    }
 
     await this.domainEvents.emit(
       DomainEventType.PAYMENT_SUCCESS,
@@ -329,16 +347,19 @@ export class PaymentService {
 
     const failureReason = this.extractFailureReason(payload);
 
-    await this.prisma.$transaction([
-      this.prisma.payment.update({
-        where: { id: payment.id },
-        data: { status: PaymentStatus.FAILED, failureReason },
-      }),
-      this.prisma.order.update({
-        where: { id: payment.order.id },
-        data: { status: OrderStatus.PAYMENT_FAILED, paymentStatus: PaymentStatus.FAILED },
-      }),
-    ]);
+    await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: PaymentStatus.FAILED, failureReason },
+    });
+
+    await this.statusHistory.transition({
+      orderId: payment.order.id,
+      toStatus: OrderStatus.PAYMENT_FAILED,
+      actorType: OrderActorType.SYSTEM,
+      note: failureReason ?? 'Payment failed (webhook)',
+      extraOrderData: { paymentStatus: PaymentStatus.FAILED },
+      skipIfAlreadyStatus: true,
+    });
 
     const checkout = await this.prisma.checkout.findFirst({
       where: { orderId: payment.order.id },
@@ -378,6 +399,7 @@ export class PaymentService {
             orderNumber: true,
             status: true,
             paymentStatus: true,
+            razorpayAmount: true,
             payment: true,
           },
         },

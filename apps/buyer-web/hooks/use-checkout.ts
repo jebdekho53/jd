@@ -9,6 +9,8 @@ import {
   verifyRazorpayPayment,
 } from '@/services/checkout/checkout-api';
 import { cartKeys } from '@/hooks/use-cart';
+import { orderKeys } from '@/hooks/use-orders';
+import { profileKeys } from '@/features/profile/hooks/use-profile';
 import type { InitiateCheckoutPayload, VerifyPaymentPayload } from '@/types/checkout';
 
 export const checkoutKeys = {
@@ -41,6 +43,8 @@ export function useInitiateCodCheckoutMutation() {
     mutationFn: (payload: InitiateCheckoutPayload) => initiateCodCheckout(payload),
     onSuccess: () => {
       qc.setQueryData(cartKeys.current(), null);
+      qc.invalidateQueries({ queryKey: orderKeys.all });
+      qc.invalidateQueries({ queryKey: profileKeys.stats() });
     },
   });
 }
@@ -57,6 +61,8 @@ export function useVerifyPaymentMutation() {
     mutationFn: (payload: VerifyPaymentPayload) => verifyRazorpayPayment(payload),
     onSuccess: () => {
       qc.setQueryData(cartKeys.current(), null);
+      qc.invalidateQueries({ queryKey: orderKeys.all });
+      qc.invalidateQueries({ queryKey: profileKeys.stats() });
     },
   });
 }

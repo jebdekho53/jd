@@ -1,16 +1,36 @@
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
 });
 
+function resolveExpoProjectId(): string | undefined {
+  const extra = Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined;
+  return extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+}
+
+/**
+ * Registers for push notifications when an EAS projectId is configured.
+ * In local Expo Go dev (no EAS project), returns null — local notifications still work.
+ */
 export async function registerForPushNotifications(): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    return null;
+  }
+
+  const projectId = resolveExpoProjectId();
+  if (!projectId) {
+    return null;
+  }
+
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('orders', {
       name: 'Delivery orders',
@@ -26,8 +46,13 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
   if (final !== 'granted') return null;
 
-  const token = await Notifications.getExpoPushTokenAsync();
-  return token.data;
+  try {
+    const token = await Notifications.getExpoPushTokenAsync({ projectId });
+    return token.data;
+  } catch {
+    // Expo Go / dev builds without push credentials — non-fatal
+    return null;
+  }
 }
 
 export async function notifyOrderAssigned(orderId: string, orderNumber: string) {

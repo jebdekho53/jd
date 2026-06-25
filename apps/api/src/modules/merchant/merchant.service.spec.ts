@@ -4,6 +4,7 @@ import { KycStatus } from '@prisma/client';
 import { MerchantService } from './merchant.service';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { VerificationBlocklistService } from './verification-blocklist.service';
 
 const mockPrisma = {
   merchantProfile: {
@@ -11,11 +12,23 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
   },
+  user: { findUniqueOrThrow: jest.fn() },
   role: { findUniqueOrThrow: jest.fn() },
   userRole: { upsert: jest.fn() },
   $transaction: jest.fn(),
 };
 const mockAudit = { log: jest.fn() };
+const mockBlocklist = {
+  assertNotBlocked: jest.fn(),
+  assertUserNotBlacklisted: jest.fn(),
+  assertMerchantProfileNotBlacklisted: jest.fn(),
+};
+
+const CREATE_DTO = {
+  businessName: 'Test Store',
+  gstNumber: '22AAAAA0000A1Z5',
+  panNumber: 'ABCDE1234F',
+};
 
 describe('MerchantService', () => {
   let service: MerchantService;
@@ -26,6 +39,7 @@ describe('MerchantService', () => {
         MerchantService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
+        { provide: VerificationBlocklistService, useValue: mockBlocklist },
       ],
     }).compile();
     service = module.get<MerchantService>(MerchantService);
@@ -37,6 +51,12 @@ describe('MerchantService', () => {
   describe('createProfile', () => {
     it('creates profile and assigns MERCHANT role', async () => {
       mockPrisma.merchantProfile.findUnique.mockResolvedValue(null);
+      mockPrisma.user.findUniqueOrThrow.mockResolvedValue({
+        phone: '+919876543211',
+        email: 'merchant@demo.jebdekho.com',
+      });
+      mockBlocklist.assertNotBlocked.mockResolvedValue(undefined);
+      mockBlocklist.assertUserNotBlacklisted.mockResolvedValue(undefined);
       mockPrisma.role.findUniqueOrThrow.mockResolvedValue({ id: 'role-merchant' });
       const created = {
         id: 'mp-1',
@@ -51,7 +71,7 @@ describe('MerchantService', () => {
       mockPrisma.userRole.upsert.mockResolvedValue({});
       mockAudit.log.mockResolvedValue(undefined);
 
-      const result = await service.createProfile('u-1', { businessName: 'Test Store' });
+      const result = await service.createProfile('u-1', CREATE_DTO);
 
       expect(mockPrisma.merchantProfile.create).toHaveBeenCalled();
       expect(mockPrisma.userRole.upsert).toHaveBeenCalled();
@@ -62,7 +82,7 @@ describe('MerchantService', () => {
       mockPrisma.merchantProfile.findUnique.mockResolvedValue({ id: 'mp-1' });
 
       await expect(
-        service.createProfile('u-1', { businessName: 'Test' }),
+        service.createProfile('u-1', CREATE_DTO),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -94,6 +114,26 @@ describe('MerchantService', () => {
       await expect(service.requireMerchantProfile('u-1')).rejects.toThrow(
         ForbiddenException,
       );
+    });
+
+    it('throws when user id is missing', async () => {
+      await expect(service.requireMerchantProfile('')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws when profile userId does not match request user', async () => {
+      mockPrisma.merchantProfile.findUnique.mockResolvedValue({
+        id: 'mp-1',
+        userId: 'other-user',
+      });
+
+      await expect(service.requireMerchantProfile('u-1')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('returns profile when owned by user', async () => {
+      const profile = { id: 'mp-1', userId: 'u-1' };
+      mockPrisma.merchantProfile.findUnique.mockResolvedValue(profile);
+
+      await expect(service.requireMerchantProfile('u-1')).resolves.toEqual(profile);
     });
   });
 });

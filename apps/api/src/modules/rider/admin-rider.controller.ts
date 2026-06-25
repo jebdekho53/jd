@@ -18,7 +18,6 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { OrderStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -26,8 +25,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { RequestUser } from '../../common/types/index';
-import { RiderAssignmentService } from './rider-assignment.service';
-import { PrismaService } from '../../database/prisma.service';
+import { RiderAssignmentService } from '../rider-assignment/rider-assignment.service';
 import { AssignRiderDto } from './dto/assign-rider.dto';
 
 @ApiTags('admin / riders')
@@ -36,10 +34,7 @@ import { AssignRiderDto } from './dto/assign-rider.dto';
 @Roles('ADMIN', 'SUPER_ADMIN')
 @Controller('admin')
 export class AdminRiderController {
-  constructor(
-    private readonly assignmentService: RiderAssignmentService,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly assignmentService: RiderAssignmentService) {}
 
   // ── Rider queue — orders ready for pickup with no assigned rider ──────────
 
@@ -56,48 +51,22 @@ export class AdminRiderController {
     @Query('page') page = 1,
     @Query('limit') limit = 20,
   ) {
-    const skip = (Number(page) - 1) * Number(limit);
-
-    const [orders, total] = await Promise.all([
-      this.prisma.order.findMany({
-        where: {
-          status: OrderStatus.READY_FOR_PICKUP,
-          delivery: { is: null },
-        },
-        skip,
-        take: Number(limit),
-        orderBy: { createdAt: 'asc' }, // oldest first — fairness
-        select: {
-          id: true,
-          orderNumber: true,
-          status: true,
-          paymentMethod: true,
-          totalAmount: true,
-          createdAt: true,
-          store: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              latitude: true,
-              longitude: true,
-              storeZones: { select: { zone: { select: { id: true, name: true } } } },
-            },
-          },
-          buyerProfile: { select: { name: true } },
-          items: { select: { productName: true, quantity: true }, take: 3 },
-        },
-      }),
-      this.prisma.order.count({
-        where: { status: OrderStatus.READY_FOR_PICKUP, delivery: { is: null } },
-      }),
-    ]);
-
+    const result = await this.assignmentService.listUnassignedOrders(Number(page), Number(limit));
     return {
       success: true,
-      data: orders,
-      meta: { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) },
+      data: result.orders,
+      meta: result.meta,
     };
+  }
+
+  @Get('riders/available')
+  @Permissions('orders:manage')
+  @ApiOperation({ summary: 'List riders available for assignment to a store' })
+  @ApiQuery({ name: 'storeId', required: true, type: String })
+  @ApiResponse({ status: 200, description: 'Available riders ranked by zone match and distance' })
+  async listAvailableRiders(@Query('storeId') storeId: string) {
+    const data = await this.assignmentService.listAvailableRidersForStore(storeId);
+    return { success: true, data };
   }
 
   // ── Manual assign ─────────────────────────────────────────────────────────
@@ -118,7 +87,7 @@ export class AdminRiderController {
     @Body() dto: AssignRiderDto,
     @Ip() ip: string,
   ) {
-    const data = await this.assignmentService.assignRider(
+    const data = await this.assignmentService.assign(
       orderId, dto.riderProfileId, user.id, ip,
     );
     return { success: true, data };
@@ -143,7 +112,7 @@ export class AdminRiderController {
     @Body() dto: AssignRiderDto,
     @Ip() ip: string,
   ) {
-    const data = await this.assignmentService.reassignRider(
+    const data = await this.assignmentService.reassign(
       orderId, dto.riderProfileId, user.id, ip,
     );
     return { success: true, data };
@@ -171,5 +140,19 @@ export class AdminRiderController {
       return { success: false, data: null, message: 'No eligible riders found for auto-assignment' };
     }
     return { success: true, data };
+  }
+
+  @Post('orders/:orderId/unassign')
+  @Permissions('orders:manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'orderId' })
+  @ApiOperation({ summary: 'Unassign rider and return order to pickup queue' })
+  async unassign(
+    @CurrentUser() user: RequestUser,
+    @Param('orderId') orderId: string,
+    @Ip() ip: string,
+  ) {
+    await this.assignmentService.unassign(orderId, user.id, ip);
+    return { success: true };
   }
 }

@@ -51,7 +51,8 @@ export class ReservationCleanupService {
           await tx.inventory.update({
             where: { variantId: res.variantId },
             data: {
-              reserved: { decrement: res.quantity },
+              availableQty: { increment: res.quantity },
+              reservedQty: { decrement: res.quantity },
               version: { increment: 1 },
             },
           });

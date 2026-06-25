@@ -6,6 +6,7 @@ import { Button, Input, useToast } from '@/design-system';
 import { OtpInput } from './otp-input';
 import { useRequestOtpMutation, useSessionQuery, useVerifyOtpMutation } from '@/hooks/use-auth';
 import { isAdminUser } from '@/types/admin';
+import { DEMO_ADMIN_PHONE_DIGITS, DEMO_OTP, IS_DEV } from '@/lib/demo-auth';
 
 type Step = 'phone' | 'otp';
 
@@ -82,6 +83,19 @@ export function LoginPageContent() {
             {step === 'phone' ? 'Authorized personnel only' : `OTP sent to ${formattedPhone}`}
           </p>
         </div>
+
+        {IS_DEV && (
+          <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-left text-xs text-amber-900">
+            <p className="font-semibold">Demo admin login</p>
+            <p className="mt-1">
+              Phone: <span className="font-mono">{DEMO_ADMIN_PHONE_DIGITS}</span>
+            </p>
+            <p>
+              OTP: <span className="font-mono">{DEMO_OTP}</span>
+            </p>
+            <p className="mt-1 text-amber-800">Auth uses OTP (no password). Run <span className="font-mono">pnpm db:seed</span> if account missing.</p>
+          </div>
+        )}
 
         {step === 'phone' ? (
           <div className="space-y-4">

@@ -10,13 +10,26 @@ import {
   DeliveryStatus,
   DomainEventType,
   KycStatus,
+  OrderActorType,
   OrderStatus,
   Prisma,
   RiderStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { activeDeliveryStatuses } from '../rider-assignment/rider-assignment.util';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
+import { SettlementService } from '../settlement/settlement.service';
+import { CodReconciliationService } from '../finance/cod-reconciliation.service';
+import { ReservationService } from '../checkout/reservation.service';
+import { OrderStatusHistoryService } from '../order/order-status-history.service';
+import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
+import { TRACKING_EVENTS } from '../delivery-tracking/delivery-tracking.events';
+import { WalletLoyaltyCheckoutService } from '../wallet-loyalty/wallet-loyalty-checkout.service';
+import { ReferralService } from '../wallet-loyalty/referral.service';
+import { InvoiceEngineService } from '../compliance/invoice-engine.service';
+import { TdsTcsService } from '../compliance/tds-tcs.service';
+import { TrustSafetyHookService } from '../trust-safety/trust-safety-hook.service';
 
 // ── State machine ────────────────────────────────────────────────────────────
 //
@@ -37,11 +50,16 @@ const TERMINAL_DELIVERY = new Set<DeliveryStatus>([
   DeliveryStatus.REJECTED,
 ]);
 
-// Map delivery status → corresponding Order status update (only some steps sync to Order)
+// Map delivery status → corresponding Order status update (only steps that change order status)
 const DELIVERY_TO_ORDER_STATUS: Partial<Record<DeliveryStatus, OrderStatus>> = {
-  [DeliveryStatus.ACCEPTED]: OrderStatus.RIDER_ASSIGNED,
-  [DeliveryStatus.PICKED_UP]: OrderStatus.OUT_FOR_DELIVERY,
+  [DeliveryStatus.PICKED_UP]: OrderStatus.PICKED_UP,
   [DeliveryStatus.DELIVERED]: OrderStatus.DELIVERED,
+};
+
+// Delivery milestones recorded in timeline without changing order.status
+const DELIVERY_MILESTONE: Partial<Record<DeliveryStatus, string>> = {
+  [DeliveryStatus.ARRIVED_AT_STORE]: 'ARRIVED_AT_STORE',
+  [DeliveryStatus.ARRIVED_AT_CUSTOMER]: 'ARRIVED_AT_CUSTOMER',
 };
 
 // Map delivery status → audit action
@@ -59,6 +77,16 @@ export class DeliveryService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
+    private readonly settlement: SettlementService,
+    private readonly cod: CodReconciliationService,
+    private readonly reservation: ReservationService,
+    private readonly statusHistory: OrderStatusHistoryService,
+    private readonly tracking: DeliveryTrackingService,
+    private readonly walletLoyalty: WalletLoyaltyCheckoutService,
+    private readonly referral: ReferralService,
+    private readonly invoiceEngine: InvoiceEngineService,
+    private readonly tdsTcs: TdsTcsService,
+    private readonly trustSafety: TrustSafetyHookService,
   ) {}
 
   // ── Get delivery for a rider ───────────────────────────────────────────────
@@ -67,9 +95,12 @@ export class DeliveryService {
     const riderProfile = await this.requireRiderProfile(userId);
 
     return this.prisma.delivery.findMany({
-      where: { riderProfileId: riderProfile.id },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
+      where: {
+        riderProfileId: riderProfile.id,
+        status: { in: activeDeliveryStatuses() },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 20,
       include: {
         order: {
           select: {
@@ -253,70 +284,66 @@ export class DeliveryService {
 
     const deliveryData: Prisma.DeliveryUpdateInput = {
       status: toStatus,
+      ...(toStatus === DeliveryStatus.ARRIVED_AT_STORE && { arrivedAtStoreAt: now }),
       ...(toStatus === DeliveryStatus.PICKED_UP && { pickedUpAt: now }),
+      ...(toStatus === DeliveryStatus.ARRIVED_AT_CUSTOMER && { arrivedAtCustomerAt: now }),
       ...(toStatus === DeliveryStatus.DELIVERED && { deliveredAt: now }),
     };
 
-    const operations: any[] = [
-      this.prisma.delivery.update({ where: { id: delivery.id }, data: deliveryData }),
-    ];
+    await this.prisma.delivery.update({ where: { id: delivery.id }, data: deliveryData });
 
-    // Sync order status
+    const milestone = DELIVERY_MILESTONE[toStatus];
+    if (milestone) {
+      const order = await this.prisma.order.findUnique({
+        where: { id: delivery.orderId },
+        select: { status: true },
+      });
+      if (order) {
+        await this.statusHistory.appendEntry({
+          orderId: delivery.orderId,
+          status: order.status,
+          actorType: OrderActorType.RIDER,
+          actorId,
+          note: `Delivery milestone: ${milestone}`,
+          metadata: { milestone } as Prisma.InputJsonValue,
+        });
+      }
+    }
+
     if (orderStatusUpdate) {
-      operations.push(
-        this.prisma.order.update({
-          where: { id: delivery.orderId },
-          data: {
-            status: orderStatusUpdate,
-            ...(orderStatusUpdate === OrderStatus.DELIVERED && { completedAt: now }),
-          },
-        }),
-        this.prisma.orderStatusHistory.create({
-          data: {
-            orderId: delivery.orderId,
-            status: orderStatusUpdate,
-            note: `Delivery: ${toStatus}`,
-            changedBy: actorId,
-          },
-        }),
-      );
+      await this.statusHistory.transition({
+        orderId: delivery.orderId,
+        toStatus: orderStatusUpdate,
+        actorType: OrderActorType.RIDER,
+        actorId,
+        note: `Delivery: ${toStatus}`,
+        skipIfAlreadyStatus: true,
+      });
     }
-
-    // On delivery completion, update rider stats and set to ONLINE
     if (toStatus === DeliveryStatus.DELIVERED) {
-      operations.push(
-        this.prisma.riderProfile.update({
-          where: { id: riderProfileId },
-          data: {
-            status: RiderStatus.ONLINE,
-            totalDeliveries: { increment: 1 },
-          },
-        }),
-      );
+      await this.prisma.riderProfile.update({
+        where: { id: riderProfileId },
+        data: {
+          status: RiderStatus.ONLINE,
+          totalDeliveries: { increment: 1 },
+        },
+      });
     }
 
-    // On accept, update the assignment record
     if (toStatus === DeliveryStatus.ACCEPTED) {
-      operations.push(
-        this.prisma.deliveryAssignment.updateMany({
-          where: {
-            deliveryId: delivery.id,
-            riderProfileId,
-            status: AssignmentStatus.OFFERED,
-          },
-          data: { status: AssignmentStatus.ACCEPTED, respondedAt: now },
-        }),
-        // Rider transitions to ON_DELIVERY
-        this.prisma.riderProfile.update({
-          where: { id: riderProfileId },
-          data: { status: RiderStatus.ON_DELIVERY },
-        }),
-      );
+      await this.prisma.deliveryAssignment.updateMany({
+        where: {
+          deliveryId: delivery.id,
+          riderProfileId,
+          status: AssignmentStatus.OFFERED,
+        },
+        data: { status: AssignmentStatus.ACCEPTED, respondedAt: now },
+      });
+      await this.prisma.riderProfile.update({
+        where: { id: riderProfileId },
+        data: { status: RiderStatus.ON_DELIVERY },
+      });
     }
-
-    await this.prisma.$transaction(operations);
-
-    // Audit + domain events
     if (auditAction) {
       void this.audit.log({
         actorId,
@@ -337,6 +364,76 @@ export class DeliveryService {
         { orderId: delivery.orderId, riderProfileId } as Prisma.InputJsonValue,
         { userId: actorId, ipAddress: ipAddress ?? null },
       );
+    }
+
+    if (toStatus === DeliveryStatus.DELIVERED) {
+      void this.settlement.createLedgerForDeliveredOrder(delivery.orderId, actorId).catch((err) => {
+        this.logger.error({ err, orderId: delivery.orderId }, 'Settlement creation failed');
+      });
+      void this.cod.createForDeliveredOrder(delivery.orderId, riderProfileId).catch((err) => {
+        this.logger.error({ err, orderId: delivery.orderId }, 'COD reconciliation failed');
+      });
+      void this.applyRiderEarningFromSnapshot(delivery.id, delivery.orderId).catch(() => {});
+      void this.reservation.fulfillOnDelivery(delivery.orderId).catch((err) => {
+        this.logger.error({ err, orderId: delivery.orderId }, 'Inventory fulfillment on delivery failed');
+      });
+      void this.finalizeOrderRewards(delivery.orderId, actorId).catch((err) => {
+        this.logger.error({ err, orderId: delivery.orderId }, 'Order rewards finalization failed');
+      });
+      void this.invoiceEngine.generateForOrder(delivery.orderId).catch((err) => {
+        this.logger.error({ err, orderId: delivery.orderId }, 'GST invoice generation failed');
+      });
+      void this.syncMonthlyTdsTcs().catch(() => {});
+      void this.trustSafety.onOrderDelivered(delivery.orderId, riderProfileId).catch(() => {});
+    }
+
+    const orderMeta = await this.prisma.order.findUnique({
+      where: { id: delivery.orderId },
+      select: { orderNumber: true, storeId: true, status: true },
+    });
+    if (orderMeta) {
+      this.tracking.emitOrderStatus({
+        orderId: delivery.orderId,
+        orderNumber: orderMeta.orderNumber,
+        storeId: orderMeta.storeId,
+        riderProfileId,
+        orderStatus: orderMeta.status,
+        deliveryStatus: toStatus,
+      });
+
+      if (toStatus === DeliveryStatus.ACCEPTED || toStatus === DeliveryStatus.PICKED_UP) {
+        this.tracking.emitDeliveryEvent('STARTED', {
+          orderId: delivery.orderId,
+          orderNumber: orderMeta.orderNumber,
+          storeId: orderMeta.storeId,
+          riderProfileId,
+          deliveryStatus: toStatus,
+          orderStatus: orderMeta.status,
+        });
+      }
+      if (
+        toStatus === DeliveryStatus.ARRIVED_AT_STORE ||
+        toStatus === DeliveryStatus.ARRIVED_AT_CUSTOMER
+      ) {
+        this.tracking.emitDeliveryEvent('ARRIVED', {
+          orderId: delivery.orderId,
+          orderNumber: orderMeta.orderNumber,
+          storeId: orderMeta.storeId,
+          riderProfileId,
+          deliveryStatus: toStatus,
+          orderStatus: orderMeta.status,
+        });
+      }
+      if (toStatus === DeliveryStatus.DELIVERED) {
+        this.tracking.emitDeliveryEvent('COMPLETED', {
+          orderId: delivery.orderId,
+          orderNumber: orderMeta.orderNumber,
+          storeId: orderMeta.storeId,
+          riderProfileId,
+          deliveryStatus: toStatus,
+          orderStatus: orderMeta.status,
+        });
+      }
     }
 
     this.logger.log({ deliveryId: delivery.id, toStatus }, 'Delivery status advanced');
@@ -362,6 +459,34 @@ export class DeliveryService {
       [DeliveryStatus.DELIVERED]: DomainEventType.ORDER_DELIVERED,
     };
     return map[status] ?? null;
+  }
+
+  private async finalizeOrderRewards(orderId: string, actorId: string): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, buyerProfileId: true, status: true },
+    });
+    if (!order || order.status === OrderStatus.COMPLETED) return;
+
+    await this.statusHistory.transition({
+      orderId,
+      toStatus: OrderStatus.COMPLETED,
+      actorType: OrderActorType.SYSTEM,
+      actorId,
+      note: 'Order completed after delivery',
+      skipIfAlreadyStatus: true,
+    });
+
+    void this.domainEvents.emit(
+      DomainEventType.ORDER_COMPLETED,
+      'order',
+      orderId,
+      { buyerProfileId: order.buyerProfileId },
+      { userId: actorId },
+    );
+
+    await this.walletLoyalty.processOrderCompleted(orderId);
+    await this.referral.completeReferralOnFirstOrder(order.buyerProfileId, orderId);
   }
 
   // ── Private: ownership helpers ────────────────────────────────────────────
@@ -394,6 +519,24 @@ export class DeliveryService {
 
     if (!delivery) throw new ForbiddenException('Delivery not assigned to you');
     return delivery;
+  }
+
+  private async applyRiderEarningFromSnapshot(deliveryId: string, orderId: string) {
+    const snap = await this.prisma.orderFinancialSnapshot.findUnique({
+      where: { orderId },
+      select: { riderPayoutAmount: true },
+    });
+    if (!snap) return;
+    await this.prisma.delivery.update({
+      where: { id: deliveryId },
+      data: { riderEarning: snap.riderPayoutAmount },
+    });
+  }
+
+  private async syncMonthlyTdsTcs() {
+    const now = new Date();
+    const periodMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    await this.tdsTcs.syncMonthlyFromInvoices(periodMonth);
   }
 }
 

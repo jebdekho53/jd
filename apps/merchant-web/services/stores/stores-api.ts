@@ -1,6 +1,6 @@
 import { merchantFetch } from '@/services/api/merchant-client';
 import type { ApiResponse } from '@/types/auth';
-import type { Store, CreateStorePayload, UpdateStorePayload } from '@/types/store';
+import type { Store, CreateStorePayload, UpdateStorePayload, UploadVerificationDocumentPayload } from '@/types/store';
 
 interface StoreListResponse {
   data: Store[];
@@ -35,6 +35,25 @@ export async function updateStore(id: string, payload: UpdateStorePayload): Prom
 export async function submitStoreForReview(id: string): Promise<Store> {
   const res = await merchantFetch<ApiResponse<Store>>(
     `/api/merchant/stores/${id}/submit-review`,
+    { method: 'POST', body: '{}' },
+  );
+  return res.data;
+}
+
+export async function uploadVerificationDocument(
+  storeId: string,
+  payload: UploadVerificationDocumentPayload,
+): Promise<Store> {
+  const res = await merchantFetch<ApiResponse<Store>>(
+    `/api/merchant/stores/${storeId}/documents`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+  return res.data;
+}
+
+export async function submitDocumentsForReview(storeId: string): Promise<Store> {
+  const res = await merchantFetch<ApiResponse<Store>>(
+    `/api/merchant/stores/${storeId}/submit-documents`,
     { method: 'POST', body: '{}' },
   );
   return res.data;

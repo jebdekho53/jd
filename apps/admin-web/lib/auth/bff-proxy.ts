@@ -28,3 +28,17 @@ export async function proxyPost<T>(
     return errorResponse(err);
   }
 }
+
+export async function proxyPatch<T>(req: NextRequest, path: string) {
+  try {
+    const body = await req.text();
+    const data = await fetchWithAuth<T>(path, {
+      method: 'PATCH',
+      body,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return NextResponse.json({ success: true, data });
+  } catch (err) {
+    return errorResponse(err);
+  }
+}

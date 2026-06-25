@@ -26,6 +26,8 @@ export interface PaginationMeta {
 export interface RequestOtpResult {
   message: string;
   expiresIn: number;
+  /** Returned when logging in via email — use for OTP verify */
+  phone?: string;
 }
 
 export interface VerifyOtpResult {

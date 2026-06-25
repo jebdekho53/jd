@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle, ChefHat, PackageCheck, XCircle } from 'lucide-react';
+import { CheckCircle, ChefHat, Package, PackageCheck, AlertTriangle, XCircle } from 'lucide-react';
 import { Button, Modal, Textarea } from '@/design-system/primitives';
 import {
   useConfirmOrderMutation,
   useMarkPreparingMutation,
+  useMarkPackingMutation,
   useMarkReadyMutation,
+  useMarkIssueMutation,
   useCancelOrderMutation,
 } from '@/hooks/use-orders';
 import { useToast } from '@/design-system/primitives';
@@ -20,11 +22,15 @@ interface Props {
 export function OrderActionButtons({ orderId, status }: Props) {
   const { toast } = useToast();
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [issueOpen, setIssueOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const [issueNote, setIssueNote] = useState('');
 
   const confirmMutation = useConfirmOrderMutation(orderId);
   const preparingMutation = useMarkPreparingMutation(orderId);
+  const packingMutation = useMarkPackingMutation(orderId);
   const readyMutation = useMarkReadyMutation(orderId);
+  const issueMutation = useMarkIssueMutation(orderId);
   const cancelMutation = useCancelOrderMutation(orderId);
 
   const act = async (mutate: (id: string) => Promise<unknown>, label: string) => {
@@ -46,14 +52,25 @@ export function OrderActionButtons({ orderId, status }: Props) {
     }
   };
 
-  const canCancel = ['PAID', 'MERCHANT_ACCEPTED', 'PREPARING'].includes(status);
+  const handleIssue = async () => {
+    try {
+      await issueMutation.mutateAsync({ id: orderId, note: issueNote || undefined });
+      toast('Issue flagged on order', 'success');
+      setIssueOpen(false);
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    }
+  };
+
+  const canCancel = ['PAID', 'MERCHANT_ACCEPTED', 'PREPARING', 'PACKING'].includes(status);
+  const canFlagIssue = !['DELIVERED', 'COMPLETED', 'CANCELLED_BY_BUYER', 'CANCELLED_BY_MERCHANT', 'CANCELLED_BY_ADMIN'].includes(status);
 
   return (
     <div className="flex flex-wrap gap-2">
       {status === 'PAID' && (
         <Button
           size="sm"
-          onClick={() => act((id) => confirmMutation.mutateAsync(id), 'confirmed')}
+          onClick={() => act((id) => confirmMutation.mutateAsync(id), 'accepted')}
           loading={confirmMutation.isPending}
         >
           <CheckCircle className="h-4 w-4" /> Accept Order
@@ -73,29 +90,44 @@ export function OrderActionButtons({ orderId, status }: Props) {
         <Button
           size="sm"
           variant="secondary"
+          onClick={() => act((id) => packingMutation.mutateAsync(id), 'moved to packing')}
+          loading={packingMutation.isPending}
+        >
+          <Package className="h-4 w-4" /> Start Packing
+        </Button>
+      )}
+      {status === 'PACKING' && (
+        <Button
+          size="sm"
+          variant="secondary"
           onClick={() => act((id) => readyMutation.mutateAsync(id), 'ready for pickup')}
           loading={readyMutation.isPending}
         >
-          <PackageCheck className="h-4 w-4" /> Mark Ready
+          <PackageCheck className="h-4 w-4" /> Ready For Pickup
+        </Button>
+      )}
+      {canFlagIssue && (
+        <Button size="sm" variant="outline" onClick={() => setIssueOpen(true)}>
+          <AlertTriangle className="h-4 w-4" /> Mark Issue
         </Button>
       )}
       {canCancel && (
         <Button size="sm" variant="danger" onClick={() => setCancelOpen(true)}>
-          <XCircle className="h-4 w-4" /> Cancel Order
+          <XCircle className="h-4 w-4" /> Reject Order
         </Button>
       )}
 
       <Modal
         open={cancelOpen}
         onClose={() => setCancelOpen(false)}
-        title="Cancel Order"
-        description="Please provide a reason for cancellation."
+        title="Reject Order"
+        description="Please provide a reason for rejection."
         size="sm"
         footer={
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setCancelOpen(false)}>Back</Button>
             <Button variant="danger" onClick={handleCancel} loading={cancelMutation.isPending}>
-              Confirm Cancel
+              Confirm Reject
             </Button>
           </div>
         }
@@ -105,6 +137,29 @@ export function OrderActionButtons({ orderId, status }: Props) {
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="e.g. Item out of stock"
+        />
+      </Modal>
+
+      <Modal
+        open={issueOpen}
+        onClose={() => setIssueOpen(false)}
+        title="Mark Issue"
+        description="Flag an operational issue without changing order status."
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setIssueOpen(false)}>Back</Button>
+            <Button onClick={handleIssue} loading={issueMutation.isPending}>
+              Flag Issue
+            </Button>
+          </div>
+        }
+      >
+        <Textarea
+          label="Issue note"
+          value={issueNote}
+          onChange={(e) => setIssueNote(e.target.value)}
+          placeholder="e.g. Missing ingredient, packaging damage"
         />
       </Modal>
     </div>

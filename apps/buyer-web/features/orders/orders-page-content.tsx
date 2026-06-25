@@ -1,62 +1,84 @@
 'use client';
 
-import { useState } from 'react';
-import { Package } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { PageShell } from '@/components/layout/site-shell';
+import { EmptyState } from '@/components/common/state-blocks';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
 import { OrderCard, OrderCardSkeleton } from '@/features/orders/components/order-card';
-import { ButtonLink, Container, Text } from '@/design-system/primitives';
 import { useOrdersQuery } from '@/hooks/use-orders';
-import type { OrderStatus } from '@/types/orders';
+import type { ListOrdersParams } from '@/types/orders';
+import { cn } from '@/lib/utils';
 
-const STATUS_FILTERS: { label: string; value: OrderStatus | undefined }[] = [
-  { label: 'All', value: undefined },
-  { label: 'Active', value: 'MERCHANT_ACCEPTED' },
-  { label: 'Completed', value: 'COMPLETED' },
-  { label: 'Cancelled', value: 'CANCELLED_BY_BUYER' },
+type FilterTab = 'all' | 'active' | 'completed' | 'cancelled';
+
+const STATUS_FILTERS: { label: string; value: FilterTab }[] = [
+  { label: 'All', value: 'all' },
+  { label: 'Active', value: 'active' },
+  { label: 'Completed', value: 'completed' },
+  { label: 'Cancelled', value: 'cancelled' },
 ];
 
+function tabFromParams(status: string | null): FilterTab {
+  if (status === 'active') return 'active';
+  if (status === 'cancelled') return 'cancelled';
+  if (status === 'completed') return 'completed';
+  return 'all';
+}
+
 export function OrdersPageContent() {
-  const [activeStatus, setActiveStatus] = useState<OrderStatus | undefined>(undefined);
-  const { data, isLoading, refetch } = useOrdersQuery({
-    status: activeStatus,
-    limit: 20,
-  });
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<FilterTab>(() => tabFromParams(searchParams.get('status')));
+
+  useEffect(() => {
+    setTab(tabFromParams(searchParams.get('status')));
+  }, [searchParams]);
+
+  const queryParams: ListOrdersParams = useMemo(
+    () => ({
+      limit: 20,
+      ...(tab !== 'all' && { statusGroup: tab }),
+    }),
+    [tab],
+  );
+
+  const { data, isLoading } = useOrdersQuery(queryParams);
 
   return (
     <AuthGuard>
-      <div className="s2-root min-h-screen bg-neutral-50">
-        {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white px-4 py-4">
-          <Container>
-            <Text variant="h2" as="h1">
-              My orders
-            </Text>
-          </Container>
-        </div>
+      <PageShell>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">My orders</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Track deliveries and reorder favourites
+            </p>
+          </div>
 
-        {/* Status filter tabs */}
-        <div className="sticky top-[57px] z-10 border-b border-neutral-100 bg-white">
-          <Container>
-            <div className="flex gap-1 overflow-x-auto py-2 scrollbar-none">
-              {STATUS_FILTERS.map(({ label, value }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => setActiveStatus(value)}
-                  className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                    activeStatus === value
-                      ? 'bg-emerald-600 text-white'
-                      : 'text-neutral-600 hover:bg-neutral-100'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </Container>
-        </div>
+          <div
+            className="flex gap-2 overflow-x-auto pb-1 scrollbar-none"
+            role="tablist"
+            aria-label="Order status filters"
+          >
+            {STATUS_FILTERS.map(({ label, value }) => (
+              <button
+                key={label}
+                type="button"
+                role="tab"
+                aria-selected={tab === value}
+                onClick={() => setTab(value)}
+                className={cn(
+                  'shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+                  tab === value
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-card text-muted-foreground hover:bg-muted',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-        <Container className="py-4">
           {isLoading ? (
             <div className="space-y-3">
               {[1, 2, 3, 4].map((i) => (
@@ -64,22 +86,7 @@ export function OrdersPageContent() {
               ))}
             </div>
           ) : !data || data.orders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100">
-                <Package className="h-8 w-8 text-neutral-400" />
-              </div>
-              <Text variant="h2" className="mb-2">
-                No orders yet
-              </Text>
-              <Text variant="bodySm" className="mb-8">
-                {activeStatus
-                  ? 'No orders with this status'
-                  : 'Your orders will appear here once you start shopping'}
-              </Text>
-              <ButtonLink href="/stores" variant="outline">
-                Browse stores
-              </ButtonLink>
-            </div>
+            <EmptyState variant="orders" />
           ) : (
             <div className="space-y-3">
               {data.orders.map((order) => (
@@ -87,16 +94,14 @@ export function OrdersPageContent() {
               ))}
 
               {data.meta.totalPages > 1 && (
-                <div className="pt-4 text-center">
-                  <Text variant="caption">
-                    Showing {data.orders.length} of {data.meta.total} orders
-                  </Text>
-                </div>
+                <p className="pt-4 text-center text-xs text-muted-foreground">
+                  Showing {data.orders.length} of {data.meta.total} orders
+                </p>
               )}
             </div>
           )}
-        </Container>
-      </div>
+        </div>
+      </PageShell>
     </AuthGuard>
   );
 }

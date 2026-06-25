@@ -1,18 +1,16 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DomainEventType, Prisma, ReservationStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
+import { InventoryService } from '../inventory/inventory.service';
 
 export const RESERVATION_TTL_MINUTES = 15;
 
 export interface ReservationItem {
   variantId: string;
+  productId: string;
   quantity: number;
 }
 
@@ -24,13 +22,8 @@ export class ReservationService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
+    private readonly inventory: InventoryService,
   ) {}
-
-  // ── Reserve inventory ──────────────────────────────────────────────────────
-  //
-  // Each item uses a raw UPDATE ... WHERE quantity - reserved >= qty so the
-  // check-and-update is a single atomic statement. If the row is not updated
-  // (0 affected rows) the variant is out of stock.
 
   async reserveInventory(
     checkoutId: string,
@@ -40,49 +33,7 @@ export class ReservationService {
   ): Promise<void> {
     const expiresAt = new Date(Date.now() + RESERVATION_TTL_MINUTES * 60 * 1000);
 
-    await this.prisma.$transaction(async (tx) => {
-      for (const item of items) {
-        // Atomic check-and-increment using raw SQL to prevent race conditions.
-        // This is the ONLY safe way to reserve without SELECT ... FOR UPDATE.
-        const affected = await tx.$executeRaw`
-          UPDATE inventory
-          SET reserved = reserved + ${item.quantity},
-              version  = version  + 1
-          WHERE variant_id = ${item.variantId}
-            AND (quantity - reserved) >= ${item.quantity}
-        `;
-
-        if (affected === 0) {
-          // Could not reserve — check why (out of stock vs variant not found)
-          const inv = await tx.inventory.findUnique({
-            where: { variantId: item.variantId },
-            select: { quantity: true, reserved: true },
-          });
-
-          if (!inv) {
-            throw new BadRequestException(
-              `Inventory record not found for variant: ${item.variantId}`,
-            );
-          }
-
-          const available = inv.quantity - inv.reserved;
-          throw new BadRequestException(
-            `Insufficient stock: ${available} available, ${item.quantity} requested for variant ${item.variantId}`,
-          );
-        }
-
-        // Record the reservation
-        await tx.inventoryReservation.create({
-          data: {
-            checkoutId,
-            variantId: item.variantId,
-            quantity: item.quantity,
-            status: ReservationStatus.ACTIVE,
-            expiresAt,
-          },
-        });
-      }
-    });
+    await this.inventory.reserveForCheckout(checkoutId, items, expiresAt);
 
     void this.domainEvents.emit(
       DomainEventType.INVENTORY_RESERVED,
@@ -95,101 +46,61 @@ export class ReservationService {
     this.logger.log({ checkoutId, itemCount: items.length }, 'Inventory reserved');
   }
 
-  // ── Release reservations ────────────────────────────────────────────────────
-  //
-  // Called when checkout expires or buyer cancels before payment.
+  async linkReservationsToOrder(checkoutId: string, orderId: string): Promise<void> {
+    await this.inventory.linkReservationsToOrder(checkoutId, orderId);
+  }
 
   async releaseReservations(
     checkoutId: string,
     reason: 'EXPIRED' | 'CANCELLED' | 'RELEASED',
     userId?: string,
   ): Promise<void> {
-    const reservations = await this.prisma.inventoryReservation.findMany({
-      where: { checkoutId, status: ReservationStatus.ACTIVE },
-      select: { id: true, variantId: true, quantity: true },
-    });
-
-    if (reservations.length === 0) return;
-
-    await this.prisma.$transaction(async (tx) => {
-      for (const res of reservations) {
-        // Decrement reserved count
-        await tx.$executeRaw`
-          UPDATE inventory
-          SET reserved = GREATEST(0, reserved - ${res.quantity}),
-              version  = version + 1
-          WHERE variant_id = ${res.variantId}
-        `;
-      }
-
-      await tx.inventoryReservation.updateMany({
-        where: { checkoutId, status: ReservationStatus.ACTIVE },
-        data: {
-          status:
-            reason === 'EXPIRED'
-              ? ReservationStatus.EXPIRED
-              : ReservationStatus.RELEASED,
-        },
-      });
-    });
+    await this.inventory.releaseByCheckout(checkoutId, reason);
 
     void this.domainEvents.emit(
       DomainEventType.INVENTORY_RELEASED,
       'checkout',
       checkoutId,
-      { reason, variantCount: reservations.length } as Prisma.InputJsonValue,
+      { reason } as Prisma.InputJsonValue,
       { userId: userId ?? 'system', ipAddress: null },
     );
 
-    this.logger.log({ checkoutId, reason, count: reservations.length }, 'Reservations released');
+    this.logger.log({ checkoutId, reason }, 'Reservations released');
   }
 
-  // ── Consume reservations ────────────────────────────────────────────────────
-  //
-  // Called when payment succeeds and order is confirmed.
-  // Converts reserved stock into a permanent deduction.
+  async releaseOrderReservations(orderId: string, userId?: string): Promise<void> {
+    await this.inventory.releaseByOrder(orderId);
 
+    void this.domainEvents.emit(
+      DomainEventType.INVENTORY_RELEASED,
+      'order',
+      orderId,
+      { reason: 'ORDER_CANCELLED' } as Prisma.InputJsonValue,
+      { userId: userId ?? 'system', ipAddress: null },
+    );
+  }
+
+  /** @deprecated Use fulfillOnDelivery — stock is consumed on delivery, not payment */
   async consumeReservations(checkoutId: string): Promise<void> {
-    const reservations = await this.prisma.inventoryReservation.findMany({
-      where: { checkoutId, status: ReservationStatus.ACTIVE },
-      select: { id: true, variantId: true, quantity: true },
+    const checkout = await this.prisma.checkout.findUnique({
+      where: { id: checkoutId },
+      select: { orderId: true },
     });
-
-    if (reservations.length === 0) {
-      this.logger.warn({ checkoutId }, 'No active reservations found to consume');
-      return;
+    if (checkout?.orderId) {
+      await this.linkReservationsToOrder(checkoutId, checkout.orderId);
     }
-
-    await this.prisma.$transaction(async (tx) => {
-      for (const res of reservations) {
-        await tx.$executeRaw`
-          UPDATE inventory
-          SET quantity = quantity - ${res.quantity},
-              reserved = GREATEST(0, reserved - ${res.quantity}),
-              version  = version + 1
-          WHERE variant_id = ${res.variantId}
-        `;
-      }
-
-      await tx.inventoryReservation.updateMany({
-        where: { checkoutId, status: ReservationStatus.ACTIVE },
-        data: { status: ReservationStatus.CONSUMED },
-      });
-    });
-
-    this.logger.log({ checkoutId, count: reservations.length }, 'Reservations consumed');
+    this.logger.debug({ checkoutId }, 'consumeReservations noop — stock held until delivery');
   }
 
-  // ── Scheduled cleanup ───────────────────────────────────────────────────────
-  //
-  // Runs every minute. Releases expired reservations and marks their
-  // checkouts as EXPIRED. Audit-logged for traceability.
+  async fulfillOnDelivery(orderId: string): Promise<void> {
+    await this.inventory.fulfillOnDelivery(orderId);
+    this.logger.log({ orderId }, 'Inventory fulfilled on delivery');
+  }
 
   @Cron(CronExpression.EVERY_MINUTE)
   async releaseExpiredReservations(): Promise<void> {
     const now = new Date();
 
-    // Find checkouts with expired but still-active reservations
     const expiredCheckouts = await this.prisma.checkout.findMany({
       where: {
         status: { in: ['INITIATED', 'RESERVED'] },
@@ -202,10 +113,7 @@ export class ReservationService {
 
     if (expiredCheckouts.length === 0) return;
 
-    this.logger.warn(
-      { count: expiredCheckouts.length },
-      'Releasing expired inventory reservations',
-    );
+    this.logger.warn({ count: expiredCheckouts.length }, 'Releasing expired inventory reservations');
 
     for (const checkout of expiredCheckouts) {
       try {

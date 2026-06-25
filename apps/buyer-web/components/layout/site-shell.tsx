@@ -1,58 +1,192 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Home, Search, Store } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  Grid3X3,
+  Home,
+  MapPin,
+  Mic,
+  Search,
+  ShoppingCart,
+  User,
+  Package,
+} from 'lucide-react';
+import { useCartQuery } from '@/hooks/use-cart';
+import { useAuthStore } from '@/store/auth-store';
+import { useLocationStore } from '@/store/ui-store';
+import { cn, formatCurrency } from '@/lib/utils';
 
-const NAV_ITEMS = [
-  { href: '/', label: 'Home', icon: Home },
-  { href: '/stores', label: 'Stores', icon: Store },
-  { href: '/search', label: 'Search', icon: Search },
-];
+function CartBadge({ className }: { className?: string }) {
+  const { data: cart } = useCartQuery();
+  const count = cart?.itemCount ?? 0;
+  if (count === 0) return null;
+  return (
+    <span
+      className={cn(
+        'absolute flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-jd-text-primary',
+        className,
+      )}
+    >
+      {count > 9 ? '9+' : count}
+    </span>
+  );
+}
 
 export function SiteHeader() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { label } = useLocationStore();
+  const { data: cart } = useCartQuery();
+  const cartTotal = cart?.totals.grandTotal ?? 0;
+  const cartCount = cart?.itemCount ?? 0;
+
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="text-lg font-bold tracking-tight text-primary">
-          Jebdekho
-        </Link>
-        <nav className="hidden items-center gap-6 md:flex" aria-label="Main navigation">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {item.label}
+    <header className="sticky top-0 z-50 border-b border-border/50 bg-cream-1/95 backdrop-blur-md">
+      <div className="mx-auto max-w-6xl px-4">
+        {/* Desktop: single row */}
+        <div className="hidden items-center gap-4 py-3 md:flex">
+          <Link
+            href="/"
+            className="shrink-0 text-xl font-bold tracking-tight text-primary"
+            aria-label="JebDekho home"
+          >
+            Jeb<span className="text-secondary">Dekho</span>
+          </Link>
+
+          <button
+            type="button"
+            className="flex max-w-[200px] items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2 text-left transition hover:border-primary/30"
+            aria-label={`Deliver to ${label}. Change location.`}
+          >
+            <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <div className="min-w-0">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-jd-text-muted">
+                Deliver to
+              </p>
+              <p className="truncate text-xs font-semibold text-jd-text-primary">{label}</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => router.push('/search')}
+            className="flex flex-1 items-center gap-3 rounded-xl border border-border/60 bg-card px-4 py-2.5 text-sm text-jd-text-muted shadow-card transition hover:border-primary/30 hover:shadow-elevated"
+            aria-label="Search products"
+          >
+            <Search className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <span className="flex-1 text-left">Search products, brands & stores…</span>
+            <Mic className="h-4 w-4 shrink-0 text-jd-text-muted" aria-hidden />
+          </button>
+
+          <Link
+            href="/cart"
+            className="relative flex items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2 transition hover:border-primary/30"
+            aria-label={`Cart, ${cartCount} items`}
+          >
+            <ShoppingCart className="h-5 w-5 text-primary" aria-hidden />
+            {cartCount > 0 && (
+              <span className="text-sm font-semibold text-jd-text-primary">
+                {formatCurrency(cartTotal)}
+              </span>
+            )}
+            <CartBadge className="-right-1 -top-1" />
+          </Link>
+
+          <Link
+            href={isAuthenticated ? '/profile' : '/login'}
+            className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-secondary btn-press"
+          >
+            <User className="h-4 w-4" aria-hidden />
+            {isAuthenticated ? 'Profile' : 'Login'}
+          </Link>
+        </div>
+
+        {/* Mobile: stacked */}
+        <div className="space-y-2 py-3 md:hidden">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="text-lg font-bold text-primary" aria-label="JebDekho home">
+              Jeb<span className="text-secondary">Dekho</span>
             </Link>
-          ))}
-        </nav>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/cart"
+                className="relative rounded-lg p-2"
+                aria-label={`Cart, ${cartCount} items`}
+              >
+                <ShoppingCart className="h-5 w-5 text-primary" />
+                <CartBadge className="-right-0.5 -top-0.5" />
+              </Link>
+              <Link
+                href={isAuthenticated ? '/profile' : '/login'}
+                className="rounded-lg p-2"
+                aria-label={isAuthenticated ? 'Profile' : 'Login'}
+              >
+                <User className="h-5 w-5 text-primary" />
+              </Link>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2 text-left"
+            aria-label={`Deliver to ${label}`}
+          >
+            <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] text-jd-text-muted">Deliver to</p>
+              <p className="truncate text-xs font-semibold">{label}</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => router.push('/search')}
+            className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-card px-3 py-2.5 text-sm text-jd-text-muted shadow-card"
+            aria-label="Search products"
+          >
+            <Search className="h-4 w-4 text-primary" aria-hidden />
+            <span className="flex-1 text-left">Search groceries…</span>
+            <Mic className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
       </div>
     </header>
   );
 }
 
+const MOBILE_NAV = [
+  { href: '/', label: 'Home', icon: Home, exact: true },
+  { href: '/categories', label: 'Categories', icon: Grid3X3 },
+  { href: '/search', label: 'Search', icon: Search },
+  { href: '/orders', label: 'Orders', icon: Package },
+  { href: '/profile', label: 'Profile', icon: User, authAware: true },
+];
+
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/50 bg-card/95 backdrop-blur-md md:hidden"
       aria-label="Mobile navigation"
     >
-      <div className="mx-auto flex h-16 max-w-lg items-center justify-around">
-        {NAV_ITEMS.map((item) => {
-          const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+      <div className="mx-auto flex h-16 max-w-lg items-stretch justify-around pb-safe">
+        {MOBILE_NAV.map((item) => {
+          const href = item.authAware && isAuthenticated ? '/profile' : item.href;
+          const active = item.exact
+            ? pathname === href
+            : pathname === href || pathname.startsWith(`${href}/`);
           const Icon = item.icon;
           return (
             <Link
-              key={item.href}
-              href={item.href}
+              key={item.label}
+              href={href}
               className={cn(
-                'flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium transition-colors',
-                active ? 'text-primary' : 'text-muted-foreground',
+                'relative flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors',
+                active ? 'text-primary' : 'text-jd-text-muted',
               )}
               aria-current={active ? 'page' : undefined}
             >
@@ -66,11 +200,98 @@ export function MobileBottomNav() {
   );
 }
 
-export function PageShell({ children }: { children: React.ReactNode }) {
+export function FloatingCartBar() {
+  const pathname = usePathname();
+  const { data: cart } = useCartQuery();
+  const count = cart?.itemCount ?? 0;
+  const total = cart?.totals.grandTotal ?? 0;
+
+  if (count === 0 || pathname === '/cart' || pathname === '/checkout') return null;
+
   return (
-    <div className="flex min-h-screen flex-col">
+    <Link
+      href="/cart"
+      className="fixed bottom-20 left-4 right-4 z-30 mx-auto flex max-w-lg items-center justify-between rounded-2xl bg-primary px-4 py-3 text-white shadow-float transition hover:bg-secondary md:bottom-6 md:left-auto md:right-6 md:max-w-xs btn-press"
+      aria-label={`View cart, ${count} items, ${formatCurrency(total)}`}
+    >
+      <div className="flex items-center gap-2">
+        <ShoppingCart className="h-5 w-5" aria-hidden />
+        <span className="text-sm font-semibold">
+          {count} item{count !== 1 ? 's' : ''} · {formatCurrency(total)}
+        </span>
+      </div>
+      <span className="rounded-lg bg-white/20 px-3 py-1 text-sm font-semibold">View cart</span>
+    </Link>
+  );
+}
+
+export function SiteFooter() {
+  return (
+    <footer className="mt-12 border-t border-border/50 bg-cream-4" role="contentinfo">
+      <div className="mx-auto max-w-6xl px-4 py-10">
+        <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+          <div>
+            <h3 className="text-sm font-semibold text-jd-text-primary">Company</h3>
+            <ul className="mt-3 space-y-2 text-sm text-jd-text-muted">
+              <li><Link href="/about" className="hover:text-primary">About JebDekho</Link></li>
+              <li><Link href="/help" className="hover:text-primary">Help center</Link></li>
+              <li><Link href="/contact" className="hover:text-primary">Contact</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-jd-text-primary">Help</h3>
+            <ul className="mt-3 space-y-2 text-sm text-jd-text-muted">
+              <li><Link href="/faq" className="hover:text-primary">FAQs</Link></li>
+              <li><Link href="/contact" className="hover:text-primary">Contact support</Link></li>
+              <li><Link href="/orders" className="hover:text-primary">Track order</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-jd-text-primary">Policies</h3>
+            <ul className="mt-3 space-y-2 text-sm text-jd-text-muted">
+              <li><Link href="/terms" className="hover:text-primary">Terms of service</Link></li>
+              <li><Link href="/privacy" className="hover:text-primary">Privacy policy</Link></li>
+              <li><Link href="/refund-policy" className="hover:text-primary">Refund policy</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-jd-text-primary">Connect</h3>
+            <ul className="mt-3 space-y-2 text-sm text-jd-text-muted">
+              <li><span>support@jebdekho.com</span></li>
+              <li><span>Twitter · Instagram</span></li>
+            </ul>
+          </div>
+        </div>
+        <p className="mt-8 border-t border-border/40 pt-6 text-center text-xs text-jd-text-muted">
+          © {new Date().getFullYear()} JebDekho. Compare prices. Save more.
+        </p>
+      </div>
+    </footer>
+  );
+}
+
+export function PageShell({
+  children,
+  className,
+  hideFooter = false,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  hideFooter?: boolean;
+}) {
+  return (
+    <div className="flex min-h-screen flex-col bg-background">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-6 md:pb-8">{children}</main>
+      <main
+        className={cn(
+          'mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-4 md:pb-8 md:pt-6',
+          className,
+        )}
+      >
+        {children}
+      </main>
+      {!hideFooter && <SiteFooter />}
+      <FloatingCartBar />
       <MobileBottomNav />
     </div>
   );

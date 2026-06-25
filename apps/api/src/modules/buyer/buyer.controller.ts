@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Logger,
   Param,
   Query,
 } from '@nestjs/common';
@@ -21,6 +22,8 @@ import { SearchProductsDto } from './dto/search-products.dto';
 @Public()
 @Controller('buyer')
 export class BuyerController {
+  private readonly logger = new Logger(BuyerController.name);
+
   constructor(
     private readonly storeService: BuyerStoreService,
     private readonly productService: BuyerProductService,
@@ -40,6 +43,9 @@ export class BuyerController {
     const page = dto.page ?? 1;
     const limit = dto.limit ?? 20;
     const { stores, total } = await this.storeService.discoverStores(dto);
+    this.logger.log(
+      `GET /buyer/stores → ${stores.length} stores (total=${total}, radiusKm=${dto.radiusKm ?? 5})`,
+    );
     return {
       success: true,
       data: stores,
@@ -107,6 +113,33 @@ export class BuyerController {
     };
   }
 
+  @Get('products/search/grouped')
+  @ApiOperation({ summary: 'Search products grouped by store (store-centric results)' })
+  async searchProductsGrouped(@Query() dto: SearchProductsDto) {
+    const { groups, total } = await this.productService.searchProductsGrouped(dto);
+    return { success: true, data: groups, meta: { total, storeCount: groups.length } };
+  }
+
+  @Get('categories/:categoryId/stores')
+  @ApiOperation({ summary: 'List approved stores selling in a category near the buyer' })
+  async listCategoryStores(
+    @Param('categoryId') categoryId: string,
+    @Query() dto: DiscoverStoresDto,
+    @Query('subcategoryId') subcategoryId?: string,
+  ) {
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const { stores, total } = await this.storeService.listStoresForCategory(categoryId, {
+      ...dto,
+      subcategoryId,
+    });
+    return {
+      success: true,
+      data: stores,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   // ── Categories ──────────────────────────────────────────────────────────
 
   @Get('categories')
@@ -116,6 +149,9 @@ export class BuyerController {
   })
   async listCategories(@Query('storeId') storeId?: string) {
     const data = await this.productService.listCategories(storeId);
+    this.logger.log(
+      `GET /buyer/categories storeId=${storeId ?? 'global'} → ${data.length} categories`,
+    );
     return { success: true, data };
   }
 }

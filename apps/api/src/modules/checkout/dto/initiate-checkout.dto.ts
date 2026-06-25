@@ -1,13 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsLatitude,
   IsLongitude,
+  IsNumber,
   IsOptional,
   IsString,
   Length,
+  Min,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 
 export class DeliveryAddressDto {
   @ApiProperty({ example: '42 MG Road' })
@@ -49,4 +51,29 @@ export class InitiateCheckoutDto {
   @IsString()
   @Length(0, 300)
   buyerNote?: string;
+
+  @ApiProperty({ required: false, example: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  walletAmountToUse?: number;
+
+  @ApiProperty({ required: false, example: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  rewardPointsToRedeem?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  referralCode?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  deviceFingerprint?: string;
+
+  @ApiProperty({ required: false, description: 'Approved corporate purchase request id' })
+  @IsOptional()
+  @IsString()
+  corporatePurchaseRequestId?: string;
 }

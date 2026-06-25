@@ -30,6 +30,8 @@ import { ApiTags as Tags } from '../../common/constants';
 import { AdminStoreService } from './admin-store.service';
 import { ListStoreApprovalsDto } from './dto/list-store-approvals.dto';
 import { RejectStoreDto } from './dto/reject-store.dto';
+import { RequestDocumentsDto } from './dto/request-documents.dto';
+import { RevokeRejectionDto } from './dto/revoke-rejection.dto';
 import { SuspendStoreDto } from './dto/suspend-store.dto';
 
 @ApiTags(Tags.ADMIN)
@@ -87,9 +89,9 @@ export class AdminStoreController {
   @HttpCode(HttpStatus.OK)
   @Permissions('stores:approve')
   @ApiParam({ name: 'id', description: 'Store ID' })
-  @ApiOperation({ summary: 'Approve a PENDING_REVIEW store — makes it live on the platform' })
+  @ApiOperation({ summary: 'Approve a PENDING_REVIEW or UNDER_REVIEW store — makes it live on the platform' })
   @ApiResponse({ status: 200, description: 'Store approved and now live' })
-  @ApiResponse({ status: 400, description: 'Store not in PENDING_REVIEW status' })
+  @ApiResponse({ status: 400, description: 'Store not in approvable status' })
   async approveStore(
     @CurrentUser() user: RequestUser,
     @Param('id') storeId: string,
@@ -106,15 +108,41 @@ export class AdminStoreController {
   }
 
   // --------------------------------------------------------------------------
+  // POST /admin/store-approvals/:id/request-documents
+  // --------------------------------------------------------------------------
+  @Post(':id/request-documents')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('stores:approve')
+  @ApiParam({ name: 'id', description: 'Store ID' })
+  @ApiOperation({ summary: 'Request additional documents from merchant' })
+  @ApiResponse({ status: 200, description: 'Store moved to DOCUMENTS_REQUIRED' })
+  async requestDocuments(
+    @CurrentUser() user: RequestUser,
+    @Param('id') storeId: string,
+    @Body() dto: RequestDocumentsDto,
+    @Ip() ip: string,
+    @Req() req: Request,
+  ) {
+    const data = await this.adminStoreService.requestDocuments(
+      user.id,
+      storeId,
+      dto,
+      ip,
+      req.headers['user-agent'],
+    );
+    return { success: true, data };
+  }
+
+  // --------------------------------------------------------------------------
   // POST /admin/store-approvals/:id/reject
   // --------------------------------------------------------------------------
   @Post(':id/reject')
   @HttpCode(HttpStatus.OK)
   @Permissions('stores:reject')
   @ApiParam({ name: 'id', description: 'Store ID' })
-  @ApiOperation({ summary: 'Reject a PENDING_REVIEW store with a reason' })
-  @ApiResponse({ status: 200, description: 'Store rejected, merchant notified' })
-  @ApiResponse({ status: 400, description: 'Store not in PENDING_REVIEW status' })
+  @ApiOperation({ summary: 'Reject a store with a typed rejection (revocable or permanent blacklist)' })
+  @ApiResponse({ status: 200, description: 'Store rejected' })
+  @ApiResponse({ status: 400, description: 'Store not in rejectable status' })
   async rejectStore(
     @CurrentUser() user: RequestUser,
     @Param('id') storeId: string,
@@ -123,6 +151,32 @@ export class AdminStoreController {
     @Req() req: Request,
   ) {
     const data = await this.adminStoreService.rejectStore(
+      user.id,
+      storeId,
+      dto,
+      ip,
+      req.headers['user-agent'],
+    );
+    return { success: true, data };
+  }
+
+  // --------------------------------------------------------------------------
+  // POST /admin/store-approvals/:id/revoke-rejection
+  // --------------------------------------------------------------------------
+  @Post(':id/revoke-rejection')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('stores:approve')
+  @ApiParam({ name: 'id', description: 'Store ID' })
+  @ApiOperation({ summary: 'Revoke a revocable rejection — REJECTED → UNDER_REVIEW' })
+  @ApiResponse({ status: 200, description: 'Rejection revoked, store back under review' })
+  async revokeRejection(
+    @CurrentUser() user: RequestUser,
+    @Param('id') storeId: string,
+    @Body() dto: RevokeRejectionDto,
+    @Ip() ip: string,
+    @Req() req: Request,
+  ) {
+    const data = await this.adminStoreService.revokeRejection(
       user.id,
       storeId,
       dto,

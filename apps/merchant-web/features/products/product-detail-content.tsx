@@ -95,10 +95,10 @@ export function ProductDetailContent({ productId }: { productId: string }) {
                         storeId={storeId}
                         productId={product.id}
                         variantId={v.id}
-                        currentQty={v.inventory?.quantity ?? 0}
+                        currentQty={v.inventory?.availableQty ?? 0}
                       />
                     </Td>
-                    <Td className="text-slate-500">{v.inventory?.reserved ?? 0}</Td>
+                    <Td className="text-slate-500">{v.inventory?.reservedQty ?? 0}</Td>
                   </Tr>
                 ))}
               </TBody>

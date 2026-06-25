@@ -4,23 +4,45 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
+import { json, urlencoded } from 'express';
+import { join } from 'path';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { getConfig } from './config/configuration';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, {
-    // Buffer logs until the Pino logger is attached
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
-    // rawBody required for Razorpay webhook signature verification
-    rawBody: true,
+    bodyParser: false,
   });
+
+  // Category images and document uploads may be sent as base64 data URLs.
+  // verify preserves rawBody for Razorpay webhook signature checks.
+  app.use(
+    json({
+      limit: '5mb',
+      verify: (req, _res, buf) => {
+        (req as { rawBody?: Buffer }).rawBody = buf;
+      },
+    }),
+  );
+  app.use(urlencoded({ limit: '5mb', extended: true }));
 
   // ── Pino structured logger ─────────────────────────────────────────────────
   app.useLogger(app.get(Logger));
 
   const configService = app.get(ConfigService);
   const cfg = getConfig(configService);
+
+  if (cfg.trustProxy || cfg.nodeEnv === 'production') {
+    app.set('trust proxy', 1);
+  }
+
+  if (cfg.storage.provider === 'local' && cfg.storage.uploadDir) {
+    app.useStaticAssets(join(cfg.storage.uploadDir), { prefix: '/uploads/' });
+  }
 
   // ── Security headers (Helmet) ─────────────────────────────────────────────
   app.use(
@@ -40,7 +62,18 @@ async function bootstrap(): Promise<void> {
   // ── Global API prefix ─────────────────────────────────────────────────────
   app.setGlobalPrefix('api/v1', {
     // Health endpoints are NOT under /api/v1 for infrastructure tooling
-    exclude: ['health', 'health/ready'],
+    exclude: [
+      'health',
+      'health/ready',
+      'sitemap.xml',
+      'sitemap-products.xml',
+      'sitemap-stores.xml',
+      'sitemap-categories.xml',
+      'sitemap-cities.xml',
+      'sitemap-faq.xml',
+      'robots.txt',
+      'llms.txt',
+    ],
   });
 
   // ── Global validation pipe ────────────────────────────────────────────────
@@ -57,6 +90,8 @@ async function bootstrap(): Promise<void> {
   // ── Global exception filter ───────────────────────────────────────────────
   app.useGlobalFilters(new HttpExceptionFilter());
 
+  app.useWebSocketAdapter(new IoAdapter(app));
+
   // ── Swagger (dev / staging only) ─────────────────────────────────────────
   if (cfg.nodeEnv !== 'production') {
     const swaggerConfig = new DocumentBuilder()
@@ -70,7 +105,7 @@ async function bootstrap(): Promise<void> {
         { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
         'access-token',
       )
-      .addServer(`http://localhost:${cfg.port}`, 'Local')
+      .addServer(`http://127.0.0.1:${cfg.port}`, 'Local')
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);
@@ -81,10 +116,13 @@ async function bootstrap(): Promise<void> {
 
   await app.listen(cfg.port, '0.0.0.0');
 
+  const publicApiUrl =
+    process.env.API_URL?.replace(/\/$/, '') ?? `http://127.0.0.1:${cfg.port}`;
+
   app
     .get(Logger)
     .log(
-      `🚀 Jebdekho API running on http://localhost:${cfg.port}/api/v1 [${cfg.nodeEnv}]`,
+      `🚀 Jebdekho API running on ${publicApiUrl}/api/v1 [${cfg.nodeEnv}]`,
       'Bootstrap',
     );
 
@@ -92,7 +130,7 @@ async function bootstrap(): Promise<void> {
     app
       .get(Logger)
       .log(
-        `📄 Swagger docs available at http://localhost:${cfg.port}/api/docs`,
+        `📄 Swagger docs available at http://127.0.0.1:${cfg.port}/api/docs`,
         'Bootstrap',
       );
   }

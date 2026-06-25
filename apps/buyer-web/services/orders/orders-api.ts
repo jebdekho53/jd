@@ -5,6 +5,7 @@ import type { OrderDetail, OrderListResponse, ListOrdersParams } from '@/types/o
 function buildQuery(params: ListOrdersParams): string {
   const q = new URLSearchParams();
   if (params.status) q.set('status', params.status);
+  if (params.statusGroup) q.set('statusGroup', params.statusGroup);
   if (params.page) q.set('page', String(params.page));
   if (params.limit) q.set('limit', String(params.limit));
   const s = q.toString();

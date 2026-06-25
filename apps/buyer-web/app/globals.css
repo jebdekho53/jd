@@ -4,24 +4,40 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* JebDekho cream surfaces */
+    --background: 48 33% 91%;
+    --foreground: 220 13% 9%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 142 76% 36%;
+    --card-foreground: 220 13% 9%;
+    /* Primary #2E5E4E */
+    --primary: 158 34% 27%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 142 76% 36%;
-    --radius: 0.75rem;
+    /* Secondary #3D7A66 */
+    --secondary: 158 34% 36%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 48 25% 90%;
+    --muted-foreground: 220 9% 46%;
+    /* Accent #F59E0B */
+    --accent: 38 92% 50%;
+    --accent-foreground: 220 13% 9%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 45%;
+    --border: 45 20% 82%;
+    --input: 45 20% 82%;
+    --ring: 158 34% 27%;
+    --radius: 0.875rem;
+    --cream-1: #f1eedf;
+    --cream-2: #f2efe0;
+    --cream-3: #f4f1e2;
+    --cream-4: #f0edde;
+    --cream-5: #eeebda;
+    --jd-primary: #2e5e4e;
+    --jd-secondary: #3d7a66;
+    --jd-accent: #f59e0b;
+    --jd-text-primary: #111827;
+    --jd-text-secondary: #374151;
+    --jd-text-muted: #6b7280;
   }
 }
 
@@ -32,6 +48,9 @@
   body {
     @apply bg-background text-foreground antialiased;
   }
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
 }
 
 @layer utilities {
@@ -41,5 +60,11 @@
   }
   .scrollbar-none::-webkit-scrollbar {
     display: none;
+  }
+  .card-hover {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
+  }
+  .btn-press {
+    @apply active:scale-[0.98] transition-transform;
   }
 }

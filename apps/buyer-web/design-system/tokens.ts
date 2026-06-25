@@ -1,4 +1,4 @@
-/** 4px grid spacing scale — single source of truth for Sprint 2 UI */
+/** JebDekho Phase 10A design tokens */
 export const space = {
   1: '4px',
   2: '8px',
@@ -10,42 +10,67 @@ export const space = {
 } as const;
 
 export const radius = {
-  sm: '6px',
-  md: '10px',
+  sm: '8px',
+  md: '12px',
   lg: '14px',
   xl: '20px',
   full: '9999px',
 } as const;
 
 export const colors = {
-  brand: {
-    50: '#ecfdf5',
-    100: '#d1fae5',
-    500: '#10b981',
-    600: '#059669',
-    700: '#047857',
+  cream: {
+    1: '#f1eedf',
+    2: '#f2efe0',
+    3: '#f4f1e2',
+    4: '#f0edde',
+    5: '#eeebda',
   },
-  neutral: {
-    0: '#ffffff',
-    50: '#f8fafc',
-    100: '#f1f5f9',
-    200: '#e2e8f0',
-    400: '#94a3b8',
-    600: '#475569',
-    800: '#1e293b',
-    900: '#0f172a',
+  primary: '#2E5E4E',
+  secondary: '#3D7A66',
+  accent: '#F59E0B',
+  success: '#16A34A',
+  danger: '#DC2626',
+  text: {
+    primary: '#111827',
+    secondary: '#374151',
+    muted: '#6B7280',
   },
-  danger: { 500: '#ef4444', 600: '#dc2626' },
-  warning: { 500: '#f59e0b' },
 } as const;
 
 export const typography = {
-  display: 'text-3xl font-bold tracking-tight',
-  h1: 'text-2xl font-bold tracking-tight',
-  h2: 'text-xl font-semibold',
-  h3: 'text-lg font-semibold',
-  body: 'text-base text-neutral-800',
-  bodySm: 'text-sm text-neutral-600',
-  caption: 'text-xs text-neutral-500',
-  label: 'text-sm font-medium text-neutral-800',
+  display: 'text-3xl font-bold tracking-tight text-jd-text-primary',
+  h1: 'text-2xl font-bold tracking-tight text-jd-text-primary',
+  h2: 'text-xl font-semibold text-jd-text-primary',
+  h3: 'text-lg font-semibold text-jd-text-primary',
+  body: 'text-base text-jd-text-secondary',
+  bodySm: 'text-sm text-jd-text-muted',
+  caption: 'text-xs text-jd-text-muted',
+  label: 'text-sm font-medium text-jd-text-primary',
+  price: 'text-base font-bold text-jd-text-primary',
 } as const;
+
+export const LIFESTYLE_CARDS = [
+  { id: 'healthy', title: 'Healthy Living', href: '/search?q=organic', emoji: '🥗' },
+  { id: 'budget', title: 'Budget Shopping', href: '/search?deals=1', emoji: '💰' },
+  { id: 'family', title: 'Family Essentials', href: '/search?categoryId=', emoji: '👨‍👩‍👧' },
+  { id: 'student', title: 'Student Essentials', href: '/search?q=snacks', emoji: '🎒' },
+  { id: 'quick', title: 'Quick Meals', href: '/search?q=ready', emoji: '⚡' },
+] as const;
+
+export const TRUST_FEATURES = [
+  { id: 'compare', label: 'Price Comparison', description: 'Compare across local stores' },
+  { id: 'local', label: 'Local Stores', description: 'Neighbourhood vendors first' },
+  { id: 'cod', label: 'COD Available', description: 'Pay when you receive' },
+  { id: 'fast', label: 'Fast Delivery', description: 'Minutes, not hours' },
+  { id: 'verified', label: 'Verified Merchants', description: 'Approved store partners' },
+] as const;
+
+export const TRENDING_SEARCHES = [
+  'milk', 'atta', 'banana', 'bread', 'eggs', 'rice', 'tomato', 'onion',
+] as const;
+
+export const FRESH_CATEGORIES = [
+  { id: 'fruits', name: 'Fruits', slug: 'fruits', gradient: 'from-orange-100 to-orange-50' },
+  { id: 'vegetables', name: 'Vegetables', slug: 'vegetables', gradient: 'from-green-100 to-green-50' },
+  { id: 'dairy', name: 'Dairy', slug: 'dairy', gradient: 'from-blue-100 to-blue-50' },
+] as const;

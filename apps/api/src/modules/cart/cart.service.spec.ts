@@ -32,7 +32,7 @@ const VARIANT = {
   price: 49,
   mrp: 59,
   weightGrams: null,
-  inventory: { quantity: 10, reserved: 0 },
+  inventory: { availableQty: 10, reservedQty: 0 },
   product: {
     id: 'p-1',
     name: 'Amul Milk',
@@ -62,6 +62,7 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    deleteMany: jest.fn(),
     count: jest.fn(),
   },
   productVariant: { findFirst: jest.fn() },
@@ -131,15 +132,15 @@ describe('CartService', () => {
       mockPrisma.store.findFirst.mockResolvedValue(STORE);
     });
 
-    it('throws BadRequestException when product is out of stock', async () => {
+    it('throws ConflictException when product is out of stock', async () => {
       mockPrisma.productVariant.findFirst.mockResolvedValue({
         ...VARIANT,
-        inventory: { quantity: 0, reserved: 0 },
+        inventory: { availableQty: 0, reservedQty: 0, status: 'ACTIVE' },
       });
 
       await expect(
         service.addItem('u-1', { productId: 'p-1', variantId: 'v-1', quantity: 1 }),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(ConflictException);
     });
 
     it('throws ConflictException when cart belongs to different store', async () => {
@@ -172,7 +173,7 @@ describe('CartService', () => {
       cartViewSpy.mockRestore();
     });
 
-    it('throws BadRequestException when requested qty exceeds available stock', async () => {
+    it('throws ConflictException when requested qty exceeds available stock', async () => {
       mockPrisma.cart.findFirst.mockResolvedValue(CART); // same store
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
       mockPrisma.cart.upsert.mockResolvedValue(CART);
@@ -180,7 +181,7 @@ describe('CartService', () => {
 
       await expect(
         service.addItem('u-1', { productId: 'p-1', variantId: 'v-1', quantity: 5 }), // 8+5 > 10
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(ConflictException);
     });
   });
 
@@ -205,10 +206,10 @@ describe('CartService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('throws BadRequestException when new qty exceeds available stock', async () => {
+    it('throws ConflictException when new qty exceeds available stock', async () => {
       await expect(
         service.updateItem('u-1', 'ci-1', { quantity: 99 }),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(ConflictException);
     });
 
     it('delegates to removeItemById when quantity is 0', async () => {

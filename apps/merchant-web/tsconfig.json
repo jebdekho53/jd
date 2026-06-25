@@ -26,6 +26,9 @@
         "./*"
       ]
     },
+    "typeRoots": [
+      "./node_modules/@types"
+    ],
     "target": "ES2017"
   },
   "include": [

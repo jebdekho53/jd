@@ -1,0 +1,176 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Permissions } from '../../common/decorators/permissions.decorator';
+import { RequestUser } from '../../common/types';
+import { ApiTags as Tags } from '../../common/constants';
+import { FinanceService } from './finance.service';
+import { SettlementBatchService } from './settlement-batch.service';
+import { CodReconciliationService } from './cod-reconciliation.service';
+import { RiderPayoutService } from './rider-payout.service';
+import { FinanceExportService } from './finance-export.service';
+import { SettlementService } from '../settlement/settlement.service';
+import {
+  CodSubmitDto,
+  ExportQueryDto,
+  GenerateSettlementDto,
+  ListFinanceQueryDto,
+  MarkRiderPayoutPaidDto,
+  RejectCodDto,
+} from './dto/finance.dto';
+
+@ApiTags(Tags.ADMIN)
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@Roles('ADMIN', 'SUPER_ADMIN')
+@Controller('admin/finance')
+export class AdminFinanceController {
+  constructor(
+    private readonly finance: FinanceService,
+    private readonly batches: SettlementBatchService,
+    private readonly cod: CodReconciliationService,
+    private readonly riderPayouts: RiderPayoutService,
+    private readonly exports: FinanceExportService,
+    private readonly settlement: SettlementService,
+  ) {}
+
+  @Get('overview')
+  @Permissions('settlements:read')
+  @ApiOperation({ summary: 'Finance control tower overview' })
+  async overview() {
+    const data = await this.finance.getControlTower();
+    return { success: true, data };
+  }
+
+  @Get('alerts')
+  @Permissions('settlements:read')
+  async alerts() {
+    const data = await this.finance.getAlerts();
+    return { success: true, data };
+  }
+
+  @Get('revenue')
+  @Permissions('settlements:read')
+  async revenue() {
+    const data = await this.exports.exportRevenueSummary();
+    return { success: true, data };
+  }
+
+  @Get('settlements')
+  @Permissions('settlements:read')
+  async settlements(@Query() query: ListFinanceQueryDto) {
+    const data = await this.batches.listSettlements(undefined, query.page, query.limit);
+    return { success: true, data };
+  }
+
+  @Post('settlements/generate')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('settlements:manage')
+  async generateSettlements(@Body() dto: GenerateSettlementDto) {
+    const count = await this.batches.generateBatches(dto.cycle, dto.merchantProfileId);
+    return { success: true, data: { batchesCreated: count } };
+  }
+
+  @Get('cod')
+  @Permissions('settlements:read')
+  async codList(@Query() query: ListFinanceQueryDto) {
+    const data = await this.cod.listAdmin(query.status, query.page, query.limit);
+    return { success: true, data };
+  }
+
+  @Get('cod/summary')
+  @Permissions('settlements:read')
+  async codSummary() {
+    const data = await this.cod.getSummary();
+    return { success: true, data };
+  }
+
+  @Post('cod/:id/verify')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('settlements:manage')
+  async verifyCod(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    const data = await this.cod.verify(user.id, id);
+    return { success: true, data };
+  }
+
+  @Post('cod/:id/reject')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('settlements:manage')
+  async rejectCod(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: RejectCodDto,
+  ) {
+    const data = await this.cod.reject(user.id, id, dto.reason);
+    return { success: true, data };
+  }
+
+  @Get('merchant-payouts')
+  @Permissions('settlements:read')
+  async merchantPayouts(@Query() query: ListFinanceQueryDto) {
+    const data = await this.settlement.listAdminPayoutRequests(query);
+    return { success: true, data };
+  }
+
+  @Get('rider-payouts')
+  @Permissions('settlements:read')
+  async listRiderPayouts(@Query() query: ListFinanceQueryDto) {
+    const data = await this.riderPayouts.listAdmin(query.page, query.limit);
+    return { success: true, data };
+  }
+
+  @Post('rider-payouts/:id/pay')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('settlements:manage')
+  async payRider(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: MarkRiderPayoutPaidDto,
+  ) {
+    const data = await this.riderPayouts.markPaid(id, user.id, dto.referenceId);
+    return { success: true, data };
+  }
+
+  @Get('taxes')
+  @Permissions('settlements:read')
+  async taxes(@Query() query: ExportQueryDto) {
+    const period = query.periodMonth ?? new Date().toISOString().slice(0, 7);
+    const csv = await this.exports.exportTaxReport(period);
+    return { success: true, data: { period, csv } };
+  }
+
+  @Get('exports/settlements')
+  @Permissions('settlements:read')
+  @Header('Content-Type', 'text/csv')
+  async exportSettlements(@Res() res: Response, @Query() query: ExportQueryDto) {
+    const csv = await this.exports.exportSettlementsCsv(query.merchantProfileId);
+    res.setHeader('Content-Disposition', 'attachment; filename=settlements.csv');
+    res.send(csv);
+  }
+
+  @Get('exports/payouts')
+  @Permissions('settlements:read')
+  @Header('Content-Type', 'text/csv')
+  async exportPayouts(@Res() res: Response) {
+    const csv = await this.exports.exportMerchantPayoutsCsv();
+    res.setHeader('Content-Disposition', 'attachment; filename=merchant-payouts.csv');
+    res.send(csv);
+  }
+}

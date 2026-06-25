@@ -8,9 +8,11 @@ export interface ProductVariant {
   isDefault: boolean;
   isActive: boolean;
   inventory: {
-    quantity: number;
-    reserved: number;
+    availableQty: number;
+    reservedQty: number;
+    soldQty: number;
     lowStockThreshold: number | null;
+    status?: string;
   } | null;
 }
 

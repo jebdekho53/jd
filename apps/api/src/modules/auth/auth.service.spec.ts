@@ -6,6 +6,7 @@ import { OtpService } from './otp.service';
 import { TokenService } from './token.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
+import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 import { PrismaService } from '../../database/prisma.service';
 
 const mockPrismaService = {
@@ -34,6 +35,11 @@ const mockTokenService = {
 
 const mockAuditService = { log: jest.fn() };
 const mockDomainEvents = { emit: jest.fn() };
+const mockBlocklist = {
+  assertNotBlocked: jest.fn(),
+  assertUserNotBlacklisted: jest.fn(),
+  assertMerchantProfileNotBlacklisted: jest.fn(),
+};
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -47,6 +53,7 @@ describe('AuthService', () => {
         { provide: TokenService, useValue: mockTokenService },
         { provide: AuditService, useValue: mockAuditService },
         { provide: DomainEventsService, useValue: mockDomainEvents },
+        { provide: VerificationBlocklistService, useValue: mockBlocklist },
       ],
     }).compile();
 
@@ -58,6 +65,8 @@ describe('AuthService', () => {
 
   describe('requestOtp', () => {
     it('creates a new user when phone does not exist', async () => {
+      mockBlocklist.assertNotBlocked.mockResolvedValue(undefined);
+      mockBlocklist.assertUserNotBlacklisted.mockResolvedValue(undefined);
       mockPrismaService.user.findUnique.mockResolvedValue(null);
       mockPrismaService.user.create.mockResolvedValue({
         id: 'user-1',

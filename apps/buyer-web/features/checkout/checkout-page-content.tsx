@@ -3,12 +3,16 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle } from 'lucide-react';
+import { PageShell } from '@/components/layout/site-shell';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
 import { AddressForm } from '@/features/checkout/components/address-form';
 import { PaymentMethodSelector } from '@/features/checkout/components/payment-method-selector';
 import { CheckoutSummary } from '@/features/checkout/components/checkout-summary';
+import { CouponPanel } from '@/features/checkout/components/coupon-panel';
+import { DeliverabilityPanel } from '@/features/checkout/components/deliverability-panel';
+import { WalletCheckoutPanel } from '@/features/checkout/components/wallet-checkout-panel';
 import { RazorpayButton } from '@/features/checkout/components/razorpay-button';
-import { Button, Container, Spinner, Text } from '@/design-system/primitives';
+import { Button, Spinner } from '@/design-system/primitives';
 import { useCartQuery } from '@/hooks/use-cart';
 import { useInitiateCodCheckoutMutation, useInitiateCheckoutMutation } from '@/hooks/use-checkout';
 import { useCheckoutStore } from '@/store/checkout-store';
@@ -24,10 +28,14 @@ export function CheckoutPageContent() {
     paymentMethod,
     deliveryAddress,
     buyerNote,
+    walletAmountToUse,
+    rewardPointsToRedeem,
     checkoutId,
     setStep,
     setPaymentMethod,
     setBuyerNote,
+    setWalletAmountToUse,
+    setRewardPointsToRedeem,
     setCheckoutId,
     setConfirmed,
     reset,
@@ -36,7 +44,6 @@ export function CheckoutPageContent() {
   const initiateCod = useInitiateCodCheckoutMutation();
   const initiateOnline = useInitiateCheckoutMutation();
 
-  // Redirect to cart if empty
   useEffect(() => {
     if (!isLoading && (!cart || cart.items.length === 0)) {
       router.replace('/cart');
@@ -49,6 +56,8 @@ export function CheckoutPageContent() {
     const payload = {
       deliveryAddress,
       buyerNote: buyerNote || undefined,
+      walletAmountToUse: walletAmountToUse || undefined,
+      rewardPointsToRedeem: rewardPointsToRedeem || undefined,
     };
 
     if (paymentMethod === 'COD') {
@@ -63,7 +72,6 @@ export function CheckoutPageContent() {
         toast(err instanceof SessionError ? err.message : 'Failed to place order', 'error');
       }
     } else {
-      // Online: initiate checkout first
       setStep('processing');
       try {
         const checkout = await initiateOnline.mutateAsync(payload);
@@ -84,9 +92,11 @@ export function CheckoutPageContent() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Spinner size="lg" />
-      </div>
+      <PageShell>
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <Spinner size="lg" />
+        </div>
+      </PageShell>
     );
   }
 
@@ -94,51 +104,47 @@ export function CheckoutPageContent() {
 
   return (
     <AuthGuard>
-      <div className="s2-root min-h-screen bg-neutral-50 pb-32">
-        {/* Header */}
-        <div className="sticky top-0 z-10 border-b border-neutral-100 bg-white px-4 py-4">
-          <Container>
-            <Text variant="h2" as="h1">
-              Checkout
-            </Text>
-          </Container>
-        </div>
-
-        {step === 'processing' && (
-          <div className="flex min-h-[50vh] items-center justify-center">
-            <div className="text-center">
-              <Spinner size="lg" className="mx-auto mb-4" />
-              <Text variant="body">Processing your order…</Text>
-            </div>
+      <PageShell>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Checkout</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Confirm address and payment to place your order
+            </p>
           </div>
-        )}
 
-        {step !== 'processing' && (
-          <Container size="md" className="py-6">
+          {step === 'processing' && (
+            <div className="flex min-h-[40vh] items-center justify-center">
+              <div className="text-center">
+                <Spinner size="lg" className="mx-auto mb-4" />
+                <p className="text-sm text-muted-foreground">Processing your order…</p>
+              </div>
+            </div>
+          )}
+
+          {step !== 'processing' && (
             <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-              {/* Left — steps */}
               <div className="space-y-6">
-                {/* Step 1 — Address */}
-                <div className="rounded-xl bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border bg-card p-5 shadow-sm">
                   <div className="mb-4 flex items-center gap-3">
                     <StepBadge num={1} done={step === 'payment' || step === 'done'} />
-                    <Text variant="h2">Delivery address</Text>
+                    <h2 className="text-lg font-semibold">Delivery address</h2>
                   </div>
                   {step === 'address' ? (
                     <AddressForm onNext={() => setStep('payment')} />
                   ) : (
                     deliveryAddress && (
                       <div className="flex items-start justify-between">
-                        <div>
-                          <Text variant="bodySm">{deliveryAddress.line1}</Text>
-                          <Text variant="bodySm">
+                        <div className="text-sm text-muted-foreground">
+                          <p>{deliveryAddress.line1}</p>
+                          <p>
                             {deliveryAddress.city}, {deliveryAddress.pincode}
-                          </Text>
+                          </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => setStep('address')}
-                          className="text-sm font-medium text-emerald-700 hover:underline"
+                          className="text-sm font-medium text-primary hover:underline"
                         >
                           Edit
                         </button>
@@ -147,30 +153,42 @@ export function CheckoutPageContent() {
                   )}
                 </div>
 
-                {/* Step 2 — Payment */}
                 {step === 'payment' && (
-                  <div className="rounded-xl bg-white p-5 shadow-sm">
+                  <div className="rounded-2xl border bg-card p-5 shadow-sm">
                     <div className="mb-4 flex items-center gap-3">
                       <StepBadge num={2} done={false} />
-                      <Text variant="h2">Payment</Text>
+                      <h2 className="text-lg font-semibold">Payment</h2>
                     </div>
 
-                    <PaymentMethodSelector
-                      value={paymentMethod}
-                      onChange={setPaymentMethod}
+                    <WalletCheckoutPanel
+                      walletAmountToUse={walletAmountToUse}
+                      rewardPointsToRedeem={rewardPointsToRedeem}
+                      onWalletChange={setWalletAmountToUse}
+                      onPointsChange={setRewardPointsToRedeem}
                     />
 
                     <div className="mt-4">
-                      <label className="block text-sm font-medium text-neutral-700">
+                      <PaymentMethodSelector
+                        value={paymentMethod}
+                        onChange={setPaymentMethod}
+                      />
+                    </div>
+
+                    <div className="mt-4">
+                      <label
+                        htmlFor="buyer-note"
+                        className="block text-sm font-medium text-foreground"
+                      >
                         Order note (optional)
                       </label>
                       <textarea
+                        id="buyer-note"
                         value={buyerNote}
                         onChange={(e) => setBuyerNote(e.target.value)}
                         maxLength={300}
                         rows={2}
                         placeholder="e.g. Please ring the bell"
-                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                        className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
 
@@ -205,14 +223,21 @@ export function CheckoutPageContent() {
                 )}
               </div>
 
-              {/* Right — summary */}
               {deliveryAddress && (
-                <CheckoutSummary cart={cart} address={deliveryAddress} />
+                <div className="space-y-4">
+                  <DeliverabilityPanel
+                    storeId={cart.storeId}
+                    lat={deliveryAddress.lat}
+                    lng={deliveryAddress.lng}
+                  />
+                  <CouponPanel cart={cart} />
+                  <CheckoutSummary cart={cart} address={deliveryAddress} />
+                </div>
               )}
             </div>
-          </Container>
-        )}
-      </div>
+          )}
+        </div>
+      </PageShell>
     </AuthGuard>
   );
 }
@@ -221,10 +246,10 @@ function StepBadge({ num, done }: { num: number; done: boolean }) {
   return (
     <div
       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-        done ? 'bg-emerald-600 text-white' : 'bg-neutral-200 text-neutral-700'
+        done ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
       }`}
     >
-      {done ? <CheckCircle className="h-4 w-4" /> : num}
+      {done ? <CheckCircle className="h-4 w-4" aria-hidden /> : num}
     </div>
   );
 }

@@ -31,6 +31,7 @@ export function useOrderDetailQuery(orderId: string | undefined) {
     queryKey: orderDetailKey(orderId ?? ''),
     queryFn: () => getRiderOrder(orderId!),
     enabled: Boolean(orderId),
+    refetchInterval: 10_000,
   });
 }
 

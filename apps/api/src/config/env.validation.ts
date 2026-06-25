@@ -12,7 +12,18 @@ export const validationSchema = Joi.object({
   DATABASE_URL: Joi.string().required(),
 
   // Redis
-  REDIS_URL: Joi.string().default('redis://localhost:6379'),
+  REDIS_URL: Joi.string().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+
+  TRUST_PROXY: Joi.string().valid('true', 'false').default('false'),
+  STORAGE_PROVIDER: Joi.string().valid('local', 's3', 'r2').default('local'),
+  UPLOAD_DIR: Joi.string().default('/var/www/jebdekho/uploads'),
+  UPLOAD_PUBLIC_URL: Joi.string().default('https://api.jebdekho.com/uploads'),
+  BUYER_SITE_URL: Joi.string().default('https://jebdekho.com'),
+  RAZORPAY_CALLBACK_URL: Joi.string().uri().optional(),
 
   // JWT — RS256 mandatory (no fallback to HS256)
   JWT_PRIVATE_KEY: Joi.string().required(),
@@ -29,6 +40,17 @@ export const validationSchema = Joi.object({
   OTP_MAX_ATTEMPTS: Joi.number().integer().min(1).max(10).default(5),
   OTP_RATE_LIMIT_REQUESTS: Joi.number().integer().default(3),
   OTP_RATE_LIMIT_WINDOW_MINUTES: Joi.number().integer().default(10),
+
+  // Dev-only demo login (fixed OTP for demo phone)
+  DEV_DEMO_PHONE: Joi.string().default('+919876543210'),
+  DEV_DEMO_MERCHANT_PHONE: Joi.string().default('+919876543211'),
+  DEV_DEMO_MERCHANT_EMAIL: Joi.string().email().default('merchant@demo.jebdekho.com'),
+  DEV_DEMO_MERCHANT_PHONE_2: Joi.string().default('+919876543213'),
+  DEV_DEMO_MERCHANT_EMAIL_2: Joi.string().email().default('merchant2@demo.jebdekho.com'),
+  DEV_DEMO_ADMIN_PHONE: Joi.string().default('+919876543212'),
+  DEV_DEMO_ADMIN_EMAIL: Joi.string().email().default('admin@demo.jebdekho.com'),
+  DEV_DEMO_RIDER_PHONE: Joi.string().default('+919876543214'),
+  DEV_DEMO_OTP: Joi.string().length(6).pattern(/^\d+$/).default('123456'),
 
   // SMS Provider
   SMS_PROVIDER: Joi.string().valid('msg91', 'console').default('console'),
@@ -56,7 +78,11 @@ export const validationSchema = Joi.object({
   RAZORPAY_WEBHOOK_SECRET: Joi.string().optional(),
 
   // CORS
-  CORS_ORIGINS: Joi.string().default('http://localhost:3000'),
+  CORS_ORIGINS: Joi.string().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
 
   // Logging
   LOG_LEVEL: Joi.string()

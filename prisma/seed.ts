@@ -4,7 +4,7 @@
  * Run: pnpm db:seed  (after prisma migrate dev)
  */
 
-import { NotificationChannel, PrismaClient, RoleName } from '@prisma/client';
+import { NotificationChannel, PrismaClient, RoleName, StoreStatus, UserStatus, MerchantCategoryStatus, CategoryScope, KycStatus, RiderStatus, VehicleType, VendorType, FranchisePartnerStatus, CityLaunchStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -32,16 +32,21 @@ const PERMISSIONS = [
   { name: 'stores:submit', module: 'stores', description: 'Submit store for review' },
   { name: 'products:read', module: 'products', description: 'View products' },
   { name: 'products:write', module: 'products', description: 'Manage products' },
+  { name: 'categories:read', module: 'categories', description: 'View categories' },
+  { name: 'categories:request', module: 'categories', description: 'Request category access' },
   { name: 'inventory:read', module: 'inventory', description: 'View inventory' },
   { name: 'inventory:write', module: 'inventory', description: 'Manage inventory' },
   { name: 'orders:update_status', module: 'orders', description: 'Update order status' },
   { name: 'analytics:read', module: 'analytics', description: 'View analytics' },
+  { name: 'payouts:read', module: 'payouts', description: 'View payout requests' },
+  { name: 'payouts:request', module: 'payouts', description: 'Request payouts' },
   // Rider
   { name: 'deliveries:read', module: 'deliveries', description: 'View deliveries' },
   { name: 'deliveries:update', module: 'deliveries', description: 'Update deliveries' },
   { name: 'rider:status', module: 'rider', description: 'Toggle online status' },
   { name: 'rider:location', module: 'rider', description: 'Update location' },
-  { name: 'earnings:read', module: 'earnings', description: 'View earnings' },
+  // Rider + Merchant earnings (shared permission name)
+  { name: 'earnings:read', module: 'earnings', description: 'View earnings and settlements' },
   // Admin
   { name: 'users:read', module: 'admin', description: 'View users' },
   { name: 'users:manage', module: 'admin', description: 'Manage users' },
@@ -59,6 +64,11 @@ const PERMISSIONS = [
   { name: 'stores:approve', module: 'admin', description: 'Approve stores' },
   { name: 'stores:reject', module: 'admin', description: 'Reject stores' },
   { name: 'stores:suspend', module: 'admin', description: 'Suspend stores' },
+  { name: 'categories:read', module: 'admin', description: 'View global categories' },
+  { name: 'categories:manage', module: 'admin', description: 'Manage global categories' },
+  { name: 'categories:approve', module: 'admin', description: 'Approve merchant category requests' },
+  { name: 'settlements:read', module: 'admin', description: 'View settlements and payout requests' },
+  { name: 'settlements:manage', module: 'admin', description: 'Approve and process payouts' },
   // Super Admin only
   { name: 'admins:invite', module: 'admin', description: 'Invite admins' },
   { name: 'admins:manage', module: 'admin', description: 'Manage admins' },
@@ -78,14 +88,30 @@ const ROLE_PERMISSIONS: Record<RoleName, string[]> = {
   MERCHANT: [
     'stores:read', 'stores:write', 'stores:submit',
     'products:read', 'products:write',
+    'categories:read', 'categories:request',
     'inventory:read', 'inventory:write',
     'orders:read', 'orders:update_status',
     'analytics:read',
+    'earnings:read', 'payouts:read', 'payouts:request',
     'profile:read', 'profile:write',
   ],
   RIDER: [
     'deliveries:read', 'deliveries:update',
     'rider:status', 'rider:location',
+    'earnings:read',
+    'profile:read', 'profile:write',
+  ],
+  VENDOR: [
+    'products:read', 'products:write',
+    'inventory:read', 'inventory:write',
+    'orders:read', 'orders:update_status',
+    'analytics:read',
+    'profile:read', 'profile:write',
+  ],
+  FRANCHISE: [
+    'analytics:read',
+    'stores:read',
+    'orders:read',
     'earnings:read',
     'profile:read', 'profile:write',
   ],
@@ -99,6 +125,8 @@ const ROLE_PERMISSIONS: Record<RoleName, string[]> = {
     'cities:read', 'cities:write',
     'platform:settings',
     'stores:approve', 'stores:reject', 'stores:suspend',
+    'categories:read', 'categories:manage', 'categories:approve',
+    'settlements:read', 'settlements:manage',
   ],
   SUPER_ADMIN: [], // will receive ALL permissions in seed
 };
@@ -337,9 +365,645 @@ async function seedNotificationTemplates(): Promise<void> {
   }
 }
 
+async function seedDemoBuyer(): Promise<void> {
+  const demoPhone = process.env.DEV_DEMO_PHONE ?? '+919876543210';
+  console.log(`  Seeding demo buyer (${demoPhone})...`);
+
+  const buyerRole = await prisma.role.findUnique({ where: { name: RoleName.BUYER } });
+  if (!buyerRole) {
+    console.warn('  BUYER role not found — skip demo buyer seed');
+    return;
+  }
+
+  const user = await prisma.user.upsert({
+    where: { phone: demoPhone },
+    update: {
+      status: UserStatus.ACTIVE,
+      phoneVerified: true,
+    },
+    create: {
+      phone: demoPhone,
+      status: UserStatus.ACTIVE,
+      phoneVerified: true,
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: user.id, roleId: buyerRole.id } },
+    update: {},
+    create: { userId: user.id, roleId: buyerRole.id },
+  });
+
+  await prisma.buyerProfile.upsert({
+    where: { userId: user.id },
+    update: { name: 'Demo User' },
+    create: { userId: user.id, name: 'Demo User' },
+  });
+}
+
+async function seedDemoMerchantAccount(params: {
+  phone: string;
+  email: string;
+  businessName: string;
+  storeSlug: string;
+  storeName: string;
+  description: string;
+  gstNumber: string;
+  panNumber: string;
+  line1: string;
+  pincode: string;
+}): Promise<void> {
+  const {
+    phone,
+    email,
+    businessName,
+    storeSlug,
+    storeName,
+    description,
+    gstNumber,
+    panNumber,
+    line1,
+    pincode,
+  } = params;
+  console.log(`  Seeding demo merchant (${phone}, ${email})...`);
+
+  const merchantRole = await prisma.role.findUnique({ where: { name: RoleName.MERCHANT } });
+  if (!merchantRole) {
+    console.warn('  MERCHANT role not found — skip demo merchant seed');
+    return;
+  }
+
+  const city = await prisma.city.findUnique({ where: { slug: 'delhi-ncr' } });
+  if (!city) {
+    console.warn('  Delhi NCR city not found — skip demo merchant store');
+    return;
+  }
+
+  const user = await prisma.user.upsert({
+    where: { phone },
+    update: {
+      email,
+      status: UserStatus.ACTIVE,
+      phoneVerified: true,
+      emailVerified: true,
+    },
+    create: {
+      phone,
+      email,
+      status: UserStatus.ACTIVE,
+      phoneVerified: true,
+      emailVerified: true,
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: user.id, roleId: merchantRole.id } },
+    update: {},
+    create: { userId: user.id, roleId: merchantRole.id },
+  });
+
+  const merchantProfile = await prisma.merchantProfile.upsert({
+    where: { userId: user.id },
+    update: { businessName, gstNumber, panNumber },
+    create: {
+      userId: user.id,
+      businessName,
+      gstNumber,
+      panNumber,
+    },
+  });
+
+  await prisma.store.upsert({
+    where: {
+      merchantProfileId_slug: {
+        merchantProfileId: merchantProfile.id,
+        slug: storeSlug,
+      },
+    },
+    update: {
+      status: StoreStatus.APPROVED,
+      isActive: true,
+      name: storeName,
+    },
+    create: {
+      merchantProfileId: merchantProfile.id,
+      cityId: city.id,
+      name: storeName,
+      slug: storeSlug,
+      description,
+      line1,
+      pincode,
+      latitude: 28.6139,
+      longitude: 77.209,
+      status: StoreStatus.APPROVED,
+      isActive: true,
+      phone,
+      email,
+    },
+  });
+}
+
+async function seedDemoMerchants(): Promise<void> {
+  await seedDemoMerchantAccount({
+    phone: process.env.DEV_DEMO_MERCHANT_PHONE ?? '+919876543211',
+    email: process.env.DEV_DEMO_MERCHANT_EMAIL ?? 'merchant@demo.jebdekho.com',
+    businessName: 'Demo Grocery Store',
+    storeSlug: 'demo-grocery',
+    storeName: 'Demo Grocery Store',
+    description: 'Demo store for merchant portal testing',
+    gstNumber: '07AAGCR2206E1ZN',
+    panNumber: 'AAGCR2206E',
+    line1: '123 MG Road',
+    pincode: '110001',
+  });
+
+  await seedDemoMerchantAccount({
+    phone: process.env.DEV_DEMO_MERCHANT_PHONE_2 ?? '+919876543213',
+    email: process.env.DEV_DEMO_MERCHANT_EMAIL_2 ?? 'merchant2@demo.jebdekho.com',
+    businessName: 'Demo Electronics Store',
+    storeSlug: 'demo-electronics',
+    storeName: 'Demo Electronics Store',
+    description: 'Second demo merchant for parallel testing',
+    gstNumber: '29AABCU9603R1ZM',
+    panNumber: 'AABCU9603R',
+    line1: '45 Nehru Place',
+    pincode: '110019',
+  });
+}
+
+async function seedDemoAdmin(): Promise<void> {
+  const demoPhone = process.env.DEV_DEMO_ADMIN_PHONE ?? '+919876543212';
+  const demoEmail = process.env.DEV_DEMO_ADMIN_EMAIL ?? 'admin@demo.jebdekho.com';
+  console.log(`  Seeding demo admin (${demoPhone})...`);
+
+  const adminRole = await prisma.role.findUnique({ where: { name: RoleName.ADMIN } });
+  if (!adminRole) {
+    console.warn('  ADMIN role not found — skip demo admin seed');
+    return;
+  }
+
+  const user = await prisma.user.upsert({
+    where: { phone: demoPhone },
+    update: {
+      email: demoEmail,
+      status: UserStatus.ACTIVE,
+      phoneVerified: true,
+      emailVerified: true,
+    },
+    create: {
+      phone: demoPhone,
+      email: demoEmail,
+      status: UserStatus.ACTIVE,
+      phoneVerified: true,
+      emailVerified: true,
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: user.id, roleId: adminRole.id } },
+    update: {},
+    create: { userId: user.id, roleId: adminRole.id },
+  });
+
+  await prisma.adminProfile.upsert({
+    where: { userId: user.id },
+    update: { name: 'Demo Admin' },
+    create: {
+      userId: user.id,
+      name: 'Demo Admin',
+      department: 'Operations',
+      isSuperAdmin: false,
+    },
+  });
+}
+
+async function seedGlobalCategories(): Promise<void> {
+  console.log('  Seeding global categories...');
+
+  const catalog: Array<{
+    name: string;
+    slug: string;
+    sortOrder: number;
+    children?: Array<{ name: string; slug: string; sortOrder: number }>;
+  }> = [
+    {
+      name: 'Grocery',
+      slug: 'grocery',
+      sortOrder: 1,
+      children: [
+        { name: 'Fruits & Vegetables', slug: 'fruits-vegetables', sortOrder: 1 },
+        { name: 'Dairy & Bakery', slug: 'dairy-bakery', sortOrder: 2 },
+      ],
+    },
+    {
+      name: 'Electronics',
+      slug: 'electronics',
+      sortOrder: 2,
+      children: [
+        { name: 'Mobile Accessories', slug: 'mobile-accessories', sortOrder: 1 },
+        { name: 'Home Appliances', slug: 'home-appliances', sortOrder: 2 },
+      ],
+    },
+    {
+      name: 'Health & Nutrition',
+      slug: 'health-nutrition',
+      sortOrder: 3,
+      children: [
+        { name: 'Supplements', slug: 'supplements', sortOrder: 1 },
+        { name: 'Personal Care', slug: 'personal-care', sortOrder: 2 },
+      ],
+    },
+  ];
+
+  for (const item of catalog) {
+    let parent = await prisma.category.findFirst({
+      where: { slug: item.slug, storeId: null, parentId: null },
+    });
+    if (!parent) {
+      parent = await prisma.category.create({
+        data: {
+          name: item.name,
+          slug: item.slug,
+          sortOrder: item.sortOrder,
+          scope: CategoryScope.GLOBAL,
+          isActive: true,
+        },
+      });
+    } else {
+      parent = await prisma.category.update({
+        where: { id: parent.id },
+        data: { name: item.name, sortOrder: item.sortOrder, isActive: true },
+      });
+    }
+
+    for (const child of item.children ?? []) {
+      const existingChild = await prisma.category.findFirst({
+        where: { slug: child.slug, storeId: null, parentId: parent.id },
+      });
+      if (!existingChild) {
+        await prisma.category.create({
+          data: {
+            name: child.name,
+            slug: child.slug,
+            parentId: parent.id,
+            sortOrder: child.sortOrder,
+            scope: CategoryScope.GLOBAL,
+            isActive: true,
+          },
+        });
+      } else {
+        await prisma.category.update({
+          where: { id: existingChild.id },
+          data: { name: child.name, sortOrder: child.sortOrder, isActive: true },
+        });
+      }
+    }
+  }
+}
+
+async function seedDemoMerchantCategoryApprovals(): Promise<void> {
+  const demoPhone = process.env.DEV_DEMO_MERCHANT_PHONE ?? '+919876543211';
+  const user = await prisma.user.findUnique({ where: { phone: demoPhone } });
+  if (!user) return;
+
+  const profile = await prisma.merchantProfile.findUnique({ where: { userId: user.id } });
+  if (!profile) return;
+
+  const grocery = await prisma.category.findFirst({ where: { slug: 'grocery', storeId: null } });
+  const fruits = await prisma.category.findFirst({ where: { slug: 'fruits-vegetables', storeId: null } });
+  if (!grocery || !fruits) return;
+
+  for (const categoryId of [grocery.id, fruits.id]) {
+    await prisma.merchantCategory.upsert({
+      where: {
+        merchantProfileId_categoryId: {
+          merchantProfileId: profile.id,
+          categoryId,
+        },
+      },
+      update: { status: MerchantCategoryStatus.APPROVED },
+      create: {
+        merchantProfileId: profile.id,
+        categoryId,
+        status: MerchantCategoryStatus.APPROVED,
+        submittedAt: new Date(),
+        reviewedAt: new Date(),
+      },
+    });
+  }
+}
+
+async function seedDemoStoreZones(): Promise<void> {
+  console.log('  Seeding demo store zones...');
+
+  const zone = await prisma.zone.findFirst({
+    where: { slug: 'south-delhi' },
+    select: { id: true },
+  });
+  if (!zone) {
+    console.warn('  south-delhi zone not found — skip store zone seed');
+    return;
+  }
+
+  const stores = await prisma.store.findMany({
+    where: { slug: { in: ['demo-grocery', 'demo-electronics'] } },
+    select: { id: true },
+  });
+
+  for (const store of stores) {
+    await prisma.storeZone.upsert({
+      where: { storeId_zoneId: { storeId: store.id, zoneId: zone.id } },
+      update: {},
+      create: { storeId: store.id, zoneId: zone.id },
+    });
+  }
+}
+
+async function seedDemoRider(): Promise<void> {
+  const demoPhone = process.env.DEV_DEMO_RIDER_PHONE ?? '+919876543214';
+  console.log(`  Seeding demo rider (${demoPhone})...`);
+
+  const riderRole = await prisma.role.findUnique({ where: { name: RoleName.RIDER } });
+  if (!riderRole) {
+    console.warn('  RIDER role not found — skip demo rider seed');
+    return;
+  }
+
+  const zone = await prisma.zone.findFirst({
+    where: { slug: 'south-delhi' },
+    select: { id: true },
+  });
+
+  const user = await prisma.user.upsert({
+    where: { phone: demoPhone },
+    update: {
+      status: UserStatus.ACTIVE,
+      phoneVerified: true,
+    },
+    create: {
+      phone: demoPhone,
+      status: UserStatus.ACTIVE,
+      phoneVerified: true,
+    },
+  });
+
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: user.id, roleId: riderRole.id } },
+    update: {},
+    create: { userId: user.id, roleId: riderRole.id },
+  });
+
+  const riderProfile = await prisma.riderProfile.upsert({
+    where: { userId: user.id },
+    update: {
+      name: 'Demo Rider',
+      kycStatus: KycStatus.APPROVED,
+      status: RiderStatus.ONLINE,
+      currentLat: 28.614,
+      currentLng: 77.21,
+      lastLocationAt: new Date(),
+      vehicleType: VehicleType.MOTORCYCLE,
+      vehicleNumber: 'DL01AB1234',
+    },
+    create: {
+      userId: user.id,
+      name: 'Demo Rider',
+      vehicleType: VehicleType.MOTORCYCLE,
+      vehicleNumber: 'DL01AB1234',
+      kycStatus: KycStatus.APPROVED,
+      status: RiderStatus.ONLINE,
+      currentLat: 28.614,
+      currentLng: 77.21,
+      lastLocationAt: new Date(),
+    },
+  });
+
+  if (zone) {
+    await prisma.riderZone.upsert({
+      where: {
+        riderProfileId_zoneId: { riderProfileId: riderProfile.id, zoneId: zone.id },
+      },
+      update: {},
+      create: { riderProfileId: riderProfile.id, zoneId: zone.id },
+    });
+  }
+}
+
+async function seedDemoVendors(): Promise<void> {
+  const vendorRole = await prisma.role.findUnique({ where: { name: RoleName.VENDOR } });
+  if (!vendorRole) return;
+
+  const city = await prisma.city.findFirst({ where: { slug: 'delhi' } });
+  const phone = '+919876543299';
+
+  const user = await prisma.user.upsert({
+    where: { phone },
+    update: { status: UserStatus.ACTIVE, phoneVerified: true },
+    create: { phone, status: UserStatus.ACTIVE, phoneVerified: true },
+  });
+
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: user.id, roleId: vendorRole.id } },
+    update: {},
+    create: { userId: user.id, roleId: vendorRole.id },
+  });
+
+  const vendor = await prisma.vendor.upsert({
+    where: { id: 'seed-vendor-abc-distributor' },
+    update: {},
+    create: {
+      id: 'seed-vendor-abc-distributor',
+      vendorType: VendorType.DISTRIBUTOR,
+      businessName: 'ABC Distributor',
+      gstNumber: '07AABCU9603R1ZM',
+      phone,
+      email: 'vendor@jebdekho.demo',
+      cityId: city?.id,
+      line1: 'Industrial Area, Phase 2',
+      pincode: '110020',
+      latitude: 28.61,
+      longitude: 77.23,
+      isActive: true,
+      ratingAvg: 4.5,
+      ratingCount: 12,
+    },
+  });
+
+  await prisma.vendorProfile.upsert({
+    where: { userId: user.id },
+    update: {},
+    create: { userId: user.id, vendorId: vendor.id },
+  });
+
+  const catalog = await prisma.vendorCatalog.upsert({
+    where: { id: 'seed-catalog-abc' },
+    update: {},
+    create: {
+      id: 'seed-catalog-abc',
+      vendorId: vendor.id,
+      name: 'Health & Nutrition',
+      description: 'Protein, supplements, and wellness products',
+    },
+  });
+
+  const product = await prisma.vendorProduct.upsert({
+    where: { vendorId_sku: { vendorId: vendor.id, sku: 'WHEY-1KG' } },
+    update: {},
+    create: {
+      vendorId: vendor.id,
+      catalogId: catalog.id,
+      name: 'Whey Protein 1kg',
+      sku: 'WHEY-1KG',
+      category: 'Supplements',
+      hsnCode: '21069099',
+      gstRate: 18,
+      basePrice: 2400,
+      moq: 10,
+      leadTimeDays: 2,
+      inventory: { create: { availableQty: 500 } },
+    },
+  });
+
+  await prisma.vendorPriceTier.upsert({
+    where: { id: 'seed-tier-whey-50' },
+    update: {},
+    create: {
+      id: 'seed-tier-whey-50',
+      vendorProductId: product.id,
+      minQty: 50,
+      unitPrice: 2200,
+    },
+  });
+
+  const merchant = await prisma.merchantProfile.findFirst();
+  if (merchant) {
+    await prisma.vendorCreditLine.upsert({
+      where: { vendorId_merchantProfileId: { vendorId: vendor.id, merchantProfileId: merchant.id } },
+      update: {},
+      create: {
+        vendorId: vendor.id,
+        merchantProfileId: merchant.id,
+        creditLimit: 100000,
+        usedLimit: 0,
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
+  }
+}
+
+async function seedDemoFranchise(): Promise<void> {
+  const franchiseRole = await prisma.role.findUnique({ where: { name: RoleName.FRANCHISE } });
+  if (!franchiseRole) return;
+
+  const delhi = await prisma.city.findFirst({ where: { slug: 'delhi' } });
+  const phone = '+919876543298';
+
+  const user = await prisma.user.upsert({
+    where: { phone },
+    update: { status: UserStatus.ACTIVE, phoneVerified: true },
+    create: { phone, status: UserStatus.ACTIVE, phoneVerified: true },
+  });
+
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId: user.id, roleId: franchiseRole.id } },
+    update: {},
+    create: { userId: user.id, roleId: franchiseRole.id },
+  });
+
+  const partner = await prisma.franchisePartner.upsert({
+    where: { userId: user.id },
+    update: {},
+    create: {
+      userId: user.id,
+      businessName: 'NCR Franchise Partners Pvt Ltd',
+      gstin: '07AABCF1234R1Z5',
+      pan: 'AABCF1234R',
+      status: FranchisePartnerStatus.ACTIVE,
+      commissionPercent: 5,
+      onboardingCompleted: true,
+      cityId: delhi?.id,
+    },
+  });
+
+  await prisma.franchiseTerritory.upsert({
+    where: { id: 'seed-franchise-territory-ncr' },
+    update: {},
+    create: {
+      id: 'seed-franchise-territory-ncr',
+      franchiseId: partner.id,
+      city: 'Delhi',
+      state: 'Delhi',
+      country: 'IN',
+      pincodes: ['110001', '110002', '110003', '110020'],
+      exclusivityEnabled: true,
+      launchDate: new Date(),
+    },
+  });
+
+  const store = await prisma.store.findFirst({ where: { status: StoreStatus.APPROVED } });
+  if (store) {
+    await prisma.franchiseStore.upsert({
+      where: { franchiseId_storeId: { franchiseId: partner.id, storeId: store.id } },
+      update: {},
+      create: { franchiseId: partner.id, storeId: store.id },
+    });
+  }
+
+  const launchCities: Array<{ city: string; state: string; status: CityLaunchStatus; targetGmv: number }> = [
+    { city: 'Lucknow', state: 'Uttar Pradesh', status: CityLaunchStatus.RECRUITING, targetGmv: 5000000 },
+    { city: 'Kanpur', state: 'Uttar Pradesh', status: CityLaunchStatus.PLANNING, targetGmv: 3000000 },
+    { city: 'Prayagraj', state: 'Uttar Pradesh', status: CityLaunchStatus.RESEARCH, targetGmv: 2000000 },
+  ];
+
+  for (const lc of launchCities) {
+    await prisma.cityLaunchPlan.upsert({
+      where: { city_state: { city: lc.city, state: lc.state } },
+      update: {},
+      create: {
+        city: lc.city,
+        state: lc.state,
+        launchStatus: lc.status,
+        readinessScore: lc.status === CityLaunchStatus.RECRUITING ? 62 : lc.status === CityLaunchStatus.PLANNING ? 45 : 28,
+        targetStores: 30,
+        targetRiders: 80,
+        targetGmv: lc.targetGmv,
+      },
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main entry point
 // ---------------------------------------------------------------------------
+
+async function seedMembershipPlan(): Promise<void> {
+  const { MembershipBenefitType } = await import('@prisma/client');
+  const plan = await prisma.membershipPlan.upsert({
+    where: { id: 'seed-plus-plan' },
+    update: {},
+    create: {
+      id: 'seed-plus-plan',
+      name: 'JebDekho Plus',
+      monthlyPrice: 99,
+      yearlyPrice: 999,
+      active: true,
+    },
+  });
+  const benefits = [
+    MembershipBenefitType.FREE_DELIVERY,
+    MembershipBenefitType.PRIORITY_DELIVERY,
+    MembershipBenefitType.EXTRA_REWARDS,
+    MembershipBenefitType.VIP_SUPPORT,
+    MembershipBenefitType.EXCLUSIVE_OFFERS,
+  ];
+  for (const type of benefits) {
+    await prisma.membershipBenefit.upsert({
+      where: { planId_type: { planId: plan.id, type } },
+      update: {},
+      create: { planId: plan.id, type },
+    });
+  }
+}
 
 async function main(): Promise<void> {
   console.log('Starting seed...');
@@ -348,6 +1012,16 @@ async function main(): Promise<void> {
   await seedPlatformSettings();
   await seedDelhiNcr();
   await seedNotificationTemplates();
+  await seedGlobalCategories();
+  await seedDemoBuyer();
+  await seedDemoMerchants();
+  await seedDemoStoreZones();
+  await seedDemoMerchantCategoryApprovals();
+  await seedDemoRider();
+  await seedDemoAdmin();
+  await seedDemoVendors();
+  await seedDemoFranchise();
+  await seedMembershipPlan();
 
   console.log('Seed complete.');
 }

@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
+import { getApiBaseUrl } from '@jebdekho/web-config';
 
 export async function backendFetch<T>(
   path: string,
@@ -13,7 +13,7 @@ export async function backendFetch<T>(
     headers.set('Content-Type', 'application/json');
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${getApiBaseUrl()}${path}`, {
     ...init,
     headers,
   });

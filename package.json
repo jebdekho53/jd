@@ -14,11 +14,15 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "db:generate": "prisma generate --schema=prisma/schema.prisma",
+    "postinstall": "prisma generate --schema=prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema=prisma/schema.prisma",
     "db:deploy": "prisma migrate deploy --schema=prisma/schema.prisma",
+    "db:execute-category-soft-delete": "prisma db execute --schema=prisma/schema.prisma --file prisma/migrations/20260626120000_category_soft_delete/migration.sql",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio --schema=prisma/schema.prisma",
-    "db:reset": "prisma migrate reset --schema=prisma/schema.prisma"
+    "db:reset": "prisma migrate reset --schema=prisma/schema.prisma",
+    "deploy:production": "bash deploy/deploy.sh",
+    "deploy:rollback": "bash deploy/rollback.sh"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0"
@@ -33,5 +37,11 @@
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
   },
-  "packageManager": "pnpm@9.15.0"
+  "packageManager": "pnpm@9.15.0",
+  "pnpm": {
+    "overrides": {
+      "@types/react": "~19.1.17",
+      "@types/react-dom": "~19.1.11"
+    }
+  }
 }

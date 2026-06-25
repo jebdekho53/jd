@@ -8,15 +8,23 @@ export function LocationBanner() {
   const { label } = useLocationStore();
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/50 px-4 py-3">
-      <div className="flex min-w-0 items-center gap-2">
-        <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+    <div
+      className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 shadow-sm"
+      role="region"
+      aria-label="Delivery location"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <MapPin className="h-4 w-4" aria-hidden />
+        </div>
         <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">Delivering to</p>
-          <p className="truncate text-sm font-medium">{label}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Delivering to
+          </p>
+          <p className="truncate text-sm font-semibold">{label}</p>
         </div>
       </div>
-      <Button variant="outline" size="sm" disabled title="Location picker coming in Sprint 2">
+      <Button variant="outline" size="sm" disabled title="Location picker coming soon">
         Change
       </Button>
     </div>

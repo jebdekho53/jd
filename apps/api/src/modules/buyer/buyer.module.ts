@@ -7,6 +7,6 @@ import { BuyerController } from './buyer.controller';
 @Module({
   controllers: [BuyerController],
   providers: [BuyerStoreService, BuyerProductService, BuyerCacheService],
-  exports: [BuyerStoreService, BuyerProductService],
+  exports: [BuyerStoreService, BuyerProductService, BuyerCacheService],
 })
 export class BuyerModule {}

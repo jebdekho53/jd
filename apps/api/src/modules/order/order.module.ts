@@ -1,12 +1,19 @@
 import { Module } from '@nestjs/common';
+import { RiderAssignmentModule } from '../rider-assignment/rider-assignment.module';
+import { CheckoutModule } from '../checkout/checkout.module';
+import { InventoryModule } from '../inventory/inventory.module';
+import { WalletLoyaltyModule } from '../wallet-loyalty/wallet-loyalty.module';
+import { FinanceModule } from '../finance/finance.module';
+import { ComplianceModule } from '../compliance/compliance.module';
 import { OrderService } from './order.service';
-import { OrderCacheService } from './order-cache.service';
 import { BuyerOrderController } from './buyer-order.controller';
 import { MerchantOrderController } from './merchant-order.controller';
+import { AdminOrderController } from './admin-order.controller';
 
 @Module({
-  controllers: [BuyerOrderController, MerchantOrderController],
-  providers: [OrderService, OrderCacheService],
+  imports: [RiderAssignmentModule, CheckoutModule, InventoryModule, WalletLoyaltyModule, FinanceModule, ComplianceModule],
+  controllers: [BuyerOrderController, MerchantOrderController, AdminOrderController],
+  providers: [OrderService],
   exports: [OrderService],
 })
 export class OrderModule {}

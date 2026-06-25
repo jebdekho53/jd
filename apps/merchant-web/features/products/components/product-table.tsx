@@ -65,7 +65,7 @@ export function ProductTable({ storeId, products, isLoading, onEdit }: Props) {
       <TBody>
         {products.map((p) => {
           const defaultVariant = p.variants.find((v) => v.isDefault) ?? p.variants[0];
-          const stock = defaultVariant?.inventory?.quantity ?? 0;
+          const stock = defaultVariant?.inventory?.availableQty ?? 0;
           const lowStock = defaultVariant?.inventory?.lowStockThreshold;
           const isLow = lowStock !== null && lowStock !== undefined && stock <= lowStock;
 

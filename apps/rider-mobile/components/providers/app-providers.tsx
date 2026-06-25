@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { RealtimeProvider } from '@/components/providers/realtime-provider';
 import { GlobalErrorProvider } from '@/components/providers/global-error-provider';
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -16,9 +15,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={client}>
-      <GlobalErrorProvider>
-        <RealtimeProvider>{children}</RealtimeProvider>
-      </GlobalErrorProvider>
+      <GlobalErrorProvider>{children}</GlobalErrorProvider>
     </QueryClientProvider>
   );
 }

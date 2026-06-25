@@ -12,6 +12,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { REDIS_KEYS, REDIS_TTL } from '../../redis/redis.constants';
 import { getConfig } from '../../config/configuration';
+import { isDemoPhone } from '../../common/utils/demo-auth.util';
 import { Msg91Service } from './msg91.service';
 
 @Injectable()
@@ -37,9 +38,11 @@ export class OtpService {
     purpose: OtpPurpose,
     userId?: string,
   ): Promise<{ expiresIn: number }> {
-    await this.enforceRateLimit(phone);
+    if (!isDemoPhone(phone, this.cfg)) {
+      await this.enforceRateLimit(phone);
+    }
 
-    const code = this.generateCode();
+    const code = this.resolveOtpCode(phone);
     const codeHash = await argon2.hash(code, {
       type: argon2.argon2id,
       memoryCost: 2 ** 14,  // 16 MB — lower than password since OTP is short-lived
@@ -99,7 +102,7 @@ export class OtpService {
       throw new BadRequestException('OTP not found or expired. Please request a new one.');
     }
 
-    if (record.attempts >= this.cfg.otp.maxAttempts) {
+    if (!isDemoPhone(phone, this.cfg) && record.attempts >= this.cfg.otp.maxAttempts) {
       throw new BadRequestException(
         'Too many incorrect attempts. Please request a new OTP.',
       );
@@ -131,6 +134,17 @@ export class OtpService {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  private resolveOtpCode(phone: string): string {
+    if (isDemoPhone(phone, this.cfg)) {
+      this.logger.log(
+        { phone, otp: this.cfg.dev.demoOtp },
+        '🔑 Demo OTP (development only)',
+      );
+      return this.cfg.dev.demoOtp;
+    }
+    return this.generateCode();
+  }
 
   private generateCode(): string {
     const length = this.cfg.otp.length;

@@ -91,7 +91,14 @@ describe('CheckoutService', () => {
     beforeEach(() => {
       mockCartService.getCart.mockResolvedValue(mockCart);
       mockPrisma.buyerProfile.findUnique.mockResolvedValue({ id: BUYER_PROFILE_ID });
-      mockPrisma.store.findFirst.mockResolvedValue({ id: STORE_ID, status: StoreStatus.APPROVED, isActive: true });
+      mockPrisma.store.findFirst.mockResolvedValue({
+        id: STORE_ID,
+        status: StoreStatus.APPROVED,
+        isActive: true,
+        latitude: 28.6139,
+        longitude: 77.209,
+        storeServiceAreas: [],
+      });
       mockPrisma.productVariant.findFirst.mockResolvedValue({
         id: 'v1',
         isActive: true,
@@ -231,7 +238,14 @@ describe('CheckoutService', () => {
     });
 
     it('throws BadRequestException when inventory is insufficient', async () => {
-      mockPrisma.store.findFirst.mockResolvedValue({ id: STORE_ID });
+      mockPrisma.store.findFirst.mockResolvedValue({
+        id: STORE_ID,
+        status: StoreStatus.APPROVED,
+        isActive: true,
+        latitude: 28.6139,
+        longitude: 77.209,
+        storeServiceAreas: [],
+      });
       mockPrisma.productVariant.findFirst.mockResolvedValue({
         id: 'v1',
         isActive: true,
@@ -240,6 +254,30 @@ describe('CheckoutService', () => {
       await expect(
         service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress }),
       ).rejects.toThrow('available');
+    });
+
+    it('throws BadRequestException when delivery is outside store service area', async () => {
+      mockPrisma.store.findFirst.mockResolvedValue({
+        id: STORE_ID,
+        status: StoreStatus.APPROVED,
+        isActive: true,
+        latitude: 19.076,
+        longitude: 72.877,
+        storeServiceAreas: [
+          {
+            serviceArea: { centerLat: 19.08, centerLng: 72.88, radiusKm: 2 },
+          },
+        ],
+      });
+      mockPrisma.productVariant.findFirst.mockResolvedValue({
+        id: 'v1',
+        isActive: true,
+        inventory: { quantity: 10, reserved: 0 },
+      });
+
+      await expect(
+        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress }),
+      ).rejects.toThrow('Store does not deliver to your location.');
     });
   });
 });

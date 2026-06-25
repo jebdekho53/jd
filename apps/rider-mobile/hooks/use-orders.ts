@@ -12,7 +12,7 @@ export function useOrdersQuery() {
   const query = useQuery({
     queryKey: ORDERS_KEY,
     queryFn: listRiderOrders,
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
   });
 
   useEffect(() => {

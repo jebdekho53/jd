@@ -111,7 +111,7 @@ export function AddToCartButton({
         type="button"
         onClick={handleDecrement}
         disabled={busy}
-        className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500 text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-40"
+        className="flex h-8 w-8 items-center justify-center rounded-full border border-primary text-primary transition hover:bg-primary/10 disabled:opacity-40"
       >
         <Minus className="h-3.5 w-3.5" />
       </button>
@@ -122,7 +122,7 @@ export function AddToCartButton({
         type="button"
         onClick={handleAdd}
         disabled={busy || qty >= availableQty}
-        className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500 text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-40"
+        className="flex h-8 w-8 items-center justify-center rounded-full border border-primary text-primary transition hover:bg-primary/10 disabled:opacity-40"
       >
         <Plus className="h-3.5 w-3.5" />
       </button>

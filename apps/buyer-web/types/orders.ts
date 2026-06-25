@@ -1,16 +1,20 @@
 export type OrderStatus =
+  | 'CREATED'
   | 'PAYMENT_PENDING'
   | 'PAID'
   | 'MERCHANT_ACCEPTED'
   | 'PREPARING'
   | 'READY_FOR_PICKUP'
+  | 'RIDER_ASSIGNED'
   | 'OUT_FOR_DELIVERY'
+  | 'PICKED_UP'
   | 'DELIVERED'
   | 'COMPLETED'
   | 'CANCELLED_BY_BUYER'
   | 'CANCELLED_BY_MERCHANT'
   | 'CANCELLED_BY_ADMIN'
   | 'PAYMENT_FAILED'
+  | 'DELIVERY_FAILED'
   | 'REFUNDED';
 
 export type PaymentMethod = 'COD' | 'RAZORPAY';
@@ -28,9 +32,10 @@ export interface OrderListItem {
 }
 
 export interface OrderTimelineEntry {
-  status: OrderStatus;
+  status: OrderStatus | 'PICKED_UP' | 'ARRIVED_AT_STORE' | 'ARRIVED_AT_CUSTOMER' | 'FAILED';
   note: string | null;
   changedBy: string | null;
+  actorType?: string | null;
   createdAt: string;
 }
 
@@ -68,11 +73,37 @@ export interface OrderDetail {
   buyerProfile: { id: string; name: string };
   items: OrderDetailItem[];
   statusHistory: OrderTimelineEntry[];
+  timeline?: OrderTimelineEntry[];
+  delivery?: {
+    id: string;
+    status: string;
+    estimatedMins: number | null;
+    etaAvailable?: boolean;
+    liveTrackingAvailable?: boolean;
+    waitingForPickup?: boolean;
+    rider: { id: string; name: string; phone: string | null; vehicleType?: string | null; status: string } | null;
+  } | null;
   payment: {
     razorpayOrderId: string | null;
     razorpayPaymentId: string | null;
     status: PaymentStatus;
     method: PaymentMethod;
+  } | null;
+  canReview?: boolean;
+  review?: {
+    id: string;
+    rating: number;
+    storeExperience: number;
+    deliveryExperience: number;
+    productQuality: number;
+    title: string | null;
+    review: string | null;
+    images: string[];
+    verifiedPurchase: boolean;
+    merchantReply: string | null;
+    merchantRepliedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
   } | null;
 }
 
@@ -88,6 +119,7 @@ export interface OrderListResponse {
 
 export interface ListOrdersParams {
   status?: OrderStatus;
+  statusGroup?: 'active' | 'cancelled' | 'completed';
   page?: number;
   limit?: number;
 }

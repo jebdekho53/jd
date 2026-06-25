@@ -1,8 +1,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { DayOfWeek, StoreStatus } from '@prisma/client';
+import { DayOfWeek, StoreDocumentType, StoreStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { fetchStoreVisibleCategories, fetchStoresForCategory } from './buyer-category-catalog';
 import { BuyerCacheService, BUYER_CACHE_KEYS } from './buyer-cache.service';
 import { DiscoverStoresDto } from './dto/discover-stores.dto';
+import { checkStoreDeliverability, normalizeDeliveryRadiusKm } from '../../common/utils/geospatial.util';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -31,6 +33,9 @@ export interface StoreDetail extends StoreCard {
   serviceAreas: { id: string; name: string; pincode: string | null }[];
   categories: { id: string; name: string; slug: string }[];
   productCount: number;
+  verifications: { gst: boolean; kyc: boolean; fssai: boolean };
+  merchantSince: string;
+  deliveryRadiusKm: number;
 }
 
 // ── IST helpers ──────────────────────────────────────────────────────────────
@@ -59,25 +64,6 @@ function timeToMinutes(hhmm: string): number {
   return (h ?? 0) * 60 + (m ?? 0);
 }
 
-// ── Haversine ────────────────────────────────────────────────────────────────
-
-function haversineKm(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-): number {
-  const R = 6371; // Earth radius km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 // ── Service ───────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -94,86 +80,137 @@ export class BuyerStoreService {
   async discoverStores(
     dto: DiscoverStoresDto,
   ): Promise<{ stores: StoreCard[]; total: number }> {
-    const { lat, lng, radiusKm = 5, page = 1, limit = 20 } = dto;
+    const { lat, lng, radiusKm = 5, page = 1, limit = 20, sort = 'distance' } = dto;
 
-    const cacheKey = BUYER_CACHE_KEYS.storeDiscovery(lat, lng, radiusKm, page, limit);
+    const cacheKey = BUYER_CACHE_KEYS.storeDiscovery(lat, lng, radiusKm, page, limit, sort);
 
     return this.cache.wrap(cacheKey, async () => {
-      // Bounding-box pre-filter (1° lat ≈ 111 km, 1° lng ≈ 111 km at equator)
       const latDelta = radiusKm / 111;
       const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
 
-      const candidates = await this.prisma.store.findMany({
-        where: {
-          status: StoreStatus.APPROVED,
-          isActive: true,
-          deletedAt: null,
-          latitude: { gte: lat - latDelta, lte: lat + latDelta },
-          longitude: { gte: lng - lngDelta, lte: lng + lngDelta },
-        },
-        include: {
-          hours: true,
-          storeServiceAreas: {
-            include: {
-              serviceArea: {
-                select: { centerLat: true, centerLng: true, radiusKm: true },
-              },
+      const visibleWhere = {
+        status: StoreStatus.APPROVED,
+        isActive: true,
+        deletedAt: null,
+      } as const;
+
+      const storeInclude = {
+        hours: true,
+        storeServiceAreas: {
+          include: {
+            serviceArea: {
+              select: { centerLat: true, centerLng: true, radiusKm: true },
             },
           },
         },
-      });
+      } as const;
+
+      const [byLocation, byServiceArea] = await Promise.all([
+        this.prisma.store.findMany({
+          where: {
+            ...visibleWhere,
+            latitude: { gte: lat - latDelta, lte: lat + latDelta },
+            longitude: { gte: lng - lngDelta, lte: lng + lngDelta },
+          },
+          include: storeInclude,
+        }),
+        this.prisma.store.findMany({
+          where: {
+            ...visibleWhere,
+            storeServiceAreas: {
+              some: {
+                serviceArea: {
+                  centerLat: { gte: lat - latDelta, lte: lat + latDelta },
+                  centerLng: { gte: lng - lngDelta, lte: lng + lngDelta },
+                },
+              },
+            },
+          },
+          include: storeInclude,
+        }),
+      ]);
+
+      const candidateMap = new Map<string, (typeof byLocation)[number]>();
+      for (const store of [...byLocation, ...byServiceArea]) {
+        candidateMap.set(store.id, store);
+      }
 
       const now = nowIST();
       const todayEnum = dayOfWeekEnum(now);
       const nowMins = now.getHours() * 60 + now.getMinutes();
 
-      const enriched = candidates
+      const enriched = [...candidateMap.values()]
         .map((store) => {
-          const distanceKm = haversineKm(lat, lng, store.latitude, store.longitude);
-          if (distanceKm > radiusKm) return null;
-
-          // Service-area check: if the store has declared service areas, the
-          // buyer must be within at least one. Stores with no configured service
-          // areas are shown unconditionally (they are newly onboarded).
-          if (store.storeServiceAreas.length > 0) {
-            const inServiceArea = store.storeServiceAreas.some(({ serviceArea: sa }) => {
-              const d = haversineKm(lat, lng, sa.centerLat, sa.centerLng);
-              return d <= sa.radiusKm;
-            });
-            if (!inServiceArea) return null;
-          }
+          const deliverable = checkStoreDeliverability(lat, lng, store);
+          if (!deliverable.deliverable || deliverable.distanceKm == null) return null;
+          if (deliverable.distanceKm > radiusKm) return null;
 
           const todayHour = store.hours.find((h) => h.dayOfWeek === todayEnum) ?? null;
           const isOpen = computeIsOpen(todayHour, nowMins);
 
-          return {
-            id: store.id,
-            name: store.name,
-            slug: store.slug,
-            logoUrl: store.logoUrl,
-            bannerUrl: store.bannerUrl,
-            description: store.description,
-            address: { line1: store.line1, line2: store.line2, pincode: store.pincode },
-            ratingAvg: store.ratingAvg,
-            ratingCount: store.ratingCount,
-            deliveryFee: Number(store.deliveryFee),
-            minOrderAmount: Number(store.minOrderAmount),
-            avgPrepTimeMins: store.avgPrepTimeMins,
-            distanceKm: Math.round(distanceKm * 100) / 100,
-            isOpen,
-            todayHours: todayHour && !todayHour.isClosed
-              ? { openTime: todayHour.openTime, closeTime: todayHour.closeTime }
-              : null,
-          } satisfies StoreCard;
-        })
-        .filter((s): s is StoreCard => s !== null)
-        .sort((a, b) => a.distanceKm - b.distanceKm);
+          const stats = store.reputationStats as { rankingScore?: number } | null;
+          const reputationScore =
+            stats?.rankingScore ??
+            store.ratingAvg * Math.log10(store.ratingCount + 2);
 
-      const total = enriched.length;
-      const stores = enriched.slice((page - 1) * limit, page * limit);
+          return {
+            card: {
+              id: store.id,
+              name: store.name,
+              slug: store.slug,
+              logoUrl: store.logoUrl,
+              bannerUrl: store.bannerUrl,
+              description: store.description,
+              address: { line1: store.line1, line2: store.line2, pincode: store.pincode },
+              ratingAvg: store.ratingAvg,
+              ratingCount: store.ratingCount,
+              deliveryFee: Number(store.deliveryFee),
+              minOrderAmount: Number(store.minOrderAmount),
+              avgPrepTimeMins: store.avgPrepTimeMins,
+              distanceKm: deliverable.distanceKm,
+              isOpen,
+              todayHours: todayHour && !todayHour.isClosed
+                ? { openTime: todayHour.openTime, closeTime: todayHour.closeTime }
+                : null,
+            } satisfies StoreCard,
+            createdAt: store.createdAt,
+            reputationScore,
+          };
+        })
+        .filter((s): s is NonNullable<typeof s> => s !== null);
+
+      const sorted = sortStoreCards(enriched, sort);
+      const total = sorted.length;
+      const stores = sorted.slice((page - 1) * limit, page * limit).map((s) => s.card);
+
+      this.logger.log(
+        `discoverStores lat=${lat} lng=${lng} radiusKm=${radiusKm} → ${total} deliverable (${stores.length} on page ${page})`,
+      );
 
       return { stores, total };
     });
+  }
+
+  async listStoresForCategory(
+    categoryId: string,
+    dto: DiscoverStoresDto & { subcategoryId?: string },
+  ): Promise<{ stores: (StoreCard & { productCount: number })[]; total: number }> {
+    const { lat, lng, radiusKm = 5, page = 1, limit = 20, subcategoryId } = dto;
+    const storeCounts = await fetchStoresForCategory(this.prisma, categoryId, subcategoryId);
+    if (storeCounts.length === 0) return { stores: [], total: 0 };
+
+    const discovery = await this.discoverStores({ lat, lng, radiusKm, page: 1, limit: 100, sort: 'distance' });
+    const countMap = new Map<string, number>(
+      storeCounts.map((s) => [s.storeId, s.productCount]),
+    );
+
+    const matched = discovery.stores
+      .filter((s) => countMap.has(s.id))
+      .map((s) => ({ ...s, productCount: countMap.get(s.id) ?? 0 }));
+
+    const total = matched.length;
+    const stores = matched.slice((page - 1) * limit, page * limit);
+    return { stores, total };
   }
 
   // ── Store detail by slug ────────────────────────────────────────────────────
@@ -193,13 +230,12 @@ export class BuyerStoreService {
           hours: { orderBy: { dayOfWeek: 'asc' } },
           storeServiceAreas: {
             include: {
-              serviceArea: { select: { id: true, name: true, pincode: true } },
+              serviceArea: { select: { id: true, name: true, pincode: true, radiusKm: true } },
             },
           },
-          categories: {
-            where: { isActive: true },
-            select: { id: true, name: true, slug: true },
-            orderBy: { sortOrder: 'asc' },
+          verificationDocuments: { select: { documentType: true } },
+          merchantProfile: {
+            select: { kycStatus: true, gstNumber: true, createdAt: true },
           },
           _count: {
             select: {
@@ -212,6 +248,16 @@ export class BuyerStoreService {
       });
 
       if (!store) throw new NotFoundException(`Store not found: ${slug}`);
+
+      const storeCategories = await fetchStoreVisibleCategories(this.prisma, store.id);
+      const categoryRows = storeCategories.flatMap((parent) =>
+        parent.children.length > 0
+          ? parent.children.map((ch) => ({ id: ch.id, name: ch.name, slug: ch.slug }))
+          : [{ id: parent.id, name: parent.name, slug: parent.slug }],
+      );
+
+      const docTypes = new Set(store.verificationDocuments.map((d) => d.documentType));
+      const deliveryRadiusKm = normalizeDeliveryRadiusKm(store.deliveryRadiusKm);
 
       const now = nowIST();
       const todayEnum = dayOfWeekEnum(now);
@@ -250,14 +296,19 @@ export class BuyerStoreService {
           name: ssa.serviceArea.name,
           pincode: ssa.serviceArea.pincode,
         })),
-        categories: store.categories,
+        categories: categoryRows,
         productCount: store._count.products,
+        verifications: {
+          gst: Boolean(store.merchantProfile.gstNumber) || docTypes.has(StoreDocumentType.GST_CERTIFICATE),
+          kyc: store.merchantProfile.kycStatus === 'APPROVED',
+          fssai: docTypes.has(StoreDocumentType.FSSAI_LICENSE),
+        },
+        merchantSince: store.merchantProfile.createdAt.toISOString(),
+        deliveryRadiusKm,
       } satisfies StoreDetail;
     });
   }
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function computeIsOpen(
   hour: { isClosed: boolean; openTime: string; closeTime: string } | null,
@@ -272,4 +323,27 @@ function computeIsOpen(
     return nowMins >= open || nowMins < close;
   }
   return nowMins >= open && nowMins < close;
+}
+
+function sortStoreCards(
+  stores: { card: StoreCard; createdAt: Date; reputationScore: number }[],
+  sort: string,
+): { card: StoreCard; createdAt: Date; reputationScore: number }[] {
+  const copy = [...stores];
+  switch (sort) {
+    case 'popular':
+      return copy.sort((a, b) => b.reputationScore - a.reputationScore);
+    case 'fast':
+      return copy.sort((a, b) => a.card.avgPrepTimeMins - b.card.avgPrepTimeMins);
+    case 'rating':
+      return copy.sort(
+        (a, b) =>
+          b.card.ratingAvg - a.card.ratingAvg || b.card.ratingCount - a.card.ratingCount,
+      );
+    case 'new':
+      return copy.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    case 'distance':
+    default:
+      return copy.sort((a, b) => a.card.distanceKm - b.card.distanceKm);
+  }
 }

@@ -1,11 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { StoreStatus } from '@prisma/client';
+import { StoreStatus, StoreDocumentType, RejectionType } from '@prisma/client';
 import { AdminStoreService } from './admin-store.service';
 import { PrismaService } from '../../database/prisma.service';
 import { StoreService } from '../store/store.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
+import { BuyerCacheService } from '../buyer/buyer-cache.service';
+import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 
 const PENDING_STORE = {
   id: 's-1',
@@ -22,11 +24,18 @@ const mockPrisma = {
     count: jest.fn(),
     update: jest.fn(),
   },
+  merchantProfile: { update: jest.fn() },
+  storeDocumentRequest: { create: jest.fn() },
   $transaction: jest.fn(),
 };
 const mockStoreService = { fetchStoreWithRelations: jest.fn() };
 const mockAudit = { log: jest.fn() };
 const mockDomainEvents = { emit: jest.fn() };
+const mockBuyerCache = { invalidateStoreCache: jest.fn() };
+const mockBlocklist = {
+  assertNotBlocked: jest.fn(),
+  blockMerchantIdentifiers: jest.fn(),
+};
 
 describe('AdminStoreService', () => {
   let service: AdminStoreService;
@@ -39,6 +48,8 @@ describe('AdminStoreService', () => {
         { provide: StoreService, useValue: mockStoreService },
         { provide: AuditService, useValue: mockAudit },
         { provide: DomainEventsService, useValue: mockDomainEvents },
+        { provide: BuyerCacheService, useValue: mockBuyerCache },
+        { provide: VerificationBlocklistService, useValue: mockBlocklist },
       ],
     }).compile();
     service = module.get<AdminStoreService>(AdminStoreService);
@@ -68,13 +79,32 @@ describe('AdminStoreService', () => {
       );
     });
 
-    it('throws BadRequestException for non-PENDING_REVIEW store', async () => {
+    it('throws BadRequestException for non-approvable store', async () => {
       mockPrisma.store.findUnique.mockResolvedValue({
         ...PENDING_STORE,
         status: StoreStatus.DRAFT,
       });
 
       await expect(service.approveStore('admin-1', 's-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('approves an UNDER_REVIEW store', async () => {
+      mockPrisma.store.findUnique.mockResolvedValue({
+        ...PENDING_STORE,
+        status: StoreStatus.UNDER_REVIEW,
+      });
+      mockPrisma.store.update.mockResolvedValue({
+        id: 's-1',
+        status: StoreStatus.APPROVED,
+        isActive: true,
+        reviewedAt: new Date(),
+      });
+      mockAudit.log.mockResolvedValue(undefined);
+      mockDomainEvents.emit.mockResolvedValue('e-1');
+
+      const result = await service.approveStore('admin-1', 's-1');
+
+      expect(result.status).toBe(StoreStatus.APPROVED);
     });
 
     it('throws NotFoundException for missing store', async () => {
@@ -89,8 +119,22 @@ describe('AdminStoreService', () => {
   // ── rejectStore ───────────────────────────────────────────────────────────
 
   describe('rejectStore', () => {
-    it('rejects with reason', async () => {
-      mockPrisma.store.findUnique.mockResolvedValue(PENDING_STORE);
+    it('rejects with reason and blocks identifiers', async () => {
+      mockPrisma.store.findUnique.mockResolvedValue({
+        ...PENDING_STORE,
+        phone: '+919876543210',
+        email: 'store@test.com',
+        merchantProfile: {
+          gstNumber: 'GST123',
+          panNumber: 'PAN123',
+          id: 'mp-1',
+          isBlacklisted: false,
+          user: { phone: '+919876543210', email: 'merchant@test.com' },
+        },
+      });
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => Promise<unknown>) =>
+        fn(mockPrisma),
+      );
       mockPrisma.store.update.mockResolvedValue({
         id: 's-1',
         status: StoreStatus.REJECTED,
@@ -98,15 +142,42 @@ describe('AdminStoreService', () => {
       });
       mockAudit.log.mockResolvedValue(undefined);
       mockDomainEvents.emit.mockResolvedValue('e-1');
+      mockBlocklist.blockMerchantIdentifiers.mockResolvedValue(undefined);
 
       const result = await service.rejectStore(
         'admin-1',
         's-1',
-        { reason: 'Invalid GST number provided.' },
+        { reason: 'Invalid GST number provided.', rejectionType: RejectionType.FRAUD },
       );
 
       expect(result.status).toBe(StoreStatus.REJECTED);
+      expect(mockBlocklist.blockMerchantIdentifiers).toHaveBeenCalled();
       expect(mockDomainEvents.emit).toHaveBeenCalled();
+    });
+  });
+
+  describe('requestDocuments', () => {
+    it('moves store to DOCUMENTS_REQUIRED', async () => {
+      mockPrisma.store.findUnique.mockResolvedValue(PENDING_STORE);
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => Promise<unknown>) =>
+        fn(mockPrisma),
+      );
+      mockPrisma.store.update.mockResolvedValue({
+        id: 's-1',
+        status: StoreStatus.DOCUMENTS_REQUIRED,
+        documentRequestReason: 'Upload GST',
+        requestedDocumentTypes: ['GST_CERTIFICATE'],
+      });
+      mockPrisma.storeDocumentRequest.create.mockResolvedValue({ id: 'dr-1' });
+      mockAudit.log.mockResolvedValue(undefined);
+      mockDomainEvents.emit.mockResolvedValue('e-1');
+
+      const result = await service.requestDocuments('admin-1', 's-1', {
+        reason: 'Please upload GST certificate.',
+        documentTypes: [StoreDocumentType.GST_CERTIFICATE],
+      });
+
+      expect(result.status).toBe(StoreStatus.DOCUMENTS_REQUIRED);
     });
   });
 

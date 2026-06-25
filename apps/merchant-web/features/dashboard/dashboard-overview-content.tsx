@@ -66,7 +66,7 @@ export function DashboardOverviewContent() {
   const lowStock = products.filter((p) => {
     const v = p.variants.find((v) => v.isDefault) ?? p.variants[0];
     const t = v?.inventory?.lowStockThreshold;
-    return t !== undefined && t !== null && (v?.inventory?.quantity ?? 0) <= t;
+    return t !== undefined && t !== null && (v?.inventory?.availableQty ?? 0) <= t;
   }).length;
 
   return (

@@ -10,8 +10,8 @@ const BUYER_CACHE_TTL = 60;
  * (~1 km grid cell) so nearby requests share a cache entry.
  */
 export const BUYER_CACHE_KEYS = {
-  storeDiscovery: (lat: number, lng: number, radius: number, page: number, limit: number) =>
-    `buyer:stores:${lat.toFixed(2)}:${lng.toFixed(2)}:r${radius}:p${page}:l${limit}`,
+  storeDiscovery: (lat: number, lng: number, radius: number, page: number, limit: number, sort: string) =>
+    `buyer:stores:${lat.toFixed(2)}:${lng.toFixed(2)}:r${radius}:s${sort}:p${page}:l${limit}`,
 
   storeDetail: (slug: string) => `buyer:store:${slug}`,
 
@@ -21,10 +21,12 @@ export const BUYER_CACHE_KEYS = {
   productSearch: (
     q: string | undefined,
     categoryId: string | undefined,
+    subcategoryId: string | undefined,
     storeId: string | undefined,
     page: number,
     limit: number,
-  ) => `buyer:search:${q ?? ''}:cat${categoryId ?? ''}:s${storeId ?? ''}:p${page}:l${limit}`,
+  ) =>
+    `buyer:search:${q ?? ''}:cat${categoryId ?? ''}:sub${subcategoryId ?? ''}:s${storeId ?? ''}:p${page}:l${limit}`,
 
   categories: (storeId: string | undefined) => `buyer:categories:s${storeId ?? 'global'}`,
 } as const;
@@ -42,6 +44,7 @@ export class BuyerCacheService {
         this.logger.debug(`Cache HIT: ${key}`);
         return JSON.parse(cached) as T;
       }
+      this.logger.debug(`Cache MISS: ${key}`);
     } catch (err) {
       // Redis failure must never break the request — fall through to DB
       this.logger.warn(`Cache GET error for ${key}: ${(err as Error).message}`);
@@ -93,6 +96,10 @@ export class BuyerCacheService {
       this.invalidate(BUYER_CACHE_KEYS.storeDetail(slug)),
       this.deleteByPattern('buyer:stores:*'),
       this.deleteByPattern('buyer:search:*'),
+      this.deleteByPattern('search:results:*'),
+      this.deleteByPattern('search:suggestions:*'),
+      this.deleteByPattern('search:trending:*'),
+      this.deleteByPattern('search:discover:*'),
     ]);
   }
 }

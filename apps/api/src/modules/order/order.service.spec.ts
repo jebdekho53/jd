@@ -6,6 +6,9 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { OrderCacheService } from './order-cache.service';
+import { RiderAssignmentService } from '../rider-assignment/rider-assignment.service';
+import { ReservationService } from '../checkout/reservation.service';
+import { OrderStatusHistoryService } from './order-status-history.service';
 
 const USER_ID = 'user1';
 const ORDER_ID = 'ord1';
@@ -62,7 +65,10 @@ const mockPrisma = {
 
 const mockAudit = { log: jest.fn() };
 const mockDomainEvents = { emit: jest.fn() };
-const mockCache = { getDetail: jest.fn(), setDetail: jest.fn(), invalidate: jest.fn() };
+const mockCache = { getDetail: jest.fn(), setDetail: jest.fn(), invalidate: jest.fn(), invalidateAll: jest.fn() };
+const mockRiderAssignment = { autoAssign: jest.fn() };
+const mockReservation = { releaseOrderReservations: jest.fn() };
+const mockStatusHistory = { transition: jest.fn(), appendEntry: jest.fn(), recordInitial: jest.fn() };
 
 describe('OrderService', () => {
   let service: OrderService;
@@ -75,6 +81,9 @@ describe('OrderService', () => {
         { provide: AuditService, useValue: mockAudit },
         { provide: DomainEventsService, useValue: mockDomainEvents },
         { provide: OrderCacheService, useValue: mockCache },
+        { provide: RiderAssignmentService, useValue: mockRiderAssignment },
+        { provide: ReservationService, useValue: mockReservation },
+        { provide: OrderStatusHistoryService, useValue: mockStatusHistory },
       ],
     }).compile();
 
@@ -105,14 +114,15 @@ describe('OrderService', () => {
   // ── Buyer order detail ─────────────────────────────────────────────────────
 
   describe('getBuyerOrder', () => {
-    it('returns cached order if available', async () => {
+    it('always fetches from DB for live ETA and caches result', async () => {
       mockPrisma.buyerProfile.findUnique.mockResolvedValue({ id: BUYER_PROFILE_ID });
-      mockCache.getDetail.mockResolvedValue({ id: ORDER_ID, status: OrderStatus.PAID });
+      mockPrisma.order.findFirst.mockResolvedValue(buildOrder(OrderStatus.PAID));
 
       const result = await service.getBuyerOrder(USER_ID, ORDER_ID);
 
       expect(result).toMatchObject({ id: ORDER_ID });
-      expect(mockPrisma.order.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.order.findFirst).toHaveBeenCalled();
+      expect(mockCache.setDetail).toHaveBeenCalled();
     });
 
     it('fetches from DB and caches when cache miss', async () => {
@@ -143,17 +153,19 @@ describe('OrderService', () => {
       mockPrisma.$transaction.mockResolvedValue([]);
       mockAudit.log.mockResolvedValue(undefined);
       mockDomainEvents.emit.mockResolvedValue(undefined);
-      mockCache.invalidate.mockResolvedValue(undefined);
+      mockCache.invalidateAll.mockResolvedValue(undefined);
+      mockStatusHistory.transition.mockResolvedValue(true);
     });
 
     it('cancels a PAID order (before confirmation)', async () => {
       mockPrisma.order.findFirst.mockResolvedValue(buildOrder(OrderStatus.PAID));
       mockPrisma.payment.findUnique.mockResolvedValue({ id: 'pay1', razorpayPaymentId: 'rzp1' });
+      mockStatusHistory.transition.mockResolvedValue(true);
 
       const result = await service.cancelByBuyer(USER_ID, ORDER_ID, {});
 
       expect(result.status).toBe(OrderStatus.CANCELLED_BY_BUYER);
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockStatusHistory.transition).toHaveBeenCalled();
     });
 
     it('cancels a PAYMENT_PENDING order (COD before confirmation)', async () => {
@@ -195,12 +207,26 @@ describe('OrderService', () => {
       mockPrisma.$transaction.mockResolvedValue([]);
       mockAudit.log.mockResolvedValue(undefined);
       mockDomainEvents.emit.mockResolvedValue(undefined);
-      mockCache.invalidate.mockResolvedValue(undefined);
+      mockCache.invalidateAll.mockResolvedValue(undefined);
+      mockStatusHistory.transition.mockResolvedValue(true);
+      mockRiderAssignment.autoAssign.mockResolvedValue(null);
     });
 
     it('PAID → MERCHANT_ACCEPTED (confirm)', async () => {
       mockPrisma.order.findUnique.mockResolvedValue(
         buildOrder(OrderStatus.PAID, { storeId: STORE_ID }),
+      );
+
+      const result = await service.advanceMerchantOrder(
+        USER_ID, ORDER_ID, OrderStatus.MERCHANT_ACCEPTED,
+      );
+
+      expect(result.status).toBe(OrderStatus.MERCHANT_ACCEPTED);
+    });
+
+    it('CREATED → MERCHANT_ACCEPTED (legacy paid orders)', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue(
+        buildOrder(OrderStatus.CREATED, { storeId: STORE_ID }),
       );
 
       const result = await service.advanceMerchantOrder(
@@ -222,9 +248,39 @@ describe('OrderService', () => {
       expect(result.status).toBe(OrderStatus.PREPARING);
     });
 
-    it('PREPARING → READY_FOR_PICKUP', async () => {
+    it('PREPARING → PACKING', async () => {
       mockPrisma.order.findUnique.mockResolvedValue(
         buildOrder(OrderStatus.PREPARING, { storeId: STORE_ID }),
+      );
+
+      const result = await service.advanceMerchantOrder(
+        USER_ID, ORDER_ID, OrderStatus.PACKING,
+      );
+
+      expect(result.status).toBe(OrderStatus.PACKING);
+    });
+
+    it('PACKING → READY_FOR_PICKUP triggers auto-assign', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue(
+        buildOrder(OrderStatus.PACKING, { storeId: STORE_ID }),
+      );
+      mockRiderAssignment.autoAssign.mockResolvedValue({
+        deliveryId: 'del1',
+        riderProfileId: 'rp1',
+      });
+
+      const result = await service.advanceMerchantOrder(
+        USER_ID, ORDER_ID, OrderStatus.READY_FOR_PICKUP,
+      );
+
+      expect(result.status).toBe(OrderStatus.READY_FOR_PICKUP);
+      await new Promise((r) => setTimeout(r, 10));
+      expect(mockRiderAssignment.autoAssign).toHaveBeenCalledWith(ORDER_ID);
+    });
+
+    it('PACKING → READY_FOR_PICKUP', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue(
+        buildOrder(OrderStatus.PACKING, { storeId: STORE_ID }),
       );
 
       const result = await service.advanceMerchantOrder(
@@ -232,6 +288,16 @@ describe('OrderService', () => {
       );
 
       expect(result.status).toBe(OrderStatus.READY_FOR_PICKUP);
+    });
+
+    it('rejects PREPARING → READY_FOR_PICKUP (must pack first)', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue(
+        buildOrder(OrderStatus.PREPARING, { storeId: STORE_ID }),
+      );
+
+      await expect(
+        service.advanceMerchantOrder(USER_ID, ORDER_ID, OrderStatus.READY_FOR_PICKUP),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('rejects invalid transition PAID → PREPARING', async () => {
@@ -273,7 +339,8 @@ describe('OrderService', () => {
       mockPrisma.$transaction.mockResolvedValue([]);
       mockAudit.log.mockResolvedValue(undefined);
       mockDomainEvents.emit.mockResolvedValue(undefined);
-      mockCache.invalidate.mockResolvedValue(undefined);
+      mockCache.invalidateAll.mockResolvedValue(undefined);
+      mockStatusHistory.transition.mockResolvedValue(true);
     });
 
     it('allows cancellation of PREPARING order', async () => {

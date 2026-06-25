@@ -10,6 +10,8 @@ export interface DeliveryAddress {
 export interface InitiateCheckoutPayload {
   deliveryAddress: DeliveryAddress;
   buyerNote?: string;
+  walletAmountToUse?: number;
+  rewardPointsToRedeem?: number;
 }
 
 export interface CheckoutResult {

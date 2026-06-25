@@ -12,9 +12,13 @@ import { AuthController } from './auth.controller';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { MerchantModule } from '../merchant/merchant.module';
+import { TrustSafetyModule } from '../trust-safety/trust-safety.module';
 
 @Module({
   imports: [
+    MerchantModule,
+    TrustSafetyModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],

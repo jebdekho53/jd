@@ -1,5 +1,5 @@
 import { proxyGet } from '@/lib/auth/bff-proxy';
 
 export async function GET() {
-  return proxyGet('/admin/metrics/fraud');
+  return proxyGet('/admin/dashboard/fraud-risk');
 }

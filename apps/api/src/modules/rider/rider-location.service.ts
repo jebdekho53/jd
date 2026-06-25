@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
+import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
 import { UpdateRiderLocationDto } from './dto/update-rider-location.dto';
 
 /** Active rider location TTL — 60 seconds. */
@@ -26,6 +28,8 @@ export class RiderLocationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly events: EventEmitter2,
+    private readonly tracking: DeliveryTrackingService,
   ) {}
 
   private cacheKey(riderProfileId: string): string {
@@ -43,6 +47,8 @@ export class RiderLocationService {
       data: {
         currentLat: dto.latitude,
         currentLng: dto.longitude,
+        currentHeading: dto.heading,
+        currentSpeed: dto.speed,
         lastLocationAt: now,
       },
     });
@@ -74,6 +80,14 @@ export class RiderLocationService {
     } catch (err) {
       this.logger.warn(`Location cache SET error: ${(err as Error).message}`);
     }
+
+    this.events.emit('ws.rider.location.updated', {
+      riderProfileId,
+      lat: dto.latitude,
+      lng: dto.longitude,
+    });
+
+    await this.tracking.processRiderLocation(riderProfileId, dto);
   }
 
   // ── Get latest location from cache (falls back to DB) ─────────────────────

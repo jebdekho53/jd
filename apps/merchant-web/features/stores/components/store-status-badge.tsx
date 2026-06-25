@@ -4,7 +4,9 @@ import type { StoreStatus } from '@/types/store';
 
 const STATUS_MAP: Record<StoreStatus, { tone: BadgeProps['tone']; label: string }> = {
   DRAFT: { tone: 'neutral', label: 'Draft' },
-  PENDING_REVIEW: { tone: 'warning', label: 'Under Review' },
+  PENDING_REVIEW: { tone: 'warning', label: 'Pending Review' },
+  DOCUMENTS_REQUIRED: { tone: 'warning', label: 'Documents Required' },
+  UNDER_REVIEW: { tone: 'warning', label: 'Under Review' },
   APPROVED: { tone: 'success', label: 'Approved' },
   REJECTED: { tone: 'danger', label: 'Rejected' },
   SUSPENDED: { tone: 'danger', label: 'Suspended' },

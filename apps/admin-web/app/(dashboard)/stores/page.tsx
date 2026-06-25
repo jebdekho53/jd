@@ -1,16 +1,16 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
-import { FeaturePlaceholder } from '@/components/feature-placeholder';
+import { StoreApprovalsContent } from '@/features/stores/store-approvals-content';
 
 export const metadata: Metadata = { title: 'Stores' };
 
 export default function StoresPage() {
   return (
     <DashboardShell title="Store Governance">
-      <FeaturePlaceholder
-        title="Store approval system"
-        description="Approve, reject, and suspend stores — Phase 2."
-      />
+      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+        <StoreApprovalsContent />
+      </Suspense>
     </DashboardShell>
   );
 }

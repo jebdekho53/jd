@@ -5,6 +5,7 @@ import type { Store } from '@/types/store';
 interface StoreState {
   currentStore: Store | null;
   setCurrentStore: (store: Store | null) => void;
+  clearCurrentStore: () => void;
 }
 
 export const useStoreStore = create<StoreState>()(
@@ -12,6 +13,7 @@ export const useStoreStore = create<StoreState>()(
     (set) => ({
       currentStore: null,
       setCurrentStore: (store) => set({ currentStore: store }),
+      clearCurrentStore: () => set({ currentStore: null }),
     }),
     {
       name: 'jd-merchant-store-ctx',

@@ -5,6 +5,17 @@ import { PrismaService } from '../../database/prisma.service';
 import { MerchantService } from '../merchant/merchant.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
+import { StoreCategoryAccessService } from '../category-governance/store-category-access.service';
+import { InventoryService } from '../inventory/inventory.service';
+
+const mockInventoryService = {
+  adjustAvailableQty: jest.fn(),
+};
+
+const mockCategoryAccess = {
+  assertCategoryApproved: jest.fn(),
+  assertProductCategoryAllowed: jest.fn(),
+};
 
 const MERCHANT_PROFILE = { id: 'mp-1', userId: 'u-1' };
 const STORE = { id: 's-1', merchantProfileId: 'mp-1', deletedAt: null };
@@ -18,7 +29,17 @@ const VARIANT = {
   isDefault: true,
   isActive: true,
 };
-const INVENTORY = { id: 'inv-1', variantId: 'v-1', quantity: 10, reserved: 0, lowStockThreshold: 5, version: 0 };
+
+const INVENTORY = {
+  id: 'inv-1',
+  variantId: 'v-1',
+  availableQty: 10,
+  reservedQty: 0,
+  soldQty: 0,
+  lowStockThreshold: 5,
+  version: 0,
+  status: 'ACTIVE',
+};
 const PRODUCT = {
   id: 'p-1',
   storeId: 's-1',
@@ -38,7 +59,7 @@ const PRODUCT = {
 const mockPrisma = {
   product: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), count: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
   productVariant: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
-  inventory: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+  inventory: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn(), findUniqueOrThrow: jest.fn() },
   productSearchIndex: { upsert: jest.fn(), updateMany: jest.fn() },
   category: { findUnique: jest.fn() },
   store: { findFirst: jest.fn() },
@@ -59,6 +80,8 @@ describe('ProductService', () => {
         { provide: MerchantService, useValue: mockMerchant },
         { provide: AuditService, useValue: mockAudit },
         { provide: DomainEventsService, useValue: mockEvents },
+        { provide: StoreCategoryAccessService, useValue: mockCategoryAccess },
+        { provide: InventoryService, useValue: mockInventoryService },
       ],
     }).compile();
     service = module.get<ProductService>(ProductService);
@@ -124,24 +147,31 @@ describe('ProductService', () => {
     });
 
     it('updates inventory quantity', async () => {
-      mockPrisma.inventory.update.mockResolvedValue({ ...INVENTORY, quantity: 50 });
+      mockInventoryService.adjustAvailableQty.mockResolvedValue({
+        availableQty: 50,
+        reservedQty: 0,
+        soldQty: 0,
+        status: 'ACTIVE',
+      });
+      mockPrisma.inventory.findUniqueOrThrow.mockResolvedValue({ ...INVENTORY, availableQty: 50 });
       mockAudit.log.mockResolvedValue(undefined);
       mockEvents.emit.mockResolvedValue('e-1');
 
       const result = await service.updateInventory('u-1', 's-1', 'p-1', 'v-1', { quantity: 50 });
-      expect(result.quantity).toBe(50);
-      expect(mockAudit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'INVENTORY_UPDATED' }));
+      expect(result.availableQty).toBe(50);
+      expect(mockInventoryService.adjustAvailableQty).toHaveBeenCalled();
     });
 
-    it('throws BadRequestException for negative quantity', async () => {
-      // class-validator handles this; service receives already-validated DTO
-      // but let's verify the DTO validator would catch it
-      mockPrisma.inventory.update.mockResolvedValue({ ...INVENTORY, quantity: -1 });
-      // @Min(0) on the DTO would reject this before reaching service
-      // Verify service doesn't set negative regardless
-      mockPrisma.inventory.update.mockResolvedValue({ ...INVENTORY, quantity: 0 });
+    it('allows zero quantity', async () => {
+      mockInventoryService.adjustAvailableQty.mockResolvedValue({
+        availableQty: 0,
+        reservedQty: 0,
+        soldQty: 0,
+        status: 'OUT_OF_STOCK',
+      });
+      mockPrisma.inventory.findUniqueOrThrow.mockResolvedValue({ ...INVENTORY, availableQty: 0 });
       const result = await service.updateInventory('u-1', 's-1', 'p-1', 'v-1', { quantity: 0 });
-      expect(result.quantity).toBe(0);
+      expect(result.availableQty).toBe(0);
     });
   });
 

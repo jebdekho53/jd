@@ -1,9 +1,21 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma, StoreStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import {
+  assertActiveGlobalCategory,
+  fetchActiveGlobalCategories,
+  fetchApprovedSubcategoryIds,
+  fetchStoreVisibleCategories,
+} from './buyer-category-catalog';
 import { BuyerCacheService, BUYER_CACHE_KEYS } from './buyer-cache.service';
 import { SearchProductsDto } from './dto/search-products.dto';
 import { StoreProductsDto } from './dto/store-products.dto';
+import {
+  computeHyperlocalScore,
+  estimateDeliveryEtaMins,
+  textRelevanceScore,
+} from '../search-discovery/search-ranking.util';
+import { checkStoreDeliverability } from '../../common/utils/geospatial.util';
 
 // ── Response shapes ───────────────────────────────────────────────────────────
 
@@ -34,7 +46,13 @@ export interface BuyerProduct {
 }
 
 export interface BuyerProductWithStore extends BuyerProduct {
-  store: { id: string; name: string; slug: string };
+  store: { id: string; name: string; slug: string; distanceKm?: number; ratingAvg?: number; avgPrepTimeMins?: number };
+}
+
+export interface StoreSearchGroup {
+  store: { id: string; name: string; slug: string; distanceKm?: number; ratingAvg: number; avgPrepTimeMins: number };
+  products: BuyerProduct[];
+  productCount: number;
 }
 
 export interface CategoryItem {
@@ -61,7 +79,7 @@ const PRODUCT_VISIBLE_WHERE: Prisma.ProductWhereInput = {
   variants: {
     some: {
       isActive: true,
-      inventory: { quantity: { gt: 0 } },
+      inventory: { availableQty: { gt: 0 }, status: 'ACTIVE' },
     },
   },
 };
@@ -80,7 +98,7 @@ function mapVariant(v: {
   mrp: Prisma.Decimal | null;
   weightGrams: number | null;
   isDefault: boolean;
-  inventory: { quantity: number; reserved: number } | null;
+  inventory: { availableQty: number; reservedQty: number; status?: string } | null;
 }): BuyerVariant {
   return {
     id: v.id,
@@ -90,7 +108,7 @@ function mapVariant(v: {
     weightGrams: v.weightGrams,
     isDefault: v.isDefault,
     availableQty: v.inventory
-      ? Math.max(0, v.inventory.quantity - v.inventory.reserved)
+      ? Math.max(0, v.inventory.availableQty)
       : 0,
   };
 }
@@ -114,14 +132,27 @@ export class BuyerProductService {
   ): Promise<{ products: BuyerProduct[]; total: number }> {
     const page = dto.page ?? 1;
     const limit = dto.limit ?? 20;
+
+    if (dto.categoryId) {
+      await this.assertCategoryVisibleForStore(storeId, dto.categoryId);
+    }
+
     const cacheKey = BUYER_CACHE_KEYS.storeProducts(storeId, dto.categoryId, page, limit);
 
     return this.cache.wrap(cacheKey, async () => {
+      const approvedSubIds = await fetchApprovedSubcategoryIds(this.prisma, storeId);
+      if (approvedSubIds.length === 0) {
+        return { products: [], total: 0 };
+      }
+      if (dto.categoryId && !approvedSubIds.includes(dto.categoryId)) {
+        return { products: [], total: 0 };
+      }
+
       const where: Prisma.ProductWhereInput = {
         ...PRODUCT_VISIBLE_WHERE,
         storeId,
         store: STORE_VISIBLE_WHERE,
-        ...(dto.categoryId && { categoryId: dto.categoryId }),
+        categoryId: dto.categoryId ?? { in: approvedSubIds },
       };
 
       const [raw, total] = await this.prisma.$transaction([
@@ -172,9 +203,21 @@ export class BuyerProductService {
   ): Promise<{ products: BuyerProductWithStore[]; total: number }> {
     const page = dto.page ?? 1;
     const limit = dto.limit ?? 20;
+
+    const effectiveCategoryId = dto.subcategoryId ?? dto.categoryId;
+
+    if (effectiveCategoryId) {
+      if (dto.storeId) {
+        await this.assertCategoryVisibleForStore(dto.storeId, effectiveCategoryId);
+      } else {
+        await this.assertCategoryPubliclyVisible(effectiveCategoryId);
+      }
+    }
+
     const cacheKey = BUYER_CACHE_KEYS.productSearch(
       dto.q,
       dto.categoryId,
+      dto.subcategoryId,
       dto.storeId,
       page,
       limit,
@@ -185,7 +228,8 @@ export class BuyerProductService {
         ...PRODUCT_VISIBLE_WHERE,
         store: STORE_VISIBLE_WHERE,
         ...(dto.storeId && { storeId: dto.storeId }),
-        ...(dto.categoryId && { categoryId: dto.categoryId }),
+        ...(dto.subcategoryId && { categoryId: dto.subcategoryId }),
+        ...(!dto.subcategoryId && dto.categoryId && { categoryId: dto.categoryId }),
         ...(dto.q && {
           searchIndex: {
             searchText: { contains: dto.q.toLowerCase() },
@@ -199,7 +243,7 @@ export class BuyerProductService {
       // single store/city context.
       const RANK_POOL = Math.min(500, page * limit * 5);
 
-      const [raw, total] = await this.prisma.$transaction([
+      const [rawUnfiltered, totalUnfiltered] = await this.prisma.$transaction([
         this.prisma.product.findMany({
           where,
           include: {
@@ -209,22 +253,86 @@ export class BuyerProductService {
               orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
             },
             category: { select: { id: true, name: true, slug: true } },
-            store: { select: { id: true, name: true, slug: true } },
+            store: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                latitude: true,
+                longitude: true,
+                ratingAvg: true,
+                avgPrepTimeMins: true,
+              },
+            },
           },
           take: RANK_POOL,
         }),
         this.prisma.product.count({ where }),
       ]);
 
-      // Score and sort only when a query term is present.
-      const scored = dto.q
-        ? raw
-            .map((p) => ({ product: p, score: rankProduct(p, dto.q!) }))
-            .sort((a, b) => b.score - a.score)
-            .map((x) => x.product)
-        : raw;
+      const grantMap = await this.buildStoreCategoryGrantMap();
+      const raw = rawUnfiltered.filter(
+        (p) => p.categoryId && grantMap.get(p.storeId)?.has(p.categoryId),
+      );
+      const total = dto.storeId ? totalUnfiltered : raw.length;
 
-      const paginated = scored.slice((page - 1) * limit, page * limit);
+      const offerStoreIds = await this.activeOfferStoreIds();
+      const maxQty = Math.max(
+        1,
+        ...raw.map((p) =>
+          p.variants.reduce((s, v) => s + Math.max(0, v.inventory?.availableQty ?? 0), 0),
+        ),
+      );
+
+      const scored = raw.map((p) => {
+        const totalQty = p.variants.reduce(
+          (s, v) => s + Math.max(0, v.inventory?.availableQty ?? 0),
+          0,
+        );
+        const prices = p.variants.map((v) => Number(v.price));
+        const minPrice = prices.length ? Math.min(...prices) : Number(p.basePrice);
+
+        if (dto.minPrice != null && minPrice < dto.minPrice) return null;
+        if (dto.maxPrice != null && minPrice > dto.maxPrice) return null;
+
+        let distanceKm: number | null = null;
+        if (dto.lat != null && dto.lng != null) {
+          const d = checkStoreDeliverability(dto.lat, dto.lng, {
+            latitude: p.store.latitude,
+            longitude: p.store.longitude,
+            deliveryRadiusKm: 20,
+            storeServiceAreas: [],
+          });
+          distanceKm = d.distanceKm;
+          if (distanceKm != null && distanceKm > 20) return null;
+        }
+
+        const relevance = dto.q ? textRelevanceScore(p, dto.q) : 50;
+        const hyperScore = computeHyperlocalScore({
+          relevance,
+          distanceKm,
+          maxDistanceKm: 20,
+          availableQty: totalQty,
+          maxQtyInPool: maxQty,
+          ratingAvg: p.store.ratingAvg,
+          avgPrepTimeMins: p.store.avgPrepTimeMins,
+          hasActiveOffer: offerStoreIds.has(p.storeId),
+        });
+
+        return {
+          product: p,
+          hyperScore,
+          distanceKm,
+          minPrice,
+          eta:
+            distanceKm != null
+              ? estimateDeliveryEtaMins(distanceKm, p.store.avgPrepTimeMins)
+              : p.store.avgPrepTimeMins,
+        };
+      }).filter((x): x is NonNullable<typeof x> => x !== null);
+
+      const sorted = this.sortScoredProducts(scored, dto.sort ?? (dto.q ? 'relevance' : 'distance'));
+      const paginated = sorted.slice((page - 1) * limit, page * limit).map((x) => x.product);
 
       const products = paginated.map((p) => ({
         id: p.id,
@@ -240,11 +348,48 @@ export class BuyerProductService {
         tags: p.tags,
         category: p.category,
         variants: p.variants.map(mapVariant),
-        store: p.store,
+        store: {
+          id: p.store.id,
+          name: p.store.name,
+          slug: p.store.slug,
+          ratingAvg: p.store.ratingAvg,
+          avgPrepTimeMins: p.store.avgPrepTimeMins,
+        },
       })) satisfies BuyerProductWithStore[];
 
       return { products, total };
     });
+  }
+
+  async searchProductsGrouped(
+    dto: SearchProductsDto,
+  ): Promise<{ groups: StoreSearchGroup[]; total: number }> {
+    const { products, total } = await this.searchProducts({ ...dto, limit: 100, page: 1 });
+    const byStore = new Map<string, StoreSearchGroup>();
+
+    for (const product of products) {
+      const existing = byStore.get(product.store.id);
+      const { store, ...rest } = product;
+      if (existing) {
+        existing.products.push(rest);
+        existing.productCount += 1;
+      } else {
+        byStore.set(product.store.id, {
+          store: {
+            id: store.id,
+            name: store.name,
+            slug: store.slug,
+            ratingAvg: store.ratingAvg ?? 0,
+            avgPrepTimeMins: store.avgPrepTimeMins ?? 15,
+          },
+          products: [rest],
+          productCount: 1,
+        });
+      }
+    }
+
+    const groups = [...byStore.values()];
+    return { groups, total };
   }
 
   // ── Category listing ────────────────────────────────────────────────────
@@ -255,85 +400,105 @@ export class BuyerProductService {
     const cacheKey = BUYER_CACHE_KEYS.categories(storeId);
 
     return this.cache.wrap(cacheKey, async () => {
-      // Return top-level categories (no parent) — include children inline
-      const rows = await this.prisma.category.findMany({
-        where: {
-          parentId: null,
-          isActive: true,
-          OR: [
-            { storeId: null },
-            ...(storeId ? [{ storeId }] : []),
-          ],
-        },
-        include: {
-          children: {
-            where: { isActive: true },
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              imageUrl: true,
-              parentId: true,
-              sortOrder: true,
-            },
-            orderBy: { sortOrder: 'asc' },
-          },
-        },
-        orderBy: { sortOrder: 'asc' },
-      });
+      if (storeId) {
+        const store = await this.prisma.store.findFirst({
+          where: { id: storeId, deletedAt: null, ...STORE_VISIBLE_WHERE },
+          select: { id: true },
+        });
+        if (!store) {
+          this.logger.debug(`listCategories: store ${storeId} not visible — returning []`);
+          return [];
+        }
+        const categories = await fetchStoreVisibleCategories(this.prisma, storeId);
+        this.logger.log(
+          `listCategories storeId=${storeId} → ${categories.length} store-visible categories`,
+        );
+        return categories;
+      }
 
-      return rows.map((c) => ({
-        id: c.id,
-        name: c.name,
-        slug: c.slug,
-        imageUrl: c.imageUrl,
-        parentId: c.parentId,
-        sortOrder: c.sortOrder,
-        children: c.children.map((ch) => ({
-          id: ch.id,
-          name: ch.name,
-          slug: ch.slug,
-          imageUrl: ch.imageUrl,
-          parentId: ch.parentId,
-          sortOrder: ch.sortOrder,
-          children: [],
-        })),
-      })) satisfies CategoryItem[];
+      const categories = await fetchActiveGlobalCategories(this.prisma);
+      this.logger.log(
+        `listCategories storeId=${storeId ?? 'global'} → ${categories.length} active global categories`,
+      );
+      return categories;
     });
   }
-}
 
-// ── Search ranking ────────────────────────────────────────────────────────────
-//
-// Field weights:  name=100  brand=50  tags=25  description=10
-// Exact match:    score × 2
-// Partial match:  score × 1
+  private async assertCategoryVisibleForStore(
+    storeId: string,
+    categoryId: string,
+  ): Promise<void> {
+    const store = await this.prisma.store.findFirst({
+      where: { id: storeId, deletedAt: null, ...STORE_VISIBLE_WHERE },
+      select: { id: true },
+    });
+    if (!store) throw new BadRequestException('Store not found');
 
-function rankProduct(
-  p: { name: string; brand: string | null; tags: string[]; description: string | null },
-  rawQuery: string,
-): number {
-  const q = rawQuery.toLowerCase().trim();
-  if (!q) return 0;
-
-  let score = 0;
-
-  const nameL = p.name.toLowerCase();
-  if (nameL === q) score += 200;           // exact
-  else if (nameL.includes(q)) score += 100; // partial
-
-  const brandL = (p.brand ?? '').toLowerCase();
-  if (brandL === q) score += 100;
-  else if (brandL.includes(q)) score += 50;
-
-  for (const tag of p.tags) {
-    const tagL = tag.toLowerCase();
-    if (tagL === q) score += 50;
-    else if (tagL.includes(q)) score += 25;
+    const grant = await this.prisma.storeCategory.findFirst({
+      where: {
+        storeId,
+        OR: [{ subcategoryId: categoryId }, { categoryId }],
+      },
+    });
+    if (!grant) {
+      throw new BadRequestException('Category not approved for this store');
+    }
+    await this.assertCategoryInCatalog(categoryId);
   }
 
-  const descL = (p.description ?? '').toLowerCase();
-  if (descL.includes(q)) score += 10;
+  private async assertCategoryPubliclyVisible(categoryId: string): Promise<void> {
+    await this.assertCategoryInCatalog(categoryId);
+  }
 
-  return score;
+  private async assertCategoryInCatalog(categoryId: string): Promise<void> {
+    try {
+      await assertActiveGlobalCategory(this.prisma, categoryId);
+    } catch {
+      throw new BadRequestException('Category is not available');
+    }
+  }
+
+  private async buildStoreCategoryGrantMap(): Promise<Map<string, Set<string>>> {
+    const grants = await this.prisma.storeCategory.findMany({
+      select: { storeId: true, subcategoryId: true },
+    });
+    const map = new Map<string, Set<string>>();
+    for (const g of grants) {
+      const set = map.get(g.storeId) ?? new Set<string>();
+      set.add(g.subcategoryId);
+      map.set(g.storeId, set);
+    }
+    return map;
+  }
+
+  private async activeOfferStoreIds(): Promise<Set<string>> {
+    const now = new Date();
+    const promos = await this.prisma.storePromotion.findMany({
+      where: { isActive: true, expiresAt: { gt: now }, startsAt: { lte: now } },
+      select: { storeId: true },
+      distinct: ['storeId'],
+    });
+    return new Set(promos.map((p) => p.storeId));
+  }
+
+  private sortScoredProducts<
+    T extends { hyperScore: number; distanceKm: number | null; minPrice: number; eta: number; product: { store: { ratingAvg: number } } },
+  >(items: T[], sort: string): T[] {
+    const copy = [...items];
+    switch (sort) {
+      case 'distance':
+        return copy.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
+      case 'price_low_high':
+        return copy.sort((a, b) => a.minPrice - b.minPrice);
+      case 'price_high_low':
+        return copy.sort((a, b) => b.minPrice - a.minPrice);
+      case 'rating':
+        return copy.sort((a, b) => b.product.store.ratingAvg - a.product.store.ratingAvg);
+      case 'fastest_delivery':
+        return copy.sort((a, b) => a.eta - b.eta);
+      case 'relevance':
+      default:
+        return copy.sort((a, b) => b.hyperScore - a.hyperScore);
+    }
+  }
 }

@@ -6,6 +6,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { MerchantService } from '../merchant/merchant.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
+import { BuyerCacheService } from '../buyer/buyer-cache.service';
+import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 
 const MERCHANT_PROFILE = { id: 'mp-1', userId: 'u-1', businessName: 'Test' };
 const MOCK_STORE_BASE = {
@@ -28,6 +30,7 @@ const MOCK_STORE_BASE = {
 const mockPrisma = {
   merchantProfile: { findUnique: jest.fn() },
   city: { findUnique: jest.fn() },
+  zone: { findMany: jest.fn() },
   store: {
     create: jest.fn(),
     findMany: jest.fn(),
@@ -39,12 +42,21 @@ const mockPrisma = {
   storeZone: { createMany: jest.fn(), deleteMany: jest.fn() },
   storeServiceArea: { createMany: jest.fn(), deleteMany: jest.fn() },
   storeHour: { upsert: jest.fn() },
+  storeVerificationDocument: { create: jest.fn() },
+  storeDocumentRequest: { updateMany: jest.fn() },
+  user: { findUnique: jest.fn() },
   $transaction: jest.fn(),
 };
 
 const mockMerchant = { requireMerchantProfile: jest.fn() };
 const mockAudit = { log: jest.fn() };
 const mockDomainEvents = { emit: jest.fn() };
+const mockBuyerCache = { invalidateStoreCache: jest.fn() };
+const mockBlocklist = {
+  assertNotBlocked: jest.fn(),
+  assertUserNotBlacklisted: jest.fn(),
+  assertMerchantProfileNotBlacklisted: jest.fn(),
+};
 
 describe('StoreService', () => {
   let service: StoreService;
@@ -57,6 +69,8 @@ describe('StoreService', () => {
         { provide: MerchantService, useValue: mockMerchant },
         { provide: AuditService, useValue: mockAudit },
         { provide: DomainEventsService, useValue: mockDomainEvents },
+        { provide: BuyerCacheService, useValue: mockBuyerCache },
+        { provide: VerificationBlocklistService, useValue: mockBlocklist },
       ],
     }).compile();
     service = module.get<StoreService>(StoreService);
@@ -68,7 +82,9 @@ describe('StoreService', () => {
   describe('createStore', () => {
     it('creates a DRAFT store', async () => {
       mockMerchant.requireMerchantProfile.mockResolvedValue(MERCHANT_PROFILE);
+      mockBlocklist.assertNotBlocked.mockResolvedValue(undefined);
       mockPrisma.city.findUnique.mockResolvedValue({ id: 'city-1' });
+      mockPrisma.zone.findMany.mockResolvedValue([]);
       mockPrisma.store.findFirst.mockResolvedValue(null); // unique slug check
       mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
       mockPrisma.store.create.mockResolvedValue({ ...MOCK_STORE_BASE });
@@ -77,11 +93,15 @@ describe('StoreService', () => {
         hours: [],
         storeZones: [],
         storeServiceAreas: [],
+        verificationDocuments: [],
+        documentRequests: [],
       });
       mockAudit.log.mockResolvedValue(undefined);
 
       const result = await service.createStore('u-1', {
         name: 'Test Store',
+        phone: '+919876543210',
+        email: 'store@test.com',
         line1: '123 Street',
         pincode: '110001',
         latitude: 28.5,
@@ -101,6 +121,8 @@ describe('StoreService', () => {
       await expect(
         service.createStore('u-1', {
           name: 'Test',
+          phone: '+919876543210',
+          email: 'store@test.com',
           line1: '123 St',
           pincode: '110001',
           latitude: 28.5,
@@ -116,13 +138,23 @@ describe('StoreService', () => {
   describe('submitForReview', () => {
     it('transitions DRAFT → PENDING_REVIEW when ready', async () => {
       mockMerchant.requireMerchantProfile.mockResolvedValue(MERCHANT_PROFILE);
+      mockBlocklist.assertNotBlocked.mockResolvedValue(undefined);
       const readyStore = {
         ...MOCK_STORE_BASE,
+        email: 'store@test.com',
         hours: [{ dayOfWeek: 'MONDAY', openTime: '09:00', closeTime: '22:00', isClosed: false }],
         storeZones: [{ zone: { id: 'z-1', name: 'South Delhi', slug: 'south-delhi' } }],
         storeServiceAreas: [],
+        verificationDocuments: [],
+        documentRequests: [],
       };
       mockPrisma.store.findUnique.mockResolvedValue(readyStore);
+      mockPrisma.merchantProfile.findUnique.mockResolvedValue({
+        businessName: 'Test Business',
+        gstNumber: 'GST123',
+        panNumber: 'PAN123',
+        user: { phone: '+919876543210', email: 'm@test.com' },
+      });
       mockPrisma.store.update.mockResolvedValue({
         ...readyStore,
         status: StoreStatus.PENDING_REVIEW,
@@ -146,6 +178,8 @@ describe('StoreService', () => {
         hours: [],
         storeZones: [],
         storeServiceAreas: [],
+        verificationDocuments: [],
+        documentRequests: [],
       });
 
       await expect(service.submitForReview('u-1', 's-1')).rejects.toThrow(BadRequestException);
@@ -178,6 +212,8 @@ describe('StoreService', () => {
         hours: [],
         storeZones: [],
         storeServiceAreas: [],
+        verificationDocuments: [],
+        documentRequests: [],
       });
 
       await expect(
@@ -194,6 +230,8 @@ describe('StoreService', () => {
         hours: [],
         storeZones: [],
         storeServiceAreas: [],
+        verificationDocuments: [],
+        documentRequests: [],
       });
 
       await expect(

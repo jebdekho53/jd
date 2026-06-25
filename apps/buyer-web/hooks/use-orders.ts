@@ -14,16 +14,26 @@ export function useOrdersQuery(params: ListOrdersParams = {}) {
   return useQuery({
     queryKey: orderKeys.list(params),
     queryFn: () => listOrders(params),
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 }
 
 export function useOrderDetailQuery(orderId: string) {
+  const ACTIVE = new Set([
+    'PAID', 'MERCHANT_ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP',
+    'RIDER_ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED',
+  ]);
+
   return useQuery({
     queryKey: orderKeys.detail(orderId),
     queryFn: () => getOrderDetail(orderId),
-    staleTime: 30_000,
+    staleTime: 10_000,
     enabled: Boolean(orderId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status && ACTIVE.has(status) ? 15_000 : false;
+    },
   });
 }
 

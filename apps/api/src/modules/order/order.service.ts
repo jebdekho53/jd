@@ -4,9 +4,11 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import {
   DomainEventType,
+  OrderActorType,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
@@ -16,8 +18,28 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { OrderCacheService } from './order-cache.service';
-import { ListOrdersDto, ListMerchantOrdersDto } from './dto/list-orders.dto';
+import { OrderStatusHistoryService } from './order-status-history.service';
+import { BUYER_STATUS_GROUPS, MERCHANT_STATUS_GROUPS } from './order-status-groups';
+import {
+  PIPELINE_COLUMN_STATUSES,
+  resolvePipelineColumn,
+  SLA_THRESHOLDS,
+  minutesSince,
+  slaLevel,
+  type MerchantPipelineColumn,
+} from './merchant-pipeline.util';
+import { RiderAssignmentService } from '../rider-assignment/rider-assignment.service';
+import { ReservationService } from '../checkout/reservation.service';
+import { RewardService } from '../wallet-loyalty/reward.service';
+import { LedgerService } from '../finance/ledger.service';
+import { CreditNoteService } from '../compliance/credit-note.service';
+import { ListOrdersDto, ListMerchantOrdersDto, ListAdminOrdersDto } from './dto/list-orders.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
+import {
+  auditDeliveryCoordinates,
+  computeDeliveryEta,
+  safeDistanceKm,
+} from '../../common/utils/delivery-eta.util';
 
 // ── State machine ────────────────────────────────────────────────────────────
 //
@@ -25,9 +47,11 @@ import { CancelOrderDto } from './dto/cancel-order.dto';
 // COD orders start at MERCHANT_ACCEPTED (already "confirmed" at creation).
 
 const MERCHANT_FORWARD: Partial<Record<OrderStatus, OrderStatus>> = {
+  [OrderStatus.CREATED]: OrderStatus.MERCHANT_ACCEPTED,
   [OrderStatus.PAID]: OrderStatus.MERCHANT_ACCEPTED,
   [OrderStatus.MERCHANT_ACCEPTED]: OrderStatus.PREPARING,
-  [OrderStatus.PREPARING]: OrderStatus.READY_FOR_PICKUP,
+  [OrderStatus.PREPARING]: OrderStatus.PACKING,
+  [OrderStatus.PACKING]: OrderStatus.READY_FOR_PICKUP,
 };
 
 // Statuses from which a buyer is allowed to cancel (before merchant confirms)
@@ -42,6 +66,7 @@ const MERCHANT_CANCELLABLE = new Set<OrderStatus>([
   OrderStatus.PAID,
   OrderStatus.MERCHANT_ACCEPTED,
   OrderStatus.PREPARING,
+  OrderStatus.PACKING,
 ]);
 
 // Terminal statuses — no further transitions allowed
@@ -54,6 +79,24 @@ const TERMINAL = new Set<OrderStatus>([
   OrderStatus.PAYMENT_FAILED,
   OrderStatus.REFUNDED,
 ]);
+
+const ADMIN_STATUS_GROUPS = {
+  pending: [
+    OrderStatus.PAYMENT_PENDING,
+    OrderStatus.PAID,
+    OrderStatus.CREATED,
+    OrderStatus.MERCHANT_ACCEPTED,
+  ],
+  preparing: [OrderStatus.PREPARING, OrderStatus.PACKING],
+  ready_for_pickup: [OrderStatus.READY_FOR_PICKUP],
+  assigned: [OrderStatus.RIDER_ASSIGNED, OrderStatus.PICKED_UP, OrderStatus.OUT_FOR_DELIVERY],
+  delivered: [OrderStatus.DELIVERED, OrderStatus.COMPLETED],
+  cancelled: [
+    OrderStatus.CANCELLED_BY_BUYER,
+    OrderStatus.CANCELLED_BY_MERCHANT,
+    OrderStatus.CANCELLED_BY_ADMIN,
+  ],
+} as const satisfies Record<string, OrderStatus[]>;
 
 // Prisma select for a full order detail (buyer + merchant view)
 const ORDER_DETAIL_SELECT = {
@@ -68,6 +111,8 @@ const ORDER_DETAIL_SELECT = {
   taxAmount: true,
   totalAmount: true,
   deliveryAddress: true,
+  deliveryLat: true,
+  deliveryLng: true,
   buyerNote: true,
   cancelReason: true,
   paidAt: true,
@@ -75,8 +120,24 @@ const ORDER_DETAIL_SELECT = {
   cancelledAt: true,
   createdAt: true,
   updatedAt: true,
-  store: { select: { id: true, name: true, slug: true, phone: true } },
-  buyerProfile: { select: { id: true, name: true } },
+  store: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      phone: true,
+      latitude: true,
+      longitude: true,
+      merchantProfile: { select: { id: true, businessName: true } },
+    },
+  },
+  buyerProfile: {
+    select: {
+      id: true,
+      name: true,
+      user: { select: { phone: true } },
+    },
+  },
   items: {
     select: {
       id: true,
@@ -90,14 +151,80 @@ const ORDER_DETAIL_SELECT = {
     },
   },
   statusHistory: {
-    select: { status: true, note: true, changedBy: true, createdAt: true },
+    select: {
+      status: true,
+      note: true,
+      changedBy: true,
+      actorType: true,
+      metadata: true,
+      createdAt: true,
+    },
     orderBy: { createdAt: 'asc' as const },
   },
   payment: { select: { razorpayOrderId: true, razorpayPaymentId: true, status: true, method: true } },
+  review: {
+    select: {
+      id: true,
+      rating: true,
+      storeExperience: true,
+      deliveryExperience: true,
+      productQuality: true,
+      title: true,
+      comment: true,
+      images: true,
+      verifiedPurchase: true,
+      merchantReply: true,
+      merchantRepliedAt: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  },
+  delivery: {
+    select: {
+      id: true,
+      status: true,
+      pickupLat: true,
+      pickupLng: true,
+      deliveryLat: true,
+      deliveryLng: true,
+      distanceKm: true,
+      estimatedMins: true,
+      estimatedArrivalAt: true,
+      riderProfileId: true,
+      assignedAt: true,
+      arrivedAtStoreAt: true,
+      pickedUpAt: true,
+      arrivedAtCustomerAt: true,
+      deliveredAt: true,
+      riderProfile: {
+        select: {
+          id: true,
+          name: true,
+          vehicleType: true,
+          status: true,
+          currentLat: true,
+          currentLng: true,
+          lastLocationAt: true,
+          user: { select: { phone: true } },
+        },
+      },
+      assignments: {
+        select: {
+          id: true,
+          status: true,
+          offeredAt: true,
+          respondedAt: true,
+          expiresAt: true,
+          riderProfile: { select: { id: true, name: true } },
+        },
+        orderBy: { offeredAt: 'asc' as const },
+      },
+    },
+  },
 } satisfies Prisma.OrderSelect;
 
 @Injectable()
-export class OrderService {
+export class OrderService implements OnModuleInit {
   private readonly logger = new Logger(OrderService.name);
 
   constructor(
@@ -105,18 +232,25 @@ export class OrderService {
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
     private readonly cache: OrderCacheService,
+    private readonly statusHistory: OrderStatusHistoryService,
+    private readonly riderAssignment: RiderAssignmentService,
+    private readonly reservation: ReservationService,
+    private readonly rewards: RewardService,
+    private readonly ledger: LedgerService,
+    private readonly creditNotes: CreditNoteService,
   ) {}
 
   // ── Buyer: list orders ────────────────────────────────────────────────────
 
   async listBuyerOrders(userId: string, dto: ListOrdersDto) {
     const bp = await this.requireBuyerProfile(userId);
-    const { page = 1, limit = 20, status } = dto;
+    const { page = 1, limit = 20, status, statusGroup } = dto;
     const skip = (page - 1) * limit;
 
     const where: Prisma.OrderWhereInput = {
       buyerProfileId: bp.id,
       ...(status && { status }),
+      ...(statusGroup && !status && { status: { in: [...BUYER_STATUS_GROUPS[statusGroup]] } }),
     };
 
     const [orders, total] = await Promise.all([
@@ -130,6 +264,7 @@ export class OrderService {
           orderNumber: true,
           status: true,
           paymentMethod: true,
+          paymentStatus: true,
           totalAmount: true,
           createdAt: true,
           store: { select: { name: true, slug: true } },
@@ -138,6 +273,10 @@ export class OrderService {
       }),
       this.prisma.order.count({ where }),
     ]);
+
+    this.logger.log(
+      `listBuyerOrders buyer=${bp.id} status=${status ?? 'all'} → ${total} orders`,
+    );
 
     return {
       orders: orders.map(serializeListItem),
@@ -152,11 +291,12 @@ export class OrderService {
 
   // ── Buyer: get order detail ───────────────────────────────────────────────
 
+  async onModuleInit() {
+    void this.auditActiveDeliveryCoordinates();
+  }
+
   async getBuyerOrder(userId: string, orderId: string) {
     const bp = await this.requireBuyerProfile(userId);
-
-    const cached = await this.cache.getDetail(orderId);
-    if (cached) return cached;
 
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, buyerProfileId: bp.id },
@@ -164,9 +304,98 @@ export class OrderService {
     });
     if (!order) throw new NotFoundException('Order not found');
 
+    this.logDeliveryCoordinateWarnings(order);
+
     const view = serializeDetail(order);
     void this.cache.setDetail(orderId, view);
     return view;
+  }
+
+  private logDeliveryCoordinateWarnings(order: {
+    id: string;
+    orderNumber: string;
+    status: string;
+    deliveryLat: number;
+    deliveryLng: number;
+    store: { latitude: number; longitude: number } | null;
+    delivery: {
+      distanceKm: number | null;
+      riderProfile: { currentLat: number | null; currentLng: number | null } | null;
+    } | null;
+  }) {
+    if (!order.delivery) return;
+    const warnings = auditDeliveryCoordinates({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      orderStatus: order.status,
+      storeLat: order.store?.latitude,
+      storeLng: order.store?.longitude,
+      customerLat: order.deliveryLat,
+      customerLng: order.deliveryLng,
+      riderLat: order.delivery.riderProfile?.currentLat,
+      riderLng: order.delivery.riderProfile?.currentLng,
+      deliveryDistanceKm:
+        order.delivery.distanceKm != null ? Number(order.delivery.distanceKm) : null,
+    });
+    for (const warning of warnings) {
+      this.logger.warn(`[delivery-coord-audit] ${warning}`);
+    }
+  }
+
+  private async auditActiveDeliveryCoordinates() {
+    const orders = await this.prisma.order.findMany({
+      where: {
+        status: {
+          in: [
+            OrderStatus.RIDER_ASSIGNED,
+            OrderStatus.PICKED_UP,
+            OrderStatus.OUT_FOR_DELIVERY,
+          ],
+        },
+        delivery: { isNot: null },
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        deliveryLat: true,
+        deliveryLng: true,
+        store: { select: { latitude: true, longitude: true } },
+        delivery: {
+          select: {
+            distanceKm: true,
+            riderProfile: { select: { currentLat: true, currentLng: true } },
+          },
+        },
+      },
+      take: 500,
+    });
+
+    let issueCount = 0;
+    for (const order of orders) {
+      const warnings = auditDeliveryCoordinates({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        orderStatus: order.status,
+        storeLat: order.store?.latitude,
+        storeLng: order.store?.longitude,
+        customerLat: order.deliveryLat,
+        customerLng: order.deliveryLng,
+        riderLat: order.delivery?.riderProfile?.currentLat,
+        riderLng: order.delivery?.riderProfile?.currentLng,
+        deliveryDistanceKm:
+          order.delivery?.distanceKm != null ? Number(order.delivery.distanceKm) : null,
+      });
+      for (const warning of warnings) {
+        issueCount += 1;
+        this.logger.warn(`[delivery-coord-audit] ${warning}`);
+      }
+    }
+    if (issueCount > 0) {
+      this.logger.warn(
+        `[delivery-coord-audit] Found ${issueCount} coordinate issue(s) across ${orders.length} active delivery order(s)`,
+      );
+    }
   }
 
   // ── Buyer: cancel order ───────────────────────────────────────────────────
@@ -188,14 +417,21 @@ export class OrderService {
     }
 
     const newStatus = OrderStatus.CANCELLED_BY_BUYER;
-    await this.applyStatusTransition(order.id, order.status, newStatus, userId, dto.reason);
+    await this.statusHistory.transition({
+      orderId: order.id,
+      toStatus: newStatus,
+      actorType: OrderActorType.BUYER,
+      actorId: userId,
+      note: dto.reason,
+    });
+    await this.reservation.releaseOrderReservations(order.id, userId);
 
     // Trigger refund if the order was already paid via Razorpay
     if (order.paymentStatus === PaymentStatus.PAID && order.paymentMethod === PaymentMethod.RAZORPAY) {
       await this.initiateRefund(order.id, userId, ipAddress);
     }
 
-    void this.cache.invalidate(orderId);
+    void this.cache.invalidateAll(orderId);
 
     this.logger.log({ userId, orderId, orderNumber: order.orderNumber }, 'Order cancelled by buyer');
     return { orderId, status: newStatus };
@@ -207,17 +443,65 @@ export class OrderService {
     const storeIds = await this.getMerchantStoreIds(userId);
     if (storeIds.length === 0) return { orders: [], meta: { page: dto.page ?? 1, limit: dto.limit ?? 20, total: 0, totalPages: 0 } };
 
-    const { page = 1, limit = 20, status, storeId } = dto;
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      storeId,
+      merchantStatusGroup,
+      pipelineColumn,
+      today,
+      yesterday,
+      dateFrom,
+      dateTo,
+      paymentMethod,
+      q,
+    } = dto;
     const skip = (page - 1) * limit;
 
-    // If a specific storeId is requested, verify it belongs to this merchant
     const targetStoreIds = storeId
       ? (storeIds.includes(storeId) ? [storeId] : (() => { throw new ForbiddenException('Store does not belong to you'); })())
       : storeIds;
 
+    const group = merchantStatusGroup;
+    const columnStatuses = pipelineColumn
+      ? PIPELINE_COLUMN_STATUSES[pipelineColumn as MerchantPipelineColumn]
+      : undefined;
+
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const yesterdayStart = new Date(dayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
     const where: Prisma.OrderWhereInput = {
       storeId: { in: targetStoreIds },
       ...(status && { status }),
+      ...(group && !status && !columnStatuses && { status: { in: [...MERCHANT_STATUS_GROUPS[group]] } }),
+      ...(columnStatuses && !status && { status: { in: [...columnStatuses] } }),
+      ...(paymentMethod && { paymentMethod }),
+      ...(today && { createdAt: { gte: dayStart } }),
+      ...(yesterday && { createdAt: { gte: yesterdayStart, lt: dayStart } }),
+      ...(dateFrom || dateTo
+        ? {
+            createdAt: {
+              ...(dateFrom && { gte: new Date(dateFrom) }),
+              ...(dateTo && { lte: new Date(dateTo) }),
+            },
+          }
+        : {}),
+      ...(q
+        ? {
+            OR: [
+              { orderNumber: { contains: q, mode: 'insensitive' } },
+              { buyerProfile: { name: { contains: q, mode: 'insensitive' } } },
+              { buyerProfile: { user: { phone: { contains: q } } } },
+              { items: { some: { OR: [
+                { productName: { contains: q, mode: 'insensitive' } },
+                { sku: { contains: q, mode: 'insensitive' } },
+              ] } } },
+            ],
+          }
+        : {}),
     };
 
     const [orders, total] = await Promise.all([
@@ -231,18 +515,45 @@ export class OrderService {
           orderNumber: true,
           status: true,
           paymentMethod: true,
+          paymentStatus: true,
           totalAmount: true,
           createdAt: true,
+          updatedAt: true,
           storeId: true,
-          buyerProfile: { select: { name: true } },
-          items: { select: { productName: true, quantity: true }, take: 3 },
+          deliveryLat: true,
+          deliveryLng: true,
+          buyerProfile: {
+            select: { name: true, user: { select: { phone: true } } },
+          },
+          items: { select: { productName: true, quantity: true, sku: true }, take: 5 },
+          delivery: {
+            select: {
+              status: true,
+              assignedAt: true,
+              riderProfile: {
+                select: {
+                  id: true,
+                  name: true,
+                  user: { select: { phone: true } },
+                },
+              },
+            },
+          },
+          statusHistory: {
+            select: { status: true, createdAt: true },
+            orderBy: { createdAt: 'asc' },
+          },
         },
       }),
       this.prisma.order.count({ where }),
     ]);
 
+    this.logger.log(
+      `listMerchantOrders stores=${targetStoreIds.length} status=${status ?? 'all'} → ${total} orders`,
+    );
+
     return {
-      orders: orders.map(serializeListItem),
+      orders: orders.map((o) => serializeMerchantListItem(o)),
       meta: {
         page,
         limit,
@@ -252,13 +563,158 @@ export class OrderService {
     };
   }
 
+  async markOrderIssue(userId: string, orderId: string, note?: string, ipAddress?: string) {
+    await this.requireMerchantOrderOwnership(userId, orderId);
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (TERMINAL.has(order.status)) {
+      throw new BadRequestException(`Cannot flag issue on terminal order: ${order.status}`);
+    }
+
+    await this.statusHistory.appendEntry({
+      orderId,
+      status: order.status,
+      actorType: OrderActorType.MERCHANT,
+      actorId: userId,
+      note: note ?? 'Merchant flagged an issue',
+      metadata: { issue: true } as Prisma.InputJsonValue,
+    });
+
+    void this.cache.invalidateAll(orderId);
+    return { orderId, flagged: true };
+  }
+
+  // ── Admin: list all orders ────────────────────────────────────────────────
+
+  async listAdminOrders(dto: ListAdminOrdersDto) {
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      storeId,
+      today,
+      statusGroup,
+      merchantId,
+      riderId,
+      dateFrom,
+      dateTo,
+      paymentMethod,
+      paymentStatus,
+    } = dto;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.OrderWhereInput = {
+      ...(storeId && { storeId }),
+      ...(merchantId && { store: { merchantProfileId: merchantId } }),
+      ...(riderId && { delivery: { riderProfileId: riderId } }),
+      ...(paymentMethod && { paymentMethod }),
+      ...(paymentStatus && { paymentStatus }),
+      ...(today && {
+        createdAt: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0)),
+        },
+      }),
+      ...(dateFrom || dateTo
+        ? {
+            createdAt: {
+              ...(dateFrom && { gte: new Date(dateFrom) }),
+              ...(dateTo && { lte: new Date(dateTo) }),
+            },
+          }
+        : {}),
+      ...(status
+        ? { status }
+        : statusGroup
+          ? { status: { in: [...ADMIN_STATUS_GROUPS[statusGroup]] } }
+          : {}),
+    };
+
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          paymentMethod: true,
+          paymentStatus: true,
+          totalAmount: true,
+          createdAt: true,
+          updatedAt: true,
+          store: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              merchantProfile: { select: { id: true, businessName: true } },
+            },
+          },
+          buyerProfile: { select: { id: true, name: true } },
+          delivery: {
+            select: {
+              status: true,
+              riderProfile: { select: { id: true, name: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    this.logger.log(
+      `listAdminOrders status=${status ?? statusGroup ?? 'all'} today=${Boolean(today)} → ${total} orders`,
+    );
+
+    return {
+      orders: orders.map((o) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        status: o.status,
+        paymentMethod: o.paymentMethod,
+        paymentStatus: o.paymentStatus,
+        totalAmount: Number(o.totalAmount),
+        createdAt: o.createdAt,
+        updatedAt: o.updatedAt,
+        deliveryStatus: o.delivery?.status ?? null,
+        store: o.store
+          ? {
+              id: o.store.id,
+              name: o.store.name,
+              slug: o.store.slug,
+              merchant: o.store.merchantProfile,
+            }
+          : null,
+        buyer: o.buyerProfile,
+        rider: o.delivery?.riderProfile ?? null,
+      })),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getAdminOrder(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: ORDER_DETAIL_SELECT,
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    return serializeDetail(order);
+  }
+
   // ── Merchant: get order detail ─────────────────────────────────────────────
 
   async getMerchantOrder(userId: string, orderId: string) {
     await this.requireMerchantOrderOwnership(userId, orderId);
-
-    const cached = await this.cache.getDetail(orderId);
-    if (cached) return cached;
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -266,7 +722,37 @@ export class OrderService {
     });
     if (!order) throw new NotFoundException('Order not found');
 
-    const view = serializeDetail(order);
+    const customer = await this.getBuyerStoreStats(order.buyerProfile.id, order.store.id);
+    const deliveryBatch = await this.prisma.deliveryBatchItem.findUnique({
+      where: { orderId },
+      include: {
+        batch: {
+          include: {
+            items: { include: { order: { select: { orderNumber: true } } }, orderBy: { sequence: 'asc' } },
+          },
+        },
+      },
+    });
+    const fulfillmentBatch = deliveryBatch
+      ? {
+          isBatched: deliveryBatch.batch.totalOrders > 1,
+          batchId: deliveryBatch.batchId,
+          batchStatus: deliveryBatch.batch.status,
+          sequence: deliveryBatch.sequence,
+          totalOrders: deliveryBatch.batch.totalOrders,
+          label:
+            deliveryBatch.batch.totalOrders > 1
+              ? `Part of delivery batch (${deliveryBatch.sequence}/${deliveryBatch.batch.totalOrders})`
+              : 'Single order delivery',
+          orders: deliveryBatch.batch.items.map((i) => i.order.orderNumber),
+        }
+      : { isBatched: false, label: 'Single order delivery' };
+    const view = {
+      ...serializeDetail(order),
+      customer,
+      operations: buildOrderOperations(order),
+      fulfillmentBatch,
+    };
     void this.cache.setDetail(orderId, view);
     return view;
   }
@@ -275,7 +761,8 @@ export class OrderService {
   //
   // confirm   → PAID            → MERCHANT_ACCEPTED
   // preparing → MERCHANT_ACCEPTED → PREPARING
-  // ready     → PREPARING      → READY_FOR_PICKUP
+  // packing   → PREPARING       → PACKING
+  // ready     → PACKING         → READY_FOR_PICKUP (auto-assign rider)
 
   async advanceMerchantOrder(
     userId: string,
@@ -304,17 +791,25 @@ export class OrderService {
       );
     }
 
-    await this.applyStatusTransition(order.id, order.status, targetStatus, userId, note);
+    await this.statusHistory.transition({
+      orderId: order.id,
+      toStatus: targetStatus,
+      actorType: OrderActorType.MERCHANT,
+      actorId: userId,
+      note,
+    });
 
     const auditActions: Record<OrderStatus, string> = {
       [OrderStatus.MERCHANT_ACCEPTED]: 'ORDER_CONFIRMED',
       [OrderStatus.PREPARING]: 'ORDER_PREPARING',
+      [OrderStatus.PACKING]: 'ORDER_PACKING',
       [OrderStatus.READY_FOR_PICKUP]: 'ORDER_READY',
     } as any;
 
     const domainEventTypes: Partial<Record<OrderStatus, DomainEventType>> = {
       [OrderStatus.MERCHANT_ACCEPTED]: DomainEventType.ORDER_ACCEPTED,
       [OrderStatus.PREPARING]: DomainEventType.ORDER_PREPARING,
+      [OrderStatus.PACKING]: DomainEventType.ORDER_PREPARING,
       [OrderStatus.READY_FOR_PICKUP]: DomainEventType.ORDER_READY_FOR_PICKUP,
     };
 
@@ -338,8 +833,24 @@ export class OrderService {
       );
     }
 
-    void this.cache.invalidate(orderId);
+    void this.cache.invalidateAll(orderId);
     this.logger.log({ userId, orderId, from: order.status, to: targetStatus }, 'Order status advanced');
+
+    if (targetStatus === OrderStatus.READY_FOR_PICKUP) {
+      void this.riderAssignment.autoAssign(orderId).then((result) => {
+        if (result) {
+          void this.cache.invalidateAll(orderId);
+          this.logger.log(
+            { orderId, riderProfileId: result.riderProfileId, deliveryId: result.deliveryId },
+            'Auto-assigned rider after READY_FOR_PICKUP',
+          );
+        } else {
+          this.logger.warn({ orderId }, 'Auto-assign found no eligible rider — order stays READY_FOR_PICKUP');
+        }
+      }).catch((err) => {
+        this.logger.error({ orderId, err }, 'Auto-assign failed after READY_FOR_PICKUP');
+      });
+    }
 
     return { orderId, status: targetStatus };
   }
@@ -363,53 +874,24 @@ export class OrderService {
     }
 
     const newStatus = OrderStatus.CANCELLED_BY_MERCHANT;
-    await this.applyStatusTransition(order.id, order.status, newStatus, userId, dto.reason);
+    await this.statusHistory.transition({
+      orderId: order.id,
+      toStatus: newStatus,
+      actorType: OrderActorType.MERCHANT,
+      actorId: userId,
+      note: dto.reason,
+    });
+    await this.reservation.releaseOrderReservations(order.id, userId);
 
     // Trigger refund if paid via Razorpay
     if (order.paymentStatus === PaymentStatus.PAID && order.paymentMethod === PaymentMethod.RAZORPAY) {
       await this.initiateRefund(order.id, userId, ipAddress);
     }
 
-    void this.cache.invalidate(orderId);
+    void this.cache.invalidateAll(orderId);
     this.logger.log({ userId, orderId, orderNumber: order.orderNumber }, 'Order cancelled by merchant');
 
     return { orderId, status: newStatus };
-  }
-
-  // ── Private: apply status transition ─────────────────────────────────────
-
-  private async applyStatusTransition(
-    orderId: string,
-    fromStatus: OrderStatus,
-    toStatus: OrderStatus,
-    actorId: string,
-    note?: string,
-  ): Promise<void> {
-    const cancellationStatuses = new Set<string>([
-      OrderStatus.CANCELLED_BY_BUYER,
-      OrderStatus.CANCELLED_BY_MERCHANT,
-      OrderStatus.CANCELLED_BY_ADMIN,
-    ]);
-    const isCancellation = cancellationStatuses.has(toStatus);
-
-    await this.prisma.$transaction([
-      this.prisma.order.update({
-        where: { id: orderId },
-        data: {
-          status: toStatus,
-          ...(isCancellation && { cancelledAt: new Date(), cancelReason: note }),
-          ...(toStatus === OrderStatus.DELIVERED && { completedAt: new Date() }),
-        },
-      }),
-      this.prisma.orderStatusHistory.create({
-        data: {
-          orderId,
-          status: toStatus,
-          note: note ?? `Transitioned from ${fromStatus}`,
-          changedBy: actorId,
-        },
-      }),
-    ]);
   }
 
   // ── Private: initiate refund ──────────────────────────────────────────────
@@ -418,6 +900,10 @@ export class OrderService {
   // Full Razorpay refund API call can be wired in Phase 8.
 
   private async initiateRefund(orderId: string, actorId: string, ipAddress?: string): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { totalAmount: true },
+    });
     const payment = await this.prisma.payment.findUnique({
       where: { orderId },
       select: { id: true, razorpayPaymentId: true },
@@ -434,6 +920,7 @@ export class OrderService {
           status: OrderStatus.REFUNDED,
           note: 'Refund initiated on order cancellation',
           changedBy: actorId,
+          actorType: OrderActorType.SYSTEM,
         },
       }),
       ...(payment
@@ -461,6 +948,41 @@ export class OrderService {
         { userId: actorId, ipAddress: ipAddress ?? null },
       ),
     ]);
+
+    void this.rewards.refundWalletForOrder(orderId, actorId).catch((err) => {
+      this.logger.error({ err, orderId }, 'Wallet refund on order cancellation failed');
+    });
+
+    if (order) {
+      void this.ledger.recordRefund(orderId, Number(order.totalAmount)).catch(() => {});
+      void this.creditNotes.createForRefund(orderId, 'Order refund / cancellation').catch((err) => {
+        this.logger.error({ err, orderId }, 'Credit note creation failed');
+      });
+    }
+  }
+
+  private async getBuyerStoreStats(buyerProfileId: string, storeId: string) {
+    const [agg, buyer] = await Promise.all([
+      this.prisma.order.aggregate({
+        where: {
+          buyerProfileId,
+          storeId,
+          status: { notIn: [OrderStatus.CANCELLED_BY_BUYER, OrderStatus.CANCELLED_BY_MERCHANT, OrderStatus.CANCELLED_BY_ADMIN] },
+        },
+        _count: { id: true },
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.buyerProfile.findUnique({
+        where: { id: buyerProfileId },
+        select: { name: true, user: { select: { phone: true } } },
+      }),
+    ]);
+    return {
+      name: buyer?.name ?? null,
+      phone: buyer?.user?.phone ?? null,
+      orderCount: agg._count.id,
+      lifetimeSpend: Number(agg._sum.totalAmount ?? 0),
+    };
   }
 
   // ── Private: resolve ownership ────────────────────────────────────────────
@@ -508,15 +1030,128 @@ function serializeListItem(order: any) {
     orderNumber: order.orderNumber,
     status: order.status,
     paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
     totalAmount: Number(order.totalAmount),
     createdAt: order.createdAt,
     store: order.store,
+    storeId: order.storeId,
     buyerProfile: order.buyerProfile,
-    previewItems: order.items,
+    items: order.items,
+  };
+}
+
+function serializeMerchantListItem(order: any) {
+  const acceptedAt = order.statusHistory?.find(
+    (h: { status: string }) => h.status === 'MERCHANT_ACCEPTED' || h.status === 'PREPARING',
+  )?.createdAt;
+  const readyAt = order.statusHistory?.find(
+    (h: { status: string }) => h.status === 'READY_FOR_PICKUP',
+  )?.createdAt;
+  const pipelineColumn = resolvePipelineColumn(order.status, order.paymentMethod);
+  const awaitingRider =
+    order.status === 'READY_FOR_PICKUP' && !order.delivery?.riderProfile;
+  const riderWaitMins = awaitingRider && readyAt ? minutesSince(readyAt) : 0;
+
+  return {
+    ...serializeListItem(order),
+    updatedAt: order.updatedAt,
+    pipelineColumn,
+    buyerProfile: order.buyerProfile
+      ? {
+          name: order.buyerProfile.name,
+          phone: order.buyerProfile.user?.phone ?? null,
+        }
+      : null,
+    rider: order.delivery?.riderProfile
+      ? {
+          id: order.delivery.riderProfile.id,
+          name: order.delivery.riderProfile.name,
+          phone: order.delivery.riderProfile.user?.phone ?? null,
+        }
+      : null,
+    deliveryStatus: order.delivery?.status ?? null,
+    awaitingRider,
+    riderWaitMins,
+    operations: {
+      orderAgeMins: minutesSince(order.createdAt),
+      sinceAcceptedMins: acceptedAt ? minutesSince(acceptedAt) : null,
+      prepSla: acceptedAt
+        ? slaLevel(minutesSince(acceptedAt), SLA_THRESHOLDS.prepare.yellow, SLA_THRESHOLDS.prepare.red)
+        : 'green',
+      riderWaitSla: awaitingRider
+        ? slaLevel(riderWaitMins, SLA_THRESHOLDS.riderWait.yellow, SLA_THRESHOLDS.riderWait.red)
+        : 'green',
+    },
+  };
+}
+
+function buildOrderOperations(order: any) {
+  const acceptedAt = order.statusHistory?.find(
+    (h: { status: string }) =>
+      h.status === 'MERCHANT_ACCEPTED' || h.status === 'PREPARING' || h.status === 'PACKING',
+  )?.createdAt;
+  const packingAt = order.statusHistory?.find((h: { status: string }) => h.status === 'PACKING')?.createdAt;
+  const readyAt = order.statusHistory?.find((h: { status: string }) => h.status === 'READY_FOR_PICKUP')?.createdAt;
+  const awaitingRider = order.status === 'READY_FOR_PICKUP' && !order.delivery?.riderProfile;
+  const riderWaitMins = awaitingRider && readyAt ? minutesSince(readyAt) : 0;
+
+  return {
+    pipelineColumn: resolvePipelineColumn(order.status, order.paymentMethod),
+    orderAgeMins: minutesSince(order.createdAt),
+    sinceAcceptedMins: acceptedAt ? minutesSince(acceptedAt) : null,
+    sincePackingMins: packingAt ? minutesSince(packingAt) : null,
+    awaitingRider,
+    riderWaitMins,
+    prepSla: acceptedAt
+      ? slaLevel(minutesSince(acceptedAt), SLA_THRESHOLDS.prepare.yellow, SLA_THRESHOLDS.prepare.red)
+      : 'green',
+    packSla: packingAt
+      ? slaLevel(minutesSince(packingAt), SLA_THRESHOLDS.pack.yellow, SLA_THRESHOLDS.pack.red)
+      : 'green',
+    riderWaitSla: awaitingRider
+      ? slaLevel(riderWaitMins, SLA_THRESHOLDS.riderWait.yellow, SLA_THRESHOLDS.riderWait.red)
+      : 'green',
   };
 }
 
 function serializeDetail(order: any) {
+  const items = order.items.map((i: any) => ({
+    id: i.id,
+    productName: i.productName,
+    variantName: i.variantName,
+    sku: i.sku,
+    quantity: i.quantity,
+    unitPrice: Number(i.unitPrice),
+    discount: Number(i.discount),
+    totalPrice: Number(i.totalPrice),
+  }));
+  const statusHistory = order.statusHistory.map((h: any) => ({
+    status: h.status,
+    note: h.note,
+    changedBy: h.changedBy,
+    actorType: h.actorType,
+    metadata: h.metadata,
+    createdAt: h.createdAt,
+  }));
+
+  const delivery = order.delivery ? serializeDelivery(order.delivery, order) : null;
+  const timeline = buildEnrichedTimeline(statusHistory, order.delivery, order.status);
+
+  const store = order.store
+    ? {
+        id: order.store.id,
+        name: order.store.name,
+        slug: order.store.slug,
+        phone: order.store.phone,
+        merchant: order.store.merchantProfile
+          ? {
+              id: order.store.merchantProfile.id,
+              businessName: order.store.merchantProfile.businessName,
+            }
+          : null,
+      }
+    : null;
+
   return {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -536,19 +1171,166 @@ function serializeDetail(order: any) {
     cancelledAt: order.cancelledAt,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
-    store: order.store,
-    buyerProfile: order.buyerProfile,
-    items: order.items.map((i: any) => ({
-      id: i.id,
-      productName: i.productName,
-      variantName: i.variantName,
-      sku: i.sku,
-      quantity: i.quantity,
-      unitPrice: Number(i.unitPrice),
-      discount: Number(i.discount),
-      totalPrice: Number(i.totalPrice),
-    })),
-    timeline: order.statusHistory,
+    store,
+    buyerProfile: order.buyerProfile
+      ? {
+          id: order.buyerProfile.id,
+          name: order.buyerProfile.name,
+          phone: order.buyerProfile.user?.phone ?? null,
+        }
+      : null,
+    items,
+    statusHistory,
+    timeline,
+    delivery,
     payment: order.payment,
+    canReview:
+      order.status === OrderStatus.DELIVERED || order.status === OrderStatus.COMPLETED,
+    review: order.review
+      ? {
+          id: order.review.id,
+          rating: order.review.rating,
+          storeExperience: order.review.storeExperience,
+          deliveryExperience: order.review.deliveryExperience,
+          productQuality: order.review.productQuality,
+          title: order.review.title,
+          review: order.review.comment,
+          images: order.review.images ?? [],
+          verifiedPurchase: order.review.verifiedPurchase,
+          merchantReply: order.review.merchantReply,
+          merchantRepliedAt: order.review.merchantRepliedAt,
+          createdAt: order.review.createdAt,
+          updatedAt: order.review.updatedAt,
+        }
+      : null,
   };
+}
+
+function serializeDelivery(delivery: any, order: any) {
+  const storeLat = order.store?.latitude ?? delivery.pickupLat ?? null;
+  const storeLng = order.store?.longitude ?? delivery.pickupLng ?? null;
+  const customerLat = order.deliveryLat ?? delivery.deliveryLat ?? null;
+  const customerLng = order.deliveryLng ?? delivery.deliveryLng ?? null;
+
+  const hasActiveAssignment = Boolean(
+    delivery.riderProfileId &&
+      delivery.riderProfile &&
+      (delivery.assignedAt ||
+        (delivery.assignments ?? []).some((a: { status: string }) => a.status === 'ACCEPTED')),
+  );
+
+  const eta = computeDeliveryEta({
+    orderStatus: order.status,
+    deliveryStatus: delivery.status,
+    storeLat,
+    storeLng,
+    customerLat,
+    customerLng,
+    riderLat: delivery.riderProfile?.currentLat,
+    riderLng: delivery.riderProfile?.currentLng,
+    pickedUpAt: delivery.pickedUpAt,
+    hasActiveAssignment,
+  });
+
+  const distanceKm = safeDistanceKm(storeLat, storeLng, customerLat, customerLng);
+
+  return {
+    id: delivery.id,
+    status: delivery.status,
+    distanceKm,
+    estimatedMins: eta.estimatedMins,
+    estimatedArrivalAt: delivery.estimatedArrivalAt ?? null,
+    etaAvailable: eta.etaAvailable,
+    liveTrackingAvailable: eta.liveTrackingAvailable,
+    waitingForPickup:
+      hasActiveAssignment &&
+      !delivery.pickedUpAt &&
+      !['PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'].includes(order.status),
+    assignedAt: delivery.assignedAt,
+    arrivedAtStoreAt: delivery.arrivedAtStoreAt,
+    pickedUpAt: delivery.pickedUpAt,
+    arrivedAtCustomerAt: delivery.arrivedAtCustomerAt,
+    deliveredAt: delivery.deliveredAt,
+    rider: delivery.riderProfile
+      ? {
+          id: delivery.riderProfile.id,
+          name: delivery.riderProfile.name,
+          phone: delivery.riderProfile.user?.phone ?? null,
+          vehicleType: delivery.riderProfile.vehicleType ?? null,
+          status: delivery.riderProfile.status,
+          currentLat: delivery.riderProfile.currentLat,
+          currentLng: delivery.riderProfile.currentLng,
+          lastLocationAt: delivery.riderProfile.lastLocationAt,
+        }
+      : null,
+    assignmentTimeline: (delivery.assignments ?? []).map((a: any) => ({
+      id: a.id,
+      status: a.status,
+      offeredAt: a.offeredAt,
+      respondedAt: a.respondedAt,
+      expiresAt: a.expiresAt,
+      riderName: a.riderProfile?.name ?? null,
+    })),
+  };
+}
+
+function buildEnrichedTimeline(
+  statusHistory: Array<{
+    status: string;
+    note: string | null;
+    changedBy: string | null;
+    actorType?: string;
+    metadata?: unknown;
+    createdAt: Date;
+  }>,
+  delivery: any,
+  orderStatus?: string,
+) {
+  const pickedUp =
+    delivery?.pickedUpAt != null ||
+    orderStatus === 'PICKED_UP' ||
+    orderStatus === 'OUT_FOR_DELIVERY' ||
+    orderStatus === 'DELIVERED' ||
+    orderStatus === 'COMPLETED';
+
+  const entries = statusHistory
+    .filter((h) => {
+      const status = (h.metadata as { milestone?: string } | null)?.milestone ?? h.status;
+      if (status === 'OUT_FOR_DELIVERY' && !pickedUp) return false;
+      return true;
+    })
+    .map((h) => {
+      const milestone = (h.metadata as { milestone?: string } | null)?.milestone;
+      return {
+        ...h,
+        status: milestone ?? h.status,
+      };
+    });
+  const hasStatus = (s: string) => entries.some((e) => e.status === s);
+
+  const deliveryMilestones: Array<{ status: string; note: string; at: Date | null }> = [
+    { status: 'ARRIVED_AT_STORE', note: 'Rider arrived at store', at: delivery?.arrivedAtStoreAt ?? null },
+    { status: 'PICKED_UP', note: 'Order picked up by rider', at: delivery?.pickedUpAt ?? null },
+    { status: 'ARRIVED_AT_CUSTOMER', note: 'Rider arrived at customer', at: delivery?.arrivedAtCustomerAt ?? null },
+    { status: 'DELIVERED', note: 'Order delivered', at: delivery?.deliveredAt ?? null },
+  ];
+
+  for (const m of deliveryMilestones) {
+    if (!m.at) continue;
+    if (m.status === 'DELIVERED' && hasStatus('DELIVERED')) continue;
+    if (m.status === 'PICKED_UP' && (hasStatus('PICKED_UP') || hasStatus('OUT_FOR_DELIVERY'))) continue;
+    if (hasStatus(m.status)) continue;
+    entries.push({
+      status: m.status,
+      note: m.note,
+      changedBy: null,
+      actorType: 'RIDER',
+      metadata: null,
+      createdAt: m.at,
+    });
+  }
+
+  return entries.sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
 }

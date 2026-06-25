@@ -39,14 +39,14 @@ export function PaymentMethodSelector({ value, onChange }: PaymentMethodSelector
           className={cn(
             'flex w-full items-center gap-4 rounded-xl border px-4 py-4 text-left transition-colors',
             value === id
-              ? 'border-emerald-500 bg-emerald-50'
+              ? 'border-primary bg-brand-50'
               : 'border-neutral-200 bg-white hover:border-neutral-300',
           )}
         >
           <div
             className={cn(
               'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
-              value === id ? 'bg-emerald-600 text-white' : 'bg-neutral-100 text-neutral-600',
+              value === id ? 'bg-primary text-white' : 'bg-neutral-100 text-neutral-600',
             )}
           >
             <Icon className="h-5 w-5" aria-hidden />
@@ -58,7 +58,7 @@ export function PaymentMethodSelector({ value, onChange }: PaymentMethodSelector
           <div
             className={cn(
               'ml-auto h-4 w-4 rounded-full border-2',
-              value === id ? 'border-emerald-600 bg-emerald-600' : 'border-neutral-300',
+              value === id ? 'border-primary bg-primary' : 'border-neutral-300',
             )}
           />
         </button>

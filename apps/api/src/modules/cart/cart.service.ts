@@ -2,9 +2,11 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { DomainEventType, Prisma, StoreStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
@@ -13,6 +15,9 @@ import { DomainEventsService } from '../domain-events/domain-events.service';
 import { CartCacheService } from './cart-cache.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
+import { StorePromotionService } from '../promotion/store-promotion.service';
+import { MembershipBenefitService } from '../membership/membership-benefit.service';
+import type { PromoBreakdown } from '../promotion/promotion-pricing.service';
 
 // ── Response types ─────────────────────────────────────────────────────────────
 
@@ -33,9 +38,15 @@ export interface CartItemView {
 export interface CartTotals {
   subtotal: number;
   discount: number;
+  catalogSavings: number;
+  offerDiscount: number;
+  couponDiscount: number;
+  deliveryDiscount: number;
+  totalSavings: number;
   tax: number;
   deliveryFee: number;
   grandTotal: number;
+  promo?: PromoBreakdown;
 }
 
 export interface CartView {
@@ -45,6 +56,7 @@ export interface CartView {
   items: CartItemView[];
   totals: CartTotals;
   itemCount: number;
+  appliedCouponCode?: string | null;
 }
 
 // ── Service ───────────────────────────────────────────────────────────────────
@@ -58,7 +70,20 @@ export class CartService {
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
     private readonly cartCache: CartCacheService,
+    @Inject(forwardRef(() => StorePromotionService))
+    private readonly promotions: StorePromotionService,
+    private readonly membershipBenefits: MembershipBenefitService,
   ) {}
+
+  async getBuyerProfileId(userId: string): Promise<string> {
+    const { id } = await this.getOrCreateBuyerProfile(userId);
+    return id;
+  }
+
+  async invalidateCache(userId: string): Promise<void> {
+    const { id } = await this.getOrCreateBuyerProfile(userId);
+    await this.cartCache.invalidate(id);
+  }
 
   // ── Get or create buyer profile ────────────────────────────────────────────
 
@@ -115,7 +140,10 @@ export class CartService {
     // Check available stock
     const availableQty = this.availableQty(variant.inventory);
     if (availableQty <= 0) {
-      throw new BadRequestException(`"${product.name}" is out of stock`);
+      throw new ConflictException({
+        code: 'INVENTORY_CHANGED',
+        message: `"${product.name}" is out of stock`,
+      });
     }
 
     // Load or create cart
@@ -149,10 +177,12 @@ export class CartService {
       const newQty = (existing?.quantity ?? 0) + dto.quantity;
 
       if (newQty > availableQty) {
-        throw new BadRequestException(
-          `Only ${availableQty} unit(s) of "${product.name}" are available. ` +
+        throw new ConflictException({
+          code: 'INVENTORY_CHANGED',
+          message:
+            `Only ${availableQty} unit(s) of "${product.name}" are available. ` +
             `You already have ${existing?.quantity ?? 0} in your cart.`,
-        );
+        });
       }
 
       if (existing) {
@@ -231,9 +261,10 @@ export class CartService {
     );
     const available = this.availableQty(variant.inventory);
     if (dto.quantity > available) {
-      throw new BadRequestException(
-        `Only ${available} unit(s) of "${product.name}" available`,
-      );
+      throw new ConflictException({
+        code: 'INVENTORY_CHANGED',
+        message: `Only ${available} unit(s) of "${product.name}" available`,
+      });
     }
 
     await this.prisma.cartItem.update({
@@ -338,7 +369,13 @@ export class CartService {
         items: {
           include: {
             product: {
-              select: { name: true, slug: true, imageUrls: true, isVeg: true },
+              select: {
+                name: true,
+                slug: true,
+                imageUrls: true,
+                isVeg: true,
+                categoryId: true,
+              },
             },
             variant: {
               select: {
@@ -347,7 +384,7 @@ export class CartService {
                 price: true,
                 mrp: true,
                 weightGrams: true,
-                inventory: { select: { quantity: true, reserved: true } },
+                inventory: { select: { availableQty: true, reservedQty: true, status: true } },
               },
             },
           },
@@ -380,16 +417,50 @@ export class CartService {
           weightGrams: item.variant.weightGrams,
         },
         availableQty: item.variant.inventory
-          ? Math.max(0, item.variant.inventory.quantity - item.variant.inventory.reserved)
+          ? Math.max(0, item.variant.inventory.availableQty)
           : 0,
       };
     });
 
-    const subtotal = items.reduce((sum, i) => sum + i.lineTotal, 0);
-    const discount = items.reduce((sum, i) => sum + i.savings, 0);
-    const deliveryFee = Number(cart.store.deliveryFee);
-    const tax = 0;
-    const grandTotal = subtotal + deliveryFee + tax;
+    const catalogSavings = items.reduce((sum, i) => sum + i.savings, 0);
+    const baseDeliveryFee = Number(cart.store.deliveryFee);
+
+    const promoItems = cart.items.map((item) => ({
+      productId: item.productId,
+      variantId: item.variantId,
+      categoryId: item.product.categoryId,
+      quantity: item.quantity,
+      unitPrice: Number(item.variant.price),
+      lineTotal: Number(item.variant.price) * item.quantity,
+    }));
+
+    const enriched = await this.promotions.enrichCartPromotions(
+      cart.id,
+      cart.storeId,
+      buyerProfileId,
+      baseDeliveryFee,
+      catalogSavings,
+      promoItems,
+      cart.appliedCouponId,
+      cart.appliedPromotionId,
+      cart.appliedOfferId,
+    );
+
+    let appliedCouponCode: string | null = null;
+    if (enriched.promo.appliedCoupon) {
+      appliedCouponCode = enriched.promo.appliedCoupon.code;
+    }
+
+    let deliveryFee = enriched.deliveryFee;
+    let grandTotal = enriched.grandTotal;
+    const buyer = await this.prisma.buyerProfile.findUnique({
+      where: { id: buyerProfileId },
+      select: { userId: true },
+    });
+    if (buyer && (await this.membershipBenefits.hasFreeDelivery(buyer.userId))) {
+      grandTotal = Math.max(0, grandTotal - deliveryFee);
+      deliveryFee = 0;
+    }
 
     return {
       id: cart.id,
@@ -401,8 +472,21 @@ export class CartService {
         minOrderAmount: Number(cart.store.minOrderAmount),
       },
       items,
-      totals: { subtotal, discount, tax, deliveryFee, grandTotal },
+      totals: {
+        subtotal: enriched.subtotal,
+        discount: catalogSavings,
+        catalogSavings: enriched.catalogSavings,
+        offerDiscount: enriched.offerDiscount,
+        couponDiscount: enriched.couponDiscount,
+        deliveryDiscount: enriched.deliveryDiscount,
+        totalSavings: enriched.totalSavings,
+        tax: enriched.tax,
+        deliveryFee,
+        grandTotal,
+        promo: enriched.promo,
+      },
       itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
+      appliedCouponCode,
     };
   }
 
@@ -415,7 +499,7 @@ export class CartService {
         product: { isActive: true, deletedAt: null },
       },
       include: {
-        inventory: { select: { quantity: true, reserved: true } },
+        inventory: { select: { availableQty: true, reservedQty: true, status: true } },
         product: {
           select: {
             id: true,
@@ -453,10 +537,10 @@ export class CartService {
   }
 
   private availableQty(
-    inv: { quantity: number; reserved: number } | null,
+    inv: { availableQty: number; status?: string } | null,
   ): number {
-    if (!inv) return 0;
-    return Math.max(0, inv.quantity - inv.reserved);
+    if (!inv || inv.status === 'DISABLED') return 0;
+    return Math.max(0, inv.availableQty);
   }
 
   private async assertCartItemOwnership(

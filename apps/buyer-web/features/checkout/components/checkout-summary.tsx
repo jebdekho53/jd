@@ -52,6 +52,22 @@ export function CheckoutSummary({ cart, address }: CheckoutSummaryProps) {
 
       {/* Totals */}
       <div className="border-t border-neutral-100 pt-3">
+        {(cart.totals.offerDiscount ?? 0) > 0 && (
+          <div className="flex items-center justify-between py-1">
+            <Text variant="bodySm">Offer discount</Text>
+            <Text variant="bodySm" className="text-emerald-700">
+              -₹{(cart.totals.offerDiscount ?? 0).toFixed(2)}
+            </Text>
+          </div>
+        )}
+        {(cart.totals.couponDiscount ?? 0) > 0 && (
+          <div className="flex items-center justify-between py-1">
+            <Text variant="bodySm">Coupon discount</Text>
+            <Text variant="bodySm" className="text-emerald-700">
+              -₹{(cart.totals.couponDiscount ?? 0).toFixed(2)}
+            </Text>
+          </div>
+        )}
         {cart.totals.discount > 0 && (
           <div className="flex items-center justify-between py-1">
             <Text variant="bodySm">Savings</Text>

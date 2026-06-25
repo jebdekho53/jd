@@ -5,15 +5,17 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { DomainEventType, Prisma, Store, StoreHour, StoreStatus } from '@prisma/client';
+import { DomainEventType, DayOfWeek, Prisma, Store, StoreDocumentType, StoreHour, StoreStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { MerchantService } from '../merchant/merchant.service';
+import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
 import { ListStoresDto } from './dto/list-stores.dto';
+import { UploadVerificationDocumentDto } from './dto/upload-verification-document.dto';
 
 // Fields a merchant may edit on an APPROVED store
 const APPROVED_STORE_EDITABLE_FIELDS: Array<keyof UpdateStoreDto> = [
@@ -26,6 +28,27 @@ type StoreWithRelations = Store & {
   hours: StoreHour[];
   storeZones: Array<{ zone: { id: string; name: string; slug: string } }>;
   storeServiceAreas: Array<{ serviceArea: { id: string; name: string; slug: string } }>;
+  verificationDocuments: Array<{
+    id: string;
+    documentType: StoreDocumentType;
+    fileName: string;
+    fileUrl: string;
+    mimeType: string;
+    uploadedAt: Date;
+  }>;
+  documentRequests: Array<{
+    id: string;
+    reason: string;
+    documentTypes: unknown;
+    requestedAt: Date;
+    fulfilledAt: Date | null;
+  }>;
+  merchantProfile?: {
+    id: string;
+    isBlacklisted: boolean;
+    blacklistReason: string | null;
+    businessName: string;
+  };
 };
 
 @Injectable()
@@ -38,6 +61,7 @@ export class StoreService {
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
     private readonly buyerCache: BuyerCacheService,
+    private readonly blocklist: VerificationBlocklistService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -50,6 +74,15 @@ export class StoreService {
     ipAddress?: string,
   ): Promise<StoreWithRelations> {
     const profile = await this.merchantService.requireMerchantProfile(userId);
+
+    await this.blocklist.assertUserNotBlacklisted(userId);
+    await this.blocklist.assertMerchantProfileNotBlacklisted(profile.id);
+    await this.assertMerchantNotBlocked(userId, {
+      phone: dto.phone,
+      email: dto.email,
+      gstNumber: profile.gstNumber,
+      panNumber: profile.panNumber,
+    });
 
     // Validate city exists
     const city = await this.prisma.city.findUnique({ where: { id: dto.cityId } });
@@ -82,10 +115,18 @@ export class StoreService {
         },
       });
 
-      // Attach zones
-      if (dto.zoneIds?.length) {
+      // Attach zones — use all city zones when none specified
+      let zoneIds = dto.zoneIds;
+      if (!zoneIds?.length) {
+        const cityZones = await tx.zone.findMany({
+          where: { cityId: dto.cityId, isActive: true },
+          select: { id: true },
+        });
+        zoneIds = cityZones.map((z) => z.id);
+      }
+      if (zoneIds.length) {
         await tx.storeZone.createMany({
-          data: dto.zoneIds.map((zoneId) => ({ storeId: created.id, zoneId })),
+          data: zoneIds.map((zoneId) => ({ storeId: created.id, zoneId })),
           skipDuplicates: true,
         });
       }
@@ -101,21 +142,28 @@ export class StoreService {
         });
       }
 
-      // Upsert hours
-      if (dto.hours?.length) {
-        for (const h of dto.hours) {
-          await tx.storeHour.upsert({
-            where: { storeId_dayOfWeek: { storeId: created.id, dayOfWeek: h.dayOfWeek } },
-            update: { openTime: h.openTime, closeTime: h.closeTime, isClosed: h.isClosed },
-            create: {
-              storeId: created.id,
-              dayOfWeek: h.dayOfWeek,
-              openTime: h.openTime,
-              closeTime: h.closeTime,
-              isClosed: h.isClosed,
-            },
-          });
-        }
+      // Default operating hours 9 AM – 10 PM when not provided
+      const hours = dto.hours?.length
+        ? dto.hours
+        : Object.values(DayOfWeek).map((dayOfWeek) => ({
+            dayOfWeek,
+            openTime: '09:00',
+            closeTime: '22:00',
+            isClosed: false,
+          }));
+
+      for (const h of hours) {
+        await tx.storeHour.upsert({
+          where: { storeId_dayOfWeek: { storeId: created.id, dayOfWeek: h.dayOfWeek } },
+          update: { openTime: h.openTime, closeTime: h.closeTime, isClosed: h.isClosed },
+          create: {
+            storeId: created.id,
+            dayOfWeek: h.dayOfWeek,
+            openTime: h.openTime,
+            closeTime: h.closeTime,
+            isClosed: h.isClosed,
+          },
+        });
       }
 
       return created;
@@ -161,6 +209,27 @@ export class StoreService {
           storeZones: { include: { zone: { select: { id: true, name: true, slug: true } } } },
           storeServiceAreas: {
             include: { serviceArea: { select: { id: true, name: true, slug: true } } },
+          },
+          verificationDocuments: {
+            orderBy: { uploadedAt: 'desc' },
+            select: {
+              id: true,
+              documentType: true,
+              fileName: true,
+              fileUrl: true,
+              mimeType: true,
+              uploadedAt: true,
+            },
+          },
+          documentRequests: {
+            orderBy: { requestedAt: 'desc' },
+            select: {
+              id: true,
+              reason: true,
+              documentTypes: true,
+              requestedAt: true,
+              fulfilledAt: true,
+            },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -213,6 +282,22 @@ export class StoreService {
     if (store.status === StoreStatus.PENDING_REVIEW) {
       throw new ForbiddenException(
         'Store is under review. Withdraw the submission to make edits.',
+      );
+    }
+
+    if (store.status === StoreStatus.UNDER_REVIEW) {
+      throw new ForbiddenException('Store is under admin review. Edits are locked.');
+    }
+
+    if (store.status === StoreStatus.DOCUMENTS_REQUIRED) {
+      throw new ForbiddenException(
+        'Upload requested documents to continue verification. Store details cannot be edited.',
+      );
+    }
+
+    if (store.status === StoreStatus.REJECTED) {
+      throw new ForbiddenException(
+        'This store was rejected and cannot be edited until an admin revokes the rejection.',
       );
     }
 
@@ -316,18 +401,32 @@ export class StoreService {
     const store = await this.fetchStoreWithRelations(storeId);
     await this.assertOwnership(userId, store);
 
-    if (
-      store.status !== StoreStatus.DRAFT &&
-      store.status !== StoreStatus.REJECTED
-    ) {
+    if (store.status !== StoreStatus.DRAFT) {
       throw new BadRequestException(
         `Store cannot be submitted from status: ${store.status}. ` +
-          `Only DRAFT or REJECTED stores can be submitted for review.`,
+          `Only DRAFT stores can be submitted for review.`,
       );
     }
 
+    const profile = await this.prisma.merchantProfile.findUnique({
+      where: { id: store.merchantProfileId },
+      include: { user: { select: { phone: true, email: true } } },
+    });
+
+    await this.blocklist.assertUserNotBlacklisted(userId);
+    if (profile) {
+      await this.blocklist.assertMerchantProfileNotBlacklisted(profile.id);
+    }
+
+    await this.assertMerchantNotBlocked(userId, {
+      phone: store.phone ?? profile?.user.phone,
+      email: store.email ?? profile?.user.email,
+      gstNumber: profile?.gstNumber,
+      panNumber: profile?.panNumber,
+    });
+
     // Pre-submission validation
-    this.validateSubmissionReadiness(store);
+    this.validateSubmissionReadiness(store, profile);
 
     const updated = await this.prisma.store.update({
       where: { id: storeId },
@@ -361,6 +460,129 @@ export class StoreService {
   }
 
   // ---------------------------------------------------------------------------
+  // Upload verification document (DOCUMENTS_REQUIRED only)
+  // ---------------------------------------------------------------------------
+
+  async uploadVerificationDocument(
+    userId: string,
+    storeId: string,
+    dto: UploadVerificationDocumentDto,
+    ipAddress?: string,
+  ): Promise<StoreWithRelations> {
+    const store = await this.fetchStoreWithRelations(storeId);
+    await this.assertOwnership(userId, store);
+
+    if (store.status !== StoreStatus.DOCUMENTS_REQUIRED) {
+      throw new BadRequestException(
+        'Documents can only be uploaded when additional documents are requested.',
+      );
+    }
+
+    const requestedTypes = this.parseDocumentTypes(store.requestedDocumentTypes);
+    if (requestedTypes.length && !requestedTypes.includes(dto.documentType)) {
+      throw new BadRequestException(
+        `Document type ${dto.documentType} was not requested. ` +
+          `Requested: ${requestedTypes.join(', ')}`,
+      );
+    }
+
+    await this.prisma.storeVerificationDocument.create({
+      data: {
+        storeId,
+        documentType: dto.documentType,
+        fileName: dto.fileName,
+        fileUrl: dto.fileUrl,
+        mimeType: dto.mimeType,
+        uploadedBy: userId,
+      },
+    });
+
+    await this.audit.log({
+      actorId: userId,
+      action: 'STORE_DOCUMENT_UPLOADED',
+      resourceType: 'store',
+      resourceId: storeId,
+      ipAddress,
+      metadata: {
+        documentType: dto.documentType,
+        fileName: dto.fileName,
+      } as Prisma.InputJsonValue,
+    });
+
+    return this.fetchStoreWithRelations(storeId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Submit uploaded documents for admin review (DOCUMENTS_REQUIRED → UNDER_REVIEW)
+  // ---------------------------------------------------------------------------
+
+  async submitDocumentsForReview(
+    userId: string,
+    storeId: string,
+    ipAddress?: string,
+  ): Promise<StoreWithRelations> {
+    const store = await this.fetchStoreWithRelations(storeId);
+    await this.assertOwnership(userId, store);
+
+    if (store.status !== StoreStatus.DOCUMENTS_REQUIRED) {
+      throw new BadRequestException(
+        'Documents can only be submitted when status is DOCUMENTS_REQUIRED.',
+      );
+    }
+
+    const requestedTypes = this.parseDocumentTypes(store.requestedDocumentTypes);
+    if (!requestedTypes.length) {
+      throw new BadRequestException('No document types were requested for this store.');
+    }
+
+    const uploadedTypes = new Set(
+      store.verificationDocuments.map((d) => d.documentType),
+    );
+    const missing = requestedTypes.filter((t) => !uploadedTypes.has(t));
+    if (missing.length) {
+      throw new BadRequestException({
+        message: 'Please upload all requested documents before submitting.',
+        missingDocuments: missing,
+      });
+    }
+
+    const now = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.store.update({
+        where: { id: storeId },
+        data: { status: StoreStatus.UNDER_REVIEW },
+      });
+
+      await tx.storeDocumentRequest.updateMany({
+        where: { storeId, fulfilledAt: null },
+        data: { fulfilledAt: now },
+      });
+    });
+
+    await Promise.all([
+      this.audit.log({
+        actorId: userId,
+        action: 'STORE_DOCUMENTS_SUBMITTED',
+        resourceType: 'store',
+        resourceId: storeId,
+        ipAddress,
+        metadata: { documentTypes: requestedTypes } as Prisma.InputJsonValue,
+      }),
+      this.domainEvents.emit(
+        DomainEventType.STORE_DOCUMENTS_SUBMITTED,
+        'store',
+        storeId,
+        { merchantUserId: userId, storeName: store.name, documentTypes: requestedTypes },
+        { userId, ipAddress: ipAddress ?? null },
+      ),
+    ]);
+
+    this.logger.log({ userId, storeId }, 'Store documents submitted for review');
+    return this.fetchStoreWithRelations(storeId);
+  }
+
+  // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
 
@@ -373,11 +595,69 @@ export class StoreService {
         storeServiceAreas: {
           include: { serviceArea: { select: { id: true, name: true, slug: true } } },
         },
+        verificationDocuments: {
+          orderBy: { uploadedAt: 'desc' },
+          select: {
+            id: true,
+            documentType: true,
+            fileName: true,
+            fileUrl: true,
+            mimeType: true,
+            uploadedAt: true,
+          },
+        },
+        documentRequests: {
+          orderBy: { requestedAt: 'desc' },
+          select: {
+            id: true,
+            reason: true,
+            documentTypes: true,
+            requestedAt: true,
+            fulfilledAt: true,
+          },
+        },
+        merchantProfile: {
+          select: {
+            id: true,
+            businessName: true,
+            isBlacklisted: true,
+            blacklistReason: true,
+          },
+        },
       },
     });
 
     if (!store) throw new NotFoundException(`Store not found: ${storeId}`);
     return store as StoreWithRelations;
+  }
+
+  private parseDocumentTypes(value: unknown): StoreDocumentType[] {
+    if (!Array.isArray(value)) return [];
+    return value.filter((v): v is StoreDocumentType =>
+      typeof v === 'string' && Object.values(StoreDocumentType).includes(v as StoreDocumentType),
+    );
+  }
+
+  private async assertMerchantNotBlocked(
+    userId: string,
+    input: {
+      phone?: string | null;
+      email?: string | null;
+      gstNumber?: string | null;
+      panNumber?: string | null;
+    },
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { phone: true, email: true },
+    });
+
+    await this.blocklist.assertNotBlocked({
+      phone: input.phone ?? user?.phone,
+      email: input.email ?? user?.email,
+      gstNumber: input.gstNumber,
+      panNumber: input.panNumber,
+    });
   }
 
   private async assertOwnership(userId: string, store: Store): Promise<void> {
@@ -387,16 +667,24 @@ export class StoreService {
     }
   }
 
-  private validateSubmissionReadiness(store: StoreWithRelations): void {
+  private validateSubmissionReadiness(
+    store: StoreWithRelations,
+    profile: { businessName: string; gstNumber: string | null; panNumber: string | null } | null,
+  ): void {
     const errors: string[] = [];
 
     if (!store.name?.trim()) errors.push('Store name is required');
     if (!store.line1?.trim()) errors.push('Store address is required');
     if (!store.pincode?.trim()) errors.push('Pincode is required');
     if (!store.latitude || !store.longitude) errors.push('Store location (lat/lng) is required');
-    if (!store.phone && !store.email) errors.push('At least one contact (phone or email) is required');
+    if (!store.phone?.trim()) errors.push('Store phone is required');
+    if (!store.email?.trim()) errors.push('Store email is required for billing');
     if (!store.storeZones?.length) errors.push('At least one delivery zone must be assigned');
     if (!store.hours?.length) errors.push('Store hours must be configured');
+
+    if (!profile?.businessName?.trim()) errors.push('Business name is required on merchant profile');
+    if (!profile?.gstNumber?.trim()) errors.push('GSTIN is required for billing and tax compliance');
+    if (!profile?.panNumber?.trim()) errors.push('PAN is required for billing and tax compliance');
 
     if (errors.length > 0) {
       throw new BadRequestException({

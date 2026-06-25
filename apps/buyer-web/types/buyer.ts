@@ -48,6 +48,9 @@ export interface StoreDetail extends StoreCard {
   serviceAreas: { id: string; name: string; pincode: string | null }[];
   categories: { id: string; name: string; slug: string }[];
   productCount: number;
+  verifications?: { gst: boolean; kyc: boolean; fssai: boolean };
+  merchantSince?: string;
+  deliveryRadiusKm?: number;
 }
 
 export interface BuyerVariant {
@@ -96,6 +99,23 @@ export interface DiscoverStoresParams {
   radiusKm?: number;
   page?: number;
   limit?: number;
+  sort?: 'distance' | 'popular' | 'fast' | 'new' | 'rating';
+}
+
+export interface StoreCardWithCount extends StoreCard {
+  productCount?: number;
+}
+
+export interface StoreSearchGroup {
+  store: {
+    id: string;
+    name: string;
+    slug: string;
+    ratingAvg: number;
+    avgPrepTimeMins: number;
+  };
+  products: BuyerProduct[];
+  productCount: number;
 }
 
 export interface StoreProductsParams {
@@ -107,7 +127,66 @@ export interface StoreProductsParams {
 export interface SearchProductsParams {
   q?: string;
   categoryId?: string;
+  subcategoryId?: string;
   storeId?: string;
+  lat?: number;
+  lng?: number;
+  minPrice?: number;
+  maxPrice?: number;
+  sort?: string;
   page?: number;
   limit?: number;
+}
+
+export interface UnifiedSearchProduct {
+  id: string;
+  name: string;
+  slug: string;
+  brand: string | null;
+  imageUrls: string[];
+  basePrice: number;
+  mrp: number | null;
+  category: { id: string; name: string; slug: string } | null;
+  store: {
+    id: string;
+    name: string;
+    slug: string;
+    distanceKm?: number;
+    ratingAvg?: number;
+    avgPrepTimeMins?: number;
+    etaMins?: number;
+    hasOffer?: boolean;
+  };
+  inStock: boolean;
+  availableQty: number;
+}
+
+export interface UnifiedSearchResult {
+  products: UnifiedSearchProduct[];
+  stores: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    logoUrl: string | null;
+    ratingAvg: number;
+    distanceKm: number;
+    etaMins: number;
+    hasOffer: boolean;
+  }>;
+  categories: Array<{ id: string; name: string; slug: string; imageUrl: string | null; parentId?: string | null }>;
+  subcategories: Array<{ id: string; name: string; slug: string; imageUrl: string | null; parentId?: string | null }>;
+  brands: Array<{ name: string }>;
+  meta: PaginationMeta & { sort?: string; tab?: string; totalProducts: number };
+}
+
+export interface SearchSuggestionsResult {
+  popularSearches: string[];
+  products: Array<{ id: string; name: string; slug: string; brand: string | null; imageUrls: string[] }>;
+  categories: Array<{ id: string; name: string; slug: string; imageUrl: string | null }>;
+  stores: Array<{ id: string; name: string; slug: string; logoUrl: string | null }>;
+}
+
+export interface TrendingSearchResult {
+  period: string;
+  trending: Array<{ query: string; score: number }>;
 }

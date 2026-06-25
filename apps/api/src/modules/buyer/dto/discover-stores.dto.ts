@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsIn,
   IsLatitude,
   IsLongitude,
   IsNumber,
@@ -8,6 +9,8 @@ import {
   Min,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+
+export type StoreDiscoverySort = 'distance' | 'popular' | 'fast' | 'new' | 'rating';
 
 export class DiscoverStoresDto {
   @ApiProperty({ example: 28.6139, description: 'Buyer latitude (WGS-84)' })
@@ -46,4 +49,13 @@ export class DiscoverStoresDto {
   @Min(1)
   @Max(50)
   limit?: number = 20;
+
+  @ApiProperty({
+    required: false,
+    enum: ['distance', 'popular', 'fast', 'new', 'rating'],
+    default: 'distance',
+  })
+  @IsOptional()
+  @IsIn(['distance', 'popular', 'fast', 'new', 'rating'])
+  sort?: StoreDiscoverySort = 'distance';
 }

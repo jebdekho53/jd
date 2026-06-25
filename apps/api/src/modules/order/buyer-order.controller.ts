@@ -42,7 +42,7 @@ export class BuyerOrderController {
     @Query() dto: ListOrdersDto,
   ) {
     const data = await this.orderService.listBuyerOrders(user.id, dto);
-    return { success: true, ...data };
+    return { success: true, data };
   }
 
   @Get(':orderId')

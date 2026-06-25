@@ -16,10 +16,20 @@ import type {
   AdminStoreListItem,
   ListStoresParams,
   RejectStorePayload,
+  RequestDocumentsPayload,
+  RevokeRejectionPayload,
+  RemoveBlacklistPayload,
   SuspendStorePayload,
 } from '@/types/store';
-import type { AdminOrderListItem, ListOrdersParams } from '@/types/order';
+import type { AdminOrderListItem, ListOrdersParams, RiderQueueOrder, AvailableRider, AssignRiderResult } from '@/types/order';
+import type { OrderDetail } from '@/types/order-detail';
 import type { AdminUserListItem, ListUsersParams, SuspendUserPayload } from '@/types/user';
+import type {
+  AdminCategoryRequest,
+  GlobalCategory,
+  MerchantCategoryStatus,
+  StoreCategoryRequestStatus,
+} from '@/types/category-governance';
 
 // ─── Auth (BFF: /api/auth/*) ─────────────────────────────────────────────────
 
@@ -83,6 +93,44 @@ export async function rejectStore(id: string, payload: RejectStorePayload): Prom
   return res.data;
 }
 
+export async function requestDocuments(
+  id: string,
+  payload: RequestDocumentsPayload,
+): Promise<AdminStoreDetail> {
+  const res = await adminFetch<ApiResponse<AdminStoreDetail>>(
+    `/api/admin/stores/${id}/request-documents`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+  return res.data;
+}
+
+export async function revokeRejection(
+  id: string,
+  payload: RevokeRejectionPayload,
+): Promise<AdminStoreDetail> {
+  const res = await adminFetch<ApiResponse<AdminStoreDetail>>(
+    `/api/admin/stores/${id}/revoke-rejection`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+  return res.data;
+}
+
+export async function removeBlacklist(
+  merchantProfileId: string,
+  payload: RemoveBlacklistPayload,
+): Promise<{ merchantProfileId: string; isBlacklisted: boolean; reopenedStoreId?: string }> {
+  const res = await adminFetch<
+    ApiResponse<{ merchantProfileId: string; isBlacklisted: boolean; reopenedStoreId?: string }>
+  >(`/api/admin/merchants/${merchantProfileId}/remove-blacklist`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.data;
+}
+
 export async function suspendStore(id: string, payload: SuspendStorePayload): Promise<AdminStoreDetail> {
   const res = await adminFetch<ApiResponse<AdminStoreDetail>>(`/api/admin/stores/${id}/suspend`, {
     method: 'POST',
@@ -91,19 +139,172 @@ export async function suspendStore(id: string, payload: SuspendStorePayload): Pr
   return res.data;
 }
 
+// ─── Category governance (BFF: /api/admin/categories/*) ─────────────────────
+
+export async function listCategoryRequests(
+  params: { status?: StoreCategoryRequestStatus; page?: number; limit?: number; storeId?: string } = {},
+): Promise<{ data: AdminCategoryRequest[]; meta: PaginationMeta }> {
+  const res = await adminFetch<PaginatedResponse<AdminCategoryRequest[]>>(
+    `/api/admin/category-requests${buildQuery(params)}`,
+  );
+  return { data: res.data, meta: res.meta };
+}
+
+export async function getCategoryRequest(id: string): Promise<AdminCategoryRequest> {
+  const res = await adminFetch<ApiResponse<AdminCategoryRequest>>(`/api/admin/category-requests/${id}`);
+  return res.data;
+}
+
+export async function approveCategoryRequest(id: string): Promise<AdminCategoryRequest> {
+  const res = await adminFetch<ApiResponse<AdminCategoryRequest>>(
+    `/api/admin/category-requests/${id}/approve`,
+    { method: 'POST', body: JSON.stringify({}) },
+  );
+  return res.data;
+}
+
+export async function rejectCategoryRequest(
+  id: string,
+  payload: { reason: string },
+): Promise<AdminCategoryRequest> {
+  const res = await adminFetch<ApiResponse<AdminCategoryRequest>>(
+    `/api/admin/category-requests/${id}/reject`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+  return res.data;
+}
+
+export async function requestCategoryDocuments(
+  id: string,
+  payload: RequestDocumentsPayload,
+): Promise<AdminCategoryRequest> {
+  const res = await adminFetch<ApiResponse<AdminCategoryRequest>>(
+    `/api/admin/category-requests/${id}/request-documents`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+  return res.data;
+}
+
+export async function revokeCategoryRejection(
+  id: string,
+  payload: { reason: string },
+): Promise<AdminCategoryRequest> {
+  const res = await adminFetch<ApiResponse<AdminCategoryRequest>>(
+    `/api/admin/category-requests/${id}/revoke-rejection`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+  return res.data;
+}
+
+export async function listGlobalCategories(): Promise<GlobalCategory[]> {
+  const res = await adminFetch<ApiResponse<GlobalCategory[]>>('/api/admin/categories');
+  return res.data;
+}
+
+export interface CreateGlobalCategoryPayload {
+  name: string;
+  parentId?: string;
+  imageUrl?: string;
+  sortOrder?: number;
+}
+
+export interface UpdateGlobalCategoryPayload {
+  name?: string;
+  imageUrl?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export async function createGlobalCategory(
+  payload: CreateGlobalCategoryPayload,
+): Promise<GlobalCategory> {
+  const res = await adminFetch<ApiResponse<GlobalCategory>>('/api/admin/categories', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.data;
+}
+
+export async function updateGlobalCategory(
+  id: string,
+  payload: UpdateGlobalCategoryPayload,
+): Promise<GlobalCategory> {
+  const res = await adminFetch<ApiResponse<GlobalCategory>>(`/api/admin/categories/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+  return res.data;
+}
+
+export async function deleteGlobalCategory(
+  id: string,
+): Promise<{ id: string; deletedAt: string; cascadedCount: number }> {
+  const res = await adminFetch<
+    ApiResponse<{ id: string; deletedAt: string; cascadedCount: number }>
+  >(`/api/admin/categories/${id}`, { method: 'DELETE' });
+  return res.data;
+}
+
 // ─── Orders (BFF: /api/admin/orders/*) ─────────────────────────────────────
 
 export async function listOrders(
   params: ListOrdersParams = {},
 ): Promise<{ data: AdminOrderListItem[]; meta: PaginationMeta }> {
-  const res = await adminFetch<PaginatedResponse<AdminOrderListItem[]>>(
-    `/api/admin/orders${buildQuery(params)}`,
-  );
-  return { data: res.data, meta: res.meta };
+  const res = await adminFetch<
+    ApiResponse<{ orders: AdminOrderListItem[]; meta: PaginationMeta }>
+  >(`/api/admin/orders${buildQuery(params)}`);
+  return { data: res.data.orders, meta: res.data.meta };
 }
 
 export async function getOrder(id: string): Promise<AdminOrderListItem> {
   const res = await adminFetch<ApiResponse<AdminOrderListItem>>(`/api/admin/orders/${id}`);
+  return res.data;
+}
+
+export async function getOrderDetail(id: string): Promise<OrderDetail> {
+  const res = await adminFetch<ApiResponse<OrderDetail>>(`/api/admin/orders/${id}`);
+  return res.data;
+}
+
+// ─── Rider assignment (BFF: /api/admin/rider-queue, orders/*/assign-rider) ───
+
+export async function listRiderQueue(
+  params: { page?: number; limit?: number } = {},
+): Promise<{ data: RiderQueueOrder[]; meta: PaginationMeta }> {
+  const res = await adminFetch<PaginatedResponse<RiderQueueOrder[]>>(
+    `/api/admin/rider-queue${buildQuery(params)}`,
+  );
+  return { data: res.data, meta: res.meta! };
+}
+
+export async function listAvailableRiders(storeId: string): Promise<AvailableRider[]> {
+  const res = await adminFetch<ApiResponse<AvailableRider[]>>(
+    `/api/admin/riders/available${buildQuery({ storeId })}`,
+  );
+  return res.data;
+}
+
+export async function assignRider(orderId: string, riderProfileId: string): Promise<AssignRiderResult> {
+  const res = await adminFetch<ApiResponse<AssignRiderResult>>(
+    `/api/admin/orders/${orderId}/assign-rider`,
+    { method: 'POST', body: JSON.stringify({ riderProfileId }) },
+  );
+  return res.data;
+}
+
+export async function autoAssignRider(orderId: string): Promise<AssignRiderResult | null> {
+  const res = await adminFetch<ApiResponse<AssignRiderResult | null>>(
+    `/api/admin/orders/${orderId}/auto-assign`,
+    { method: 'POST', body: JSON.stringify({}) },
+  );
+  return res.data;
+}
+
+export async function reassignRider(orderId: string, riderProfileId: string): Promise<AssignRiderResult> {
+  const res = await adminFetch<ApiResponse<AssignRiderResult>>(
+    `/api/admin/orders/${orderId}/reassign-rider`,
+    { method: 'POST', body: JSON.stringify({ riderProfileId }) },
+  );
   return res.data;
 }
 
@@ -153,5 +354,115 @@ export async function getMetricsOverview(): Promise<MetricsOverview> {
 
 export async function getFraudMetrics(): Promise<FraudMetrics> {
   const res = await adminFetch<ApiResponse<FraudMetrics>>('/api/admin/metrics/fraud');
+  return res.data;
+}
+
+// ─── Reviews (BFF: /api/admin/reviews/*) ───────────────────────────────────
+
+export interface AdminReviewListItem {
+  id: string;
+  rating: number;
+  title: string | null;
+  review: string | null;
+  status: string;
+  reportReason: string | null;
+  createdAt: string;
+  store: { id: string; name: string; slug: string } | null;
+  buyer: { name: string } | null;
+}
+
+export interface PlatformReviewAnalytics {
+  platformRating: number;
+  totalReviews: number;
+  distribution: Record<string, number>;
+  bestRatedStores: { id: string; name: string; slug: string; ratingAvg: number; ratingCount: number }[];
+  worstRatedStores: { id: string; name: string; slug: string; ratingAvg: number; ratingCount: number }[];
+}
+
+export async function listReviews(params?: {
+  status?: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<{ data: AdminReviewListItem[]; meta?: { total: number } }> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set('status', params.status);
+  if (params?.page) qs.set('page', String(params.page));
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.search) qs.set('search', params.search);
+  const suffix = qs.size ? `?${qs.toString()}` : '';
+  const res = await adminFetch<ApiResponse<AdminReviewListItem[]>>(`/api/admin/reviews${suffix}`);
+  return { data: res.data, meta: res.meta as { total: number } | undefined };
+}
+
+export async function getReviewAnalytics(): Promise<PlatformReviewAnalytics> {
+  const res = await adminFetch<ApiResponse<PlatformReviewAnalytics>>('/api/admin/reviews/analytics');
+  return res.data;
+}
+
+// ─── Promotions (BFF: /api/admin/promotions/*) ─────────────────────────────
+
+export interface AdminPromotionListItem {
+  id: string;
+  name: string;
+  offerType: string;
+  usedCount: number;
+  isActive: boolean;
+  store?: { id: string; name: string; slug: string } | null;
+}
+
+export interface AdminCouponListItem {
+  id: string;
+  code: string;
+  name: string;
+  usedCount: number;
+  isActive: boolean;
+  store?: { id: string; name: string; slug: string } | null;
+}
+
+export async function listPromotions(params?: {
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ promotions: AdminPromotionListItem[]; coupons: AdminCouponListItem[] }> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set('status', params.status);
+  if (params?.page) qs.set('page', String(params.page));
+  if (params?.limit) qs.set('limit', String(params.limit));
+  const suffix = qs.size ? `?${qs.toString()}` : '';
+  const res = await adminFetch<ApiResponse<{ promotions: AdminPromotionListItem[]; coupons: AdminCouponListItem[] }>>(
+    `/api/admin/promotions${suffix}`,
+  );
+  return res.data;
+}
+
+export async function suspendCoupon(id: string) {
+  const res = await adminFetch<ApiResponse<AdminCouponListItem>>(
+    `/api/admin/promotions/coupons/${id}/suspend`,
+    { method: 'POST', body: '{}' },
+  );
+  return res.data;
+}
+
+export async function createPlatformCampaign(payload: Record<string, unknown>) {
+  const res = await adminFetch<ApiResponse<AdminCouponListItem>>('/api/admin/promotions/campaigns', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.data;
+}
+
+export async function moderateReview(
+  id: string,
+  action: 'approve' | 'hide' | 'restore' | 'remove',
+  reason?: string,
+): Promise<AdminReviewListItem> {
+  const res = await adminFetch<ApiResponse<AdminReviewListItem>>(
+    `/api/admin/reviews/${id}/${action}`,
+    {
+      method: 'POST',
+      body: JSON.stringify(reason ? { reason } : {}),
+    },
+  );
   return res.data;
 }

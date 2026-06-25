@@ -8,6 +8,7 @@ import {
 import { KycStatus, MerchantProfile, Prisma, RoleName } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { VerificationBlocklistService } from './verification-blocklist.service';
 import { CreateMerchantProfileDto } from './dto/create-merchant-profile.dto';
 import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
 
@@ -18,6 +19,7 @@ export class MerchantService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly blocklist: VerificationBlocklistService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -33,6 +35,19 @@ export class MerchantService {
     if (existing) {
       throw new ConflictException('Merchant profile already exists for this account');
     }
+
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { phone: true, email: true },
+    });
+
+    await this.blocklist.assertNotBlocked({
+      phone: user.phone,
+      email: user.email,
+      gstNumber: dto.gstNumber,
+      panNumber: dto.panNumber,
+    });
+    await this.blocklist.assertUserNotBlacklisted(userId);
 
     const merchantRole = await this.prisma.role.findUniqueOrThrow({
       where: { name: RoleName.MERCHANT },
@@ -102,10 +117,21 @@ export class MerchantService {
     dto: UpdateMerchantProfileDto,
     ipAddress?: string,
   ): Promise<MerchantProfile> {
-    const profile = await this.prisma.merchantProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.merchantProfile.findUnique({
+      where: { userId },
+      include: { user: { select: { phone: true, email: true } } },
+    });
     if (!profile) {
       throw new NotFoundException('Merchant profile not found');
     }
+
+    await this.blocklist.assertNotBlocked({
+      phone: profile.user.phone,
+      email: profile.user.email,
+      gstNumber: dto.gstNumber ?? profile.gstNumber,
+      panNumber: dto.panNumber ?? profile.panNumber,
+    });
+    await this.blocklist.assertMerchantProfileNotBlacklisted(profile.id);
 
     const updated = await this.prisma.merchantProfile.update({
       where: { userId },
@@ -133,12 +159,28 @@ export class MerchantService {
   // ---------------------------------------------------------------------------
 
   async requireMerchantProfile(userId: string): Promise<MerchantProfile> {
-    const profile = await this.prisma.merchantProfile.findUnique({ where: { userId } });
+    if (!userId?.trim()) {
+      throw new ForbiddenException('Authentication required');
+    }
+
+    const profile = await this.prisma.merchantProfile.findUnique({
+      where: { userId },
+    });
+
     if (!profile) {
       throw new ForbiddenException(
         'Merchant profile required. Create one with POST /merchant/profile',
       );
     }
+
+    if (profile.userId !== userId) {
+      this.logger.error(
+        { userId, profileUserId: profile.userId, profileId: profile.id },
+        'Merchant profile ownership mismatch',
+      );
+      throw new ForbiddenException('Merchant profile ownership mismatch');
+    }
+
     return profile;
   }
 }

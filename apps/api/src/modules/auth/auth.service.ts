@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -8,6 +9,8 @@ import { DomainEventType, OtpPurpose, Prisma, RoleName, UserStatus } from '@pris
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
+import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
+import { TrustSafetyHookService } from '../trust-safety/trust-safety-hook.service';
 import { OtpService } from './otp.service';
 import { TokenService } from './token.service';
 import { RequestOtpDto } from './dto/request-otp.dto';
@@ -29,6 +32,8 @@ export interface MeResponse {
 export interface RequestOtpResponse {
   message: string;
   expiresIn: number;
+  /** Present when OTP was requested via email — use for verify step */
+  phone?: string;
 }
 
 export interface VerifyOtpResponse extends TokenPair {
@@ -46,6 +51,8 @@ export class AuthService {
     private readonly tokenService: TokenService,
     private readonly auditService: AuditService,
     private readonly domainEvents: DomainEventsService,
+    private readonly blocklist: VerificationBlocklistService,
+    private readonly trustSafety: TrustSafetyHookService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -55,11 +62,30 @@ export class AuthService {
   async requestOtp(
     dto: RequestOtpDto,
     ipAddress?: string,
+    userAgent?: string,
   ): Promise<RequestOtpResponse> {
-    const { phone, deviceId } = dto;
+    const viaEmail = Boolean(dto.email?.trim());
 
-    // Find or create user
-    let user = await this.prisma.user.findUnique({ where: { phone } });
+    if (!dto.phone && !dto.email?.trim()) {
+      throw new BadRequestException('Phone or email is required');
+    }
+
+    let phone: string;
+    let user = null as Awaited<ReturnType<typeof this.prisma.user.findUnique>> | null;
+
+    if (viaEmail) {
+      const email = dto.email!.trim().toLowerCase();
+      await this.blocklist.assertNotBlocked({ email });
+      user = await this.prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        throw new NotFoundException('No account found with this email');
+      }
+      phone = user.phone;
+    } else {
+      phone = dto.phone!;
+      await this.blocklist.assertNotBlocked({ phone });
+      user = await this.prisma.user.findUnique({ where: { phone } });
+    }
 
     if (!user) {
       user = await this.prisma.user.create({
@@ -77,23 +103,30 @@ export class AuthService {
       throw new ForbiddenException('Account is not active');
     }
 
+    await this.blocklist.assertUserNotBlacklisted(user.id);
+
     const purpose =
       user.phoneVerified ? OtpPurpose.LOGIN : OtpPurpose.REGISTRATION;
 
     const { expiresIn } = await this.otpService.requestOtp(phone, purpose, user.id);
+
+    void this.trustSafety.onOtpRequest(phone, ipAddress, dto.deviceId, userAgent).catch(() => {});
 
     // Domain event
     await this.domainEvents.emit(
       DomainEventType.OTP_REQUESTED,
       'user',
       user.id,
-      { phone, purpose: purpose as string },
+      { phone, purpose: purpose as string, viaEmail },
       { ipAddress: ipAddress ?? null },
     );
 
     return {
-      message: 'OTP sent successfully',
+      message: viaEmail
+        ? 'OTP sent to your registered mobile number'
+        : 'OTP sent successfully',
       expiresIn,
+      phone: viaEmail ? phone : undefined,
     };
   }
 
@@ -150,6 +183,13 @@ export class AuthService {
       ipAddress,
       userAgent,
     );
+
+    void this.trustSafety.onOtpVerified(user.id, {
+      deviceId,
+      ipAddress,
+      userAgent,
+      fingerprint: deviceId,
+    }).catch(() => {});
 
     // Audit + domain events
     const eventType = isNewUser ? DomainEventType.USER_REGISTERED : DomainEventType.USER_LOGGED_IN;

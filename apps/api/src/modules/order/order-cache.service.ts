@@ -43,4 +43,32 @@ export class OrderCacheService {
       this.logger.warn(`Order cache DEL error: ${(err as Error).message}`);
     }
   }
+
+  /** Invalidate detail + list caches for all roles after any order mutation. */
+  async invalidateAll(orderId: string): Promise<void> {
+    await this.invalidate(orderId);
+    try {
+      const patterns = [
+        'order:list:*',
+        'buyer:orders:*',
+        'merchant:orders:*',
+        'merchant:dashboard:*',
+        'merchant:analytics:*',
+        'admin:orders:*',
+        'admin:rider-assignments:*',
+        'admin:rider-queue:*',
+        'rider:queue:*',
+        'rider:orders:*',
+        'tracking:order:*',
+        'tracking:eta:*',
+        'tracking:fleet:live',
+      ];
+      for (const pattern of patterns) {
+        const keys = await this.redis.keys(pattern);
+        if (keys.length > 0) await this.redis.del(...keys);
+      }
+    } catch (err) {
+      this.logger.warn(`Order list cache purge failed: ${(err as Error).message}`);
+    }
+  }
 }

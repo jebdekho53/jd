@@ -1,5 +1,14 @@
 import { useAuthStore } from '@/store/auth-store';
 
+export function buildQuery(params: Record<string, string | number | boolean | undefined>): string {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== '') q.set(k, String(v));
+  }
+  const s = q.toString();
+  return s ? `?${s}` : '';
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,

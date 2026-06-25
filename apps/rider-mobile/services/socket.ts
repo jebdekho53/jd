@@ -167,7 +167,7 @@ export async function connectSocket(pollHandlers: SocketPollHandlers) {
   handlers = pollHandlers;
 
   const base = getBffBaseUrl();
-  if (!WS_URL && !base.includes('localhost') && !base.includes('127.0.0.1')) {
+  if (!WS_URL && !base.includes('127.0.0.1')) {
     startPolling();
     return;
   }

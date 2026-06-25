@@ -1,10 +1,14 @@
 import { merchantFetch } from '@/services/api/merchant-client';
 import type { ApiResponse, AuthUser, RequestOtpResult, VerifyOtpResult } from '@/types/auth';
 
-export async function requestOtp(phone: string): Promise<RequestOtpResult> {
+export type RequestOtpInput =
+  | { phone: string; email?: never }
+  | { email: string; phone?: never };
+
+export async function requestOtp(input: RequestOtpInput): Promise<RequestOtpResult> {
   const res = await merchantFetch<ApiResponse<RequestOtpResult>>('/api/auth/request-otp', {
     method: 'POST',
-    body: JSON.stringify({ phone, deviceName: 'merchant-web' }),
+    body: JSON.stringify({ ...input, deviceName: 'merchant-web' }),
   });
   return res.data;
 }

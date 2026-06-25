@@ -22,7 +22,7 @@ export function SearchInput({
   return (
     <div className={cn('relative', className)}>
       <Search
-        className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+        className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary"
         aria-hidden
       />
       <Input
@@ -30,7 +30,7 @@ export function SearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="pl-9"
+        className="h-11 rounded-xl border-border/60 bg-card pl-10 shadow-sm"
         autoFocus={autoFocus}
         aria-label={placeholder}
       />
