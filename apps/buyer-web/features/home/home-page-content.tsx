@@ -9,7 +9,7 @@ import { SectionHeader } from '@/components/v2/section-header';
 import { StoreGridSkeleton } from '@/components/common/skeletons';
 import { StoreCardItem } from '@/features/stores/store-card';
 import { useCategories, useDiscoverStores } from '@/hooks/use-buyer-queries';
-import { useLocationStore } from '@/store/ui-store';
+import { useEffectiveLocation } from '@/store/location-store';
 import { TopDealsSection } from '@/features/promotions/top-deals-section';
 import {
   FlashSalesSection,
@@ -58,7 +58,7 @@ function StoreSection({
 }
 
 export function HomePageContent() {
-  const { lat, lng } = useLocationStore();
+  const { lat, lng } = useEffectiveLocation();
   const { data: categories = [] } = useCategories();
   const hasLocation = Boolean(lat && lng);
 

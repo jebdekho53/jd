@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -16,7 +17,8 @@ import { Logo, LogoLink } from '@/components/brand/logo';
 import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
 import { useCartQuery } from '@/hooks/use-cart';
 import { useAuthStore } from '@/store/auth-store';
-import { useLocationStore } from '@/store/ui-store';
+import { useEffectiveLocation } from '@/store/location-store';
+import { LocationPickerModal } from '@/features/location/components/location-picker-modal';
 import { cn, formatCurrency } from '@/lib/utils';
 
 function CartBadge({ className }: { className?: string }) {
@@ -39,13 +41,15 @@ export function SiteHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { label } = useLocationStore();
+  const { label, isReady } = useEffectiveLocation();
+  const [locationOpen, setLocationOpen] = useState(false);
   const { data: cart } = useCartQuery();
   const cartTotal = cart?.totals.grandTotal ?? 0;
   const cartCount = cart?.itemCount ?? 0;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/50 bg-cream-1/95 backdrop-blur-md">
+    <>
+      <header className="sticky top-0 z-50 border-b border-border/50 bg-cream-1/95 backdrop-blur-md">
       <div className="mx-auto max-w-6xl px-4">
         {/* Desktop: single row */}
         <div className="hidden items-center gap-4 py-3 md:flex">
@@ -53,6 +57,7 @@ export function SiteHeader() {
 
           <button
             type="button"
+            onClick={() => setLocationOpen(true)}
             className="flex max-w-[200px] items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2 text-left transition hover:border-primary/30"
             aria-label={`Deliver to ${label}. Change location.`}
           >
@@ -61,7 +66,14 @@ export function SiteHeader() {
               <p className="text-[10px] font-medium uppercase tracking-wide text-jd-text-muted">
                 Deliver to
               </p>
-              <p className="truncate text-xs font-semibold text-jd-text-primary">{label}</p>
+              <p
+                className={cn(
+                  'truncate text-xs font-semibold',
+                  isReady ? 'text-jd-text-primary' : 'text-primary',
+                )}
+              >
+                {label}
+              </p>
             </div>
           </button>
 
@@ -124,13 +136,21 @@ export function SiteHeader() {
 
           <button
             type="button"
+            onClick={() => setLocationOpen(true)}
             className="flex w-full items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2 text-left"
             aria-label={`Deliver to ${label}`}
           >
             <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden />
             <div className="min-w-0 flex-1">
               <p className="text-[10px] text-jd-text-muted">Deliver to</p>
-              <p className="truncate text-xs font-semibold">{label}</p>
+              <p
+                className={cn(
+                  'truncate text-xs font-semibold',
+                  isReady ? 'text-jd-text-primary' : 'text-primary',
+                )}
+              >
+                {label}
+              </p>
             </div>
           </button>
 
@@ -147,6 +167,13 @@ export function SiteHeader() {
         </div>
       </div>
     </header>
+
+      <LocationPickerModal
+        open={locationOpen}
+        onClose={() => setLocationOpen(false)}
+        onConfirm={() => setLocationOpen(false)}
+      />
+    </>
   );
 }
 

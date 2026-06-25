@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { SectionHeader } from '@/components/v2/section-header';
 import { HorizontalCarousel } from '@/components/v2/horizontal-carousel';
 import { getFlashSales, getOffersNearYou, getRecommendedOffers } from '@/services/promotions/promotions-api';
-import { useLocationStore } from '@/store/ui-store';
+import { useEffectiveLocation } from '@/store/location-store';
 
 function Countdown({ expiresAt }: { expiresAt: string }) {
   const end = new Date(expiresAt).getTime();
@@ -53,7 +53,7 @@ export function FlashSalesSection() {
 }
 
 export function OffersNearYouSection() {
-  const { lat, lng } = useLocationStore();
+  const { lat, lng } = useEffectiveLocation();
   const { data: offers = [] } = useQuery({
     queryKey: ['offers', 'near', lat, lng],
     queryFn: () => getOffersNearYou(lat!, lng!),
@@ -82,7 +82,7 @@ export function OffersNearYouSection() {
 }
 
 export function RecommendedDealsSection({ buyerProfileId }: { buyerProfileId?: string }) {
-  const { lat, lng } = useLocationStore();
+  const { lat, lng } = useEffectiveLocation();
   const { data: deals = [] } = useQuery({
     queryKey: ['offers', 'recommended', buyerProfileId, lat, lng],
     queryFn: () => getRecommendedOffers(buyerProfileId!, lat ?? undefined, lng ?? undefined),

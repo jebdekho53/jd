@@ -77,6 +77,7 @@ export default function OnboardingPage() {
         <ProfileSetupModal
           open={step === 'profile' && !profileDone}
           phone={user?.phone ?? ''}
+          email={user?.email}
           onComplete={() => {
             setProfileDone(true);
             setStep('location');

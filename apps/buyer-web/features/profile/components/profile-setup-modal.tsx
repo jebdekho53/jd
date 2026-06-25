@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { Button, Input, Modal, Text } from '@/design-system/primitives';
 import { Logo } from '@/components/brand/logo';
 import { BRAND_NAME } from '@/lib/brand';
+import { formatPhoneDisplay, isPlaceholderPhone } from '@/lib/phone';
 import { useProfileStore } from '@/store/profile-store';
 
 interface ProfileSetupModalProps {
   open: boolean;
   phone: string;
+  email?: string | null;
   onComplete: (displayName: string | null) => void;
   dismissible?: boolean;
   onClose?: () => void;
@@ -17,12 +19,14 @@ interface ProfileSetupModalProps {
 export function ProfileSetupModal({
   open,
   phone,
+  email,
   onComplete,
   dismissible = false,
   onClose,
 }: ProfileSetupModalProps) {
   const { setDisplayName } = useProfileStore();
   const [name, setName] = useState('');
+  const showEmail = Boolean(email) && isPlaceholderPhone(phone);
 
   const handleSubmit = () => {
     const trimmed = name.trim();
@@ -45,10 +49,24 @@ export function ProfileSetupModal({
           <Logo size="md" />
         </div>
         <div className="rounded-lg bg-neutral-50 px-4 py-3">
-          <Text variant="caption">Phone (verified)</Text>
-          <Text variant="body" className="font-medium">
-            {phone}
-          </Text>
+          {showEmail ? (
+            <>
+              <Text variant="caption">Email</Text>
+              <Text variant="body" className="font-medium">
+                {email}
+              </Text>
+              <Text variant="caption" className="mt-2 block text-jd-text-muted">
+                Add your mobile number later from Profile for OTP login and delivery updates.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text variant="caption">Phone (verified)</Text>
+              <Text variant="body" className="font-medium">
+                {formatPhoneDisplay(phone)}
+              </Text>
+            </>
+          )}
         </div>
 
         <Input

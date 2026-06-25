@@ -11,10 +11,10 @@ import { StoreCardItem } from '@/features/stores/store-card';
 import { useCategories, useCategoryStores, useStoreProducts } from '@/hooks/use-buyer-queries';
 import { resolveCategorySlug, flattenCategories } from '@/lib/categories';
 import type { StoreCardWithCount } from '@/types/buyer';
-import { useLocationStore } from '@/store/ui-store';
+import { useEffectiveLocation } from '@/store/location-store';
 
 export function CategoryDetailContent({ slug }: { slug: string }) {
-  const { lat, lng } = useLocationStore();
+  const { lat, lng } = useEffectiveLocation();
   const { data: categories = [], isLoading: catLoading } = useCategories();
   const category = useMemo(
     () => resolveCategorySlug(categories, slug),

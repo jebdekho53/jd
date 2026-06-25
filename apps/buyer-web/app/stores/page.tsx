@@ -11,11 +11,11 @@ import { Button } from '@/components/ui/button';
 import { SectionHeader } from '@/components/v2/section-header';
 import { StoreCardItem } from '@/features/stores/store-card';
 import { useCategories, useDiscoverStores } from '@/hooks/use-buyer-queries';
-import { useLocationStore, useUiStore } from '@/store/ui-store';
+import { useEffectiveLocation, useUiStore } from '@/store/ui-store';
 
 export default function StoresPage() {
   const router = useRouter();
-  const { lat, lng } = useLocationStore();
+  const { lat, lng } = useEffectiveLocation();
   const { storeSearchQuery, setStoreSearchQuery } = useUiStore();
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<'distance' | 'rating'>('distance');

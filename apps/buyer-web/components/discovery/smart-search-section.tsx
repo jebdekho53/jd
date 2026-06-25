@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Mic, Search, X } from 'lucide-react';
 import { useSearchSuggestions, useTrendingSearches } from '@/hooks/use-buyer-queries';
 import { useSearchHistory } from '@/hooks/use-search-history';
-import { useLocationStore } from '@/store/ui-store';
+import { useEffectiveLocation } from '@/store/location-store';
 import { cn } from '@/lib/utils';
 
 interface SmartSearchSectionProps {
@@ -19,7 +19,7 @@ export function SmartSearchSection({
   initialQuery = '',
 }: SmartSearchSectionProps) {
   const router = useRouter();
-  const { lat, lng } = useLocationStore();
+  const { lat, lng } = useEffectiveLocation();
   const { items: recent, remove, clear } = useSearchHistory();
   const { data: trending } = useTrendingSearches('7d', lat ?? undefined, lng ?? undefined);
   const { data: suggestions } = useSearchSuggestions(initialQuery, lat ?? undefined, lng ?? undefined);

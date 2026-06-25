@@ -6,10 +6,11 @@ import { PageShell } from '@/components/layout/site-shell';
 import { Button } from '@/components/ui/button';
 import { StoreMap, StoreMapList } from '@/features/map/store-map';
 import { fetchMapStores } from '@/services/geo/map-api';
-import { useLocationStore } from '@/store/ui-store';
+import { useEffectiveLocation, useLocationStore } from '@/store/location-store';
 
 export function MapDiscoveryView() {
-  const { lat, lng, label, setLocation } = useLocationStore();
+  const { lat, lng, label } = useEffectiveLocation();
+  const setLocation = useLocationStore((s) => s.setLocation);
 
   const { data: stores = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ['map-stores', lat, lng],

@@ -14,7 +14,7 @@ import { StoreCardItem } from '@/features/stores/store-card';
 import { useCategories, useUnifiedSearch } from '@/hooks/use-buyer-queries';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useSearchHistory } from '@/hooks/use-search-history';
-import { useLocationStore } from '@/store/ui-store';
+import { useEffectiveLocation } from '@/store/location-store';
 import { resolveCollection } from '@/lib/search-collections';
 import { SectionHeader } from '@/components/v2/section-header';
 import type { UnifiedSearchProduct } from '@/types/buyer';
@@ -64,7 +64,7 @@ interface SearchPageContentProps {
 
 export function SearchPageContent({ forcedDeals = false }: SearchPageContentProps) {
   const searchParams = useSearchParams();
-  const { lat, lng } = useLocationStore();
+  const { lat, lng } = useEffectiveLocation();
   const storeIdParam = searchParams.get('storeId');
   const initialCategory = searchParams.get('categoryId');
   const collectionParam = searchParams.get('collection');

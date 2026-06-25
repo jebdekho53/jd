@@ -24,3 +24,9 @@ export function formatPhoneDisplay(input: string): string {
   if (digits.length <= 5) return digits;
   return `${digits.slice(0, 5)} ${digits.slice(5)}`;
 }
+
+/** Internal placeholder phones assigned during email-only signup (+910000xxxxxxx). */
+export function isPlaceholderPhone(phone: string | null | undefined): boolean {
+  if (!phone) return false;
+  return /^\+910000\d{7}$/.test(phone);
+}
