@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import helmet from 'helmet';
-import { json, urlencoded } from 'express';
+import { json, urlencoded, type Request, type Response } from 'express';
 import { join } from 'path';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { IoAdapter } from '@nestjs/platform-socket.io';
@@ -23,8 +23,8 @@ async function bootstrap(): Promise<void> {
   app.use(
     json({
       limit: '5mb',
-      verify: (req, _res, buf) => {
-        (req as { rawBody?: Buffer }).rawBody = buf;
+      verify: (req: Request, _res: Response, buf: Buffer) => {
+        (req as Request & { rawBody?: Buffer }).rawBody = buf;
       },
     }),
   );
