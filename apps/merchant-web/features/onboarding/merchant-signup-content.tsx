@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle2, ChevronLeft } from 'lucide-react';
 import { Button, Input, Select, useToast } from '@/design-system/primitives';
 import { MarketingShell } from '@/features/marketing/components/marketing-shell';
-import { OtpInput } from '@/features/auth/components/otp-input';
-import { useRequestOtpMutation, useVerifyOtpMutation } from '@/hooks/use-auth';
+import { MerchantOtpFlow } from '@/features/auth/components/merchant-otp-flow';
 import { useCitiesQuery } from '@/hooks/use-geo';
 import {
   updateOnboardingStep,
@@ -16,15 +16,17 @@ import {
   validateGst,
   submitApplication,
 } from '@/services/onboarding/onboarding-api';
+import type { VerifyOtpResult } from '@/types/auth';
 
 const STEPS = [
-  'Personal Details',
-  'Business Details',
-  'Store Details',
+  'Verify',
+  'Personal',
+  'Business',
+  'Store',
   'Documents',
-  'Bank Details',
-  'Review & Submit',
-];
+  'Bank',
+  'Review',
+] as const;
 
 const BUSINESS_TYPES = [
   'GROCERY', 'RESTAURANT', 'PHARMACY', 'ELECTRONICS', 'FASHION',
@@ -54,17 +56,13 @@ export function MerchantSignupContent() {
   const router = useRouter();
   const { toast } = useToast();
   const [step, setStep] = useState(0);
-  const [authStep, setAuthStep] = useState<'identifier' | 'otp'>('identifier');
-  const [mode, setMode] = useState<'phone' | 'email'>('phone');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [resolvedPhone, setResolvedPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [authenticated, setAuthenticated] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [verifiedPhone, setVerifiedPhone] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [uploadedDocs, setUploadedDocs] = useState<Set<string>>(new Set());
 
   const [form, setForm] = useState({
     ownerName: '',
-    password: '',
     businessName: '',
     businessType: 'GROCERY',
     gstNumber: '',
@@ -85,65 +83,51 @@ export function MerchantSignupContent() {
     upiId: '',
   });
 
-  const requestOtp = useRequestOtpMutation();
-  const verifyOtp = useVerifyOtpMutation();
   const { data: cities = [] } = useCitiesQuery();
 
-  useEffect(() => {
-    if (authenticated && step === 0) setStep(1);
-  }, [authenticated, step]);
-
-  const formatPhone = (raw: string) =>
-    raw.startsWith('+') ? raw : `+91${raw.replace(/^0/, '')}`;
-
-  const handleRequestOtp = async () => {
-    try {
-      if (mode === 'phone') {
-        const formatted = formatPhone(phone);
-        await requestOtp.mutateAsync({ phone: formatted });
-        setResolvedPhone(formatted);
-      } else {
-        const result = await requestOtp.mutateAsync({ email: email.trim().toLowerCase() });
-        if (!result.phone) throw new Error('Could not resolve phone for email');
-        setResolvedPhone(result.phone);
-      }
-      setAuthStep('otp');
-      toast('OTP sent', 'success');
-    } catch (e) {
-      toast((e as Error).message, 'error');
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    try {
-      await verifyOtp.mutateAsync({ phone: resolvedPhone, code: otp });
-      setAuthenticated(true);
-      toast('Verified! Continue your application.', 'success');
-    } catch (e) {
-      toast((e as Error).message, 'error');
-    }
+  const handleVerified = async (result: VerifyOtpResult) => {
+    setVerifiedPhone(result.user.phone ?? '');
+    setVerifiedEmail(result.user.email ?? '');
+    setStep(1);
+    toast('Verified! Complete your merchant application.', 'success');
   };
 
   const saveStep = async (stepKey: (typeof STEP_KEYS)[number], extra?: Record<string, unknown>) => {
-    await updateOnboardingStep({ stepKey, ...extra });
+    setSaving(true);
+    try {
+      await updateOnboardingStep({ stepKey, ...extra });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const nextFromPersonal = async () => {
+    if (!form.ownerName.trim()) {
+      toast('Owner name is required', 'error');
+      return;
+    }
     await saveStep('PERSONAL_DETAILS', {
-      ownerName: form.ownerName,
-      ownerEmail: email || undefined,
-      ownerPhone: resolvedPhone || formatPhone(phone),
-      password: form.password || undefined,
+      ownerName: form.ownerName.trim(),
+      ownerEmail: verifiedEmail || undefined,
+      ownerPhone: verifiedPhone,
     });
     setStep(2);
   };
 
   const nextFromBusiness = async () => {
+    if (!form.businessName.trim()) {
+      toast('Business name is required', 'error');
+      return;
+    }
+    if (!form.panNumber.trim()) {
+      toast('PAN number is required', 'error');
+      return;
+    }
     await saveStep('BUSINESS_DETAILS', {
-      businessName: form.businessName,
+      businessName: form.businessName.trim(),
       businessType: form.businessType,
       gstNumber: form.gstNumber || undefined,
-      panNumber: form.panNumber,
+      panNumber: form.panNumber.trim().toUpperCase(),
     });
     setStep(3);
   };
@@ -156,14 +140,18 @@ export function MerchantSignupContent() {
   };
 
   const nextFromStore = async () => {
+    if (!form.storeName.trim() || !form.storeAddress.trim() || !form.cityId || !form.pincode.trim()) {
+      toast('Store name, address, city and pincode are required', 'error');
+      return;
+    }
     const city = cities.find((c) => c.id === form.cityId);
     await saveStep('STORE_DETAILS', {
-      storeName: form.storeName,
-      storeAddress: form.storeAddress,
+      storeName: form.storeName.trim(),
+      storeAddress: form.storeAddress.trim(),
       state: form.state,
       city: city?.name ?? form.city,
       cityId: form.cityId,
-      pincode: form.pincode,
+      pincode: form.pincode.trim(),
       latitude: form.latitude,
       longitude: form.longitude,
       deliveryRadiusKm: form.deliveryRadiusKm,
@@ -174,187 +162,325 @@ export function MerchantSignupContent() {
   const handleFile = async (documentType: string, file: File) => {
     const reader = new FileReader();
     reader.onload = async () => {
-      await uploadOnboardingDocument({
-        documentType,
-        fileName: file.name,
-        mimeType: file.type,
-        fileUrl: reader.result as string,
-      });
-      toast(`${file.name} uploaded`, 'success');
+      try {
+        await uploadOnboardingDocument({
+          documentType,
+          fileName: file.name,
+          mimeType: file.type,
+          fileUrl: reader.result as string,
+        });
+        setUploadedDocs((prev) => new Set(prev).add(documentType));
+        toast(`${file.name} uploaded`, 'success');
+      } catch (e) {
+        toast((e as Error).message, 'error');
+      }
     };
     reader.readAsDataURL(file);
   };
 
   const nextFromBank = async () => {
+    if (!form.accountHolderName.trim() || !form.accountNumber.trim() || !form.ifsc.trim()) {
+      toast('Bank account details are required', 'error');
+      return;
+    }
     await saveBankAccount({
-      accountHolderName: form.accountHolderName,
-      accountNumber: form.accountNumber,
-      ifsc: form.ifsc,
-      upiId: form.upiId || undefined,
+      accountHolderName: form.accountHolderName.trim(),
+      accountNumber: form.accountNumber.trim(),
+      ifsc: form.ifsc.trim().toUpperCase(),
+      upiId: form.upiId.trim() || undefined,
     });
     setStep(6);
   };
 
   const handleSubmit = async () => {
+    setSaving(true);
     try {
       await submitApplication();
-      toast('Application submitted!', 'success');
+      toast('Application submitted! We will review it shortly.', 'success');
       router.push('/onboarding');
     } catch (e) {
       toast((e as Error).message, 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <MarketingShell>
       <div className="mx-auto max-w-2xl px-4 py-10">
-        <h1 className="text-2xl font-bold text-slate-900">Merchant Signup</h1>
-        <div className="mt-4 flex gap-1">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-slate-900">Become a JebDekho Partner</h1>
+          <p className="mt-2 text-slate-600">
+            Verify your identity, submit your store details, and go live after approval.
+          </p>
+        </div>
+
+        <div className="mt-8 flex gap-1 overflow-x-auto pb-1">
           {STEPS.map((label, i) => (
-            <div
-              key={label}
-              className={`h-1 flex-1 rounded ${i <= step ? 'bg-brand-600' : 'bg-slate-200'}`}
-              title={label}
-            />
+            <div key={label} className="min-w-[3rem] flex-1">
+              <div
+                className={`h-1.5 rounded-full transition-colors ${
+                  i <= step ? 'bg-brand-600' : 'bg-slate-200'
+                }`}
+              />
+              <p
+                className={`mt-1.5 truncate text-center text-[10px] font-medium ${
+                  i <= step ? 'text-brand-700' : 'text-slate-400'
+                }`}
+              >
+                {label}
+              </p>
+            </div>
           ))}
         </div>
 
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
-            initial={{ opacity: 0, x: 12 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -12 }}
-            className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
           >
             {step === 0 && (
               <div className="space-y-4">
-                <h2 className="font-semibold">Verify your identity</h2>
-                <div className="flex gap-2">
-                  <Button variant={mode === 'phone' ? 'primary' : 'secondary'} onClick={() => setMode('phone')}>
-                    Mobile OTP
-                  </Button>
-                  <Button variant={mode === 'email' ? 'primary' : 'secondary'} onClick={() => setMode('email')}>
-                    Email OTP
-                  </Button>
-                </div>
-                {authStep === 'identifier' ? (
-                  <>
-                    {mode === 'phone' ? (
-                      <Input placeholder="+91 mobile number" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                    ) : (
-                      <Input placeholder="Email address" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                    )}
-                    <Button onClick={handleRequestOtp} loading={requestOtp.isPending}>
-                      Send OTP
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <OtpInput value={otp} onChange={setOtp} />
-                    <Button onClick={handleVerifyOtp} loading={verifyOtp.isPending}>
-                      Verify OTP
-                    </Button>
-                  </>
-                )}
+                <MerchantOtpFlow
+                  heading="Step 1 — Verify mobile or email"
+                  submitLabel="Verify & Continue"
+                  onVerified={handleVerified}
+                />
                 <p className="text-center text-sm text-slate-500">
-                  Already registered? <Link href="/login" className="text-brand-600">Login</Link>
+                  Already registered?{' '}
+                  <Link href="/login" className="font-medium text-brand-600 hover:underline">
+                    Login
+                  </Link>
                 </p>
               </div>
             )}
 
             {step === 1 && (
               <div className="space-y-4">
-                <h2 className="font-semibold">Personal Details</h2>
-                <Input placeholder="Owner name" value={form.ownerName} onChange={(e) => setForm({ ...form, ownerName: e.target.value })} />
-                <Input placeholder="Password (optional)" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-                <Button onClick={nextFromPersonal}>Continue</Button>
+                <StepHeader title="Personal details" subtitle="Tell us about the store owner" />
+                {(verifiedPhone || verifiedEmail) && (
+                  <div className="rounded-xl border border-brand-100 bg-brand-50/50 px-4 py-3 text-sm text-slate-700">
+                    {verifiedPhone && <p>Phone: <span className="font-medium">{verifiedPhone}</span></p>}
+                    {verifiedEmail && <p>Email: <span className="font-medium">{verifiedEmail}</span></p>}
+                  </div>
+                )}
+                <Input
+                  label="Owner full name"
+                  placeholder="As per PAN / GST"
+                  value={form.ownerName}
+                  onChange={(e) => setForm({ ...form, ownerName: e.target.value })}
+                />
+                <div className="flex gap-3">
+                  <Button variant="secondary" onClick={() => setStep(0)}>
+                    <ChevronLeft className="mr-1 h-4 w-4" /> Back
+                  </Button>
+                  <Button className="flex-1" loading={saving} onClick={nextFromPersonal}>
+                    Continue
+                  </Button>
+                </div>
               </div>
             )}
 
             {step === 2 && (
               <div className="space-y-4">
-                <h2 className="font-semibold">Business Details</h2>
-                <Input placeholder="Business name" value={form.businessName} onChange={(e) => setForm({ ...form, businessName: e.target.value })} />
-                <Select value={form.businessType} onChange={(e) => setForm({ ...form, businessType: e.target.value })}>
+                <StepHeader title="Business details" subtitle="Legal entity information" />
+                <Input
+                  label="Business / legal name"
+                  value={form.businessName}
+                  onChange={(e) => setForm({ ...form, businessName: e.target.value })}
+                />
+                <Select
+                  label="Business type"
+                  value={form.businessType}
+                  onChange={(e) => setForm({ ...form, businessType: e.target.value })}
+                >
                   {BUSINESS_TYPES.map((t) => (
                     <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
                   ))}
                 </Select>
                 <div className="flex gap-2">
-                  <Input placeholder="GST (optional)" value={form.gstNumber} onChange={(e) => setForm({ ...form, gstNumber: e.target.value })} />
-                  <Button variant="secondary" onClick={checkGst}>Validate</Button>
+                  <Input
+                    label="GSTIN (optional)"
+                    placeholder="15-character GST"
+                    value={form.gstNumber}
+                    onChange={(e) => setForm({ ...form, gstNumber: e.target.value.toUpperCase() })}
+                    className="flex-1"
+                  />
+                  <Button variant="secondary" className="mt-6" onClick={checkGst}>
+                    Validate
+                  </Button>
                 </div>
                 {form.gstValid !== null && (
-                  <p className={form.gstValid ? 'text-brand-600' : 'text-red-600'}>
-                    {form.gstValid ? 'GST verified' : 'GST invalid'}
+                  <p className={form.gstValid ? 'text-sm text-brand-600' : 'text-sm text-red-600'}>
+                    {form.gstValid ? 'GST verified' : 'GST could not be verified'}
                   </p>
                 )}
-                <Input placeholder="PAN number" value={form.panNumber} onChange={(e) => setForm({ ...form, panNumber: e.target.value.toUpperCase() })} />
-                <Button onClick={nextFromBusiness}>Continue</Button>
+                <Input
+                  label="PAN number"
+                  value={form.panNumber}
+                  onChange={(e) => setForm({ ...form, panNumber: e.target.value.toUpperCase() })}
+                />
+                <NavButtons saving={saving} onBack={() => setStep(1)} onNext={nextFromBusiness} />
               </div>
             )}
 
             {step === 3 && (
               <div className="space-y-4">
-                <h2 className="font-semibold">Store Details</h2>
-                <Input placeholder="Store name" value={form.storeName} onChange={(e) => setForm({ ...form, storeName: e.target.value })} />
-                <Input placeholder="Store address" value={form.storeAddress} onChange={(e) => setForm({ ...form, storeAddress: e.target.value })} />
-                <Select value={form.cityId} onChange={(e) => setForm({ ...form, cityId: e.target.value })}>
+                <StepHeader title="Store details" subtitle="Where customers will order from" />
+                <Input
+                  label="Store display name"
+                  value={form.storeName}
+                  onChange={(e) => setForm({ ...form, storeName: e.target.value })}
+                />
+                <Input
+                  label="Store address"
+                  value={form.storeAddress}
+                  onChange={(e) => setForm({ ...form, storeAddress: e.target.value })}
+                />
+                <Select
+                  label="City"
+                  value={form.cityId}
+                  onChange={(e) => setForm({ ...form, cityId: e.target.value })}
+                >
                   <option value="">Select city</option>
                   {cities.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </Select>
-                <Input placeholder="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
-                <Input placeholder="Pincode" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value })} />
-                <div className="grid grid-cols-2 gap-2">
-                  <Input type="number" step="any" placeholder="Latitude" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: Number(e.target.value) })} />
-                  <Input type="number" step="any" placeholder="Longitude" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: Number(e.target.value) })} />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
+                  <Input label="Pincode" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })} />
                 </div>
-                <Input type="number" placeholder="Delivery radius (km)" value={form.deliveryRadiusKm} onChange={(e) => setForm({ ...form, deliveryRadiusKm: Number(e.target.value) })} />
-                <Button onClick={nextFromStore}>Continue</Button>
+                <Input
+                  label="Delivery radius (km)"
+                  type="number"
+                  value={form.deliveryRadiusKm}
+                  onChange={(e) => setForm({ ...form, deliveryRadiusKm: Number(e.target.value) })}
+                />
+                <NavButtons saving={saving} onBack={() => setStep(2)} onNext={nextFromStore} />
               </div>
             )}
 
             {step === 4 && (
               <div className="space-y-4">
-                <h2 className="font-semibold">Upload Documents</h2>
+                <StepHeader title="Documents" subtitle="Upload clear photos or PDFs" />
                 {DOC_TYPES.map((d) => (
-                  <label key={d.type} className="flex items-center justify-between rounded border border-slate-200 p-3">
-                    <span className="text-sm">{d.label}</span>
-                    <input type="file" accept="image/*,.pdf" onChange={(e) => e.target.files?.[0] && handleFile(d.type, e.target.files[0])} />
+                  <label
+                    key={d.type}
+                    className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-200 p-4 transition hover:border-brand-200 hover:bg-brand-50/30"
+                  >
+                    <span className="text-sm font-medium text-slate-700">{d.label}</span>
+                    <span className="flex items-center gap-2 text-sm text-slate-500">
+                      {uploadedDocs.has(d.type) && (
+                        <CheckCircle2 className="h-4 w-4 text-brand-600" aria-hidden />
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="text-xs"
+                        onChange={(e) => e.target.files?.[0] && handleFile(d.type, e.target.files[0])}
+                      />
+                    </span>
                   </label>
                 ))}
-                <Button onClick={() => setStep(5)}>Continue</Button>
+                <NavButtons saving={false} onBack={() => setStep(3)} onNext={() => setStep(5)} nextLabel="Continue" />
               </div>
             )}
 
             {step === 5 && (
               <div className="space-y-4">
-                <h2 className="font-semibold">Bank Details</h2>
-                <Input placeholder="Account holder name" value={form.accountHolderName} onChange={(e) => setForm({ ...form, accountHolderName: e.target.value })} />
-                <Input placeholder="Account number" value={form.accountNumber} onChange={(e) => setForm({ ...form, accountNumber: e.target.value })} />
-                <Input placeholder="IFSC" value={form.ifsc} onChange={(e) => setForm({ ...form, ifsc: e.target.value.toUpperCase() })} />
-                <Input placeholder="UPI ID (optional)" value={form.upiId} onChange={(e) => setForm({ ...form, upiId: e.target.value })} />
-                <Button onClick={nextFromBank}>Continue</Button>
+                <StepHeader title="Bank details" subtitle="For settlements and payouts" />
+                <Input
+                  label="Account holder name"
+                  value={form.accountHolderName}
+                  onChange={(e) => setForm({ ...form, accountHolderName: e.target.value })}
+                />
+                <Input
+                  label="Account number"
+                  value={form.accountNumber}
+                  onChange={(e) => setForm({ ...form, accountNumber: e.target.value.replace(/\D/g, '') })}
+                />
+                <Input
+                  label="IFSC code"
+                  value={form.ifsc}
+                  onChange={(e) => setForm({ ...form, ifsc: e.target.value.toUpperCase() })}
+                />
+                <Input
+                  label="UPI ID (optional)"
+                  value={form.upiId}
+                  onChange={(e) => setForm({ ...form, upiId: e.target.value })}
+                />
+                <NavButtons saving={saving} onBack={() => setStep(4)} onNext={nextFromBank} />
               </div>
             )}
 
             {step === 6 && (
               <div className="space-y-4">
-                <h2 className="font-semibold">Review & Submit</h2>
-                <dl className="space-y-2 text-sm">
-                  <div><dt className="text-slate-500">Business</dt><dd>{form.businessName}</dd></div>
-                  <div><dt className="text-slate-500">Store</dt><dd>{form.storeName}</dd></div>
-                  <div><dt className="text-slate-500">City</dt><dd>{cities.find((c) => c.id === form.cityId)?.name}</dd></div>
+                <StepHeader title="Review & submit" subtitle="Confirm before sending for approval" />
+                <dl className="divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm">
+                  <ReviewRow label="Owner" value={form.ownerName} />
+                  <ReviewRow label="Business" value={form.businessName} />
+                  <ReviewRow label="Store" value={form.storeName} />
+                  <ReviewRow label="City" value={cities.find((c) => c.id === form.cityId)?.name ?? '—'} />
+                  <ReviewRow label="Documents" value={`${uploadedDocs.size} uploaded`} />
                 </dl>
-                <Button onClick={handleSubmit}>Submit Application</Button>
+                <div className="flex gap-3">
+                  <Button variant="secondary" onClick={() => setStep(5)}>
+                    <ChevronLeft className="mr-1 h-4 w-4" /> Back
+                  </Button>
+                  <Button className="flex-1" loading={saving} onClick={handleSubmit}>
+                    Submit application
+                  </Button>
+                </div>
               </div>
             )}
           </motion.div>
         </AnimatePresence>
       </div>
     </MarketingShell>
+  );
+}
+
+function StepHeader({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+      <p className="text-sm text-slate-500">{subtitle}</p>
+    </div>
+  );
+}
+
+function NavButtons({
+  saving,
+  onBack,
+  onNext,
+  nextLabel = 'Continue',
+}: {
+  saving: boolean;
+  onBack: () => void;
+  onNext: () => void;
+  nextLabel?: string;
+}) {
+  return (
+    <div className="flex gap-3 pt-2">
+      <Button variant="secondary" onClick={onBack}>
+        <ChevronLeft className="mr-1 h-4 w-4" /> Back
+      </Button>
+      <Button className="flex-1" loading={saving} onClick={onNext}>
+        {nextLabel}
+      </Button>
+    </div>
+  );
+}
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4 px-4 py-3">
+      <dt className="text-slate-500">{label}</dt>
+      <dd className="font-medium text-slate-900">{value || '—'}</dd>
+    </div>
   );
 }

@@ -5,23 +5,33 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { useSessionQuery } from '@/hooks/use-auth';
 import { Spinner } from '@/design-system/primitives';
+import { fetchOnboardingStatus } from '@/services/onboarding/onboarding-api';
 
 export function AuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { user } = useAuthStore();
   const { status, data } = useSessionQuery();
 
-  const isMerchant = (data ?? user)?.roles.includes('MERCHANT') ?? false;
+  const sessionUser = data ?? user;
+  const isMerchant = sessionUser?.roles.includes('MERCHANT') ?? false;
 
   useEffect(() => {
-    if (status === 'error') {
+    if (status === 'pending') return;
+    if (!sessionUser) {
       router.replace('/login');
       return;
     }
-    if (status === 'success' && data && !isMerchant) {
-      router.replace('/signup');
+    if (!isMerchant) {
+      void (async () => {
+        try {
+          const appStatus = await fetchOnboardingStatus();
+          router.replace(appStatus.hasApplication ? '/onboarding' : '/signup');
+        } catch {
+          router.replace('/signup');
+        }
+      })();
     }
-  }, [status, data, isMerchant, router]);
+  }, [status, sessionUser, isMerchant, router]);
 
   if (status === 'pending') {
     return (
@@ -31,7 +41,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  if (status === 'error' || (status === 'success' && !isMerchant)) {
+  if (!sessionUser || !isMerchant) {
     return null;
   }
 

@@ -7,12 +7,13 @@ import { useAuthStore } from '@/store/auth-store';
 import { useStoreStore } from '@/store/store-store';
 
 export function useSessionQuery() {
-  const { setSession } = useAuthStore();
+  const { setSession, clearSession } = useAuthStore();
   return useQuery({
     queryKey: ['auth', 'me'],
     queryFn: async () => {
       const user = await fetchMe();
-      setSession(user);
+      if (user) setSession(user);
+      else clearSession();
       return user;
     },
     retry: false,

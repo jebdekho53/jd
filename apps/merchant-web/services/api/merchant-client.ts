@@ -35,16 +35,23 @@ export async function merchantFetch<T>(path: string, init?: RequestInit): Promis
     throw new ApiError('No internet connection', 0);
   }
 
-  if (res.status === 401) {
+  const body = await res.json().catch(() => ({}));
+
+  if (res.status === 401 && path !== '/api/auth/me') {
     useAuthStore.getState().clearSession();
     throw new ApiError('Session expired. Please log in again.', 401);
   }
 
-  const body = await res.json().catch(() => ({}));
-
   if (!res.ok) {
     const raw = (body as { message?: string | string[] })?.message ?? 'Something went wrong';
-    throw new ApiError(Array.isArray(raw) ? raw.join(', ') : String(raw), res.status);
+    const message = Array.isArray(raw) ? raw.join(', ') : String(raw);
+    if (res.status === 404 && path.startsWith('/api/auth/')) {
+      throw new ApiError(
+        'Auth service unavailable. Please redeploy merchant-web or contact support.',
+        404,
+      );
+    }
+    throw new ApiError(message, res.status);
   }
 
   return body as T;

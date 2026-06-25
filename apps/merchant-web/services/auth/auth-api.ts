@@ -1,4 +1,4 @@
-import { merchantFetch } from '@/services/api/merchant-client';
+import { merchantFetch, ApiError } from '@/services/api/merchant-client';
 import type { ApiResponse, AuthUser, RequestOtpResult, VerifyOtpResult } from '@/types/auth';
 
 export type RequestOtpInput =
@@ -21,9 +21,14 @@ export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpR
   return res.data;
 }
 
-export async function fetchMe(): Promise<AuthUser> {
-  const res = await merchantFetch<ApiResponse<AuthUser>>('/api/auth/me');
-  return res.data;
+export async function fetchMe(): Promise<AuthUser | null> {
+  try {
+    const res = await merchantFetch<ApiResponse<AuthUser>>('/api/auth/me');
+    return res.data;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) return null;
+    throw err;
+  }
 }
 
 export async function logoutSession(): Promise<void> {
