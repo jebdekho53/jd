@@ -42,8 +42,9 @@ module.exports = {
     {
       ...appDefaults,
       name: 'jebdekho-api',
-      script: 'apps/api/dist/main.js',
-      cwd: ROOT,
+      // pnpm: run from apps/api so node_modules resolve (not from monorepo root)
+      script: 'dist/main.js',
+      cwd: path.join(ROOT, 'apps/api'),
       max_memory_restart: '1G',
       error_file: `${LOG_DIR}/api-error.log`,
       out_file: `${LOG_DIR}/api-out.log`,

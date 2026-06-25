@@ -33,6 +33,14 @@ if grep -qE '^DEV_DEMO_OTP=$' "$ENV_FILE"; then
   sed -i '/^DEV_DEMO_OTP=$/d' "$ENV_FILE"
 fi
 
+# Boot without MSG91 / Razorpay until keys are configured
+if grep -qE '^SMS_PROVIDER=msg91$' "$ENV_FILE" && ! grep -qE '^MSG91_AUTH_KEY=.+' "$ENV_FILE"; then
+  echo "WARN: SMS_PROVIDER=msg91 but MSG91_AUTH_KEY empty — switching to console"
+  sed -i 's/^SMS_PROVIDER=msg91$/SMS_PROVIDER=console/' "$ENV_FILE"
+fi
+sed -i '/^MSG91_AUTH_KEY=$/d;/^MSG91_TEMPLATE_ID=$/d;/^MSG91_DLT_TE_ID=$/d' "$ENV_FILE"
+sed -i '/^RAZORPAY_KEY_SECRET=$/d;/^RAZORPAY_WEBHOOK_SECRET=$/d;/^RAZORPAY_KEY_ID=$/d' "$ENV_FILE"
+
 node --env-file="$ENV_FILE" <<'NODE'
 const required = ['DATABASE_URL', 'REDIS_URL', 'JWT_PRIVATE_KEY', 'JWT_PUBLIC_KEY', 'CORS_ORIGINS'];
 for (const key of required) {
@@ -58,3 +66,9 @@ console.log('Production env verification passed');
 NODE
 
 echo "OK: .env.production verified"
+
+# pnpm isolates deps per package — API must run from apps/api
+(
+  cd "${ROOT}/apps/api"
+  node -e "require('express'); console.log('OK: API node_modules resolve from apps/api')"
+)

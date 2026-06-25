@@ -65,17 +65,17 @@ export const validationSchema = Joi.object({
     then: Joi.required(),
     otherwise: Joi.optional(),
   }),
-  MSG91_DLT_TE_ID: Joi.string().optional(),
+  MSG91_DLT_TE_ID: Joi.string().empty('').optional(),
 
   // Rate limiting
   THROTTLE_TTL: Joi.number().default(60000),
   THROTTLE_LIMIT: Joi.number().default(100),
   AUTH_THROTTLE_LIMIT: Joi.number().default(10),
 
-  // Razorpay
-  RAZORPAY_KEY_ID: Joi.string().optional(),
-  RAZORPAY_KEY_SECRET: Joi.string().optional(),
-  RAZORPAY_WEBHOOK_SECRET: Joi.string().optional(),
+  // Razorpay — empty until live keys are configured (COD works without)
+  RAZORPAY_KEY_ID: Joi.string().empty('').optional(),
+  RAZORPAY_KEY_SECRET: Joi.string().empty('').optional(),
+  RAZORPAY_WEBHOOK_SECRET: Joi.string().empty('').optional(),
 
   // CORS
   CORS_ORIGINS: Joi.string().when('NODE_ENV', {

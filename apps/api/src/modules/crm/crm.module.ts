@@ -27,6 +27,11 @@ import { MerchantCrmController } from './merchant-crm.controller';
     CrmAnalyticsService,
     MerchantCrmService,
   ],
-  exports: [MarketingEventService, NotificationOrchestratorService, SegmentService],
+  exports: [
+    MarketingEventService,
+    NotificationOrchestratorService,
+    SegmentService,
+    MerchantCrmService,
+  ],
 })
 export class CrmModule {}
