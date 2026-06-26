@@ -14,6 +14,7 @@ const withSerwist = withSerwistInit({
   disable: process.env.NODE_ENV === 'development',
   additionalPrecacheEntries: [
     { url: '/offline', revision },
+    { url: '/checkout/razorpay-callback', revision },
     { url: '/pwa/icons/icon-192.png', revision },
     { url: '/pwa/icons/icon-512.png', revision },
   ],

@@ -4,6 +4,11 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/design-system/primitives';
 import { useCreateRazorpayOrderMutation, useVerifyPaymentMutation } from '@/hooks/use-checkout';
 import { useToast } from '@/design-system/primitives';
+import {
+  isStandalonePwa,
+  RAZORPAY_CHECKOUT_SESSION_KEY,
+  razorpayCallbackUrl,
+} from '@/lib/pwa/standalone';
 import type { RazorpayOrderResult } from '@/types/checkout';
 
 declare global {
@@ -48,7 +53,6 @@ export function RazorpayButton({
   const { toast } = useToast();
 
   useEffect(() => {
-    // Preload Razorpay script
     loadRazorpayScript();
   }, []);
 
@@ -68,41 +72,57 @@ export function RazorpayButton({
       return;
     }
 
+    const standalone = isStandalonePwa();
+    if (standalone) {
+      sessionStorage.setItem(RAZORPAY_CHECKOUT_SESSION_KEY, checkoutId);
+    }
+
+    const modalHandler = async (response: {
+      razorpay_order_id: string;
+      razorpay_payment_id: string;
+      razorpay_signature: string;
+    }) => {
+      try {
+        const result = await verifyPayment.mutateAsync({
+          checkoutId,
+          razorpayOrderId: response.razorpay_order_id,
+          razorpayPaymentId: response.razorpay_payment_id,
+          razorpaySignature: response.razorpay_signature,
+        });
+        toast('Payment successful!', 'success');
+        onSuccess(result.orderId, result.orderNumber);
+      } catch {
+        toast('Payment verification failed. Contact support.', 'error');
+        onFailure?.('Verification failed');
+      }
+    };
+
     const rzp = new window.Razorpay({
       key: orderData.keyId,
       amount: orderData.amount,
       currency: orderData.currency,
       order_id: orderData.razorpayOrderId,
-      name: 'Jebdekho',
+      name: 'JebDekho',
       description: `Order ${orderData.orderNumber}`,
       prefill: {
         name: orderData.buyerName,
         contact: orderData.buyerPhone,
       },
-      theme: { color: '#059669' },
-      handler: async (response: {
-        razorpay_order_id: string;
-        razorpay_payment_id: string;
-        razorpay_signature: string;
-      }) => {
-        try {
-          const result = await verifyPayment.mutateAsync({
-            checkoutId,
-            razorpayOrderId: response.razorpay_order_id,
-            razorpayPaymentId: response.razorpay_payment_id,
-            razorpaySignature: response.razorpay_signature,
-          });
-          toast('Payment successful!', 'success');
-          onSuccess(result.orderId, result.orderNumber);
-        } catch {
-          toast('Payment verification failed. Contact support.', 'error');
-          onFailure?.('Verification failed');
-        }
-      },
+      theme: { color: '#16a34a' },
+      ...(standalone
+        ? {
+            redirect: true,
+            callback_url: razorpayCallbackUrl(),
+          }
+        : {
+            handler: modalHandler,
+          }),
       modal: {
         ondismiss: () => {
-          toast('Payment cancelled', 'info');
+          if (!standalone) toast('Payment cancelled', 'info');
         },
+        // Avoid nested iframe issues on mobile installed apps
+        ...(standalone ? {} : { confirm_close: true }),
       },
     });
 

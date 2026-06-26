@@ -12,6 +12,7 @@ import { CouponPanel } from '@/features/checkout/components/coupon-panel';
 import { DeliverabilityPanel } from '@/features/checkout/components/deliverability-panel';
 import { WalletCheckoutPanel } from '@/features/checkout/components/wallet-checkout-panel';
 import { RazorpayButton } from '@/features/checkout/components/razorpay-button';
+import { PwaPaymentBanner } from '@/components/pwa/pwa-payment-banner';
 import { ActionBar, Button, Spinner } from '@/design-system/primitives';
 import { useCartQuery } from '@/hooks/use-cart';
 import { formatCurrency } from '@/lib/utils';
@@ -230,6 +231,7 @@ export function CheckoutPageContent() {
                     />
 
                     <div className="mt-4">
+                      {paymentMethod === 'RAZORPAY' && <PwaPaymentBanner />}
                       <PaymentMethodSelector
                         value={paymentMethod}
                         onChange={(method) => {
