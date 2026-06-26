@@ -15,6 +15,7 @@ import { RazorpayButton } from '@/features/checkout/components/razorpay-button';
 import { ActionBar, Button, Spinner } from '@/design-system/primitives';
 import { useCartQuery } from '@/hooks/use-cart';
 import { formatCurrency } from '@/lib/utils';
+import { getDefaultSavedDeliveryAddress } from '@/lib/saved-delivery-address';
 import { useInitiateCodCheckoutMutation, useInitiateCheckoutMutation } from '@/hooks/use-checkout';
 import { useCheckoutStore } from '@/store/checkout-store';
 import { useToast } from '@/design-system/primitives';
@@ -45,6 +46,30 @@ export function CheckoutPageContent() {
   const initiateCod = useInitiateCodCheckoutMutation();
   const initiateOnline = useInitiateCheckoutMutation();
   const [openRazorpayAfterInit, setOpenRazorpayAfterInit] = useState(false);
+  const [checkoutReady, setCheckoutReady] = useState(false);
+
+  useEffect(() => {
+    const applySavedAddress = () => {
+      const state = useCheckoutStore.getState();
+      if (!state.deliveryAddress) {
+        const saved = getDefaultSavedDeliveryAddress();
+        if (saved) {
+          state.setDeliveryAddress(saved);
+          state.setStep('payment');
+        }
+      } else if (state.step === 'address') {
+        state.setStep('payment');
+      }
+      setCheckoutReady(true);
+    };
+
+    if (useCheckoutStore.persist.hasHydrated()) {
+      applySavedAddress();
+      return;
+    }
+
+    return useCheckoutStore.persist.onFinishHydration(applySavedAddress);
+  }, []);
 
   useEffect(() => {
     if (!isLoading && (!cart || cart.items.length === 0)) {
@@ -97,7 +122,7 @@ export function CheckoutPageContent() {
     reset();
   };
 
-  if (isLoading) {
+  if (isLoading || !checkoutReady) {
     return (
       <PageShell>
         <div className="flex min-h-[50vh] items-center justify-center">

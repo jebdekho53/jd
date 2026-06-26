@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { CheckoutStep, DeliveryAddress, PaymentMethod } from '@/types/checkout';
 
 interface CheckoutState {
@@ -48,16 +49,33 @@ const INITIAL: Omit<
   confirmedOrderNumber: null,
 };
 
-export const useCheckoutStore = create<CheckoutState>((set) => ({
-  ...INITIAL,
-  setStep: (step) => set({ step }),
-  setPaymentMethod: (paymentMethod) => set({ paymentMethod }),
-  setDeliveryAddress: (deliveryAddress) => set({ deliveryAddress }),
-  setBuyerNote: (buyerNote) => set({ buyerNote }),
-  setWalletAmountToUse: (walletAmountToUse) => set({ walletAmountToUse }),
-  setRewardPointsToRedeem: (rewardPointsToRedeem) => set({ rewardPointsToRedeem }),
-  setCheckoutId: (checkoutId) => set({ checkoutId }),
-  setConfirmed: (confirmedOrderId, confirmedOrderNumber) =>
-    set({ confirmedOrderId, confirmedOrderNumber, step: 'done' }),
-  reset: () => set(INITIAL),
-}));
+export const useCheckoutStore = create<CheckoutState>()(
+  persist(
+    (set, get) => ({
+      ...INITIAL,
+      setStep: (step) => set({ step }),
+      setPaymentMethod: (paymentMethod) => set({ paymentMethod }),
+      setDeliveryAddress: (deliveryAddress) => set({ deliveryAddress }),
+      setBuyerNote: (buyerNote) => set({ buyerNote }),
+      setWalletAmountToUse: (walletAmountToUse) => set({ walletAmountToUse }),
+      setRewardPointsToRedeem: (rewardPointsToRedeem) => set({ rewardPointsToRedeem }),
+      setCheckoutId: (checkoutId) => set({ checkoutId }),
+      setConfirmed: (confirmedOrderId, confirmedOrderNumber) =>
+        set({ confirmedOrderId, confirmedOrderNumber, step: 'done' }),
+      reset: () =>
+        set({
+          ...INITIAL,
+          deliveryAddress: get().deliveryAddress,
+          paymentMethod: get().paymentMethod,
+        }),
+    }),
+    {
+      name: 'jebdekho-checkout-v1',
+      partialize: (s) => ({
+        deliveryAddress: s.deliveryAddress,
+        paymentMethod: s.paymentMethod,
+        buyerNote: s.buyerNote,
+      }),
+    },
+  ),
+);

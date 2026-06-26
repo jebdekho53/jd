@@ -19,12 +19,14 @@ export const cartKeys = {
 
 export function useCartQuery() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const authLoading = useAuthStore((s) => s.loading);
   return useQuery({
     queryKey: cartKeys.current(),
     queryFn: getCart,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !authLoading,
     staleTime: 30_000,
     retry: 1,
+    placeholderData: (previous) => previous,
   });
 }
 

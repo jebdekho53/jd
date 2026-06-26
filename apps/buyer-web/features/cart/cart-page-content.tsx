@@ -17,7 +17,8 @@ import { useGuestCartStore } from '@/store/guest-cart-store';
 
 export function CartPageContent() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { data: cart, isLoading } = useCartQuery();
+  const authLoading = useAuthStore((s) => s.loading);
+  const { data: cart, isLoading, isFetching } = useCartQuery();
   const guestItems = useGuestCartStore((s) => s.items);
   const guestStoreName = useGuestCartStore((s) => s.storeName);
   const guestSetQty = useGuestCartStore((s) => s.setQuantity);
@@ -53,6 +54,8 @@ export function CartPageContent() {
 
   const hasServerItems = Boolean(cart && cart.items.length > 0);
   const hasItems = hasServerItems || isGuestCart;
+  const cartBootstrapping =
+    authLoading || (isAuthenticated && (isLoading || isFetching) && !cart);
 
   return (
     <PageShell hideMobileNav={hasItems}>
@@ -83,7 +86,7 @@ export function CartPageContent() {
           )}
         </div>
 
-        {isAuthenticated && isLoading ? (
+        {cartBootstrapping ? (
           <CartSkeleton />
         ) : isGuestCart ? (
           <div className="space-y-4">

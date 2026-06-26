@@ -11,6 +11,10 @@ import {
   LocationSearchInput,
   type LocationSelection,
 } from '@/features/location/components/location-search-input';
+import {
+  getDefaultSavedDeliveryAddress,
+  persistDeliveryAddress,
+} from '@/lib/saved-delivery-address';
 import type { DeliveryAddress } from '@/types/checkout';
 
 const schema = z.object({
@@ -88,6 +92,7 @@ export function AddressForm({ onNext }: AddressFormProps) {
       locationCityId: data.locationCityId,
     };
     setDeliveryAddress(addr);
+    persistDeliveryAddress(addr);
     onNext();
   };
 

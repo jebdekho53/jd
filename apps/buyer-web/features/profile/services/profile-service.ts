@@ -50,9 +50,9 @@ export async function updateProfile(input: UpdateProfileInput): Promise<ProfileU
 
 export async function getProfileStats(): Promise<ProfileStats> {
   const [ordersResult, addresses, wishlist] = await Promise.all([
-    listOrders({ limit: 100 }).catch(() => ({
+    listOrders({ limit: 50 }).catch(() => ({
       orders: [],
-      meta: { page: 1, limit: 100, total: 0, totalPages: 0 },
+      meta: { page: 1, limit: 50, total: 0, totalPages: 0 },
     })),
     Promise.resolve(getAddresses()),
     Promise.resolve(getWishlistItems()),
