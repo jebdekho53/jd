@@ -21,6 +21,7 @@ import type {
   SearchSuggestionsDto,
   SearchTrendingDto,
 } from './dto/search-discovery.dto';
+import { buildProductTextSearchWhere } from './product-text-search.util';
 
 const PRODUCT_VISIBLE: Prisma.ProductWhereInput = {
   isActive: true,
@@ -517,14 +518,13 @@ export class SearchDiscoveryService {
 
   private async fetchProductCandidates(dto: BuyerSearchDto, grantMap: Map<string, Set<string>>) {
     const categoryId = dto.subcategoryId ?? dto.categoryId;
+    const q = dto.q?.trim();
     const where: Prisma.ProductWhereInput = {
       ...PRODUCT_VISIBLE,
       store: STORE_VISIBLE,
       ...(dto.storeId && { storeId: dto.storeId }),
       ...(categoryId && { categoryId }),
-      ...(dto.q && {
-        searchIndex: { searchText: { contains: dto.q.toLowerCase() }, isActive: true },
-      }),
+      ...(q && buildProductTextSearchWhere(q)),
     };
 
     const rows = await this.prisma.product.findMany({

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PageShell } from '@/components/layout/site-shell';
 import { SmartSearchSection } from '@/components/discovery/smart-search-section';
 import { CategoryExplorer } from '@/components/discovery/category-explorer';
@@ -63,6 +63,7 @@ interface SearchPageContentProps {
 }
 
 export function SearchPageContent({ forcedDeals = false }: SearchPageContentProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { lat, lng } = useEffectiveLocation();
   const storeIdParam = searchParams.get('storeId');
@@ -76,6 +77,11 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
   const [tab, setTab] = useState<(typeof TABS)[number]>('all');
   const [sort, setSort] = useState<string>('relevance');
   const { add: addHistory } = useSearchHistory();
+
+  const qFromUrl = searchParams.get('q') ?? collection?.q ?? '';
+  useEffect(() => {
+    setQuery(qFromUrl);
+  }, [qFromUrl]);
 
   const debouncedQuery = useDebounce(query, 400);
 
@@ -120,7 +126,12 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
           </p>
         </div>
 
-        <SmartSearchSection initialQuery={query} autoFocus />
+        <SmartSearchSection
+          value={query}
+          onChange={setQuery}
+          onSubmit={(q) => router.replace(`/search?q=${encodeURIComponent(q)}`)}
+          autoFocus
+        />
 
         {showEmptyPrompt && (
           <>

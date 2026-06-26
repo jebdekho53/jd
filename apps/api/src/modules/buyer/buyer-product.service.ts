@@ -16,6 +16,7 @@ import {
   textRelevanceScore,
 } from '../search-discovery/search-ranking.util';
 import { checkStoreDeliverability } from '../../common/utils/geospatial.util';
+import { buildProductTextSearchWhere } from '../search-discovery/product-text-search.util';
 
 // ── Response shapes ───────────────────────────────────────────────────────────
 
@@ -230,12 +231,7 @@ export class BuyerProductService {
         ...(dto.storeId && { storeId: dto.storeId }),
         ...(dto.subcategoryId && { categoryId: dto.subcategoryId }),
         ...(!dto.subcategoryId && dto.categoryId && { categoryId: dto.categoryId }),
-        ...(dto.q && {
-          searchIndex: {
-            searchText: { contains: dto.q.toLowerCase() },
-            isActive: true,
-          },
-        }),
+        ...(dto.q && buildProductTextSearchWhere(dto.q)),
       };
 
       // Fetch a larger batch so JS ranking has enough candidates.

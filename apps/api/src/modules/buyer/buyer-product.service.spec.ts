@@ -137,10 +137,29 @@ describe('BuyerProductService', () => {
       expect(products[0].store.slug).toBe('test-store');
     });
 
-    it('omits searchIndex filter when q is not provided', async () => {
+    it('omits text filter when q is not provided', async () => {
       await service.searchProducts({ page: 1, limit: 20 });
       const whereArg = mockPrisma.product.findMany.mock.calls[0][0].where;
+      expect(whereArg.OR).toBeUndefined();
       expect(whereArg.searchIndex).toBeUndefined();
+    });
+
+    it('uses OR filter for search index, name, and brand when q is provided', async () => {
+      await service.searchProducts({ q: 'milk', page: 1, limit: 20 });
+      const whereArg = mockPrisma.product.findMany.mock.calls[0][0].where;
+      expect(whereArg.OR).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            searchIndex: { searchText: { contains: 'milk' }, isActive: true },
+          }),
+          expect.objectContaining({
+            name: { contains: 'milk', mode: 'insensitive' },
+          }),
+          expect.objectContaining({
+            brand: { contains: 'milk', mode: 'insensitive' },
+          }),
+        ]),
+      );
     });
 
     it('applies storeId filter when provided', async () => {

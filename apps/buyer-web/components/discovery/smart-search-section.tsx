@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Mic, Search, X } from 'lucide-react';
 import { useSearchSuggestions, useTrendingSearches } from '@/hooks/use-buyer-queries';
 import { useSearchHistory } from '@/hooks/use-search-history';
@@ -10,24 +11,43 @@ import { cn } from '@/lib/utils';
 interface SmartSearchSectionProps {
   className?: string;
   autoFocus?: boolean;
+  /** Controlled query value */
+  value?: string;
+  onChange?: (value: string) => void;
+  /** Called on submit; defaults to navigating to /search?q= */
+  onSubmit?: (query: string) => void;
+  /** @deprecated Use `value` — kept for pages without controlled state */
   initialQuery?: string;
 }
 
 export function SmartSearchSection({
   className,
   autoFocus = false,
+  value: controlledValue,
+  onChange: controlledOnChange,
+  onSubmit,
   initialQuery = '',
 }: SmartSearchSectionProps) {
   const router = useRouter();
   const { lat, lng } = useEffectiveLocation();
   const { items: recent, remove, clear } = useSearchHistory();
+  const [internalQuery, setInternalQuery] = useState(initialQuery);
+
+  const query = controlledValue !== undefined ? controlledValue : internalQuery;
+  const setQuery = controlledOnChange ?? setInternalQuery;
+
   const { data: trending } = useTrendingSearches('7d', lat ?? undefined, lng ?? undefined);
-  const { data: suggestions } = useSearchSuggestions(initialQuery, lat ?? undefined, lng ?? undefined);
+  const { data: suggestions } = useSearchSuggestions(query, lat ?? undefined, lng ?? undefined);
 
   const handleSubmit = (q: string) => {
     const trimmed = q.trim();
     if (trimmed.length < 2) return;
-    router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+    setQuery(trimmed);
+    if (onSubmit) {
+      onSubmit(trimmed);
+    } else {
+      router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+    }
   };
 
   const trendingQueries =
@@ -44,8 +64,7 @@ export function SmartSearchSection({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          const fd = new FormData(e.currentTarget);
-          handleSubmit(String(fd.get('q') ?? ''));
+          handleSubmit(query);
         }}
         className="relative"
       >
@@ -53,7 +72,8 @@ export function SmartSearchSection({
         <input
           name="q"
           type="search"
-          defaultValue={initialQuery}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
           autoFocus={autoFocus}
           placeholder="Search products, stores, brands, categories…"
           className="h-12 w-full rounded-xl border border-border/60 bg-cream-1 pl-10 pr-12 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
