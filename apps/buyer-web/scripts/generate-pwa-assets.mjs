@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * Generates PWA icons, splash screens, and screenshots from public/logo.png
+ * Generates PWA icons, splash screens, and screenshots from public/logo.png.
+ * Optional — committed assets under public/pwa/ are used when sharp is unavailable.
  */
+import { access } from 'node:fs/promises';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import sharp from 'sharp';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
@@ -13,6 +14,30 @@ const logoPath = path.join(root, 'public/logo.png');
 const iconsDir = path.join(root, 'public/pwa/icons');
 const splashDir = path.join(root, 'public/pwa/splash');
 const shotsDir = path.join(root, 'public/pwa/screenshots');
+const markerIcon = path.join(iconsDir, 'icon-192.png');
+
+async function hasCommittedAssets() {
+  try {
+    await access(markerIcon);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+let sharp;
+try {
+  sharp = (await import('sharp')).default;
+} catch {
+  if (await hasCommittedAssets()) {
+    console.log('sharp not installed — using committed PWA assets in public/pwa/');
+    process.exit(0);
+  }
+  console.error(
+    'sharp is required to generate PWA assets. Run: pnpm add -D sharp (in apps/buyer-web)',
+  );
+  process.exit(1);
+}
 
 const GREEN = '#16a34a';
 const GREEN_DARK = '#15803d';

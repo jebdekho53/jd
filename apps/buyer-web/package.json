@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 3000",
-    "build": "node scripts/generate-pwa-assets.mjs && next build",
+    "build": "next build",
     "pwa:assets": "node scripts/generate-pwa-assets.mjs",
     "start": "next start --port 3000",
     "lint": "next lint"
