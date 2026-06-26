@@ -20,7 +20,7 @@ interface CheckoutState {
   setBuyerNote: (note: string) => void;
   setWalletAmountToUse: (amount: number) => void;
   setRewardPointsToRedeem: (points: number) => void;
-  setCheckoutId: (id: string) => void;
+  setCheckoutId: (id: string | null) => void;
   setConfirmed: (orderId: string, orderNumber: string) => void;
   reset: () => void;
 }
