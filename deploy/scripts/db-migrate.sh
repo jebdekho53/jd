@@ -11,6 +11,9 @@ if [[ -f .env.production ]]; then
   set +a
 fi
 
+echo "Generating Prisma client..."
+pnpm db:generate
+
 echo "Migration status (before):"
 pnpm exec prisma migrate status --schema=prisma/schema.prisma || true
 

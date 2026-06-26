@@ -22,6 +22,9 @@ echo "==> Migrate database"
 echo "==> Seed platform roles"
 pnpm db:seed:platform
 
+echo "==> Seed master location directory"
+pnpm db:seed:locations
+
 echo "==> Build"
 ./deploy/scripts/build-production.sh
 

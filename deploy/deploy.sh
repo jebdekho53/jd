@@ -47,6 +47,12 @@ log "Seeding platform roles (idempotent)..."
   pnpm db:seed:platform
 )
 
+log "Seeding master location directory (idempotent)..."
+(
+  unset NODE_ENV
+  pnpm db:seed:locations
+)
+
 log "Building production apps..."
 chmod +x deploy/scripts/build-production.sh
 ./deploy/scripts/build-production.sh

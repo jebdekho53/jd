@@ -17,6 +17,11 @@ type IdMap = Map<string, string>;
 async function seedStates(): Promise<IdMap> {
   const map = new Map<string, string>();
   for (const s of DIRECTORY_STATES) {
+    if (!prisma.locationState) {
+      throw new Error(
+        'Prisma client is missing LocationState. Run: pnpm db:generate && pnpm db:migrate:prod',
+      );
+    }
     const row = await prisma.locationState.upsert({
       where: { code: s.code },
       update: { name: s.name, slug: slugify(s.name), isActive: true },
