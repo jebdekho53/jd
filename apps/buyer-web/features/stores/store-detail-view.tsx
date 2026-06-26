@@ -123,11 +123,15 @@ export function StoreDetailView({ slug }: StoreDetailViewProps) {
                   {store.address.line1}, {store.address.pincode}
                 </p>
               </div>
-              {store.logoUrl && (
-                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border">
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border bg-muted">
+                {store.logoUrl ? (
                   <Image src={store.logoUrl} alt="" fill className="object-cover" />
-                </div>
-              )}
+                ) : (
+                  <span className="flex h-full items-center justify-center text-lg font-bold text-muted-foreground">
+                    {store.name.charAt(0)}
+                  </span>
+                )}
+              </div>
             </div>
 
             {store.description && (

@@ -639,3 +639,37 @@ export async function importMasterLocations(csv: string): Promise<ImportLocation
 export function exportMasterLocations(): void {
   window.location.href = '/api/admin/locations/export';
 }
+
+// ─── Media coverage ───────────────────────────────────────────────────────────
+
+export interface MediaCoverageReport {
+  totals: {
+    productsWithoutImages: number;
+    storesWithoutLogo: number;
+    storesWithoutBanner: number;
+    categoriesWithoutImages: number;
+  };
+  samples: {
+    products: {
+      id: string;
+      name: string;
+      storeId: string;
+      isActive: boolean;
+      store: { name: string };
+    }[];
+    storesMissingLogo: { id: string; name: string; status: string }[];
+    storesMissingBanner: { id: string; name: string; status: string }[];
+    categories: {
+      id: string;
+      name: string;
+      parentId: string | null;
+      isActive: boolean;
+      parent: { name: string } | null;
+    }[];
+  };
+}
+
+export async function fetchMediaCoverage(): Promise<MediaCoverageReport> {
+  const res = await adminFetch<ApiResponse<MediaCoverageReport>>('/api/admin/media/image-coverage');
+  return res.data;
+}

@@ -98,7 +98,7 @@ export class ProductService {
           brand: dto.brand,
           sku: dto.sku,
           categoryId: dto.categoryId,
-          imageUrls: dto.imageUrls ?? [],
+          imageUrls: dto.imageUrls,
           basePrice: dto.basePrice,
           mrp: dto.mrp,
           unit: dto.unit ?? 'piece',
@@ -312,6 +312,10 @@ export class ProductService {
 
     if (dto.categoryId) {
       await this.validateProductCategory(storeId, dto.categoryId);
+    }
+
+    if (dto.imageUrls !== undefined && dto.imageUrls.length === 0) {
+      throw new BadRequestException('At least one product image is required');
     }
 
     // Regenerate slug if name changed
@@ -606,7 +610,11 @@ export class ProductService {
     ipAddress?: string,
   ): Promise<{ id: string; isActive: boolean }> {
     await this.assertStoreOwnership(userId, storeId);
-    await this.fetchProductWithRelations(productId, storeId);
+    const product = await this.fetchProductWithRelations(productId, storeId);
+
+    if (dto.isActive && (!product.imageUrls || product.imageUrls.length === 0)) {
+      throw new BadRequestException('Product must have at least one image before activation');
+    }
 
     const updated = await this.prisma.$transaction([
       this.prisma.product.update({

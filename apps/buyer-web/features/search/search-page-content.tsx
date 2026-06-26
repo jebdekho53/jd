@@ -219,7 +219,7 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
                         name: store.name,
                         slug: store.slug,
                         logoUrl: store.logoUrl,
-                        bannerUrl: null,
+                        bannerUrl: store.bannerUrl,
                         description: null,
                         address: { line1: '', line2: null, pincode: '' },
                         ratingAvg: store.ratingAvg,

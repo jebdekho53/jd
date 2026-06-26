@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@jebdekho/image-utils": "workspace:*",
     "@jebdekho/order-timeline": "workspace:*",
     "@jebdekho/web-config": "workspace:*",
     "@hookform/resolvers": "^3.9.1",

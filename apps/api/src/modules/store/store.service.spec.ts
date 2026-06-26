@@ -8,8 +8,11 @@ import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
+import { LocationDirectoryService } from '../location-directory/location-directory.service';
 
 const MERCHANT_PROFILE = { id: 'mp-1', userId: 'u-1', businessName: 'Test' };
+const SAMPLE_LOGO = 'https://cdn.example.com/logo.jpg';
+const SAMPLE_BANNER = 'https://cdn.example.com/banner.jpg';
 const MOCK_STORE_BASE = {
   id: 's-1',
   merchantProfileId: 'mp-1',
@@ -57,6 +60,14 @@ const mockBlocklist = {
   assertUserNotBlacklisted: jest.fn(),
   assertMerchantProfileNotBlacklisted: jest.fn(),
 };
+const mockLocations = {
+  validatePincode: jest.fn().mockResolvedValue({
+    pincode: '110001',
+    cityId: 'city-1',
+    locationCityId: null,
+    locationAreaId: null,
+  }),
+};
 
 describe('StoreService', () => {
   let service: StoreService;
@@ -71,6 +82,7 @@ describe('StoreService', () => {
         { provide: DomainEventsService, useValue: mockDomainEvents },
         { provide: BuyerCacheService, useValue: mockBuyerCache },
         { provide: VerificationBlocklistService, useValue: mockBlocklist },
+        { provide: LocationDirectoryService, useValue: mockLocations },
       ],
     }).compile();
     service = module.get<StoreService>(StoreService);
@@ -107,6 +119,8 @@ describe('StoreService', () => {
         latitude: 28.5,
         longitude: 77.2,
         cityId: 'city-1',
+        logoUrl: SAMPLE_LOGO,
+        bannerUrl: SAMPLE_BANNER,
       });
 
       expect(result.status).toBe(StoreStatus.DRAFT);
@@ -128,6 +142,8 @@ describe('StoreService', () => {
           latitude: 28.5,
           longitude: 77.2,
           cityId: 'nonexistent',
+          logoUrl: SAMPLE_LOGO,
+          bannerUrl: SAMPLE_BANNER,
         }),
       ).rejects.toThrow(BadRequestException);
     });
@@ -142,6 +158,8 @@ describe('StoreService', () => {
       const readyStore = {
         ...MOCK_STORE_BASE,
         email: 'store@test.com',
+        logoUrl: 'https://cdn.example.com/logo.jpg',
+        bannerUrl: 'https://cdn.example.com/banner.jpg',
         hours: [{ dayOfWeek: 'MONDAY', openTime: '09:00', closeTime: '22:00', isClosed: false }],
         storeZones: [{ zone: { id: 'z-1', name: 'South Delhi', slug: 'south-delhi' } }],
         storeServiceAreas: [],
@@ -191,11 +209,31 @@ describe('StoreService', () => {
         ...MOCK_STORE_BASE,
         phone: null,
         email: null,
+        logoUrl: null,
+        bannerUrl: null,
         hours: [], // no hours
         storeZones: [], // no zones
         storeServiceAreas: [],
       };
       mockPrisma.store.findUnique.mockResolvedValue(incompleteStore);
+
+      await expect(service.submitForReview('u-1', 's-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when logo or banner missing', async () => {
+      mockMerchant.requireMerchantProfile.mockResolvedValue(MERCHANT_PROFILE);
+      mockPrisma.store.findUnique.mockResolvedValue({
+        ...MOCK_STORE_BASE,
+        phone: '+919876543210',
+        email: 'store@test.com',
+        logoUrl: null,
+        bannerUrl: 'https://cdn.example.com/banner.jpg',
+        hours: [{ dayOfWeek: 'MONDAY', openTime: '09:00', closeTime: '22:00', isClosed: false }],
+        storeZones: [{ zone: { id: 'z-1', name: 'South Delhi', slug: 'south-delhi' } }],
+        storeServiceAreas: [],
+        verificationDocuments: [],
+        documentRequests: [],
+      });
 
       await expect(service.submitForReview('u-1', 's-1')).rejects.toThrow(BadRequestException);
     });

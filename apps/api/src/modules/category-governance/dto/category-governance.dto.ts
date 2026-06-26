@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -21,10 +22,9 @@ export class CreateGlobalCategoryDto {
   @IsString()
   parentId?: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(2_000_000)
-  imageUrl?: string;
+  @IsNotEmpty()
+  @IsUrl()
+  imageUrl!: string;
 
   @IsOptional()
   @IsString()
@@ -49,8 +49,7 @@ export class UpdateGlobalCategoryDto {
   name?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(2_000_000)
+  @IsUrl()
   imageUrl?: string;
 
   @IsOptional()

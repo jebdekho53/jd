@@ -172,6 +172,20 @@ describe('Category Governance', () => {
     expect(mockBuyerCache.deleteByPattern).toHaveBeenCalled();
   });
 
+  it('blocks activating category without image', async () => {
+    mockPrisma.category.findFirst.mockResolvedValue({
+      id: 'cat-1',
+      name: 'Grocery',
+      imageUrl: null,
+      isActive: false,
+      parentId: null,
+    });
+
+    await expect(
+      adminService.updateGlobalCategory('cat-1', { isActive: true }, 'admin-1'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
   it('admin cannot approve rejected request without revoke', async () => {
     mockPrisma.storeCategoryRequest.findUnique.mockResolvedValue({
       id: 'req-1',

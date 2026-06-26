@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,6 +9,7 @@ import Link from 'next/link';
 import { Card, CardHeader, CardBody, Button, Input, Textarea, Spinner } from '@/design-system/primitives';
 import { StoreStatusBadge } from './components/store-status-badge';
 import { StoreDocumentsPanel } from './components/store-documents-panel';
+import { ImageUploadField } from '@/features/media/components/image-upload-field';
 import {
   useStoreQuery,
   useUpdateStoreMutation,
@@ -38,6 +40,9 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
   const submitMutation = useSubmitStoreForReviewMutation(storeId);
   const uploadDocMutation = useUploadVerificationDocumentMutation(storeId);
   const submitDocsMutation = useSubmitDocumentsForReviewMutation(storeId);
+  const [logoUrl, setLogoUrl] = useState('');
+  const [bannerUrl, setBannerUrl] = useState('');
+  const [brandingDirty, setBrandingDirty] = useState(false);
 
   const { register, handleSubmit, formState: { errors, isDirty } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -53,6 +58,24 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
       avgPrepTimeMins: store.avgPrepTimeMins,
     } : undefined,
   });
+
+  useEffect(() => {
+    if (store) {
+      setLogoUrl(store.logoUrl ?? '');
+      setBannerUrl(store.bannerUrl ?? '');
+      setBrandingDirty(false);
+    }
+  }, [store]);
+
+  const onSaveBranding = async () => {
+    try {
+      await updateMutation.mutateAsync({ logoUrl, bannerUrl });
+      setBrandingDirty(false);
+      toast('Store branding updated!', 'success');
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    }
+  };
 
   const onSave = async (data: FormData) => {
     try {
@@ -79,6 +102,8 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
   if (!store) return <p className="text-red-600">Store not found.</p>;
 
   const canEdit = store.status === 'DRAFT' && !store.merchantProfile?.isBlacklisted;
+  const canEditBranding =
+    (store.status === 'DRAFT' || store.status === 'APPROVED') && !store.merchantProfile?.isBlacklisted;
   const canSubmit = store.status === 'DRAFT' && !store.merchantProfile?.isBlacklisted;
   const showDocumentsPanel =
     store.status === 'DOCUMENTS_REQUIRED' && !store.merchantProfile?.isBlacklisted;
@@ -181,6 +206,52 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
           ) : null}
         </div>
       )}
+
+      <Card className="mb-4">
+        <CardHeader>
+          <h2 className="font-semibold text-slate-800">Store branding</h2>
+        </CardHeader>
+        <CardBody className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ImageUploadField
+              label="Store logo"
+              mode="square"
+              purpose="store-logo"
+              required={canSubmit}
+              value={logoUrl}
+              onChange={(url) => {
+                setLogoUrl(url);
+                setBrandingDirty(true);
+              }}
+              allowRemove={!canSubmit}
+            />
+            <ImageUploadField
+              label="Store banner"
+              mode="banner"
+              purpose="store-banner"
+              required={canSubmit}
+              value={bannerUrl}
+              onChange={(url) => {
+                setBannerUrl(url);
+                setBrandingDirty(true);
+              }}
+              allowRemove={!canSubmit}
+            />
+          </div>
+          {canEditBranding && (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={() => void onSaveBranding()}
+                loading={updateMutation.isPending}
+                disabled={!brandingDirty}
+              >
+                Save branding
+              </Button>
+            </div>
+          )}
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -138,6 +138,15 @@ export class AdminCategoryGovernanceService {
     });
     if (!category) throw new NotFoundException('Global category not found');
 
+    const nextImageUrl = dto.imageUrl !== undefined ? dto.imageUrl : category.imageUrl;
+    const nextIsActive = dto.isActive !== undefined ? dto.isActive : category.isActive;
+    if (nextIsActive && !nextImageUrl) {
+      throw new BadRequestException('Category image is required for active categories');
+    }
+    if (dto.imageUrl === null || dto.imageUrl === '') {
+      throw new BadRequestException('Category image cannot be removed');
+    }
+
     if (dto.name && dto.name !== category.name) {
       const slug = this.toSlug(dto.name);
       const conflict = await this.prisma.category.findFirst({

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { ArrowLeft, Edit2, ToggleLeft, ToggleRight } from 'lucide-react';
 import Link from 'next/link';
 import { Button, Card, CardHeader, CardBody, Badge, Spinner, Table, THead, TBody, Tr, Th, Td } from '@/design-system/primitives';
@@ -55,6 +56,21 @@ export function ProductDetailContent({ productId }: { productId: string }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader><h2 className="font-semibold">Product image</h2></CardHeader>
+          <CardBody>
+            <div className="relative mx-auto aspect-square w-full max-w-xs overflow-hidden rounded-xl bg-slate-100">
+              {product.imageUrls[0] ? (
+                <Image src={product.imageUrls[0]} alt={product.name} fill className="object-cover" unoptimized />
+              ) : (
+                <span className="flex h-full items-center justify-center text-4xl font-bold text-slate-300">
+                  {product.name.charAt(0)}
+                </span>
+              )}
+            </div>
+          </CardBody>
+        </Card>
+
         <Card>
           <CardHeader><h2 className="font-semibold">Details</h2></CardHeader>
           <CardBody className="space-y-3 text-sm">

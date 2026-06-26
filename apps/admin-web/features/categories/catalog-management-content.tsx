@@ -1,9 +1,10 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   createGlobalCategory,
   deleteGlobalCategory,
@@ -12,50 +13,21 @@ import {
 } from '@/services/admin-api';
 import type { GlobalCategory } from '@/types/category-governance';
 import { Badge, Button, Input, Modal } from '@/design-system';
+import { ImageUploadField } from '@/features/media/components/image-upload-field';
 
 type FormMode =
   | { type: 'create-parent' }
   | { type: 'create-child'; parent: GlobalCategory }
   | { type: 'edit'; category: GlobalCategory; parent?: GlobalCategory };
 
-function readImageFile(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-async function compressImageFile(file: File, maxDim = 512): Promise<string> {
-  const dataUrl = await readImageFile(file);
-  const img = document.createElement('img');
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
-
-  const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-  const width = Math.round(img.width * scale);
-  const height = Math.round(img.height * scale);
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return dataUrl;
-  ctx.drawImage(img, 0, 0, width, height);
-  return canvas.toDataURL('image/jpeg', 0.85);
-}
-
 export function CatalogManagementContent() {
   const qc = useQueryClient();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [formMode, setFormMode] = useState<FormMode | null>(null);
   const [name, setName] = useState('');
   const [sortOrder, setSortOrder] = useState(0);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const { data: categories = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'catalog'],
@@ -90,7 +62,7 @@ export function CatalogManagementContent() {
     setFormMode({ type: 'create-parent' });
     setName('');
     setSortOrder(categories.length);
-    setImageUrl(null);
+    setImageUrl('');
     setIsActive(true);
   }
 
@@ -98,38 +70,40 @@ export function CatalogManagementContent() {
     setFormMode({ type: 'create-child', parent });
     setName('');
     setSortOrder(parent.children.length);
-    setImageUrl(null);
+    setImageUrl('');
     setIsActive(true);
+    setImageError(null);
   }
 
   function openEdit(category: GlobalCategory, parent?: GlobalCategory) {
     setFormMode({ type: 'edit', category, parent });
     setName(category.name);
     setSortOrder(category.sortOrder);
-    setImageUrl(category.imageUrl);
+    setImageUrl(category.imageUrl ?? '');
     setIsActive(category.isActive);
+    setImageError(null);
   }
 
   function closeForm() {
     setFormMode(null);
-  }
-
-  async function handleImageChange(file: File | null) {
-    if (!file) return;
-    if (!file.type.startsWith('image/')) return;
-    const dataUrl = await compressImageFile(file);
-    setImageUrl(dataUrl);
+    setImageError(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!formMode || !name.trim()) return;
 
+    const isCreate = formMode.type === 'create-parent' || formMode.type === 'create-child';
+    if (isCreate && !imageUrl) {
+      setImageError('A square 1:1 image is required');
+      return;
+    }
+
     if (formMode.type === 'create-parent') {
       await createMutation.mutateAsync({
         name: name.trim(),
         sortOrder,
-        imageUrl: imageUrl ?? undefined,
+        imageUrl,
       });
       return;
     }
@@ -139,7 +113,7 @@ export function CatalogManagementContent() {
         name: name.trim(),
         parentId: formMode.parent.id,
         sortOrder,
-        imageUrl: imageUrl ?? undefined,
+        imageUrl,
       });
       return;
     }
@@ -149,7 +123,7 @@ export function CatalogManagementContent() {
       payload: {
         name: name.trim(),
         sortOrder,
-        imageUrl: imageUrl ?? undefined,
+        imageUrl: imageUrl || undefined,
         isActive,
       },
     });
@@ -171,10 +145,15 @@ export function CatalogManagementContent() {
         <p className="text-sm text-slate-600">
           Manage platform categories and subcategories. Disabled categories are hidden from buyers.
         </p>
-        <Button onClick={openCreateParent}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          New category
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/catalog/image-coverage">
+            <Button variant="outline">Image coverage</Button>
+          </Link>
+          <Button onClick={openCreateParent}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            New category
+          </Button>
+        </div>
       </div>
 
       {isLoading && <p className="text-sm text-slate-500">Loading catalog…</p>}
@@ -204,6 +183,9 @@ export function CatalogManagementContent() {
                   <Badge tone={parent.isActive ? 'success' : 'warning'}>
                     {parent.isActive ? 'Active' : 'Disabled'}
                   </Badge>
+                  {!parent.imageUrl && (
+                    <Badge tone="danger">Missing image</Badge>
+                  )}
                   <span className="text-xs text-slate-400">Sort {parent.sortOrder}</span>
                 </div>
                 <p className="text-xs text-slate-500">{parent.slug}</p>
@@ -242,9 +224,12 @@ export function CatalogManagementContent() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-slate-800">{child.name}</span>
-                        <Badge tone={child.isActive ? 'success' : 'warning'}>
-                          {child.isActive ? 'Active' : 'Disabled'}
-                        </Badge>
+                      <Badge tone={child.isActive ? 'success' : 'warning'}>
+                        {child.isActive ? 'Active' : 'Disabled'}
+                      </Badge>
+                      {!child.imageUrl && (
+                        <Badge tone="danger">Missing image</Badge>
+                      )}
                         <span className="text-xs text-slate-400">Sort {child.sortOrder}</span>
                       </div>
                       <p className="text-xs text-slate-500">{child.slug}</p>
@@ -318,35 +303,19 @@ export function CatalogManagementContent() {
             </label>
           )}
 
-          <div>
-            <p className="mb-2 text-sm font-medium text-slate-700">Image</p>
-            <div className="flex items-center gap-4">
-              {imageUrl ? (
-                <div className="relative h-16 w-16 overflow-hidden rounded-lg border">
-                  <Image src={imageUrl} alt="" fill className="object-cover" unoptimized />
-                </div>
-              ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed bg-slate-50 text-slate-400">
-                  <ImagePlus className="h-6 w-6" />
-                </div>
-              )}
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
-              />
-              <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-                Upload image
-              </Button>
-              {imageUrl && (
-                <Button type="button" variant="ghost" size="sm" onClick={() => setImageUrl(null)}>
-                  Remove
-                </Button>
-              )}
-            </div>
-          </div>
+          <ImageUploadField
+            label="Category image"
+            mode="square"
+            purpose="category"
+            required={formMode?.type === 'create-parent' || formMode?.type === 'create-child'}
+            value={imageUrl}
+            onChange={(url) => {
+              setImageUrl(url);
+              setImageError(null);
+            }}
+            error={imageError ?? undefined}
+            allowRemove={formMode?.type === 'edit'}
+          />
         </form>
       </Modal>
     </div>

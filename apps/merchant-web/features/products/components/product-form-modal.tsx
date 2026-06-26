@@ -8,6 +8,7 @@ import { Modal, Button, Input, Textarea, Select } from '@/design-system/primitiv
 import { useCreateProductMutation, useUpdateProductMutation } from '@/hooks/use-products';
 import { useApprovedCategoriesQuery } from '@/hooks/use-categories-governance';
 import { useToast } from '@/design-system/primitives';
+import { ImageUploadField } from '@/features/media/components/image-upload-field';
 import type { Product } from '@/types/product';
 
 const schema = z.object({
@@ -22,6 +23,7 @@ const schema = z.object({
   unit: z.string().optional(),
   quantity: z.coerce.number().min(0).optional(),
   lowStockThreshold: z.coerce.number().min(0).optional(),
+  imageUrl: z.string().url('Product image is required'),
 }).refine((d) => !d.mrp || d.basePrice <= d.mrp, {
   message: 'Price must be ≤ MRP',
   path: ['basePrice'],
@@ -59,7 +61,15 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
   const updateMutation = useUpdateProductMutation(storeId, editProduct?.id ?? '');
   const { data: categories } = useApprovedCategoriesQuery(storeId);
 
-  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<FormData>({
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    reset,
+    setValue,
+    formState: { errors },
+  } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
@@ -101,12 +111,14 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         unit: editProduct.unit ?? '',
         quantity: editProduct.variants[0]?.inventory?.availableQty ?? 0,
         lowStockThreshold: editProduct.variants[0]?.inventory?.lowStockThreshold ?? undefined,
+        imageUrl: editProduct.imageUrls[0] ?? '',
       });
     } else {
       reset({
         quantity: 10,
         lowStockThreshold: 5,
         unit: 'piece',
+        imageUrl: '',
       });
     }
   }, [editProduct, reset, open, categories]);
@@ -130,11 +142,12 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
     }
 
     try {
-      const { parentCategoryId: _p, subCategoryId: _s, ...rest } = data;
+      const { parentCategoryId: _p, subCategoryId: _s, imageUrl, ...rest } = data;
       const payload = {
         ...rest,
         sku: data.sku || undefined,
         categoryId,
+        imageUrls: [imageUrl],
       };
       if (editProduct) {
         await updateMutation.mutateAsync(payload);
@@ -165,6 +178,16 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
       }
     >
       <form id="product-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <ImageUploadField
+          label="Product image"
+          mode="square"
+          purpose="product"
+          required
+          value={watch('imageUrl')}
+          onChange={(url) => setValue('imageUrl', url, { shouldValidate: true })}
+          error={errors.imageUrl?.message}
+          allowRemove={false}
+        />
         <Input label="Product name *" error={errors.name?.message} {...register('name')} />
         <Textarea label="Description" {...register('description')} />
         <div className="grid grid-cols-2 gap-3">

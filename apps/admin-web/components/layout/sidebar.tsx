@@ -22,6 +22,7 @@ import {
   Package,
   Settings,
   MapPin,
+  ImageIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useSessionQuery, useLogoutMutation } from '@/hooks/use-auth';
@@ -36,7 +37,8 @@ const NAV = [
   { href: '/promotions', label: 'Promotions', icon: Tag },
   { href: '/campaigns', label: 'Campaigns', icon: Tag },
   { href: '/rewards', label: 'Rewards & Wallet', icon: Tag },
-  { href: '/categories', label: 'Categories', icon: FolderTree },
+  { href: '/catalog', label: 'Catalog', icon: FolderTree },
+  { href: '/catalog/image-coverage', label: 'Image Coverage', icon: ImageIcon },
   { href: '/category-requests', label: 'Category Requests', icon: Tags },
   { href: '/inventory', label: 'Inventory', icon: Shield },
   { href: '/orders', label: 'Orders', icon: ShoppingBag },

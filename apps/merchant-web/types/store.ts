@@ -99,7 +99,8 @@ export interface CreateStorePayload {
   pincode: string;
   latitude: number;
   longitude: number;
-  locality?: string;
+  logoUrl: string;
+  bannerUrl: string;
   locationPincodeId?: string;
   locationAreaId?: string;
   locationCityId?: string;

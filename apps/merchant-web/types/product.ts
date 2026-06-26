@@ -52,7 +52,7 @@ export interface CreateProductPayload {
   brand?: string;
   sku?: string;
   categoryId?: string;
-  imageUrls?: string[];
+  imageUrls: string[];
   basePrice: number;
   mrp?: number;
   unit?: string;

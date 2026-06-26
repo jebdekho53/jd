@@ -83,6 +83,14 @@ export class CreateStoreDto {
   @IsString()
   locationPincodeId?: string;
 
+  @ApiProperty({ example: 'https://cdn.example.com/logo.jpg' })
+  @IsUrl()
+  logoUrl!: string;
+
+  @ApiProperty({ example: 'https://cdn.example.com/banner.jpg' })
+  @IsUrl()
+  bannerUrl!: string;
+
   @ApiProperty({ required: false, example: 99, description: 'Minimum order amount in INR' })
   @IsOptional()
   @IsNumber()

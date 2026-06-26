@@ -168,6 +168,7 @@ export interface UnifiedSearchResult {
     name: string;
     slug: string;
     logoUrl: string | null;
+    bannerUrl: string | null;
     ratingAvg: number;
     distanceKm: number;
     etaMins: number;

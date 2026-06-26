@@ -21,6 +21,7 @@ import { UploadVerificationDocumentDto } from './dto/upload-verification-documen
 // Fields a merchant may edit on an APPROVED store
 const APPROVED_STORE_EDITABLE_FIELDS: Array<keyof UpdateStoreDto> = [
   'description', 'phone', 'email',
+  'logoUrl', 'bannerUrl',
   'minOrderAmount', 'deliveryFee', 'avgPrepTimeMins',
   'hours', 'zoneIds', 'serviceAreaIds',
 ];
@@ -118,6 +119,8 @@ export class StoreService {
           locationPincodeId: dto.locationPincodeId ?? validatedLocation.locationPincodeId,
           locationAreaId: dto.locationAreaId ?? validatedLocation.locationAreaId,
           locationCityId: dto.locationCityId ?? validatedLocation.locationCityId,
+          logoUrl: dto.logoUrl,
+          bannerUrl: dto.bannerUrl,
           minOrderAmount: dto.minOrderAmount ?? 0,
           deliveryFee: dto.deliveryFee ?? 0,
           avgPrepTimeMins: dto.avgPrepTimeMins ?? 15,
@@ -337,6 +340,8 @@ export class StoreService {
           ...(dto.latitude !== undefined && { latitude: dto.latitude }),
           ...(dto.longitude !== undefined && { longitude: dto.longitude }),
           ...(dto.cityId !== undefined && { cityId: dto.cityId }),
+          ...(dto.logoUrl !== undefined && { logoUrl: dto.logoUrl }),
+          ...(dto.bannerUrl !== undefined && { bannerUrl: dto.bannerUrl }),
           ...(dto.minOrderAmount !== undefined && { minOrderAmount: dto.minOrderAmount }),
           ...(dto.deliveryFee !== undefined && { deliveryFee: dto.deliveryFee }),
           ...(dto.avgPrepTimeMins !== undefined && { avgPrepTimeMins: dto.avgPrepTimeMins }),
@@ -692,6 +697,8 @@ export class StoreService {
     if (!store.email?.trim()) errors.push('Store email is required for billing');
     if (!store.storeZones?.length) errors.push('At least one delivery zone must be assigned');
     if (!store.hours?.length) errors.push('Store hours must be configured');
+    if (!store.logoUrl?.trim()) errors.push('Store logo (1:1) is required');
+    if (!store.bannerUrl?.trim()) errors.push('Store banner image is required');
 
     if (!profile?.businessName?.trim()) errors.push('Business name is required on merchant profile');
     if (!profile?.gstNumber?.trim()) errors.push('GSTIN is required for billing and tax compliance');

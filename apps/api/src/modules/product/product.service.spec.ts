@@ -7,10 +7,12 @@ import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { StoreCategoryAccessService } from '../category-governance/store-category-access.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { InventoryCacheService } from '../inventory/inventory-cache.service';
 
 const mockInventoryService = {
   adjustAvailableQty: jest.fn(),
 };
+const mockInventoryCache = { invalidateForStores: jest.fn() };
 
 const mockCategoryAccess = {
   assertCategoryApproved: jest.fn(),
@@ -18,6 +20,9 @@ const mockCategoryAccess = {
 };
 
 const MERCHANT_PROFILE = { id: 'mp-1', userId: 'u-1' };
+const SAMPLE_IMAGE = 'https://cdn.example.com/product.jpg';
+const SAMPLE_LOGO = 'https://cdn.example.com/logo.jpg';
+const SAMPLE_BANNER = 'https://cdn.example.com/banner.jpg';
 const STORE = { id: 's-1', merchantProfileId: 'mp-1', deletedAt: null };
 const VARIANT = {
   id: 'v-1',
@@ -52,6 +57,7 @@ const PRODUCT = {
   isActive: true,
   deletedAt: null,
   tags: [],
+  imageUrls: ['https://cdn.example.com/milk.jpg'],
   variants: [{ ...VARIANT, inventory: INVENTORY }],
   category: null,
 };
@@ -82,6 +88,7 @@ describe('ProductService', () => {
         { provide: DomainEventsService, useValue: mockEvents },
         { provide: StoreCategoryAccessService, useValue: mockCategoryAccess },
         { provide: InventoryService, useValue: mockInventoryService },
+        { provide: InventoryCacheService, useValue: mockInventoryCache },
       ],
     }).compile();
     service = module.get<ProductService>(ProductService);
@@ -109,6 +116,7 @@ describe('ProductService', () => {
         name: 'Amul Milk',
         basePrice: 49,
         mrp: 59,
+        imageUrls: ['https://cdn.example.com/milk.jpg'],
       });
 
       expect(mockPrisma.product.create).toHaveBeenCalled();
@@ -122,7 +130,12 @@ describe('ProductService', () => {
       mockPrisma.product.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.createProduct('u-1', 's-1', { name: 'Test', basePrice: 100, mrp: 50 }),
+        service.createProduct('u-1', 's-1', {
+          name: 'Test',
+          basePrice: 100,
+          mrp: 50,
+          imageUrls: [SAMPLE_IMAGE],
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -131,7 +144,11 @@ describe('ProductService', () => {
       mockPrisma.store.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.createProduct('u-1', 's-99', { name: 'Test', basePrice: 10 }),
+        service.createProduct('u-1', 's-99', {
+          name: 'Test',
+          basePrice: 10,
+          imageUrls: [SAMPLE_IMAGE],
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -199,6 +216,24 @@ describe('ProductService', () => {
 
       const result = await service.updatePrice('u-1', 's-1', 'p-1', 'v-1', { price: 45 });
       expect(result.price).toBe(45);
+    });
+  });
+
+  // ── updateProductStatus ───────────────────────────────────────────────────
+
+  describe('updateStatus', () => {
+    it('throws BadRequestException when activating product without images', async () => {
+      mockMerchant.requireMerchantProfile.mockResolvedValue(MERCHANT_PROFILE);
+      mockPrisma.store.findFirst.mockResolvedValue(STORE);
+      mockPrisma.product.findUnique.mockResolvedValue({
+        ...PRODUCT,
+        imageUrls: [],
+        isActive: false,
+      });
+
+      await expect(
+        service.updateStatus('u-1', 's-1', 'p-1', { isActive: true }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

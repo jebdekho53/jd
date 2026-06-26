@@ -8,6 +8,8 @@ import {
   IsUrl,
   Length,
   Min,
+  ArrayMinSize,
+  ArrayMaxSize,
   ValidateNested,
   Matches,
 } from 'class-validator';
@@ -90,11 +92,12 @@ export class CreateProductDto {
   @IsString()
   categoryId?: string;
 
-  @ApiProperty({ required: false, example: ['https://cdn.example.com/milk.png'], type: [String] })
-  @IsOptional()
+  @ApiProperty({ example: ['https://cdn.example.com/milk.png'], type: [String] })
   @IsArray()
+  @ArrayMinSize(1, { message: 'At least one product image is required' })
+  @ArrayMaxSize(5)
   @IsUrl({}, { each: true })
-  imageUrls?: string[];
+  imageUrls!: string[];
 
   @ApiProperty({ example: 49.0, description: 'Base selling price (must be ≤ mrp if set)' })
   @IsNumber()

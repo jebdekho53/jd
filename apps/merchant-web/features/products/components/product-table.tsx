@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Edit2, Trash2, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { Table, THead, TBody, Tr, Th, Td, Badge, Button, Skeleton } from '@/design-system/primitives';
@@ -72,9 +73,20 @@ export function ProductTable({ storeId, products, isLoading, onEdit }: Props) {
           return (
             <Tr key={p.id}>
               <Td>
-                <div>
-                  <p className="font-medium text-slate-900">{p.name}</p>
-                  {p.brand && <p className="text-xs text-slate-400">{p.brand}</p>}
+                <div className="flex items-center gap-3">
+                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                    {p.imageUrls[0] ? (
+                      <Image src={p.imageUrls[0]} alt="" fill className="object-cover" unoptimized />
+                    ) : (
+                      <span className="flex h-full items-center justify-center text-xs font-bold text-slate-400">
+                        {p.name.charAt(0)}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">{p.name}</p>
+                    {p.brand && <p className="text-xs text-slate-400">{p.brand}</p>}
+                  </div>
                 </div>
               </Td>
               <Td>

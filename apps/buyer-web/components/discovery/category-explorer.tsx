@@ -126,8 +126,12 @@ export function CategoryRail({ categories = [], className }: CategoryExplorerPro
             role="listitem"
             className="flex w-[72px] shrink-0 snap-start flex-col items-center gap-1.5"
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-card shadow-card">
-              <Icon className="h-6 w-6 text-primary" aria-hidden />
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-card shadow-card overflow-hidden relative">
+              {cat.imageUrl ? (
+                <Image src={cat.imageUrl} alt="" fill className="object-cover" sizes="56px" />
+              ) : (
+                <Icon className="h-6 w-6 text-primary" aria-hidden />
+              )}
             </div>
             <span className="line-clamp-2 text-center text-[10px] font-medium text-jd-text-primary">
               {cat.name}

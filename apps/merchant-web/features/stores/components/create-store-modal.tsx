@@ -13,6 +13,7 @@ import { useUpsertMerchantProfileMutation } from '@/hooks/use-merchant-profile';
 import { useToast } from '@/design-system/primitives';
 import { useStoreStore } from '@/store/store-store';
 import { LocationSearchInput } from '@/features/locations/components/location-search-input';
+import { ImageUploadField } from '@/features/media/components/image-upload-field';
 
 const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
@@ -45,6 +46,8 @@ const schema = z.object({
   deliveryFee: z.coerce.number().min(0).optional(),
   minOrderAmount: z.coerce.number().min(0).optional(),
   avgPrepTimeMins: z.coerce.number().min(1).max(120).optional(),
+  logoUrl: z.string().url('Store logo is required'),
+  bannerUrl: z.string().url('Store banner is required'),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -118,6 +121,8 @@ export function CreateStoreModal({ open, onClose }: Props) {
         locationPincodeId: data.locationPincodeId,
         cityId: data.cityId,
         zoneIds: data.zoneIds,
+        logoUrl: data.logoUrl,
+        bannerUrl: data.bannerUrl,
         minOrderAmount: data.minOrderAmount,
         deliveryFee: data.deliveryFee,
         avgPrepTimeMins: data.avgPrepTimeMins,
@@ -295,6 +300,29 @@ export function CreateStoreModal({ open, onClose }: Props) {
             <Input label="Min order (₹)" type="number" {...register('minOrderAmount')} />
             <Input label="Delivery fee (₹)" type="number" {...register('deliveryFee')} />
             <Input label="Prep time (min)" type="number" {...register('avgPrepTimeMins')} />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ImageUploadField
+              label="Store logo"
+              mode="square"
+              purpose="store-logo"
+              required
+              value={watch('logoUrl')}
+              onChange={(url) => setValue('logoUrl', url, { shouldValidate: true })}
+              error={errors.logoUrl?.message}
+              allowRemove={false}
+            />
+            <ImageUploadField
+              label="Store banner"
+              mode="banner"
+              purpose="store-banner"
+              required
+              value={watch('bannerUrl')}
+              onChange={(url) => setValue('bannerUrl', url, { shouldValidate: true })}
+              error={errors.bannerUrl?.message}
+              allowRemove={false}
+            />
           </div>
         </section>
 
