@@ -961,7 +961,7 @@ model City {
   cityLaunchPlans   CityLaunchPlan[]
   seoPages          SeoPage[]
   seoFaqs           SeoFaq[]
-  locationCity      LocationCity?
+  locationCities    LocationCity[]
 
   @@index([isActive])
   @@map("cities")
@@ -1111,7 +1111,7 @@ model LocationCity {
   latitude          Float?
   longitude         Float?
   isActive          Boolean         @default(true) @map("is_active")
-  operationalCityId String?         @unique @map("operational_city_id")
+  operationalCityId String?         @map("operational_city_id")
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
 
@@ -1127,6 +1127,7 @@ model LocationCity {
   @@unique([districtId, slug])
   @@index([stateId, isActive])
   @@index([deliveryRegion, isActive])
+  @@index([operationalCityId])
   @@map("location_cities")
 }
 

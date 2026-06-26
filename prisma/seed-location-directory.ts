@@ -67,6 +67,8 @@ async function seedCities(
   const areaIds = new Map<string, string>();
   const pincodeIds = new Map<string, string>();
 
+  const defaultOperationalCityId = await resolveOperationalCityId('delhi-ncr');
+
   for (const c of DIRECTORY_CITIES) {
     const stateId = stateIds.get(c.stateCode);
     const districtId = districtIds.get(c.districtSlug);
@@ -78,7 +80,7 @@ async function seedCities(
     const operationalCityId =
       c.operationalCitySlug != null
         ? await resolveOperationalCityId(c.operationalCitySlug)
-        : await resolveOperationalCityId('delhi-ncr');
+        : defaultOperationalCityId;
 
     const cityRow = await prisma.locationCity.upsert({
       where: { districtId_slug: { districtId, slug: c.slug } },
