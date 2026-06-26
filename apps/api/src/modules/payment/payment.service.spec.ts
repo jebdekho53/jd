@@ -7,6 +7,8 @@ import { RazorpayService } from './razorpay.service';
 import { ReservationService } from '../checkout/reservation.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
+import { OrderStatusHistoryService } from '../order/order-status-history.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 
 const CHECKOUT_ID = 'chk1';
 const ORDER_ID = 'ord1';
@@ -40,6 +42,7 @@ const mockPrisma = {
 
 const mockRazorpay = {
   keyId: 'rzp_test_xxx',
+  isConfigured: jest.fn().mockReturnValue(true),
   createOrder: jest.fn(),
   verifyPaymentSignature: jest.fn(),
 };
@@ -52,6 +55,8 @@ const mockReservation = {
 
 const mockAudit = { log: jest.fn() };
 const mockDomainEvents = { emit: jest.fn() };
+const mockStatusHistory = { transition: jest.fn() };
+const mockEmailNotifications = { sendOrderConfirmation: jest.fn() };
 
 const buildCheckout = (overrides = {}) => ({
   id: CHECKOUT_ID,
@@ -83,6 +88,8 @@ describe('PaymentService', () => {
         { provide: ReservationService, useValue: mockReservation },
         { provide: AuditService, useValue: mockAudit },
         { provide: DomainEventsService, useValue: mockDomainEvents },
+        { provide: OrderStatusHistoryService, useValue: mockStatusHistory },
+        { provide: EmailNotificationService, useValue: mockEmailNotifications },
       ],
     }).compile();
 
@@ -92,7 +99,11 @@ describe('PaymentService', () => {
 
   describe('createRazorpayOrder', () => {
     beforeEach(() => {
-      mockPrisma.buyerProfile.findUnique.mockResolvedValue({ id: BUYER_PROFILE_ID });
+      mockPrisma.buyerProfile.findUnique.mockResolvedValue({
+        id: BUYER_PROFILE_ID,
+        name: 'Test Buyer',
+        user: { phone: '9876543210' },
+      });
       mockPrisma.checkout.findFirst.mockResolvedValue(buildCheckout());
       mockRazorpay.createOrder.mockResolvedValue({
         id: RZP_ORDER_ID,
@@ -110,7 +121,10 @@ describe('PaymentService', () => {
       expect(mockRazorpay.createOrder).toHaveBeenCalledWith(220, expect.any(String));
       expect(result).toMatchObject({
         checkoutId: CHECKOUT_ID,
-        razorpay: expect.objectContaining({ orderId: RZP_ORDER_ID }),
+        razorpayOrderId: RZP_ORDER_ID,
+        keyId: 'rzp_test_xxx',
+        buyerName: 'Test Buyer',
+        buyerPhone: '9876543210',
       });
     });
 
@@ -146,7 +160,7 @@ describe('PaymentService', () => {
       );
 
       const result = await service.createRazorpayOrder(USER_ID, { checkoutId: CHECKOUT_ID });
-      expect(result.razorpay.orderId).toBe(RZP_ORDER_ID);
+      expect(result.razorpayOrderId).toBe(RZP_ORDER_ID);
       expect(mockRazorpay.createOrder).not.toHaveBeenCalled();
     });
   });
@@ -160,7 +174,11 @@ describe('PaymentService', () => {
     };
 
     beforeEach(() => {
-      mockPrisma.buyerProfile.findUnique.mockResolvedValue({ id: BUYER_PROFILE_ID });
+      mockPrisma.buyerProfile.findUnique.mockResolvedValue({
+        id: BUYER_PROFILE_ID,
+        name: 'Test Buyer',
+        user: { phone: '9876543210' },
+      });
       mockRazorpay.verifyPaymentSignature.mockReturnValue(true);
       mockPrisma.checkout.findFirst.mockResolvedValue(
         buildCheckout({ order: { id: ORDER_ID, orderNumber: 'JD-XY', status: 'PAYMENT_PENDING', paymentStatus: 'PENDING', payment: null } }),

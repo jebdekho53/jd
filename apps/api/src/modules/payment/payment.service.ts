@@ -45,7 +45,12 @@ export class PaymentService {
     dto: CreateRazorpayOrderDto,
     ipAddress?: string,
   ) {
+    if (!this.razorpay.isConfigured()) {
+      throw new BadRequestException('Online payments are not configured. Please use COD or contact support.');
+    }
+
     const checkout = await this.requireOwnedCheckout(userId, dto.checkoutId);
+    const buyer = await this.getBuyerContact(userId);
 
     if (checkout.status !== CheckoutStatus.RESERVED) {
       throw new BadRequestException(
@@ -60,15 +65,15 @@ export class PaymentService {
     // Idempotent: if payment already created return existing
     const existingPayment = checkout.order?.payment;
     if (existingPayment?.razorpayOrderId) {
-      return {
-        checkoutId: checkout.id,
-        razorpay: {
-          keyId: this.razorpay.keyId,
-          orderId: existingPayment.razorpayOrderId,
-          amount: Number(existingPayment.amount) * 100,
+      return this.buildRazorpayOrderResponse(
+        checkout,
+        {
+          id: existingPayment.razorpayOrderId,
+          amount: Math.round(Number(existingPayment.amount) * 100),
           currency: 'INR',
         },
-      };
+        buyer,
+      );
     }
 
     if (!checkout.order) {
@@ -113,17 +118,7 @@ export class PaymentService {
 
     this.logger.log({ userId, checkoutId: checkout.id, rzpOrderId: rzpOrder.id }, 'Razorpay order created');
 
-    return {
-      checkoutId: checkout.id,
-      orderId: checkout.order.id,
-      orderNumber: checkout.order.orderNumber,
-      razorpay: {
-        keyId: this.razorpay.keyId,
-        orderId: rzpOrder.id,
-        amount: rzpOrder.amount,
-        currency: rzpOrder.currency,
-      },
-    };
+    return this.buildRazorpayOrderResponse(checkout, rzpOrder, buyer);
   }
 
   // ── Verify Razorpay payment signature ─────────────────────────────────────
@@ -388,6 +383,41 @@ export class PaymentService {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+
+  private async getBuyerContact(userId: string) {
+    const buyerProfile = await this.prisma.buyerProfile.findUnique({
+      where: { userId },
+      select: { name: true, user: { select: { phone: true } } },
+    });
+    if (!buyerProfile) throw new NotFoundException('Buyer profile not found');
+    return { name: buyerProfile.name, phone: buyerProfile.user.phone };
+  }
+
+  private buildRazorpayOrderResponse(
+    checkout: {
+      id: string;
+      order: {
+        id: string;
+        orderNumber: string;
+      } | null;
+    },
+    rzpOrder: { id: string; amount: number; currency: string },
+    buyer: { name: string; phone: string },
+  ) {
+    if (!checkout.order) throw new NotFoundException('Order not found for this checkout');
+
+    return {
+      checkoutId: checkout.id,
+      orderId: checkout.order.id,
+      orderNumber: checkout.order.orderNumber,
+      razorpayOrderId: rzpOrder.id,
+      keyId: this.razorpay.keyId,
+      amount: rzpOrder.amount,
+      currency: rzpOrder.currency,
+      buyerName: buyer.name,
+      buyerPhone: buyer.phone,
+    };
+  }
 
   private async requireOwnedCheckout(userId: string, checkoutId: string) {
     const bp = await this.prisma.buyerProfile.findUnique({
