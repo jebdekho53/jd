@@ -1,9 +1,8 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/design-system/primitives';
 import { useCreateRazorpayOrderMutation, useVerifyPaymentMutation } from '@/hooks/use-checkout';
-import { useCheckoutStore } from '@/store/checkout-store';
 import { useToast } from '@/design-system/primitives';
 import type { RazorpayOrderResult } from '@/types/checkout';
 
@@ -32,9 +31,18 @@ interface RazorpayButtonProps {
   checkoutId: string;
   onSuccess: (orderId: string, orderNumber: string) => void;
   onFailure?: (error: string) => void;
+  /** Open Razorpay modal as soon as checkout is ready (single-step pay flow) */
+  autoOpen?: boolean;
+  onAutoOpenComplete?: () => void;
 }
 
-export function RazorpayButton({ checkoutId, onSuccess, onFailure }: RazorpayButtonProps) {
+export function RazorpayButton({
+  checkoutId,
+  onSuccess,
+  onFailure,
+  autoOpen = false,
+  onAutoOpenComplete,
+}: RazorpayButtonProps) {
   const createOrder = useCreateRazorpayOrderMutation();
   const verifyPayment = useVerifyPaymentMutation();
   const { toast } = useToast();
@@ -102,6 +110,13 @@ export function RazorpayButton({ checkoutId, onSuccess, onFailure }: RazorpayBut
   }, [checkoutId, createOrder, verifyPayment, toast, onSuccess, onFailure]);
 
   const busy = createOrder.isPending || verifyPayment.isPending;
+  const autoOpenedRef = useRef(false);
+
+  useEffect(() => {
+    if (!autoOpen || !checkoutId || autoOpenedRef.current) return;
+    autoOpenedRef.current = true;
+    void handlePay().finally(() => onAutoOpenComplete?.());
+  }, [autoOpen, checkoutId, handlePay, onAutoOpenComplete]);
 
   return (
     <Button fullWidth loading={busy} onClick={handlePay} className="text-base">

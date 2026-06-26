@@ -225,6 +225,7 @@ export class CheckoutService {
     this.logger.log({ userId, checkoutId: checkout.id, orderId: order.id }, 'Checkout initiated');
 
     return {
+      id: reserved.id,
       checkoutId: reserved.id,
       orderId: order.id,
       status: reserved.status,

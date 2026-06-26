@@ -17,7 +17,8 @@ export async function initiateCheckout(
     body: JSON.stringify(payload),
     headers: { 'Idempotency-Key': crypto.randomUUID() },
   });
-  return res.data;
+  const data = res.data;
+  return { ...data, id: data.id ?? data.checkoutId ?? '' };
 }
 
 export async function initiateCodCheckout(

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
@@ -44,6 +44,7 @@ export function CheckoutPageContent() {
 
   const initiateCod = useInitiateCodCheckoutMutation();
   const initiateOnline = useInitiateCheckoutMutation();
+  const [openRazorpayAfterInit, setOpenRazorpayAfterInit] = useState(false);
 
   useEffect(() => {
     if (!isLoading && (!cart || cart.items.length === 0)) {
@@ -76,7 +77,12 @@ export function CheckoutPageContent() {
       setStep('processing');
       try {
         const checkout = await initiateOnline.mutateAsync(payload);
-        setCheckoutId(checkout.id);
+        const id = checkout.id || checkout.checkoutId;
+        if (!id) {
+          throw new SessionError('Checkout could not be started. Please try again.', 500);
+        }
+        setCheckoutId(id);
+        setOpenRazorpayAfterInit(true);
         setStep('payment');
       } catch (err) {
         setStep('payment');
@@ -116,6 +122,8 @@ export function CheckoutPageContent() {
     ) : checkoutId ? (
       <RazorpayButton
         checkoutId={checkoutId}
+        autoOpen={openRazorpayAfterInit}
+        onAutoOpenComplete={() => setOpenRazorpayAfterInit(false)}
         onSuccess={handleRazorpaySuccess}
         onFailure={() => setStep('payment')}
       />
@@ -197,7 +205,14 @@ export function CheckoutPageContent() {
                     />
 
                     <div className="mt-4">
-                      <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} />
+                      <PaymentMethodSelector
+                        value={paymentMethod}
+                        onChange={(method) => {
+                          setPaymentMethod(method);
+                          setCheckoutId(null);
+                          setOpenRazorpayAfterInit(false);
+                        }}
+                      />
                     </div>
 
                     <div className="mt-4">

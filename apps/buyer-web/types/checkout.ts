@@ -20,9 +20,12 @@ export interface InitiateCheckoutPayload {
 
 export interface CheckoutResult {
   id: string;
+  /** Alias returned by initiate checkout API */
+  checkoutId?: string;
   status: string;
   expiresAt: string;
   orderId?: string;
+  totalAmount?: number;
   razorpayKeyId?: string;
 }
 
