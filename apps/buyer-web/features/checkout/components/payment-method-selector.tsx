@@ -39,8 +39,8 @@ export function PaymentMethodSelector({ value, onChange }: PaymentMethodSelector
           className={cn(
             'flex w-full items-center gap-4 rounded-xl border px-4 py-4 text-left transition-colors',
             value === id
-              ? 'border-primary bg-brand-50'
-              : 'border-neutral-200 bg-white hover:border-neutral-300',
+              ? 'border-primary bg-primary/5'
+              : 'border-border bg-card hover:border-neutral-300',
           )}
         >
           <div

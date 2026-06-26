@@ -12,8 +12,9 @@ import { CouponPanel } from '@/features/checkout/components/coupon-panel';
 import { DeliverabilityPanel } from '@/features/checkout/components/deliverability-panel';
 import { WalletCheckoutPanel } from '@/features/checkout/components/wallet-checkout-panel';
 import { RazorpayButton } from '@/features/checkout/components/razorpay-button';
-import { Button, Spinner } from '@/design-system/primitives';
+import { ActionBar, Button, Spinner } from '@/design-system/primitives';
 import { useCartQuery } from '@/hooks/use-cart';
+import { formatCurrency } from '@/lib/utils';
 import { useInitiateCodCheckoutMutation, useInitiateCheckoutMutation } from '@/hooks/use-checkout';
 import { useCheckoutStore } from '@/store/checkout-store';
 import { useToast } from '@/design-system/primitives';
@@ -102,15 +103,42 @@ export function CheckoutPageContent() {
 
   if (!cart || cart.items.length === 0) return null;
 
+  const renderPaymentCta = () =>
+    paymentMethod === 'COD' ? (
+      <Button
+        fullWidth
+        loading={initiateCod.isPending}
+        onClick={handlePlaceOrder}
+        className="text-base"
+      >
+        Place order · {formatCurrency(cart.totals.grandTotal)}
+      </Button>
+    ) : checkoutId ? (
+      <RazorpayButton
+        checkoutId={checkoutId}
+        onSuccess={handleRazorpaySuccess}
+        onFailure={() => setStep('payment')}
+      />
+    ) : (
+      <Button
+        fullWidth
+        loading={initiateOnline.isPending}
+        onClick={handlePlaceOrder}
+        className="text-base"
+      >
+        Proceed to payment · {formatCurrency(cart.totals.grandTotal)}
+      </Button>
+    );
+
+  const showPayBar = step === 'payment';
+
   return (
     <AuthGuard>
-      <PageShell>
-        <div className="space-y-6">
+      <PageShell hideMobileNav>
+        <div className={`space-y-5 lg:pb-0 ${showPayBar ? 'pb-28' : 'pb-6'}`}>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Checkout</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Confirm address and payment to place your order
-            </p>
+            <h1 className="text-xl font-bold tracking-tight md:text-2xl">Checkout</h1>
+            <CheckoutSteps step={step} />
           </div>
 
           {step === 'processing' && (
@@ -123,9 +151,9 @@ export function CheckoutPageContent() {
           )}
 
           {step !== 'processing' && (
-            <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-              <div className="space-y-6">
-                <div className="rounded-2xl border bg-card p-5 shadow-sm">
+            <div className="grid items-start gap-6 lg:grid-cols-[1fr_380px]">
+              <div className="space-y-5">
+                <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
                   <div className="mb-4 flex items-center gap-3">
                     <StepBadge num={1} done={step === 'payment' || step === 'done'} />
                     <h2 className="text-lg font-semibold">Delivery address</h2>
@@ -134,9 +162,10 @@ export function CheckoutPageContent() {
                     <AddressForm onNext={() => setStep('payment')} />
                   ) : (
                     deliveryAddress && (
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="text-sm text-muted-foreground">
-                          <p>{deliveryAddress.line1}</p>
+                          <p className="font-medium text-foreground">{deliveryAddress.line1}</p>
+                          {deliveryAddress.line2 && <p>{deliveryAddress.line2}</p>}
                           <p>
                             {deliveryAddress.city}, {deliveryAddress.pincode}
                           </p>
@@ -144,7 +173,7 @@ export function CheckoutPageContent() {
                         <button
                           type="button"
                           onClick={() => setStep('address')}
-                          className="text-sm font-medium text-primary hover:underline"
+                          className="shrink-0 text-sm font-medium text-primary hover:underline"
                         >
                           Edit
                         </button>
@@ -154,7 +183,7 @@ export function CheckoutPageContent() {
                 </div>
 
                 {step === 'payment' && (
-                  <div className="rounded-2xl border bg-card p-5 shadow-sm">
+                  <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
                     <div className="mb-4 flex items-center gap-3">
                       <StepBadge num={2} done={false} />
                       <h2 className="text-lg font-semibold">Payment</h2>
@@ -168,10 +197,7 @@ export function CheckoutPageContent() {
                     />
 
                     <div className="mt-4">
-                      <PaymentMethodSelector
-                        value={paymentMethod}
-                        onChange={setPaymentMethod}
-                      />
+                      <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} />
                     </div>
 
                     <div className="mt-4">
@@ -192,39 +218,14 @@ export function CheckoutPageContent() {
                       />
                     </div>
 
-                    <div className="mt-5">
-                      {paymentMethod === 'COD' ? (
-                        <Button
-                          fullWidth
-                          loading={initiateCod.isPending}
-                          onClick={handlePlaceOrder}
-                          className="text-base"
-                        >
-                          Place order (Cash on delivery)
-                        </Button>
-                      ) : checkoutId ? (
-                        <RazorpayButton
-                          checkoutId={checkoutId}
-                          onSuccess={handleRazorpaySuccess}
-                          onFailure={() => setStep('payment')}
-                        />
-                      ) : (
-                        <Button
-                          fullWidth
-                          loading={initiateOnline.isPending}
-                          onClick={handlePlaceOrder}
-                          className="text-base"
-                        >
-                          Proceed to payment
-                        </Button>
-                      )}
-                    </div>
+                    {/* Desktop CTA; mobile uses sticky ActionBar */}
+                    <div className="mt-5 hidden lg:block">{renderPaymentCta()}</div>
                   </div>
                 )}
               </div>
 
               {deliveryAddress && (
-                <div className="space-y-4">
+                <div className="space-y-4 lg:sticky lg:top-24">
                   <DeliverabilityPanel
                     storeId={cart.storeId}
                     lat={deliveryAddress.lat}
@@ -237,8 +238,61 @@ export function CheckoutPageContent() {
             </div>
           )}
         </div>
+
+        {/* Mobile sticky pay bar */}
+        {showPayBar && (
+          <ActionBar position="flush" mobileOnly={false} className="lg:hidden">
+            <div className="min-w-0 shrink-0">
+              <p className="text-[11px] text-jd-text-muted">Total</p>
+              <p className="text-lg font-bold text-jd-text-primary">
+                {formatCurrency(cart.totals.grandTotal)}
+              </p>
+            </div>
+            <div className="flex-1">{renderPaymentCta()}</div>
+          </ActionBar>
+        )}
       </PageShell>
     </AuthGuard>
+  );
+}
+
+const STEP_ITEMS = [
+  { key: 'address', label: 'Address' },
+  { key: 'payment', label: 'Payment' },
+] as const;
+
+function CheckoutSteps({ step }: { step: string }) {
+  const activeIndex = step === 'address' ? 0 : 1;
+  return (
+    <ol className="mt-3 flex items-center gap-2" aria-label="Checkout progress">
+      {STEP_ITEMS.map((item, i) => {
+        const done = i < activeIndex;
+        const active = i === activeIndex;
+        return (
+          <li key={item.key} className="flex flex-1 items-center gap-2">
+            <span
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                done
+                  ? 'bg-primary text-primary-foreground'
+                  : active
+                    ? 'bg-primary/15 text-primary ring-2 ring-primary'
+                    : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {done ? <CheckCircle className="h-3.5 w-3.5" aria-hidden /> : i + 1}
+            </span>
+            <span
+              className={`text-xs font-medium ${active || done ? 'text-foreground' : 'text-muted-foreground'}`}
+            >
+              {item.label}
+            </span>
+            {i < STEP_ITEMS.length - 1 && (
+              <span className={`h-0.5 flex-1 rounded-full ${done ? 'bg-primary' : 'bg-border'}`} />
+            )}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
