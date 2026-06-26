@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generates PWA icons, splash screens, and screenshots from public/logo.png.
+ * Generates PWA icons, splash screens, and screenshots from public/logo.svg.
  * Optional — committed assets under public/pwa/ are used when sharp is unavailable.
  */
 import { access } from 'node:fs/promises';
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
-const logoPath = path.join(root, 'public/logo.png');
+const logoPath = path.join(root, 'public/logo.svg');
 const iconsDir = path.join(root, 'public/pwa/icons');
 const splashDir = path.join(root, 'public/pwa/splash');
 const shotsDir = path.join(root, 'public/pwa/screenshots');

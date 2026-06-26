@@ -54,7 +54,7 @@ export default async function Home() {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/logo.png"
+          src="/logo.svg"
           alt="JebDekho"
           width={40}
           height={40}
