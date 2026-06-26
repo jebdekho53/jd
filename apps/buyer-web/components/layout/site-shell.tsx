@@ -299,25 +299,30 @@ export function PageShell({
   children,
   className,
   hideFooter = false,
+  hideMobileNav = false,
+  hideFloatingCart = false,
 }: {
   children: React.ReactNode;
   className?: string;
   hideFooter?: boolean;
+  hideMobileNav?: boolean;
+  hideFloatingCart?: boolean;
 }) {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <SiteHeader />
       <main
         className={cn(
-          'mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-4 md:pb-8 md:pt-6',
+          'mx-auto w-full max-w-6xl flex-1 px-4 pt-4 md:pt-6',
+          hideMobileNav ? 'pb-6 md:pb-8' : 'pb-28 md:pb-8',
           className,
         )}
       >
         {children}
       </main>
       {!hideFooter && <SiteFooter />}
-      <FloatingCartBar />
-      <MobileBottomNav />
+      {!hideFloatingCart && <FloatingCartBar />}
+      {!hideMobileNav && <MobileBottomNav />}
     </div>
   );
 }

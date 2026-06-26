@@ -1,12 +1,17 @@
-/** JebDekho Phase 10A design tokens */
+/** JebDekho design tokens (Design System v2 — neutral premium) */
 export const space = {
+  0.5: '2px',
   1: '4px',
   2: '8px',
   3: '12px',
   4: '16px',
+  5: '20px',
   6: '24px',
   8: '32px',
+  10: '40px',
   12: '48px',
+  16: '64px',
+  20: '80px',
 } as const;
 
 export const radius = {
@@ -14,7 +19,19 @@ export const radius = {
   md: '12px',
   lg: '14px',
   xl: '20px',
+  '2xl': '24px',
   full: '9999px',
+} as const;
+
+/** Standard breakpoints the buyer-web must look native on. */
+export const breakpoints = {
+  xs: 320,
+  sm: 360,
+  md: 768,
+  lg: 1024,
+  xl: 1280,
+  '2xl': 1440,
+  '3xl': 1600,
 } as const;
 
 export const colors = {

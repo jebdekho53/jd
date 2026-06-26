@@ -4,40 +4,80 @@
 
 @layer base {
   :root {
-    /* JebDekho cream surfaces */
-    --background: 48 33% 91%;
-    --foreground: 220 13% 9%;
+    /* Neutral-premium surfaces (white/zinc base + green accent) */
+    --background: 210 20% 98%;
+    --foreground: 222 22% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 220 13% 9%;
+    --card-foreground: 222 22% 11%;
     /* Primary #2E5E4E */
     --primary: 158 34% 27%;
     --primary-foreground: 0 0% 100%;
     /* Secondary #3D7A66 */
-    --secondary: 158 34% 36%;
+    --secondary: 158 30% 36%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 48 25% 90%;
+    --muted: 220 16% 95%;
     --muted-foreground: 220 9% 46%;
     /* Accent #F59E0B */
     --accent: 38 92% 50%;
-    --accent-foreground: 220 13% 9%;
+    --accent-foreground: 222 22% 11%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --success: 142 71% 45%;
-    --border: 45 20% 82%;
-    --input: 45 20% 82%;
+    --success: 142 71% 40%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
     --ring: 158 34% 27%;
     --radius: 0.875rem;
-    --cream-1: #f1eedf;
-    --cream-2: #f2efe0;
-    --cream-3: #f4f1e2;
-    --cream-4: #f0edde;
-    --cream-5: #eeebda;
+
+    /* Surface ramp (formerly "cream"); now neutral-premium whites/grays */
+    --cream-1: #ffffff;
+    --cream-2: #fbfbfc;
+    --cream-3: #f3f4f6;
+    --cream-4: #f9fafb;
+    --cream-5: #eef0f3;
+
+    /* Brand + text ramp */
     --jd-primary: #2e5e4e;
     --jd-secondary: #3d7a66;
     --jd-accent: #f59e0b;
     --jd-text-primary: #111827;
     --jd-text-secondary: #374151;
     --jd-text-muted: #6b7280;
+
+    --header-h: 64px;
+  }
+
+  .dark {
+    --background: 222 20% 8%;
+    --foreground: 0 0% 98%;
+    --card: 222 18% 12%;
+    --card-foreground: 0 0% 98%;
+    --primary: 158 42% 46%;
+    --primary-foreground: 222 30% 8%;
+    --secondary: 158 35% 40%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 222 14% 18%;
+    --muted-foreground: 220 10% 65%;
+    --accent: 38 92% 55%;
+    --accent-foreground: 222 30% 8%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 64% 48%;
+    --border: 222 14% 20%;
+    --input: 222 14% 22%;
+    --ring: 158 42% 46%;
+
+    --cream-1: #14171c;
+    --cream-2: #161a20;
+    --cream-3: #1b2026;
+    --cream-4: #12151a;
+    --cream-5: #1f252c;
+
+    --jd-primary: #5fb89c;
+    --jd-secondary: #7cc9b0;
+    --jd-accent: #fbbf24;
+    --jd-text-primary: #f3f4f6;
+    --jd-text-secondary: #d1d5db;
+    --jd-text-muted: #9ca3af;
   }
 }
 
@@ -45,11 +85,26 @@
   * {
     @apply border-border;
   }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground antialiased;
+    text-rendering: optimizeLegibility;
   }
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+  /* Respect reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
@@ -62,9 +117,45 @@
     display: none;
   }
   .card-hover {
-    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-pop;
   }
   .btn-press {
     @apply active:scale-[0.98] transition-transform;
+  }
+  /* Safe-area helpers for native-app feel on mobile */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .h-safe-bottom {
+    height: env(safe-area-inset-bottom);
+  }
+  .min-h-touch {
+    min-height: 44px;
+  }
+  .min-w-touch {
+    min-width: 44px;
+  }
+  /* Subtle multi-line truncation */
+  .line-clamp-1,
+  .line-clamp-2,
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .line-clamp-1 {
+    -webkit-line-clamp: 1;
+  }
+  .line-clamp-2 {
+    -webkit-line-clamp: 2;
+  }
+  .line-clamp-3 {
+    -webkit-line-clamp: 3;
+  }
+  .tap-highlight-none {
+    -webkit-tap-highlight-color: transparent;
   }
 }
