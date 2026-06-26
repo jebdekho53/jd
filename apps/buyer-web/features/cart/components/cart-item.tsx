@@ -30,11 +30,12 @@ export function CartItem({ item }: CartItemProps) {
   };
 
   const img = item.product.imageUrls[0];
+  const lineTotal = item.unitPrice * item.quantity;
 
   return (
     <div className="flex gap-3 py-4">
       {/* Image */}
-      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
+      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-cream-3">
         {img ? (
           <Image src={img} alt={item.product.name} fill className="object-cover" sizes="64px" />
         ) : (
@@ -43,7 +44,7 @@ export function CartItem({ item }: CartItemProps) {
         {item.product.isVeg !== null && (
           <span
             className={cn(
-              'absolute right-1 top-1 h-2.5 w-2.5 rounded-full border border-white',
+              'absolute right-1 top-1 h-3 w-3 rounded-full border border-white',
               item.product.isVeg ? 'bg-green-500' : 'bg-red-500',
             )}
           />
@@ -52,38 +53,41 @@ export function CartItem({ item }: CartItemProps) {
 
       {/* Details */}
       <div className="flex flex-1 flex-col gap-1">
-        <Text variant="label" className="line-clamp-1">
+        <Text variant="label" className="line-clamp-2 leading-snug">
           {item.product.name}
         </Text>
         <Text variant="caption">{item.variant.name}</Text>
 
-        <div className="mt-auto flex items-center justify-between">
+        <div className="mt-auto flex items-end justify-between gap-2 pt-1">
           <div className="flex flex-col">
-            <Text variant="label">₹{item.unitPrice.toFixed(2)}</Text>
-            {item.mrp && item.mrp > item.unitPrice && (
-              <Text variant="caption" className="line-through">
-                ₹{item.mrp.toFixed(2)}
-              </Text>
-            )}
+            <span className="text-sm font-bold text-jd-text-primary tabular-nums">
+              ₹{lineTotal.toFixed(2)}
+            </span>
+            <span className="text-[11px] text-jd-text-muted">
+              ₹{item.unitPrice.toFixed(2)} each
+              {item.mrp && item.mrp > item.unitPrice && (
+                <span className="ml-1 line-through">₹{item.mrp.toFixed(2)}</span>
+              )}
+            </span>
           </div>
 
           {/* Qty controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-full border border-border bg-card p-0.5">
             <button
               type="button"
-              aria-label="Decrease quantity"
+              aria-label={item.quantity === 1 ? 'Remove item' : 'Decrease quantity'}
               disabled={busy}
               onClick={decrement}
-              className="flex h-7 w-7 items-center justify-center rounded-full border border-neutral-300 text-neutral-700 transition-colors hover:border-red-400 hover:text-red-600 disabled:opacity-40"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-jd-text-secondary transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
             >
               {item.quantity === 1 ? (
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-4 w-4" />
               ) : (
-                <Minus className="h-3.5 w-3.5" />
+                <Minus className="h-4 w-4" />
               )}
             </button>
 
-            <span className="w-6 text-center text-sm font-semibold tabular-nums">
+            <span className="w-7 text-center text-sm font-bold tabular-nums">
               {busy ? <Spinner size="sm" /> : item.quantity}
             </span>
 
@@ -92,9 +96,9 @@ export function CartItem({ item }: CartItemProps) {
               aria-label="Increase quantity"
               disabled={busy || item.quantity >= item.availableQty}
               onClick={increment}
-              className="flex h-7 w-7 items-center justify-center rounded-full border border-neutral-300 text-neutral-700 transition-colors hover:border-emerald-500 hover:text-emerald-700 disabled:opacity-40"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-jd-text-secondary transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-40"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-4 w-4" />
             </button>
           </div>
         </div>
