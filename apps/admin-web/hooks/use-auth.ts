@@ -15,6 +15,7 @@ import {
   revokeAdminSession,
   updateAdminSettings,
 } from '@/services/admin-api';
+import { ApiError } from '@/services/api/admin-client';
 
 export const AUTH_QUERY_KEY = ['auth', 'me'] as const;
 export const ADMIN_SETTINGS_KEY = ['admin', 'settings'] as const;
@@ -24,8 +25,16 @@ export const LOGIN_STATS_KEY = ['admin', 'login-stats'] as const;
 export function useSessionQuery() {
   return useQuery({
     queryKey: AUTH_QUERY_KEY,
-    queryFn: fetchMe,
-    retry: false,
+    queryFn: async () => {
+      try {
+        return await fetchMe();
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 0) throw err;
+        return null;
+      }
+    },
+    retry: (failureCount, error) =>
+      error instanceof ApiError && error.status === 0 ? failureCount < 2 : false,
     staleTime: 60_000,
   });
 }

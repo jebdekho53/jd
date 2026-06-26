@@ -21,7 +21,13 @@ echo "==> Prisma generate"
 pnpm db:generate
 
 echo "==> Building API"
+# Nest deletes dist/ but leaves tsbuildinfo; incremental tsc then emits nothing.
+rm -rf apps/api/dist apps/api/tsconfig.build.tsbuildinfo apps/api/tsconfig.tsbuildinfo
 pnpm --filter @jebdekho/api run build
+if [[ ! -f apps/api/dist/main.js ]]; then
+  echo "ERROR: API build did not produce apps/api/dist/main.js"
+  exit 1
+fi
 
 build_next_app() {
   local app_dir="$1"

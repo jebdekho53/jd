@@ -1,10 +1,15 @@
 'use client';
 
-import { useState } from 'react';
 import { Plus, Minus } from 'lucide-react';
 import { Button, Spinner } from '@/design-system/primitives';
-import { useAddCartItemMutation, useCartQuery, useRemoveCartItemMutation, useUpdateCartItemMutation } from '@/hooks/use-cart';
+import {
+  useAddCartItemMutation,
+  useCartQuery,
+  useRemoveCartItemMutation,
+  useUpdateCartItemMutation,
+} from '@/hooks/use-cart';
 import { useCartStore } from '@/store/cart-store';
+import { useGuestCartStore } from '@/store/guest-cart-store';
 import { useAuthStore } from '@/store/auth-store';
 import { SessionError } from '@/services/auth/auth-api';
 import { useToast } from '@/design-system/primitives';
@@ -17,6 +22,9 @@ interface AddToCartButtonProps {
   storeName: string;
   storeId: string;
   availableQty: number;
+  productName?: string;
+  unitPrice?: number;
+  imageUrl?: string;
   /** compact = only + button, no quantity control */
   compact?: boolean;
   className?: string;
@@ -28,35 +36,73 @@ export function AddToCartButton({
   storeName,
   storeId,
   availableQty,
+  productName,
+  unitPrice,
+  imageUrl,
   compact = false,
   className,
 }: AddToCartButtonProps) {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { data: cart } = useCartQuery();
+  const guestItems = useGuestCartStore((s) => s.items);
+  const guestAddItem = useGuestCartStore((s) => s.addItem);
+  const guestSetQty = useGuestCartStore((s) => s.setQuantity);
+  const guestRemove = useGuestCartStore((s) => s.removeItem);
   const { toast } = useToast();
   const { setConflict } = useCartStore();
   const addItem = useAddCartItemMutation();
   const updateItem = useUpdateCartItemMutation();
   const removeItem = useRemoveCartItemMutation();
 
-  // Find current quantity in cart
+  const guestLine = guestItems.find((i) => i.variantId === variantId);
   const cartItem = cart?.items.find((i) => i.variantId === variantId);
-  const qty = cartItem?.quantity ?? 0;
+  const qty = isAuthenticated ? (cartItem?.quantity ?? 0) : (guestLine?.quantity ?? 0);
   const busy = addItem.isPending || updateItem.isPending || removeItem.isPending;
 
-  const handleAdd = async () => {
-    if (!isAuthenticated) {
-      router.push('/login?returnUrl=/stores');
+  const handleGuestAdd = () => {
+    if (availableQty === 0) return;
+    const guestStoreId = useGuestCartStore.getState().storeId;
+    if (guestStoreId && guestStoreId !== storeId) {
+      setConflict(
+        { name: useGuestCartStore.getState().storeName ?? 'another store', storeId: guestStoreId },
+        { productId, variantId, quantity: 1, newStoreName: storeName, newStoreId: storeId },
+      );
       return;
     }
+    try {
+      guestAddItem({
+        productId,
+        variantId,
+        storeId,
+        storeName,
+        productName,
+        unitPrice,
+        imageUrl,
+        availableQty,
+        quantity: 1,
+      });
+      toast('Added to cart', 'success');
+    } catch {
+      setConflict(
+        { name: useGuestCartStore.getState().storeName ?? 'another store', storeId: guestStoreId! },
+        { productId, variantId, quantity: 1, newStoreName: storeName, newStoreId: storeId },
+      );
+    }
+  };
+
+  const handleAdd = async () => {
     if (availableQty === 0) return;
 
-    // Check cross-store conflict
+    if (!isAuthenticated) {
+      handleGuestAdd();
+      return;
+    }
+
     if (cart && cart.storeId !== storeId) {
       setConflict(
         { name: cart.store.name, storeId: cart.storeId },
-        { productId, variantId, quantity: 1, newStoreName: storeName },
+        { productId, variantId, quantity: 1, newStoreName: storeName, newStoreId: storeId },
       );
       return;
     }
@@ -65,8 +111,9 @@ export function AddToCartButton({
       await addItem.mutateAsync({ productId, variantId, quantity: 1 });
     } catch (err) {
       if (err instanceof SessionError && err.status === 409) {
-        // Cross-store conflict from server (race condition)
         toast('Your cart has items from another store. Clear your cart to continue.', 'error');
+      } else if (err instanceof SessionError && err.status === 401) {
+        router.push(`/login?returnUrl=${encodeURIComponent(window.location.pathname)}`);
       } else {
         toast(err instanceof SessionError ? err.message : 'Failed to add to cart', 'error');
       }
@@ -74,6 +121,12 @@ export function AddToCartButton({
   };
 
   const handleDecrement = () => {
+    if (!isAuthenticated) {
+      if (!guestLine) return;
+      if (qty <= 1) guestRemove(variantId);
+      else guestSetQty(variantId, qty - 1);
+      return;
+    }
     if (!cartItem) return;
     if (qty <= 1) {
       removeItem.mutate(cartItem.id);
@@ -95,7 +148,7 @@ export function AddToCartButton({
       <Button
         size="sm"
         onClick={handleAdd}
-        loading={addItem.isPending}
+        loading={isAuthenticated && addItem.isPending}
         className={className}
         disabled={availableQty === 0}
       >

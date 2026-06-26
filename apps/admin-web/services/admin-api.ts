@@ -2,7 +2,7 @@
  * Centralized admin API layer.
  * UI → hooks → admin-api → /app/api/admin/* BFF → /api/v1/admin/*
  */
-import { adminFetch, buildQuery } from '@/services/api/admin-client';
+import { ApiError, adminFetch, buildQuery } from '@/services/api/admin-client';
 import type {
   ApiResponse,
   AuthUser,
@@ -132,9 +132,14 @@ export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpR
   return res.data;
 }
 
-export async function fetchMe(): Promise<AuthUser> {
-  const res = await adminFetch<ApiResponse<AuthUser>>('/api/auth/me');
-  return res.data;
+export async function fetchMe(): Promise<AuthUser | null> {
+  try {
+    const res = await adminFetch<ApiResponse<AuthUser>>('/api/auth/me');
+    return res.data ?? null;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) return null;
+    throw err;
+  }
 }
 
 export async function logoutSession(): Promise<void> {

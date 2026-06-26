@@ -10,6 +10,7 @@ import {
 } from '@/services/cart/cart-api';
 import type { AddCartItemPayload, Cart } from '@/types/cart';
 import { useAuthStore } from '@/store/auth-store';
+import { useGuestCartStore } from '@/store/guest-cart-store';
 
 export const cartKeys = {
   all: ['cart'] as const,
@@ -25,6 +26,15 @@ export function useCartQuery() {
     staleTime: 30_000,
     retry: 1,
   });
+}
+
+/** Item count for header / floating bar — server cart when logged in, else guest cart. */
+export function useCartItemCount(): number {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { data: cart } = useCartQuery();
+  const guestCount = useGuestCartStore((s) => s.itemCount());
+  if (isAuthenticated) return cart?.itemCount ?? 0;
+  return guestCount;
 }
 
 export function useAddCartItemMutation() {

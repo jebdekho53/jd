@@ -19,15 +19,15 @@ import {
 } from 'lucide-react';
 import { Logo, LogoLink } from '@/components/brand/logo';
 import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
-import { useCartQuery } from '@/hooks/use-cart';
+import { useCartQuery, useCartItemCount } from '@/hooks/use-cart';
 import { useAuthStore } from '@/store/auth-store';
+import { useGuestCartStore } from '@/store/guest-cart-store';
 import { useEffectiveLocation } from '@/store/location-store';
 import { LocationPickerModal } from '@/features/location/components/location-picker-modal';
 import { cn, formatCurrency } from '@/lib/utils';
 
 function CartBadge({ className }: { className?: string }) {
-  const { data: cart } = useCartQuery();
-  const count = cart?.itemCount ?? 0;
+  const count = useCartItemCount();
   if (count === 0) return null;
   return (
     <span
@@ -269,9 +269,14 @@ export function MobileBottomNav() {
 
 export function FloatingCartBar() {
   const pathname = usePathname();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { data: cart } = useCartQuery();
-  const count = cart?.itemCount ?? 0;
-  const total = cart?.totals.grandTotal ?? 0;
+  const guestItems = useGuestCartStore((s) => s.items);
+  const guestCount = useGuestCartStore((s) => s.itemCount());
+  const guestSubtotal = guestItems.reduce((sum, i) => sum + (i.unitPrice ?? 0) * i.quantity, 0);
+
+  const count = isAuthenticated ? (cart?.itemCount ?? 0) : guestCount;
+  const total = isAuthenticated ? (cart?.totals.grandTotal ?? 0) : guestSubtotal;
 
   if (count === 0 || pathname === '/cart' || pathname === '/checkout') return null;
 

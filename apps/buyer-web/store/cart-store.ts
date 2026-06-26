@@ -14,6 +14,7 @@ interface CartUiState {
     variantId: string;
     quantity: number;
     newStoreName: string;
+    newStoreId: string;
   } | null;
 
   openDrawer: () => void;

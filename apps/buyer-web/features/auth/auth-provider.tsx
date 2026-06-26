@@ -3,6 +3,9 @@
 import { createContext, useCallback, useContext, useEffect, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { fetchMe, useLogoutMutation } from '@/hooks/use-auth';
+import { SessionError } from '@/services/auth/auth-api';
+import { getQueryClient } from '@/lib/query-client';
+import { mergeGuestCartIntoServer } from '@/lib/merge-guest-cart';
 import { useAuthStore } from '@/store/auth-store';
 import { useProfileStore } from '@/store/profile-store';
 import type { AuthUser } from '@/types/auth';
@@ -25,11 +28,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const user = await fetchMe();
       if (user) {
         setUser(user);
+        void mergeGuestCartIntoServer(getQueryClient());
       } else {
         clearSession();
       }
-    } catch {
-      clearSession();
+    } catch (err) {
+      // Network / server errors — do not wipe cookies; user may still be logged in.
+      if (err instanceof SessionError && err.status === 401) {
+        clearSession();
+      } else {
+        setLoading(false);
+      }
     }
   }, [setUser, setLoading, clearSession]);
 

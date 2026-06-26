@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -15,6 +16,7 @@ import { SocialLogin } from '@/features/auth/components/social-login';
 import { OtpInput } from '@/features/auth/components/otp-input';
 import { PhoneInput } from '@/features/auth/components/phone-input';
 import { applyAuthSession } from '@/features/auth/auth-provider';
+import { mergeGuestCartIntoServer } from '@/lib/merge-guest-cart';
 import {
   useEmailLoginMutation,
   useRequestOtpMutation,
@@ -44,6 +46,7 @@ type EmailForm = z.infer<typeof emailSchema>;
 
 export function LoginPageContent() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const returnUrl = searchParams.get('returnUrl') ?? '/stores';
@@ -100,6 +103,13 @@ export function LoginPageContent() {
     await sendOtp(digits);
   });
 
+  const completeLogin = async (user: Parameters<typeof applyAuthSession>[0], isNewUser: boolean) => {
+    applyAuthSession(user, isNewUser);
+    await mergeGuestCartIntoServer(queryClient);
+    toast('Logged in successfully', 'success');
+    router.replace(isNewUser ? '/onboarding' : returnUrl);
+  };
+
   const onVerifyOtp = async () => {
     if (otp.length < 6) {
       setOtpError('Enter the complete 6-digit OTP');
@@ -108,9 +118,7 @@ export function LoginPageContent() {
     setOtpError(null);
     try {
       const result = await verifyOtp.mutateAsync({ phone, code: otp });
-      applyAuthSession(result.user, result.isNewUser);
-      toast('Logged in successfully', 'success');
-      router.replace(result.isNewUser ? '/onboarding' : returnUrl);
+      await completeLogin(result.user, result.isNewUser);
     } catch (err) {
       const msg =
         err instanceof SessionError
@@ -126,9 +134,7 @@ export function LoginPageContent() {
   const onEmailSubmit = emailForm.handleSubmit(async (values) => {
     try {
       const result = await emailLogin.mutateAsync(values);
-      applyAuthSession(result.user, result.isNewUser);
-      toast('Logged in successfully', 'success');
-      router.replace(returnUrl);
+      await completeLogin(result.user, result.isNewUser);
     } catch (err) {
       const msg = err instanceof SessionError ? err.message : 'Login failed';
       toast(msg, 'error');

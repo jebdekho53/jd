@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -14,6 +15,7 @@ import { SocialLogin } from '@/features/auth/components/social-login';
 import { OtpInput } from '@/features/auth/components/otp-input';
 import { PhoneInput } from '@/features/auth/components/phone-input';
 import { applyAuthSession } from '@/features/auth/auth-provider';
+import { mergeGuestCartIntoServer } from '@/lib/merge-guest-cart';
 import {
   useEmailSignupMutation,
   useRequestOtpMutation,
@@ -52,6 +54,7 @@ type EmailForm = z.infer<typeof emailSchema>;
 
 export function SignupPageContent() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const [tab, setTab] = useState<SignupTab>('mobile');
@@ -115,6 +118,7 @@ export function SignupPageContent() {
         referralCode,
       });
       applyAuthSession(result.user, result.isNewUser);
+      await mergeGuestCartIntoServer(queryClient);
       toast('Account created successfully', 'success');
       router.replace('/onboarding');
     } catch (err) {
@@ -133,6 +137,7 @@ export function SignupPageContent() {
         referralCode: values.referralCode?.trim() || undefined,
       });
       applyAuthSession(result.user, result.isNewUser);
+      await mergeGuestCartIntoServer(queryClient);
       toast('Account created successfully', 'success');
       router.replace('/onboarding');
     } catch (err) {

@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchMe, requestOtp, verifyOtp, logoutSession } from '@/services/auth/auth-api';
+import { ApiError } from '@/services/api/merchant-client';
 import type { RequestOtpInput } from '@/services/auth/auth-api';
 import { useAuthStore } from '@/store/auth-store';
 import { useStoreStore } from '@/store/store-store';
@@ -12,12 +13,22 @@ export function useSessionQuery(enabled = true) {
     queryKey: ['auth', 'me'],
     enabled,
     queryFn: async () => {
-      const user = await fetchMe();
-      if (user) setSession(user);
-      else clearSession();
-      return user;
+      try {
+        const user = await fetchMe();
+        if (user) setSession(user);
+        else clearSession();
+        return user;
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 0) throw err;
+        return useAuthStore.getState().user;
+      }
     },
-    retry: false,
+    retry: (failureCount, error) => {
+      if (error && typeof error === 'object' && 'status' in error && (error as { status: number }).status === 0) {
+        return failureCount < 2;
+      }
+      return false;
+    },
     staleTime: 5 * 60 * 1000,
   });
 }

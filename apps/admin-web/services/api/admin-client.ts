@@ -29,9 +29,6 @@ export async function adminFetch<T>(path: string, init?: RequestInit): Promise<T
   }
 
   if (res.status === 401) {
-    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-      window.location.href = '/login';
-    }
     throw new ApiError('Session expired. Please log in again.', 401);
   }
 
