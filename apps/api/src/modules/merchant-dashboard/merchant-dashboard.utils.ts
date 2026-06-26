@@ -64,18 +64,20 @@ export function emptyMerchantAnalytics(period: '7d' | '30d' = '7d') {
 }
 
 export { sqlOrderStatusIn, sqlOrderStatusNotIn } from '../../common/utils/order-status-sql.util';
-
-export function startOfUtcDay(date = new Date()): Date {
-  const d = new Date(date);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
-}
-
-export function daysAgo(n: number): Date {
-  const d = startOfUtcDay();
-  d.setUTCDate(d.getUTCDate() - n);
-  return d;
-}
+export {
+  daysAgo,
+  daysAgoIst,
+  endOfIstDay,
+  istDayRange,
+  istHourRange,
+  istWeekdayIndex,
+  merchantOrderDayFilter,
+  orderIstDayFilter,
+  startOfIstDay,
+  startOfIstMonth,
+  startOfIstWeek,
+  startOfUtcDay,
+} from '../../common/utils/ist-day.util';
 
 export function decimalToNumber(value: { toNumber(): number } | number | null | undefined): number {
   if (value == null) return 0;

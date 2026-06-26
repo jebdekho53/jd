@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CampaignStatus, OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { startOfIstDay } from '../../common/utils/ist-day.util';
 import { StoreReputationService } from '../store-review/store-reputation.service';
 import { MerchantDashboardService } from '../merchant-dashboard/merchant-dashboard.service';
 import { SearchAnalyticsService } from '../search-discovery/search-analytics.service';
@@ -147,8 +148,7 @@ export class StoreHealthService {
         ? deliveries.reduce((s, d) => s + (d.estimatedMins ?? 30), 0) / deliveries.length
         : 30;
 
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
+    const today = startOfIstDay();
     await this.prisma.storeHealthSnapshot.upsert({
       where: { storeId_snapshotDate: { storeId, snapshotDate: today } },
       create: {

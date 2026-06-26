@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { startOfIstDay } from '../../common/utils/ist-day.util';
 import { predictDemand } from './demand-forecast.util';
 import { BUYER_STATUS_GROUPS } from '../order/order-status-groups';
 
@@ -24,9 +25,7 @@ export class DemandForecastService {
     let count = 0;
     for (const product of products) {
       for (const horizon of [1, 7]) {
-        const forecastDate = new Date(now);
-        forecastDate.setDate(forecastDate.getDate() + horizon);
-        forecastDate.setHours(0, 0, 0, 0);
+        const forecastDate = new Date(startOfIstDay(now).getTime() + horizon * 24 * 60 * 60 * 1000);
 
         const [orderQty7d, orderQty30d, searchHits7d, cartAdds7d, campaignBoost] = await Promise.all([
           this.orderQty(storeId, product.id, sevenDaysAgo),
@@ -86,12 +85,8 @@ export class DemandForecastService {
   }
 
   async getMerchantForecasts(storeIds: string[]) {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    const week = new Date();
-    week.setDate(week.getDate() + 7);
-    week.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(startOfIstDay().getTime() + 24 * 60 * 60 * 1000);
+    const week = new Date(startOfIstDay().getTime() + 7 * 24 * 60 * 60 * 1000);
 
     return this.prisma.demandForecast.findMany({
       where: { storeId: { in: storeIds }, forecastDate: { in: [tomorrow, week] } },

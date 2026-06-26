@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DeliveryStatus, RiderPayoutStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { startOfIstDay, startOfIstWeek } from '../../common/utils/ist-day.util';
 import { LedgerService } from './ledger.service';
 import { FinanceCacheService } from './finance-cache.service';
 import { decimalToNumber, roundMoney } from '../settlement/settlement.utils';
@@ -14,10 +15,8 @@ export class RiderPayoutService {
   ) {}
 
   async getRiderEarnings(riderProfileId: string) {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const weekStart = new Date(todayStart);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    const todayStart = startOfIstDay();
+    const weekStart = startOfIstWeek();
 
     const deliveries = await this.prisma.delivery.findMany({
       where: { riderProfileId, status: DeliveryStatus.DELIVERED },
@@ -57,9 +56,7 @@ export class RiderPayoutService {
   }
 
   async generateWeeklyPayout(riderProfileId: string) {
-    const weekStart = new Date();
-    weekStart.setDate(weekStart.getDate() - 7);
-    weekStart.setHours(0, 0, 0, 0);
+    const weekStart = startOfIstWeek();
     const weekEnd = new Date();
 
     const deliveries = await this.prisma.delivery.findMany({

@@ -13,6 +13,7 @@ import {
   SettlementLedgerStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { startOfIstDay } from '../../common/utils/ist-day.util';
 import { AuditService } from '../audit/audit.service';
 import { SettlementCommissionService } from './settlement-commission.service';
 import { FinanceCommissionService } from '../finance/finance-commission.service';
@@ -438,8 +439,7 @@ export class SettlementService {
   // ── Admin APIs ──────────────────────────────────────────────────────────────
 
   async getAdminSettlementsOverview() {
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
+    const todayStart = startOfIstDay();
 
     const [
       pendingPayouts,

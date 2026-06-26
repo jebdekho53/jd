@@ -7,7 +7,7 @@ import { AnalyticsSnapshotService } from './analytics-snapshot.service';
 import { AnalyticsAlertService } from './analytics-alert.service';
 import { AnalyticsMetricsCacheService } from './analytics-metrics-cache.service';
 import { PrismaService } from '../../database/prisma.service';
-import { startOfUtcDay } from '../merchant-dashboard/merchant-dashboard.utils';
+import { daysAgo, startOfIstDay } from '../../common/utils/ist-day.util';
 
 @Injectable()
 export class AnalyticsMaterializerService {
@@ -32,7 +32,7 @@ export class AnalyticsMaterializerService {
       const metrics = await this.aggregator.aggregateHourly(bucket);
       await this.snapshots.upsertHourly(AnalyticsSnapshotScope.PLATFORM, null, bucket, metrics);
 
-      const today = startOfUtcDay();
+      const today = startOfIstDay();
       const platformDaily = await this.aggregator.aggregatePlatformDaily(today);
       await this.snapshots.upsertDaily(AnalyticsSnapshotScope.PLATFORM, null, today, platformDaily);
 
@@ -46,12 +46,10 @@ export class AnalyticsMaterializerService {
 
   @Cron('30 1 * * *')
   async materializeDaily() {
-    const yesterday = startOfUtcDay();
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const yesterday = daysAgo(1);
 
     try {
-      const prev = new Date(yesterday);
-      prev.setUTCDate(prev.getUTCDate() - 1);
+      const prev = daysAgo(2);
       const platformDaily = await this.aggregator.aggregatePlatformDaily(yesterday, prev);
       await this.snapshots.upsertDaily(AnalyticsSnapshotScope.PLATFORM, null, yesterday, platformDaily);
 

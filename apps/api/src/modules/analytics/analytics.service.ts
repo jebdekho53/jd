@@ -7,7 +7,7 @@ import { AnalyticsAlertService } from './analytics-alert.service';
 import { AnalyticsExportService, type ExportFormat, type ExportRange } from './analytics-export.service';
 import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
 import { PrismaService } from '../../database/prisma.service';
-import { daysAgo, startOfUtcDay } from '../merchant-dashboard/merchant-dashboard.utils';
+import { daysAgo, startOfIstDay, startOfIstMonth, startOfIstWeek } from '../../common/utils/ist-day.util';
 import type {
   HourlyMetrics,
   PlatformDailyMetrics,
@@ -17,7 +17,7 @@ import { REVENUE_STATUSES } from '../merchant-dashboard/merchant-dashboard.utils
 import { OrderStatus } from '@prisma/client';
 
 function parseRange(range: ExportRange, from?: string, to?: string): { from: Date; to: Date } {
-  const today = startOfUtcDay();
+  const today = startOfIstDay();
   switch (range) {
     case 'today':
       return { from: today, to: new Date() };
@@ -34,7 +34,7 @@ function parseRange(range: ExportRange, from?: string, to?: string): { from: Dat
       return { from: daysAgo(90), to: new Date() };
     case 'custom':
       return {
-        from: from ? startOfUtcDay(new Date(from)) : daysAgo(7),
+        from: from ? startOfIstDay(new Date(from)) : daysAgo(7),
         to: to ? new Date(to) : new Date(),
       };
     default:
@@ -61,7 +61,7 @@ export class AnalyticsService {
   }
 
   private async ensureTodaySnapshot(): Promise<PlatformDailyMetrics> {
-    const today = startOfUtcDay();
+    const today = startOfIstDay();
     const cached = await this.cache.get<PlatformDailyMetrics['executive']>(
       this.cache.key(['executive', 'latest']),
     );
@@ -75,7 +75,7 @@ export class AnalyticsService {
   }
 
   async getExecutive() {
-    const today = startOfUtcDay();
+    const today = startOfIstDay();
     const metrics = await this.ensureTodaySnapshot();
     const yesterdayMetrics = await this.getPlatformMetricsForDate(daysAgo(1));
     return {
@@ -155,14 +155,12 @@ export class AnalyticsService {
     daily: { snapshotDate: Date; metrics: unknown }[],
   ) {
     if (!compare) return null;
-    const today = startOfUtcDay();
+    const today = startOfIstDay();
     const yesterday = daysAgo(1);
-    const thisWeekStart = daysAgo(today.getUTCDay());
-    const lastWeekStart = daysAgo(today.getUTCDay() + 7);
-    const thisMonthStart = new Date(today);
-    thisMonthStart.setUTCDate(1);
-    const lastMonthStart = new Date(thisMonthStart);
-    lastMonthStart.setUTCMonth(lastMonthStart.getUTCMonth() - 1);
+    const thisWeekStart = startOfIstWeek();
+    const lastWeekStart = startOfIstWeek(daysAgo(7));
+    const thisMonthStart = startOfIstMonth();
+    const lastMonthStart = startOfIstMonth(new Date(thisMonthStart.getTime() - 1));
 
     const sumRange = (start: Date, end: Date) => {
       const src = granularity === 'hourly' ? hourly : daily;
@@ -284,7 +282,7 @@ export class AnalyticsService {
   }
 
   async getControlRoom() {
-    const todayStart = startOfUtcDay();
+    const todayStart = startOfIstDay();
     const [fleet, executive, alertList, trustAlerts, health] = await Promise.all([
       this.tracking.getFleetLive(),
       this.getExecutive(),
@@ -354,7 +352,7 @@ export class AnalyticsService {
     const from = daysAgo(days);
     const snaps = await this.snapshots.listDaily(AnalyticsSnapshotScope.STORE, storeId, from, new Date());
     if (snaps.length === 0) {
-      const today = await this.aggregator.aggregateStoreDaily(storeId, startOfUtcDay());
+      const today = await this.aggregator.aggregateStoreDaily(storeId, startOfIstDay());
       return { source: 'live-fallback', period, rollup: today, series: [] };
     }
     return {

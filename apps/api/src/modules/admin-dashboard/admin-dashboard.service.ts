@@ -15,12 +15,14 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { sqlOrderStatusNotIn } from '../../common/utils/order-status-sql.util';
+import { orderIstDayFilter } from '../../common/utils/ist-day.util';
 import {
   CANCELLED_STATUSES,
   REVENUE_STATUSES,
   daysAgo,
   decimalToNumber,
-  startOfUtcDay,
+  startOfIstDay,
+  startOfIstMonth,
 } from '../merchant-dashboard/merchant-dashboard.utils';
 import {
   AdminDashboardOrdersQueryDto,
@@ -56,9 +58,8 @@ export class AdminDashboardService {
   }
 
   async getOverview() {
-    const todayStart = startOfUtcDay();
-    const monthStart = new Date(todayStart);
-    monthStart.setUTCDate(1);
+    const todayStart = startOfIstDay();
+    const monthStart = startOfIstMonth();
 
     const [
       totalOrders,
@@ -178,11 +179,9 @@ export class AdminDashboardService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
     const skip = (page - 1) * limit;
-    const todayStart = startOfUtcDay();
-
     const where: Prisma.OrderWhereInput = {
       ...(query.storeId ? { storeId: query.storeId } : {}),
-      ...(query.today ? { createdAt: { gte: todayStart } } : {}),
+      ...(query.today ? orderIstDayFilter({ today: true }) : {}),
       ...(query.status ? { status: query.status as OrderStatus } : {}),
       ...(query.cityId ? { store: { cityId: query.cityId } } : {}),
       ...(query.riderId
@@ -403,7 +402,7 @@ export class AdminDashboardService {
   }
 
   async getPayments() {
-    const todayStart = startOfUtcDay();
+    const todayStart = startOfIstDay();
     const [cod, paid, failed, refunded, dailyRevenue] = await Promise.all([
       this.prisma.order.count({
         where: { paymentMethod: PaymentMethod.COD, createdAt: { gte: todayStart } },
@@ -436,7 +435,7 @@ export class AdminDashboardService {
   }
 
   async getCustomers() {
-    const todayStart = startOfUtcDay();
+    const todayStart = startOfIstDay();
     const since30 = daysAgo(30);
 
     const buyerRoleFilter = {

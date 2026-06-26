@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { startOfIstDay } from '../../common/utils/ist-day.util';
 
 @Injectable()
 export class AdminMerchantSuccessService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getDashboard() {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
+    const today = startOfIstDay();
 
     const snapshots = await this.prisma.storeHealthSnapshot.findMany({
       where: { snapshotDate: today },

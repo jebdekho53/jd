@@ -14,8 +14,15 @@ import {
   REVENUE_STATUSES,
   decimalToNumber,
   pctChange,
-  startOfUtcDay,
 } from '../merchant-dashboard/merchant-dashboard.utils';
+import {
+  daysAgo,
+  istDayRange,
+  istHourRange,
+  startOfIstDay,
+  startOfIstMonth,
+  startOfIstWeek,
+} from '../../common/utils/ist-day.util';
 import { sqlOrderStatusIn } from '../../common/utils/order-status-sql.util';
 import type {
   CustomerAnalyticsMetrics,
@@ -32,18 +39,11 @@ import type {
 } from './analytics-metrics.types';
 
 function dayRange(date: Date): { start: Date; end: Date } {
-  const start = startOfUtcDay(date);
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 1);
-  return { start, end };
+  return istDayRange(date);
 }
 
 function hourRange(date: Date): { start: Date; end: Date } {
-  const start = new Date(date);
-  start.setUTCMinutes(0, 0, 0);
-  const end = new Date(start);
-  end.setUTCHours(end.getUTCHours() + 1);
-  return { start, end };
+  return istHourRange(date);
 }
 
 @Injectable()

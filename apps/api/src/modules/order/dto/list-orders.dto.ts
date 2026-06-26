@@ -85,7 +85,7 @@ export class ListMerchantOrdersDto extends ListOrdersDto {
 }
 
 export class ListAdminOrdersDto extends OmitType(ListOrdersDto, ['statusGroup'] as const) {
-  @ApiProperty({ required: false, description: 'Only orders created today (server local time)' })
+  @ApiProperty({ required: false, description: 'Orders created or paid today (IST)' })
   @IsOptional()
   @Type(() => Boolean)
   today?: boolean;

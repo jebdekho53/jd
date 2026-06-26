@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AnalyticsSnapshotScope, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { istHourRange, startOfIstDay } from '../../common/utils/ist-day.util';
 import type { HourlyMetrics, MerchantRollupMetrics, PlatformDailyMetrics } from './analytics-metrics.types';
 
 @Injectable()
@@ -13,8 +14,7 @@ export class AnalyticsSnapshotService {
     snapshotDate: Date,
     metrics: PlatformDailyMetrics | MerchantRollupMetrics | Record<string, unknown>,
   ) {
-    const dateOnly = new Date(snapshotDate);
-    dateOnly.setUTCHours(0, 0, 0, 0);
+    const dateOnly = startOfIstDay(snapshotDate);
     const json = metrics as unknown as Prisma.InputJsonValue;
 
     const existing = await this.prisma.analyticsDailySnapshot.findFirst({
@@ -39,8 +39,7 @@ export class AnalyticsSnapshotService {
     bucketAt: Date,
     metrics: HourlyMetrics,
   ) {
-    const bucket = new Date(bucketAt);
-    bucket.setUTCMinutes(0, 0, 0);
+    const bucket = istHourRange(bucketAt).start;
     const json = metrics as unknown as Prisma.InputJsonValue;
 
     const existing = await this.prisma.analyticsHourlySnapshot.findFirst({
@@ -64,8 +63,7 @@ export class AnalyticsSnapshotService {
     scopeId: string | null,
     snapshotDate: Date,
   ) {
-    const dateOnly = new Date(snapshotDate);
-    dateOnly.setUTCHours(0, 0, 0, 0);
+    const dateOnly = startOfIstDay(snapshotDate);
 
     return this.prisma.analyticsDailySnapshot.findFirst({
       where: { scope, scopeId, snapshotDate: dateOnly },
@@ -78,10 +76,8 @@ export class AnalyticsSnapshotService {
     from: Date,
     to: Date,
   ) {
-    const fromDate = new Date(from);
-    fromDate.setUTCHours(0, 0, 0, 0);
-    const toDate = new Date(to);
-    toDate.setUTCHours(0, 0, 0, 0);
+    const fromDate = startOfIstDay(from);
+    const toDate = startOfIstDay(to);
 
     return this.prisma.analyticsDailySnapshot.findMany({
       where: {

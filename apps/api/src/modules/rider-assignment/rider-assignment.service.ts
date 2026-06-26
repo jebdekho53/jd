@@ -18,6 +18,7 @@ import {
   UserStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { startOfIstDay } from '../../common/utils/ist-day.util';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { OrderStatusHistoryService } from '../order/order-status-history.service';
@@ -415,8 +416,7 @@ export class RiderAssignmentService {
   }
 
   async getMetrics() {
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
+    const todayStart = startOfIstDay();
 
     const [
       unassignedCount,

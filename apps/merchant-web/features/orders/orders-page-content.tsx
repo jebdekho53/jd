@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { LayoutGrid, List, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { Card, Skeleton, Table, THead, TBody, Tr, Th, Td, Button } from '@/design-system/primitives';
@@ -19,7 +20,7 @@ import { cn } from '@/lib/cn';
 type ViewMode = 'kanban' | 'table';
 
 const DEFAULT_FILTERS: PipelineFilters = {
-  datePreset: 'today',
+  datePreset: 'all',
   dateFrom: '',
   dateTo: '',
   pipelineColumn: '',
@@ -27,10 +28,23 @@ const DEFAULT_FILTERS: PipelineFilters = {
   search: '',
 };
 
+function initialFiltersFromUrl(searchParams: URLSearchParams): PipelineFilters {
+  const filters: PipelineFilters = { ...DEFAULT_FILTERS };
+  const status = searchParams.get('status');
+  if (status === 'PAID' || status === 'PAYMENT_PENDING' || status === 'CREATED') {
+    filters.pipelineColumn = 'NEW';
+    filters.datePreset = 'all';
+  }
+  return filters;
+}
+
 export function OrdersPageContent() {
+  const searchParams = useSearchParams();
   const { currentStore } = useStoreStore();
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
-  const [filters, setFilters] = useState<PipelineFilters>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<PipelineFilters>(() =>
+    initialFiltersFromUrl(searchParams),
+  );
 
   const queryParams = filtersToParams(filters, currentStore?.id);
   const { data, isLoading, refetch, isFetching } = useOrdersQuery(queryParams);

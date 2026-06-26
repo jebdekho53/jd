@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AdCampaignStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { startOfIstDay } from '../../common/utils/ist-day.util';
 
 @Injectable()
 export class AdBudgetService {
@@ -38,8 +39,7 @@ export class AdBudgetService {
   }
 
   async checkDailyCap(campaignId: string, groupDailyBudget: number) {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+    const start = startOfIstDay();
     const [impressions, clicks] = await Promise.all([
       this.prisma.adImpression.aggregate({
         where: { campaignId, createdAt: { gte: start } },

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { SettlementBatchStatus, SettlementCycle, SettlementLedgerStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { daysAgoIst, startOfIstDay } from '../../common/utils/ist-day.util';
 import { LedgerService } from './ledger.service';
 import { FinanceCacheService } from './finance-cache.service';
 import { FinanceAlertService } from './finance-alert.service';
@@ -161,14 +162,8 @@ export class SettlementBatchService {
 
   private periodForCycle(cycle: SettlementCycle): { periodStart: Date; periodEnd: Date } {
     const end = new Date();
-    end.setHours(23, 59, 59, 999);
-    const start = new Date(end);
-    if (cycle === SettlementCycle.DAILY) {
-      start.setHours(0, 0, 0, 0);
-    } else {
-      start.setDate(start.getDate() - 7);
-      start.setHours(0, 0, 0, 0);
-    }
+    const start =
+      cycle === SettlementCycle.DAILY ? startOfIstDay() : daysAgoIst(7);
     return { periodStart: start, periodEnd: end };
   }
 }

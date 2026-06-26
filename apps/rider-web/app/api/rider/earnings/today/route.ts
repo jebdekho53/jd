@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchWithAuth, errorResponse } from '@/lib/auth/session';
+import { startOfIstDay } from '@/lib/ist-day';
 import { mapDeliveryListItem, type BackendDelivery } from '@/lib/transforms/orders';
 
 export async function GET(req: NextRequest) {
   try {
     const raw = await fetchWithAuth<BackendDelivery[]>('/rider/orders', { method: 'GET' }, req);
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayStart = startOfIstDay();
 
     const today = raw
       .map(mapDeliveryListItem)

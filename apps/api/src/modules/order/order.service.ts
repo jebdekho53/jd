@@ -28,6 +28,7 @@ import {
   slaLevel,
   type MerchantPipelineColumn,
 } from './merchant-pipeline.util';
+import { merchantOrderDayFilter, orderIstDayFilter } from '../../common/utils/ist-day.util';
 import { RiderAssignmentService } from '../rider-assignment/rider-assignment.service';
 import { ReservationService } from '../checkout/reservation.service';
 import { RewardService } from '../wallet-loyalty/reward.service';
@@ -470,10 +471,7 @@ export class OrderService implements OnModuleInit {
       ? PIPELINE_COLUMN_STATUSES[pipelineColumn as MerchantPipelineColumn]
       : undefined;
 
-    const dayStart = new Date();
-    dayStart.setHours(0, 0, 0, 0);
-    const yesterdayStart = new Date(dayStart);
-    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    const dayFilter = merchantOrderDayFilter({ today, yesterday });
 
     const where: Prisma.OrderWhereInput = {
       storeId: { in: targetStoreIds },
@@ -481,8 +479,7 @@ export class OrderService implements OnModuleInit {
       ...(group && !status && !columnStatuses && { status: { in: [...MERCHANT_STATUS_GROUPS[group]] } }),
       ...(columnStatuses && !status && { status: { in: [...columnStatuses] } }),
       ...(paymentMethod && { paymentMethod }),
-      ...(today && { createdAt: { gte: dayStart } }),
-      ...(yesterday && { createdAt: { gte: yesterdayStart, lt: dayStart } }),
+      ...(dayFilter ?? {}),
       ...(dateFrom || dateTo
         ? {
             createdAt: {
@@ -608,17 +605,15 @@ export class OrderService implements OnModuleInit {
     } = dto;
     const skip = (page - 1) * limit;
 
+    const dayFilter = today ? orderIstDayFilter({ today: true }) : undefined;
+
     const where: Prisma.OrderWhereInput = {
       ...(storeId && { storeId }),
       ...(merchantId && { store: { merchantProfileId: merchantId } }),
       ...(riderId && { delivery: { riderProfileId: riderId } }),
       ...(paymentMethod && { paymentMethod }),
       ...(paymentStatus && { paymentStatus }),
-      ...(today && {
-        createdAt: {
-          gte: new Date(new Date().setHours(0, 0, 0, 0)),
-        },
-      }),
+      ...(dayFilter ?? {}),
       ...(dateFrom || dateTo
         ? {
             createdAt: {

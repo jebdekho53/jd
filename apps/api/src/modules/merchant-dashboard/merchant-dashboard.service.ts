@@ -29,7 +29,7 @@ import {
   pctChange,
   sqlOrderStatusIn,
   sqlOrderStatusNotIn,
-  startOfUtcDay,
+  startOfIstDay,
 } from './merchant-dashboard.utils';
 
 type SparkPoint = { date: string; value: number };
@@ -83,7 +83,7 @@ export class MerchantDashboardService {
         return { ...EMPTY_MERCHANT_OVERVIEW };
       }
 
-      const todayStart = startOfUtcDay();
+      const todayStart = startOfIstDay();
       const yesterdayStart = daysAgo(1);
       const baseWhere = { storeId: { in: storeIds } };
 
@@ -557,7 +557,7 @@ export class MerchantDashboardService {
         (a, b) => decimalToNumber(b._sum.totalPrice) - decimalToNumber(a._sum.totalPrice),
       );
 
-      const todayStart = startOfUtcDay();
+      const todayStart = startOfIstDay();
       const weekStart = daysAgo(7);
       const monthStart = daysAgo(30);
 

@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { startOfIstDay } from '../../common/utils/ist-day.util';
 
 @Injectable()
 export class SeoAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async recordDailySnapshot() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = startOfIstDay();
 
     const [pages, keywords, mentions, faqs, crawlers] = await Promise.all([
       this.prisma.seoPage.count({ where: { indexable: true } }),

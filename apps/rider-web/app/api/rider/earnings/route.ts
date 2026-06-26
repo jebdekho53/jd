@@ -1,19 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchWithAuth, errorResponse } from '@/lib/auth/session';
+import { startOfIstDay, startOfIstWeek } from '@/lib/ist-day';
 import { mapDeliveryListItem, type BackendDelivery } from '@/lib/transforms/orders';
-
-function startOfDay(d = new Date()) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-function startOfWeek(d = new Date()) {
-  const x = startOfDay(d);
-  const day = x.getDay();
-  x.setDate(x.getDate() - day);
-  return x;
-}
 
 async function fetchDeliveries(req: NextRequest) {
   const raw = await fetchWithAuth<BackendDelivery[]>('/rider/orders', { method: 'GET' }, req);
@@ -24,8 +12,8 @@ export async function GET(req: NextRequest) {
   try {
     const deliveries = await fetchDeliveries(req);
     const delivered = deliveries.filter((d) => d.deliveryStatus === 'DELIVERED');
-    const todayStart = startOfDay();
-    const weekStart = startOfWeek();
+    const todayStart = startOfIstDay();
+    const weekStart = startOfIstWeek();
 
     const today = delivered.filter((d) => new Date(d.assignedAt) >= todayStart);
     const week = delivered.filter((d) => new Date(d.assignedAt) >= weekStart);
