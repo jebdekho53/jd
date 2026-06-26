@@ -9,21 +9,26 @@ interface DeliverabilityPanelProps {
   storeId: string;
   lat: number;
   lng: number;
+  pincode?: string;
 }
 
-async function fetchDeliverability(storeId: string, lat: number, lng: number) {
-  const res = await fetch(
-    `/api/buyer/geo/deliverability?storeId=${encodeURIComponent(storeId)}&lat=${lat}&lng=${lng}`,
-  );
+async function fetchDeliverability(storeId: string, lat: number, lng: number, pincode?: string) {
+  const params = new URLSearchParams({
+    storeId,
+    lat: String(lat),
+    lng: String(lng),
+  });
+  if (pincode) params.set('pincode', pincode);
+  const res = await fetch(`/api/buyer/geo/deliverability?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to check delivery coverage');
   const json = await res.json();
   return json.data as Awaited<ReturnType<typeof checkDeliverability>>;
 }
 
-export function DeliverabilityPanel({ storeId, lat, lng }: DeliverabilityPanelProps) {
+export function DeliverabilityPanel({ storeId, lat, lng, pincode }: DeliverabilityPanelProps) {
   const { data, isLoading } = useQuery({
-    queryKey: ['deliverability', storeId, lat, lng],
-    queryFn: () => fetchDeliverability(storeId, lat, lng),
+    queryKey: ['deliverability', storeId, lat, lng, pincode],
+    queryFn: () => fetchDeliverability(storeId, lat, lng, pincode),
     enabled: Boolean(storeId && lat && lng),
     staleTime: 15_000,
   });

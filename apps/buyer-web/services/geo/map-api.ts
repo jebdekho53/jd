@@ -42,10 +42,15 @@ export async function fetchMapStores(lat: number, lng: number, radiusKm = 10) {
   return res.data;
 }
 
-export async function checkDeliverability(storeId: string, lat: number, lng: number) {
+export async function checkDeliverability(
+  storeId: string,
+  lat: number,
+  lng: number,
+  pincode?: string,
+) {
   const res = await apiGet<{ success: boolean; data: DeliverabilityResult }>(
     '/buyer/geo/deliverability',
-    { storeId, lat, lng },
+    { storeId, lat, lng, pincode },
   );
   return res.data;
 }

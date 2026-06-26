@@ -38,6 +38,16 @@ const makeStore = (overrides: Partial<Record<string, unknown>> = {}) => ({
     },
   ],
   storeServiceAreas: [],
+  deliveryAreas: [] as Array<{
+    pincode: string;
+    isActive: boolean;
+    deliveryFee?: number;
+    minimumOrder?: number;
+    estimatedMinutes?: number;
+    priority?: number;
+  }>,
+  createdAt: new Date(),
+  reputationStats: null,
   verificationDocuments: [],
   merchantProfile: { gstNumber: null, kycStatus: 'APPROVED', createdAt: new Date() },
   categories: [],
@@ -244,9 +254,6 @@ describe('BuyerStoreService', () => {
         }
         return Promise.resolve(null);
       });
-      mockPrisma.storeCategory.findMany.mockResolvedValue([
-        { storeId: 's-1', subcategoryId: DAIRY_ID },
-      ]);
       mockPrisma.product.groupBy.mockResolvedValue([
         { storeId: 's-1', _count: { id: 1 } },
       ]);
@@ -270,8 +277,69 @@ describe('BuyerStoreService', () => {
       expect(mockPrisma.store.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ id: { in: ['s-1'] } }),
+          include: expect.objectContaining({ deliveryAreas: expect.anything() }),
         }),
       );
+    });
+
+    it('includes store when pincode is in delivery areas despite geo distance', async () => {
+      const store = makeStore({
+        slug: 'atharv-legal',
+        latitude: 19.076,
+        longitude: 72.877,
+        deliveryRadiusKm: 3,
+        deliveryAreas: [
+          {
+            pincode: '201017',
+            isActive: true,
+            deliveryFee: 20,
+            minimumOrder: 50,
+            estimatedMinutes: 30,
+            priority: 1,
+          },
+        ],
+      });
+      mockPrisma.store.findMany.mockResolvedValue([store]);
+
+      const { stores, total } = await service.listStoresForCategory(DAIRY_ID, {
+        lat: 28.6139,
+        lng: 77.209,
+        pincode: '201017',
+        radiusKm: 3,
+        page: 1,
+        limit: 12,
+      });
+
+      expect(total).toBe(1);
+      expect(stores[0].slug).toBe('atharv-legal');
+    });
+
+    it('category discovery matches home discovery for pincode-covered far store', async () => {
+      const store = makeStore({
+        slug: 'atharv-legal',
+        latitude: 19.076,
+        longitude: 72.877,
+        deliveryRadiusKm: 3,
+        deliveryAreas: [{ pincode: '201017', isActive: true, priority: 1 }],
+      });
+      mockPrisma.store.findMany.mockResolvedValue([store]);
+
+      const categoryResult = await service.listStoresForCategory(DAIRY_ID, {
+        lat: 28.6139,
+        lng: 77.209,
+        pincode: '201017',
+        radiusKm: 3,
+      });
+
+      const homeResult = await service.discoverStores({
+        lat: 28.6139,
+        lng: 77.209,
+        pincode: '201017',
+        radiusKm: 3,
+      });
+
+      expect(categoryResult.stores.some((s) => s.slug === 'atharv-legal')).toBe(true);
+      expect(homeResult.stores.some((s) => s.slug === 'atharv-legal')).toBe(true);
     });
   });
 });

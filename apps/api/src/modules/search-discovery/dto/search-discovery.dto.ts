@@ -166,6 +166,13 @@ export class DiscoverStoresSearchDto {
   @Max(20)
   radiusKm?: number = 10;
 
+  @ApiPropertyOptional({ example: '201017' })
+  @IsOptional()
+  @IsString()
+  @Length(6, 6)
+  @Matches(/^\d{6}$/)
+  pincode?: string;
+
   @IsOptional()
   @IsIn(['nearest', 'best_rated', 'fast_delivery', 'offers', 'new_stores'])
   filter?: DiscoverStoreFilter = 'nearest';

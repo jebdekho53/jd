@@ -15,12 +15,15 @@ import { HotspotService } from '../ai-commerce/hotspot.service';
 import { LocationDirectoryService } from '../location-directory/location-directory.service';
 import { unassignedOrderWhere } from '../rider-assignment/rider-assignment.util';
 import {
-  checkStoreDeliverability,
   estimateStoreToBuyerEta,
   normalizeDeliveryRadiusKm,
 } from '../../common/utils/geospatial.util';
-import { checkStoreDeliverabilityWithCoverage } from '../../common/utils/delivery-coverage.util';
 import { STORE_GEO_INCLUDE } from '../../common/constants/store-geo.include';
+import {
+  canDeliverToBuyer,
+  toDeliverableStoreShape,
+  UNLIMITED_DISCOVERY_RADIUS_KM,
+} from '../buyer/buyer-visibility.util';
 import {
   CheckDeliverabilityDto,
   CreateAddressDto,
@@ -53,9 +56,13 @@ export class GeospatialService {
     });
     if (!store) throw new NotFoundException('Store not found');
 
-    const result = checkStoreDeliverabilityWithCoverage(dto.lat, dto.lng, store, {
-      buyerPincode: dto.pincode,
+    const eligibility = canDeliverToBuyer(toDeliverableStoreShape(store), {
+      lat: dto.lat,
+      lng: dto.lng,
+      pincode: dto.pincode,
+      discoveryRadiusKm: UNLIMITED_DISCOVERY_RADIUS_KM,
     });
+    const result = eligibility.deliverable;
     const etaMins = result.deliverable
       ? estimateStoreToBuyerEta(
           store.latitude,
@@ -100,8 +107,13 @@ export class GeospatialService {
 
     return stores
       .map((store) => {
-        const d = checkStoreDeliverability(lat, lng, store);
-        if (!d.deliverable) return null;
+        const eligibility = canDeliverToBuyer(toDeliverableStoreShape(store), {
+          lat,
+          lng,
+          discoveryRadiusKm: UNLIMITED_DISCOVERY_RADIUS_KM,
+        });
+        if (!eligibility.eligible) return null;
+        const d = eligibility.deliverable;
         return {
           id: store.id,
           name: store.name,
@@ -160,8 +172,13 @@ export class GeospatialService {
 
     return stores
       .map((store) => {
-        const d = checkStoreDeliverability(lat, lng, store);
-        if (!d.deliverable) return null;
+        const eligibility = canDeliverToBuyer(toDeliverableStoreShape(store), {
+          lat,
+          lng,
+          discoveryRadiusKm: radiusKm,
+        });
+        if (!eligibility.eligible) return null;
+        const d = eligibility.deliverable;
         return {
           id: store.id,
           name: store.name,
@@ -221,8 +238,13 @@ export class GeospatialService {
     });
     if (!store) throw new BadRequestException('Store is no longer accepting orders');
 
-    const result = checkStoreDeliverabilityWithCoverage(lat, lng, store, { buyerPincode });
-    if (!result.deliverable) {
+    const eligibility = canDeliverToBuyer(toDeliverableStoreShape(store), {
+      lat,
+      lng,
+      pincode: buyerPincode,
+      discoveryRadiusKm: UNLIMITED_DISCOVERY_RADIUS_KM,
+    });
+    if (!eligibility.eligible) {
       throw new BadRequestException({
         message: 'This store currently does not deliver to your location.',
         code: 'OUT_OF_DELIVERY_ZONE',

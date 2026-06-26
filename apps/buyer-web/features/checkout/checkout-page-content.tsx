@@ -230,6 +230,7 @@ export function CheckoutPageContent() {
                     storeId={cart.storeId}
                     lat={deliveryAddress.lat}
                     lng={deliveryAddress.lng}
+                    pincode={deliveryAddress.pincode}
                   />
                   <CouponPanel cart={cart} />
                   <CheckoutSummary cart={cart} address={deliveryAddress} />

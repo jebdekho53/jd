@@ -1,10 +1,9 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Prisma, StoreStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import {
   assertActiveGlobalCategory,
   fetchActiveGlobalCategories,
-  fetchApprovedSubcategoryIds,
   fetchStoreVisibleCategories,
 } from './buyer-category-catalog';
 import { BuyerCacheService, BUYER_CACHE_KEYS } from './buyer-cache.service';
@@ -15,8 +14,15 @@ import {
   estimateDeliveryEtaMins,
   textRelevanceScore,
 } from '../search-discovery/search-ranking.util';
-import { checkStoreDeliverability } from '../../common/utils/geospatial.util';
 import { buildProductTextSearchWhere } from '../search-discovery/product-text-search.util';
+import {
+  canDeliverToBuyer,
+  DEFAULT_BUYER_DISCOVERY_RADIUS_KM,
+  PRODUCT_VISIBLE_WHERE,
+  STORE_DISCOVERY_INCLUDE,
+  STORE_VISIBLE_WHERE,
+  toDeliverableStoreShape,
+} from './buyer-visibility.util';
 
 // ── Response shapes ───────────────────────────────────────────────────────────
 
@@ -68,29 +74,17 @@ export interface CategoryItem {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/**
- * A product is visible to buyers when:
- *   - isActive = true
- *   - deletedAt = null
- *   - at least one active variant has available inventory > 0
- */
-const PRODUCT_VISIBLE_WHERE: Prisma.ProductWhereInput = {
-  isActive: true,
-  deletedAt: null,
-  variants: {
-    some: {
-      isActive: true,
-      inventory: { availableQty: { gt: 0 }, status: 'ACTIVE' },
-    },
-  },
-};
-
-/** Visible store conditions for joins. */
-const STORE_VISIBLE_WHERE: Prisma.StoreWhereInput = {
-  status: StoreStatus.APPROVED,
-  isActive: true,
-  deletedAt: null,
-};
+async function fetchStoreProductCategoryIds(
+  prisma: PrismaService,
+  storeId: string,
+): Promise<string[]> {
+  const rows = await prisma.product.findMany({
+    where: { storeId, ...PRODUCT_VISIBLE_WHERE, categoryId: { not: null } },
+    select: { categoryId: true },
+    distinct: ['categoryId'],
+  });
+  return rows.map((r) => r.categoryId!).filter(Boolean);
+}
 
 function mapVariant(v: {
   id: string;
@@ -135,17 +129,17 @@ export class BuyerProductService {
     const limit = dto.limit ?? 20;
 
     if (dto.categoryId) {
-      await this.assertCategoryVisibleForStore(storeId, dto.categoryId);
+      await this.assertCategoryInCatalog(dto.categoryId);
     }
 
     const cacheKey = BUYER_CACHE_KEYS.storeProducts(storeId, dto.categoryId, page, limit);
 
     return this.cache.wrap(cacheKey, async () => {
-      const approvedSubIds = await fetchApprovedSubcategoryIds(this.prisma, storeId);
-      if (approvedSubIds.length === 0) {
+      const productCategoryIds = await fetchStoreProductCategoryIds(this.prisma, storeId);
+      if (productCategoryIds.length === 0) {
         return { products: [], total: 0 };
       }
-      if (dto.categoryId && !approvedSubIds.includes(dto.categoryId)) {
+      if (dto.categoryId && !productCategoryIds.includes(dto.categoryId)) {
         return { products: [], total: 0 };
       }
 
@@ -153,7 +147,7 @@ export class BuyerProductService {
         ...PRODUCT_VISIBLE_WHERE,
         storeId,
         store: STORE_VISIBLE_WHERE,
-        categoryId: dto.categoryId ?? { in: approvedSubIds },
+        categoryId: dto.categoryId ?? { in: productCategoryIds },
       };
 
       const [raw, total] = await this.prisma.$transaction([
@@ -273,11 +267,7 @@ export class BuyerProductService {
     const effectiveCategoryId = dto.subcategoryId ?? dto.categoryId;
 
     if (effectiveCategoryId) {
-      if (dto.storeId) {
-        await this.assertCategoryVisibleForStore(dto.storeId, effectiveCategoryId);
-      } else {
-        await this.assertCategoryPubliclyVisible(effectiveCategoryId);
-      }
+      await this.assertCategoryInCatalog(effectiveCategoryId);
     }
 
     const cacheKey = BUYER_CACHE_KEYS.productSearch(
@@ -331,11 +321,19 @@ export class BuyerProductService {
         this.prisma.product.count({ where }),
       ]);
 
-      const grantMap = await this.buildStoreCategoryGrantMap();
-      const raw = rawUnfiltered.filter(
-        (p) => p.categoryId && grantMap.get(p.storeId)?.has(p.categoryId),
-      );
+      const raw = rawUnfiltered.filter((p) => Boolean(p.categoryId));
       const total = dto.storeId ? totalUnfiltered : raw.length;
+
+      const discoveryRadiusKm = DEFAULT_BUYER_DISCOVERY_RADIUS_KM;
+      const storeIds = [...new Set(raw.map((p) => p.storeId))];
+      const storeGeoRows =
+        storeIds.length > 0 && dto.lat != null && dto.lng != null
+          ? await this.prisma.store.findMany({
+              where: { id: { in: storeIds }, ...STORE_VISIBLE_WHERE },
+              include: STORE_DISCOVERY_INCLUDE,
+            })
+          : [];
+      const storeGeoMap = new Map(storeGeoRows.map((s) => [s.id, s]));
 
       const offerStoreIds = await this.activeOfferStoreIds();
       const maxQty = Math.max(
@@ -358,21 +356,23 @@ export class BuyerProductService {
 
         let distanceKm: number | null = null;
         if (dto.lat != null && dto.lng != null) {
-          const d = checkStoreDeliverability(dto.lat, dto.lng, {
-            latitude: p.store.latitude,
-            longitude: p.store.longitude,
-            deliveryRadiusKm: 20,
-            storeServiceAreas: [],
+          const storeGeo = storeGeoMap.get(p.storeId);
+          if (!storeGeo) return null;
+          const eligibility = canDeliverToBuyer(storeGeo, {
+            lat: dto.lat,
+            lng: dto.lng,
+            pincode: dto.pincode,
+            discoveryRadiusKm,
           });
-          distanceKm = d.distanceKm;
-          if (distanceKm != null && distanceKm > 20) return null;
+          if (!eligibility.eligible) return null;
+          distanceKm = eligibility.deliverable.distanceKm;
         }
 
         const relevance = dto.q ? textRelevanceScore(p, dto.q) : 50;
         const hyperScore = computeHyperlocalScore({
           relevance,
           distanceKm,
-          maxDistanceKm: 20,
+          maxDistanceKm: DEFAULT_BUYER_DISCOVERY_RADIUS_KM,
           availableQty: totalQty,
           maxQtyInPool: maxQty,
           ratingAvg: p.store.ratingAvg,
@@ -485,51 +485,12 @@ export class BuyerProductService {
     });
   }
 
-  private async assertCategoryVisibleForStore(
-    storeId: string,
-    categoryId: string,
-  ): Promise<void> {
-    const store = await this.prisma.store.findFirst({
-      where: { id: storeId, deletedAt: null, ...STORE_VISIBLE_WHERE },
-      select: { id: true },
-    });
-    if (!store) throw new BadRequestException('Store not found');
-
-    const grant = await this.prisma.storeCategory.findFirst({
-      where: {
-        storeId,
-        OR: [{ subcategoryId: categoryId }, { categoryId }],
-      },
-    });
-    if (!grant) {
-      throw new BadRequestException('Category not approved for this store');
-    }
-    await this.assertCategoryInCatalog(categoryId);
-  }
-
-  private async assertCategoryPubliclyVisible(categoryId: string): Promise<void> {
-    await this.assertCategoryInCatalog(categoryId);
-  }
-
   private async assertCategoryInCatalog(categoryId: string): Promise<void> {
     try {
       await assertActiveGlobalCategory(this.prisma, categoryId);
     } catch {
       throw new BadRequestException('Category is not available');
     }
-  }
-
-  private async buildStoreCategoryGrantMap(): Promise<Map<string, Set<string>>> {
-    const grants = await this.prisma.storeCategory.findMany({
-      select: { storeId: true, subcategoryId: true },
-    });
-    const map = new Map<string, Set<string>>();
-    for (const g of grants) {
-      const set = map.get(g.storeId) ?? new Set<string>();
-      set.add(g.subcategoryId);
-      map.set(g.storeId, set);
-    }
-    return map;
   }
 
   private async activeOfferStoreIds(): Promise<Set<string>> {

@@ -99,6 +99,7 @@ export async function searchProducts(
     storeId: params.storeId,
     lat: params.lat,
     lng: params.lng,
+    pincode: params.pincode,
     minPrice: params.minPrice,
     maxPrice: params.maxPrice,
     sort: params.sort,
@@ -171,6 +172,7 @@ export async function getCategoryStores(
   const query = {
     lat: params.lat,
     lng: params.lng,
+    pincode: params.pincode,
     radiusKm: params.radiusKm ?? 20,
     page: params.page ?? 1,
     limit: params.limit ?? 20,

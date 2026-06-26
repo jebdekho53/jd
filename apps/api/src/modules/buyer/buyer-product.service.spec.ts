@@ -120,9 +120,14 @@ describe('BuyerProductService', () => {
     });
 
     it('passes categoryId filter to prisma', async () => {
+      mockPrisma.product.findMany
+        .mockResolvedValueOnce([{ categoryId: 'c-1' }])
+        .mockResolvedValue([PRODUCT]);
       await service.listStoreProducts('s-1', { categoryId: 'c-1' });
-      const whereArg = mockPrisma.product.findMany.mock.calls[0][0].where;
-      expect(whereArg.categoryId).toBe('c-1');
+      const productListCall = mockPrisma.product.findMany.mock.calls.find(
+        (call) => call[0].include?.variants,
+      );
+      expect(productListCall?.[0].where.categoryId).toBe('c-1');
     });
   });
 

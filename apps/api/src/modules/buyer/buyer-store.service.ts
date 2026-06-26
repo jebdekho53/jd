@@ -1,15 +1,16 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DayOfWeek, StoreDocumentType, StoreStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { normalizeDeliveryRadiusKm } from '../../common/utils/geospatial.util';
 import { fetchStoreVisibleCategories, fetchStoresForCategory } from './buyer-category-catalog';
 import { BuyerCacheService, BUYER_CACHE_KEYS } from './buyer-cache.service';
 import { DiscoverStoresDto } from './dto/discover-stores.dto';
-import { checkStoreDeliverability, normalizeDeliveryRadiusKm } from '../../common/utils/geospatial.util';
 import {
-  checkStoreDeliverabilityWithCoverage,
-  findActiveDeliveryArea,
-  resolveDeliveryTerms,
-} from '../../common/utils/delivery-coverage.util';
+  canDeliverToBuyer,
+  resolveBuyerDeliveryTerms,
+  STORE_DISCOVERY_INCLUDE,
+  STORE_VISIBLE_WHERE,
+} from './buyer-visibility.util';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -93,33 +94,9 @@ export class BuyerStoreService {
       const latDelta = radiusKm / 111;
       const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
 
-      const visibleWhere = {
-        status: StoreStatus.APPROVED,
-        isActive: true,
-        deletedAt: null,
-      } as const;
+      const visibleWhere = STORE_VISIBLE_WHERE;
 
-      const storeInclude = {
-        hours: true,
-        storeServiceAreas: {
-          include: {
-            serviceArea: {
-              select: { centerLat: true, centerLng: true, radiusKm: true },
-            },
-          },
-        },
-        deliveryAreas: {
-          where: { isActive: true },
-          select: {
-            pincode: true,
-            isActive: true,
-            deliveryFee: true,
-            minimumOrder: true,
-            estimatedMinutes: true,
-            priority: true,
-          },
-        },
-      } as const;
+      const storeInclude = STORE_DISCOVERY_INCLUDE;
 
       const pincodeQuery =
         pincode && /^\d{6}$/.test(pincode)
@@ -169,23 +146,15 @@ export class BuyerStoreService {
 
       const enriched = [...candidateMap.values()]
         .map((store) => {
-          const deliverable = checkStoreDeliverabilityWithCoverage(lat, lng, store, {
-            buyerPincode: pincode,
+          const eligibility = canDeliverToBuyer(store, {
+            lat,
+            lng,
+            pincode,
+            discoveryRadiusKm: radiusKm,
           });
-          if (!deliverable.deliverable) return null;
+          if (!eligibility.eligible) return null;
 
-          const pincodeMatch = pincode
-            ? Boolean(findActiveDeliveryArea(store.deliveryAreas, pincode))
-            : false;
-          if (
-            !pincodeMatch &&
-            deliverable.distanceKm != null &&
-            deliverable.distanceKm > radiusKm
-          ) {
-            return null;
-          }
-
-          const terms = resolveDeliveryTerms(store, pincode);
+          const terms = resolveBuyerDeliveryTerms(store, pincode);
 
           const todayHour = store.hours.find((h) => h.dayOfWeek === todayEnum) ?? null;
           const isOpen = computeIsOpen(todayHour, nowMins);
@@ -209,7 +178,7 @@ export class BuyerStoreService {
               deliveryFee: terms.deliveryFee,
               minOrderAmount: terms.minOrderAmount,
               avgPrepTimeMins: terms.estimatedMinutes,
-              distanceKm: deliverable.distanceKm ?? 0,
+              distanceKm: eligibility.deliverable.distanceKm ?? 0,
               isOpen,
               todayHours: todayHour && !todayHour.isClosed
                 ? { openTime: todayHour.openTime, closeTime: todayHour.closeTime }
@@ -237,8 +206,14 @@ export class BuyerStoreService {
     categoryId: string,
     dto: DiscoverStoresDto & { subcategoryId?: string },
   ): Promise<{ stores: (StoreCard & { productCount: number })[]; total: number }> {
-    const { lat, lng, radiusKm = 5, page = 1, limit = 20, subcategoryId, sort = 'distance' } = dto;
+    const { lat, lng, radiusKm = 5, page = 1, limit = 20, subcategoryId, sort = 'distance', pincode } = dto;
     const storeCounts = await fetchStoresForCategory(this.prisma, categoryId, subcategoryId);
+
+    this.logger.debug(
+      `listStoresForCategory categoryId=${categoryId} pincode=${pincode ?? '—'} ` +
+        `productStores=${storeCounts.length} [${storeCounts.map((s) => s.storeId).join(',')}]`,
+    );
+
     if (storeCounts.length === 0) return { stores: [], total: 0 };
 
     const countMap = new Map<string, number>(
@@ -248,20 +223,9 @@ export class BuyerStoreService {
     const categoryStores = await this.prisma.store.findMany({
       where: {
         id: { in: [...countMap.keys()] },
-        status: StoreStatus.APPROVED,
-        isActive: true,
-        deletedAt: null,
+        ...STORE_VISIBLE_WHERE,
       },
-      include: {
-        hours: true,
-        storeServiceAreas: {
-          include: {
-            serviceArea: {
-              select: { centerLat: true, centerLng: true, radiusKm: true },
-            },
-          },
-        },
-      },
+      include: STORE_DISCOVERY_INCLUDE,
     });
 
     const now = nowIST();
@@ -270,9 +234,23 @@ export class BuyerStoreService {
 
     const enriched = categoryStores
       .map((store) => {
-        const deliverable = checkStoreDeliverability(lat, lng, store);
-        if (!deliverable.deliverable || deliverable.distanceKm == null) return null;
-        if (deliverable.distanceKm > radiusKm) return null;
+        const eligibility = canDeliverToBuyer(store, {
+          lat,
+          lng,
+          pincode,
+          discoveryRadiusKm: radiusKm,
+        });
+
+        this.logger.debug(
+          `Store ${store.slug} | Distance ${eligibility.deliverable.distanceKm ?? '—'} km | ` +
+            `Buyer pincode ${pincode ?? '—'} | Matched delivery area ${eligibility.pincodeMatch ? 'YES' : 'NO'} | ` +
+            `Included ${eligibility.eligible ? 'YES' : 'NO'} | ` +
+            `Reason ${eligibility.filterReason ?? 'ok'}`,
+        );
+
+        if (!eligibility.eligible) return null;
+
+        const terms = resolveBuyerDeliveryTerms(store, pincode);
 
         const todayHour = store.hours.find((h) => h.dayOfWeek === todayEnum) ?? null;
         const isOpen = computeIsOpen(todayHour, nowMins);
@@ -291,10 +269,10 @@ export class BuyerStoreService {
             address: { line1: store.line1, line2: store.line2, pincode: store.pincode },
             ratingAvg: store.ratingAvg,
             ratingCount: store.ratingCount,
-            deliveryFee: Number(store.deliveryFee),
-            minOrderAmount: Number(store.minOrderAmount),
-            avgPrepTimeMins: store.avgPrepTimeMins,
-            distanceKm: deliverable.distanceKm,
+            deliveryFee: terms.deliveryFee,
+            minOrderAmount: terms.minOrderAmount,
+            avgPrepTimeMins: terms.estimatedMinutes,
+            distanceKm: eligibility.deliverable.distanceKm ?? 0,
             isOpen,
             todayHours: todayHour && !todayHour.isClosed
               ? { openTime: todayHour.openTime, closeTime: todayHour.closeTime }

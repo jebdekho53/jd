@@ -46,6 +46,12 @@ export class SearchProductsDto {
   @IsLongitude()
   lng?: number;
 
+  @ApiProperty({ required: false, example: '201017', description: 'Buyer pincode for delivery coverage' })
+  @IsOptional()
+  @IsString()
+  @Length(6, 6)
+  pincode?: string;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @Transform(({ value }) => (value != null ? parseFloat(value) : undefined))

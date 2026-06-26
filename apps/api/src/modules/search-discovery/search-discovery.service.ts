@@ -1,12 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma, SearchEventType, StoreStatus } from '@prisma/client';
+import { Prisma, SearchEventType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { BuyerStoreService } from '../buyer/buyer-store.service';
-import { checkStoreDeliverability } from '../../common/utils/geospatial.util';
 import {
-  checkStoreDeliverabilityWithCoverage,
-  findActiveDeliveryArea,
-} from '../../common/utils/delivery-coverage.util';
+  canDeliverToBuyer,
+  DEFAULT_BUYER_DISCOVERY_RADIUS_KM,
+  PRODUCT_VISIBLE_WHERE,
+  STORE_DISCOVERY_INCLUDE,
+  STORE_VISIBLE_WHERE,
+  toDeliverableStoreShape,
+  UNLIMITED_DISCOVERY_RADIUS_KM,
+} from '../buyer/buyer-visibility.util';
 import { SearchCacheService } from './search-cache.service';
 import { SearchAnalyticsService } from './search-analytics.service';
 import { AdServingService } from '../ads/ad-serving.service';
@@ -27,22 +31,8 @@ import type {
 } from './dto/search-discovery.dto';
 import { buildProductTextSearchWhere } from './product-text-search.util';
 
-const PRODUCT_VISIBLE: Prisma.ProductWhereInput = {
-  isActive: true,
-  deletedAt: null,
-  variants: {
-    some: {
-      isActive: true,
-      inventory: { availableQty: { gt: 0 }, status: 'ACTIVE' },
-    },
-  },
-};
-
-const STORE_VISIBLE: Prisma.StoreWhereInput = {
-  status: StoreStatus.APPROVED,
-  isActive: true,
-  deletedAt: null,
-};
+/** Default discovery radius for unified search product/store filtering (km). */
+const SEARCH_DISCOVERY_RADIUS_KM = DEFAULT_BUYER_DISCOVERY_RADIUS_KM;
 
 @Injectable()
 export class SearchDiscoveryService {
@@ -84,12 +74,11 @@ export class SearchDiscoveryService {
         return this.emptySearchResult(page, limit);
       }
 
-      const grantMap = await this.buildGrantMap();
       const offerStoreIds = await this.activeOfferStoreIds();
-      const maxDistance = dto.lat != null ? 20 : 50;
+      const maxDistance = dto.lat != null ? SEARCH_DISCOVERY_RADIUS_KM : 50;
 
       const [productRows, storeRows, categoryRows, brandRows] = await Promise.all([
-        tab === 'stores' || tab === 'categories' ? [] : this.fetchProductCandidates(dto, grantMap),
+        tab === 'stores' || tab === 'categories' ? [] : this.fetchProductCandidates(dto),
         tab === 'products' || tab === 'categories' ? [] : this.fetchStoreCandidates(dto),
         tab === 'products' || tab === 'stores' ? [] : this.fetchCategoryCandidates(dto),
         tab === 'stores' || tab === 'categories' ? [] : this.fetchBrandCandidates(dto),
@@ -221,8 +210,8 @@ export class SearchDiscoveryService {
         this.analytics.getTrendingQueries('7d', 5),
         this.prisma.product.findMany({
           where: {
-            ...PRODUCT_VISIBLE,
-            store: STORE_VISIBLE,
+            ...PRODUCT_VISIBLE_WHERE,
+            store: STORE_VISIBLE_WHERE,
             OR: [
               { name: { contains: q, mode: 'insensitive' } },
               { brand: { contains: q, mode: 'insensitive' } },
@@ -242,7 +231,7 @@ export class SearchDiscoveryService {
         }),
         this.prisma.store.findMany({
           where: {
-            ...STORE_VISIBLE,
+            ...STORE_VISIBLE_WHERE,
             name: { contains: q, mode: 'insensitive' },
           },
           select: { id: true, name: true, slug: true, logoUrl: true },
@@ -327,6 +316,7 @@ export class SearchDiscoveryService {
       const { stores, total } = await this.storeService.discoverStores({
         lat: dto.lat,
         lng: dto.lng,
+        pincode: dto.pincode,
         radiusKm: dto.radiusKm,
         page: dto.page,
         limit: dto.limit,
@@ -506,7 +496,18 @@ export class SearchDiscoveryService {
     }
   }
 
-  private productDistance(
+  private productDistance(dto: BuyerSearchDto, store: Parameters<typeof this.isStoreEligibleForSearch>[1]): number | null {
+    if (dto.lat == null || dto.lng == null) return null;
+    const result = canDeliverToBuyer(toDeliverableStoreShape(store), {
+      lat: dto.lat,
+      lng: dto.lng,
+      pincode: dto.pincode,
+      discoveryRadiusKm: SEARCH_DISCOVERY_RADIUS_KM,
+    });
+    return result.deliverable.distanceKm;
+  }
+
+  private isStoreEligibleForSearch(
     dto: BuyerSearchDto,
     store: {
       latitude: number;
@@ -514,30 +515,27 @@ export class SearchDiscoveryService {
       deliveryRadiusKm?: number | null;
       storeServiceAreas?: Array<{ serviceArea: { centerLat: number; centerLng: number; radiusKm: number } }>;
       deliveryAreas?: Array<{ pincode: string; isActive: boolean }>;
+      deliveryFee?: unknown;
+      minOrderAmount?: unknown;
+      avgPrepTimeMins?: number;
     },
-  ): number | null {
-    if (dto.lat == null || dto.lng == null) return null;
-    const d = checkStoreDeliverabilityWithCoverage(dto.lat, dto.lng, {
-      latitude: store.latitude,
-      longitude: store.longitude,
-      deliveryRadiusKm: 20,
-      storeServiceAreas: store.storeServiceAreas ?? [],
-      deliveryAreas: store.deliveryAreas,
-    }, { buyerPincode: dto.pincode });
-    return d.distanceKm;
+  ): boolean {
+    if (dto.lat == null || dto.lng == null) return true;
+    return canDeliverToBuyer(toDeliverableStoreShape(store), {
+        lat: dto.lat,
+        lng: dto.lng,
+        pincode: dto.pincode,
+        discoveryRadiusKm: SEARCH_DISCOVERY_RADIUS_KM,
+      },
+    ).eligible;
   }
 
-  private async fetchProductCandidates(dto: BuyerSearchDto, grantMap: Map<string, Set<string>>) {
+  private async fetchProductCandidates(dto: BuyerSearchDto) {
     const categoryId = dto.subcategoryId ?? dto.categoryId;
     const q = dto.q?.trim();
     const where: Prisma.ProductWhereInput = {
-      ...PRODUCT_VISIBLE,
-      store: {
-        ...STORE_VISIBLE,
-        ...(dto.pincode && {
-          deliveryAreas: { some: { pincode: dto.pincode, isActive: true } },
-        }),
-      },
+      ...PRODUCT_VISIBLE_WHERE,
+      store: STORE_VISIBLE_WHERE,
       ...(dto.storeId && { storeId: dto.storeId }),
       ...(categoryId && { categoryId }),
       ...(q && buildProductTextSearchWhere(q)),
@@ -576,7 +574,7 @@ export class SearchDiscoveryService {
     });
 
     return rows
-      .filter((p) => p.categoryId && grantMap.get(p.storeId)?.has(p.categoryId))
+      .filter((p) => Boolean(p.categoryId))
       .map((p) => {
         const qty = p.variants.reduce(
           (s, v) => s + Math.max(0, v.inventory?.availableQty ?? 0),
@@ -605,13 +603,7 @@ export class SearchDiscoveryService {
         if (dto.minPrice != null && p.minPrice < dto.minPrice) return false;
         if (dto.maxPrice != null && p.minPrice > dto.maxPrice) return false;
         if (dto.lat != null && dto.lng != null) {
-          const pincodeMatch = dto.pincode
-            ? Boolean(findActiveDeliveryArea(p.store.deliveryAreas, dto.pincode))
-            : false;
-          if (!pincodeMatch) {
-            const d = this.productDistance(dto, p.store);
-            if (d != null && d > 20) return false;
-          }
+          return this.isStoreEligibleForSearch(dto, p.store);
         }
         return true;
       });
@@ -622,10 +614,7 @@ export class SearchDiscoveryService {
     const q = dto.q.toLowerCase();
     const stores = await this.prisma.store.findMany({
       where: {
-        ...STORE_VISIBLE,
-        ...(dto.pincode && {
-          deliveryAreas: { some: { pincode: dto.pincode, isActive: true } },
-        }),
+        ...STORE_VISIBLE_WHERE,
         OR: [
           { name: { contains: q, mode: 'insensitive' } },
           { description: { contains: q, mode: 'insensitive' } },
@@ -646,14 +635,13 @@ export class SearchDiscoveryService {
 
     return stores
       .map((store) => {
-        const deliverable = checkStoreDeliverabilityWithCoverage(dto.lat!, dto.lng!, store, {
-          buyerPincode: dto.pincode,
+        const eligibility = canDeliverToBuyer(toDeliverableStoreShape(store), {
+          lat: dto.lat!,
+          lng: dto.lng!,
+          pincode: dto.pincode,
+          discoveryRadiusKm: SEARCH_DISCOVERY_RADIUS_KM,
         });
-        if (!deliverable.deliverable) return null;
-        const pincodeMatch = dto.pincode
-          ? Boolean(findActiveDeliveryArea(store.deliveryAreas, dto.pincode))
-          : false;
-        if (!pincodeMatch && deliverable.distanceKm != null && deliverable.distanceKm > 20) return null;
+        if (!eligibility.eligible) return null;
         return {
           id: store.id,
           name: store.name,
@@ -661,8 +649,11 @@ export class SearchDiscoveryService {
           logoUrl: store.logoUrl,
           bannerUrl: store.bannerUrl,
           ratingAvg: store.ratingAvg,
-          distanceKm: deliverable.distanceKm ?? 0,
-          etaMins: estimateDeliveryEtaMins(deliverable.distanceKm ?? 0, store.avgPrepTimeMins),
+          distanceKm: eligibility.deliverable.distanceKm ?? 0,
+          etaMins: estimateDeliveryEtaMins(
+            eligibility.deliverable.distanceKm ?? 0,
+            store.avgPrepTimeMins,
+          ),
           categories: categoryMap.get(store.id) ?? [],
         };
       })
@@ -688,7 +679,7 @@ export class SearchDiscoveryService {
     if (!dto.q) return [];
     const rows = await this.prisma.product.findMany({
       where: {
-        ...PRODUCT_VISIBLE,
+        ...PRODUCT_VISIBLE_WHERE,
         brand: { contains: dto.q, mode: 'insensitive' },
       },
       select: { brand: true },
@@ -696,19 +687,6 @@ export class SearchDiscoveryService {
       take: 10,
     });
     return rows.filter((r) => r.brand).map((r) => ({ name: r.brand! }));
-  }
-
-  private async buildGrantMap() {
-    const grants = await this.prisma.storeCategory.findMany({
-      select: { storeId: true, subcategoryId: true },
-    });
-    const map = new Map<string, Set<string>>();
-    for (const g of grants) {
-      const set = map.get(g.storeId) ?? new Set<string>();
-      set.add(g.subcategoryId);
-      map.set(g.storeId, set);
-    }
-    return map;
   }
 
   private async activeOfferStoreIds(): Promise<Set<string>> {
