@@ -708,6 +708,8 @@ model MerchantApplication {
   latitude          Float?
   longitude         Float?
   deliveryRadiusKm  Float?                    @map("delivery_radius_km")
+  storeLogoUrl      String?                   @map("store_logo_url") @db.Text
+  storeBannerUrl    String?                   @map("store_banner_url") @db.Text
   rejectionReason   String?                   @map("rejection_reason") @db.Text
   adminNotes        String?                   @map("admin_notes") @db.Text
   riskScore         Int                       @default(0) @map("risk_score")

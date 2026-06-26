@@ -7,7 +7,7 @@ import { ApiTags as Tags } from '../../common/constants';
 import { UploadService } from './upload.service';
 import { UploadImageDto } from './dto/upload-image.dto';
 
-@ApiTags(Tags.MERCHANT)
+@ApiTags(Tags.MERCHANTS)
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('MERCHANT', 'ADMIN', 'SUPER_ADMIN')

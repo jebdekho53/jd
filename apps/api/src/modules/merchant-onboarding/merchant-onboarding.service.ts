@@ -164,6 +164,8 @@ export class MerchantOnboardingService {
     if (dto.latitude !== undefined) data.latitude = dto.latitude;
     if (dto.longitude !== undefined) data.longitude = dto.longitude;
     if (dto.deliveryRadiusKm !== undefined) data.deliveryRadiusKm = dto.deliveryRadiusKm;
+    if (dto.storeLogoUrl) data.storeLogoUrl = dto.storeLogoUrl;
+    if (dto.storeBannerUrl) data.storeBannerUrl = dto.storeBannerUrl;
 
     if (dto.password && dto.ownerEmail) {
       const passwordHash = await this.passwordService.hash(dto.password);
@@ -340,6 +342,8 @@ export class MerchantOnboardingService {
         locationPincodeId: app.locationPincodeId ?? undefined,
         locationAreaId: app.locationAreaId ?? undefined,
         locationCityId: app.locationCityId ?? undefined,
+        logoUrl: app.storeLogoUrl!,
+        bannerUrl: app.storeBannerUrl!,
       };
       const store = await this.storeService.createStore(userId, storeDto, ipAddress);
       storeId = store.id;
@@ -796,6 +800,8 @@ export class MerchantOnboardingService {
     if (!app.pincode) missing.push('pincode');
     if (app.latitude == null) missing.push('latitude');
     if (app.longitude == null) missing.push('longitude');
+    if (!app.storeLogoUrl) missing.push('storeLogoUrl');
+    if (!app.storeBannerUrl) missing.push('storeBannerUrl');
     if (!app.bankAccount) missing.push('bankAccount');
     if (app.documents.length < 2) missing.push('documents');
 
@@ -827,6 +833,8 @@ export class MerchantOnboardingService {
       latitude: app.latitude,
       longitude: app.longitude,
       deliveryRadiusKm: app.deliveryRadiusKm,
+      storeLogoUrl: app.storeLogoUrl,
+      storeBannerUrl: app.storeBannerUrl,
       riskScore: app.riskScore,
       riskFlags: app.riskFlags,
       rejectionReason: app.rejectionReason,

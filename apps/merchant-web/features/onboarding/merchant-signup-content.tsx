@@ -26,6 +26,8 @@ import {
   isValidIndianPhone,
   normalizeIndianPhone,
 } from '@/lib/phone';
+import { ImageUploadField } from '@/features/media/components/image-upload-field';
+import type { MerchantApplication } from '@/services/onboarding/onboarding-api';
 
 const STEPS = [
   'Verify',
@@ -92,6 +94,8 @@ export function MerchantSignupContent() {
     latitude: 28.6139,
     longitude: 77.209,
     deliveryRadiusKm: 5,
+    storeLogoUrl: '',
+    storeBannerUrl: '',
     accountHolderName: '',
     accountNumber: '',
     ifsc: '',
@@ -99,6 +103,36 @@ export function MerchantSignupContent() {
   });
 
   const { data: cities = [] } = useCitiesQuery();
+
+  const hydrateFromApplication = (app: MerchantApplication) => {
+    setForm((f) => ({
+      ...f,
+      ownerName: app.ownerName ?? f.ownerName,
+      businessName: app.businessName ?? f.businessName,
+      businessType: app.businessType ?? f.businessType,
+      gstNumber: app.gstNumber ?? f.gstNumber,
+      gstValid: app.gstVerified ?? f.gstValid,
+      panNumber: app.panNumber ?? f.panNumber,
+      storeName: app.storeName ?? f.storeName,
+      storeAddress: app.storeAddress ?? f.storeAddress,
+      state: app.state ?? f.state,
+      city: app.city ?? f.city,
+      cityId: app.cityId ?? f.cityId,
+      pincode: app.pincode ?? f.pincode,
+      latitude: app.latitude ?? f.latitude,
+      longitude: app.longitude ?? f.longitude,
+      deliveryRadiusKm: app.deliveryRadiusKm ?? f.deliveryRadiusKm,
+      storeLogoUrl: app.storeLogoUrl ?? f.storeLogoUrl,
+      storeBannerUrl: app.storeBannerUrl ?? f.storeBannerUrl,
+      accountHolderName: app.bankAccount?.accountHolderName ?? f.accountHolderName,
+      accountNumber: app.bankAccount?.accountNumber ?? f.accountNumber,
+      ifsc: app.bankAccount?.ifsc ?? f.ifsc,
+      upiId: app.bankAccount?.upiId ?? f.upiId,
+    }));
+    if (app.documents?.length) {
+      setUploadedDocs(new Set(app.documents.map((d) => d.documentType)));
+    }
+  };
 
   const handleVerified = async (result: VerifyOtpResult) => {
     const phone = result.user.phone ?? '';
@@ -110,7 +144,8 @@ export function MerchantSignupContent() {
       setContactPhone(phone.replace(/\D/g, '').slice(-10));
     }
     try {
-      await fetchApplication();
+      const app = await fetchApplication();
+      hydrateFromApplication(app);
     } catch (e) {
       toast((e as Error).message, 'error');
       return;
@@ -187,9 +222,11 @@ export function MerchantSignupContent() {
       !form.storeAddress.trim() ||
       !form.cityId ||
       !form.pincode.trim() ||
-      !form.locationPincodeId
+      !form.locationPincodeId ||
+      !form.storeLogoUrl ||
+      !form.storeBannerUrl
     ) {
-      toast('Store name, address, locality, city and pincode are required', 'error');
+      toast('Store name, address, locality, city, pincode, logo, and banner are required', 'error');
       return;
     }
     const city = cities.find((c) => c.id === form.cityId);
@@ -207,6 +244,8 @@ export function MerchantSignupContent() {
       latitude: form.latitude,
       longitude: form.longitude,
       deliveryRadiusKm: form.deliveryRadiusKm,
+      storeLogoUrl: form.storeLogoUrl,
+      storeBannerUrl: form.storeBannerUrl,
     });
     setStep(4);
   };
@@ -462,6 +501,26 @@ export function MerchantSignupContent() {
                   value={form.deliveryRadiusKm}
                   onChange={(e) => setForm({ ...form, deliveryRadiusKm: Number(e.target.value) })}
                 />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ImageUploadField
+                    label="Store logo"
+                    mode="square"
+                    purpose="store-logo"
+                    required
+                    value={form.storeLogoUrl}
+                    onChange={(url) => setForm((f) => ({ ...f, storeLogoUrl: url }))}
+                    allowRemove={false}
+                  />
+                  <ImageUploadField
+                    label="Store banner"
+                    mode="banner"
+                    purpose="store-banner"
+                    required
+                    value={form.storeBannerUrl}
+                    onChange={(url) => setForm((f) => ({ ...f, storeBannerUrl: url }))}
+                    allowRemove={false}
+                  />
+                </div>
                 <NavButtons saving={saving} onBack={() => setStep(2)} onNext={nextFromStore} />
               </div>
             )}
@@ -529,6 +588,24 @@ export function MerchantSignupContent() {
                   <ReviewRow label="City" value={cities.find((c) => c.id === form.cityId)?.name ?? '—'} />
                   <ReviewRow label="Documents" value={`${uploadedDocs.size} uploaded`} />
                 </dl>
+                {(form.storeLogoUrl || form.storeBannerUrl) && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {form.storeLogoUrl && (
+                      <div className="overflow-hidden rounded-xl border border-slate-200">
+                        <p className="border-b border-slate-100 px-3 py-2 text-xs font-medium text-slate-500">Logo</p>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={form.storeLogoUrl} alt="Store logo" className="aspect-square w-full object-cover" />
+                      </div>
+                    )}
+                    {form.storeBannerUrl && (
+                      <div className="overflow-hidden rounded-xl border border-slate-200 sm:col-span-2">
+                        <p className="border-b border-slate-100 px-3 py-2 text-xs font-medium text-slate-500">Banner</p>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={form.storeBannerUrl} alt="Store banner" className="aspect-[3/1] w-full object-cover" />
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex gap-3">
                   <Button variant="secondary" onClick={() => setStep(5)}>
                     <ChevronLeft className="mr-1 h-4 w-4" /> Back

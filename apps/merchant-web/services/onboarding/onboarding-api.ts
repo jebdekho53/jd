@@ -27,6 +27,8 @@ export interface MerchantApplication {
   latitude?: number | null;
   longitude?: number | null;
   deliveryRadiusKm?: number | null;
+  storeLogoUrl?: string | null;
+  storeBannerUrl?: string | null;
   documents?: Array<{ documentType: string; fileName: string; fileUrl: string }>;
   bankAccount?: {
     accountHolderName: string;

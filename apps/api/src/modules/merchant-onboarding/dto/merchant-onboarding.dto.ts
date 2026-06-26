@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUrl,
   Length,
   Matches,
   Max,
@@ -143,6 +144,16 @@ export class UpdateOnboardingStepDto {
   @Min(1)
   @Max(50)
   deliveryRadiusKm?: number;
+
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/logo.jpg' })
+  @IsOptional()
+  @IsUrl()
+  storeLogoUrl?: string;
+
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/banner.jpg' })
+  @IsOptional()
+  @IsUrl()
+  storeBannerUrl?: string;
 }
 
 export class UploadMerchantDocumentDto {
