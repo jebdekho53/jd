@@ -14,15 +14,17 @@ interface StaticPageLayoutProps {
 export function StaticPageLayout({ title, subtitle, children, className }: StaticPageLayoutProps) {
   return (
     <PageShell>
-      <article className={cn('mx-auto max-w-3xl space-y-8', className)}>
-        <header>
-          <h1 className="text-2xl font-bold text-jd-text-primary md:text-3xl">{title}</h1>
-          {subtitle && <p className="mt-2 text-sm text-jd-text-muted">{subtitle}</p>}
+      <article className={cn('mx-auto max-w-3xl space-y-6 lg:max-w-4xl', className)}>
+        <header className="rounded-2xl border border-border/60 bg-card px-5 py-6 shadow-card md:px-8 md:py-8">
+          <h1 className="text-xl font-bold text-jd-text-primary md:text-3xl">{title}</h1>
+          {subtitle && <p className="mt-2 text-sm text-jd-text-muted md:text-base">{subtitle}</p>}
         </header>
-        <div className="prose prose-sm max-w-none text-jd-text-secondary prose-headings:text-jd-text-primary prose-a:text-primary">
-          {children}
+        <div className="rounded-2xl border border-border/60 bg-card px-5 py-6 shadow-card md:px-8 md:py-8">
+          <div className="prose prose-sm max-w-none text-jd-text-secondary prose-headings:text-jd-text-primary prose-a:text-primary prose-li:marker:text-primary/60">
+            {children}
+          </div>
         </div>
-        <footer className="border-t border-border/50 pt-6 text-sm text-jd-text-muted">
+        <footer className="rounded-2xl border border-dashed border-border bg-muted/30 px-5 py-4 text-sm text-jd-text-muted">
           <p>
             Need help?{' '}
             <Link href="/help" className="font-medium text-primary hover:underline">

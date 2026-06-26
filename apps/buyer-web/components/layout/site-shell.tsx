@@ -12,6 +12,10 @@ import {
   ShoppingCart,
   User,
   Package,
+  Store,
+  Scale,
+  Map,
+  BadgePercent,
 } from 'lucide-react';
 import { Logo, LogoLink } from '@/components/brand/logo';
 import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
@@ -37,9 +41,50 @@ function CartBadge({ className }: { className?: string }) {
   );
 }
 
+const DESKTOP_NAV = [
+  { href: '/categories', label: 'Categories', icon: Grid3X3 },
+  { href: '/stores', label: 'Stores', icon: Store },
+  { href: '/offers', label: 'Offers', icon: BadgePercent },
+  { href: '/compare', label: 'Compare', icon: Scale },
+  { href: '/map', label: 'Map', icon: Map },
+] as const;
+
+function DesktopMegaNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav
+      className="hidden border-t border-border/40 md:block"
+      aria-label="Browse"
+    >
+      <div className="mx-auto flex max-w-6xl items-center gap-1 overflow-x-auto px-4 py-2 scrollbar-none">
+        {DESKTOP_NAV.map(({ href, label, icon: Icon }) => {
+          const basePath = href.split('?')[0];
+          const active = pathname === basePath || pathname.startsWith(`${basePath}/`);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                'inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition',
+                active
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-jd-text-secondary hover:bg-muted hover:text-jd-text-primary',
+              )}
+              aria-current={active ? 'page' : undefined}
+            >
+              <Icon className="h-4 w-4" aria-hidden />
+              {label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
 export function SiteHeader() {
   const router = useRouter();
-  const pathname = usePathname();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { label, isReady } = useEffectiveLocation();
   const [locationOpen, setLocationOpen] = useState(false);
@@ -166,6 +211,7 @@ export function SiteHeader() {
           </button>
         </div>
       </div>
+      <DesktopMegaNav />
     </header>
 
       <LocationPickerModal

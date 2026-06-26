@@ -11,7 +11,6 @@ interface ProfileShellProps {
   subtitle?: string;
   backHref?: string;
   children: React.ReactNode;
-  hideNav?: boolean;
   className?: string;
 }
 
@@ -20,19 +19,18 @@ export function ProfileShell({
   subtitle,
   backHref = '/profile',
   children,
-  hideNav = false,
   className,
 }: ProfileShellProps) {
   const router = useRouter();
 
   return (
     <PageShell>
-      <div className={cn('mx-auto max-w-3xl space-y-4 md:max-w-none', className)}>
+      <div className={cn('mx-auto max-w-3xl space-y-5', className)}>
         <div className="flex items-start gap-3">
           <button
             type="button"
             onClick={() => (backHref ? router.push(backHref) : router.back())}
-            className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-card text-jd-text-secondary transition hover:bg-cream-3 md:hidden"
+            className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-jd-text-secondary shadow-card transition hover:bg-muted md:hidden"
             aria-label="Go back"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -41,10 +39,10 @@ export function ProfileShell({
             {backHref && (
               <Link
                 href={backHref}
-                className="mb-1 hidden items-center gap-1 text-sm font-medium text-primary hover:underline md:inline-flex"
+                className="mb-1 hidden items-center gap-1 text-sm font-medium text-primary hover:underline lg:inline-flex"
               >
                 <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-                Back
+                Back to profile
               </Link>
             )}
             <h1 className="text-xl font-bold text-jd-text-primary md:text-2xl">{title}</h1>
