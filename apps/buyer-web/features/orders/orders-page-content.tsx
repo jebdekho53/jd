@@ -6,9 +6,9 @@ import { PageShell } from '@/components/layout/site-shell';
 import { EmptyState } from '@/components/common/state-blocks';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
 import { OrderCard, OrderCardSkeleton } from '@/features/orders/components/order-card';
+import { Chip } from '@/design-system/primitives';
 import { useOrdersQuery } from '@/hooks/use-orders';
 import type { ListOrdersParams } from '@/types/orders';
-import { cn } from '@/lib/utils';
 
 type FilterTab = 'all' | 'active' | 'completed' | 'cancelled';
 
@@ -47,35 +47,26 @@ export function OrdersPageContent() {
   return (
     <AuthGuard>
       <PageShell>
-        <div className="space-y-6">
+        <div className="space-y-5">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">My orders</h1>
+            <h1 className="text-xl font-bold tracking-tight md:text-2xl">My orders</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Track deliveries and reorder favourites
+              Track deliveries and view order history
             </p>
           </div>
 
-          <div
-            className="flex gap-2 overflow-x-auto pb-1 scrollbar-none"
-            role="tablist"
-            aria-label="Order status filters"
-          >
+          <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5" role="tablist" aria-label="Order status filters">
             {STATUS_FILTERS.map(({ label, value }) => (
-              <button
+              <Chip
                 key={label}
-                type="button"
+                size="sm"
+                active={tab === value}
+                onClick={() => setTab(value)}
                 role="tab"
                 aria-selected={tab === value}
-                onClick={() => setTab(value)}
-                className={cn(
-                  'shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
-                  tab === value
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-card text-muted-foreground hover:bg-muted',
-                )}
               >
                 {label}
-              </button>
+              </Chip>
             ))}
           </div>
 
@@ -94,7 +85,7 @@ export function OrdersPageContent() {
               ))}
 
               {data.meta.totalPages > 1 && (
-                <p className="pt-4 text-center text-xs text-muted-foreground">
+                <p className="pt-2 text-center text-xs text-muted-foreground">
                   Showing {data.orders.length} of {data.meta.total} orders
                 </p>
               )}

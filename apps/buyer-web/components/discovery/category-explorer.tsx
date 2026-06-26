@@ -56,13 +56,15 @@ function getIcon(slug: string) {
 interface CategoryExplorerProps {
   categories?: CategoryItem[];
   className?: string;
+  /** When true, show every category (categories index). Default caps at 11. */
+  showAll?: boolean;
 }
 
-export function CategoryExplorer({ categories = [], className }: CategoryExplorerProps) {
+export function CategoryExplorer({ categories = [], className, showAll = false }: CategoryExplorerProps) {
   const flat = flattenCategories(categories);
   const display =
     flat.length > 0
-      ? flat.slice(0, 11)
+      ? showAll ? flat : flat.slice(0, 11)
       : FALLBACK_CATEGORIES.map((c) => ({
           id: c.id,
           name: c.name,
