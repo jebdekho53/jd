@@ -12,6 +12,7 @@ import { useCitiesQuery, useZonesQuery } from '@/hooks/use-geo';
 import { useUpsertMerchantProfileMutation } from '@/hooks/use-merchant-profile';
 import { useToast } from '@/design-system/primitives';
 import { useStoreStore } from '@/store/store-store';
+import { LocationSearchInput } from '@/features/locations/components/location-search-input';
 
 const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
@@ -33,6 +34,10 @@ const schema = z.object({
   pincode: z.string().regex(/^\d{6}$/, 'Must be 6 digits'),
   latitude: z.coerce.number().min(-90).max(90),
   longitude: z.coerce.number().min(-180).max(180),
+  locationCityId: z.string().optional(),
+  locationAreaId: z.string().optional(),
+  locationPincodeId: z.string().optional(),
+  localityLabel: z.string().optional(),
   cityId: z.string().min(1, 'Select a city'),
   zoneIds: z.array(z.string()).min(1, 'Select at least one delivery zone'),
   phone: z.string().min(10, 'Enter 10-digit mobile'),
@@ -108,6 +113,9 @@ export function CreateStoreModal({ open, onClose }: Props) {
         pincode: data.pincode,
         latitude: data.latitude,
         longitude: data.longitude,
+        locationCityId: data.locationCityId,
+        locationAreaId: data.locationAreaId,
+        locationPincodeId: data.locationPincodeId,
         cityId: data.cityId,
         zoneIds: data.zoneIds,
         minOrderAmount: data.minOrderAmount,
@@ -248,14 +256,30 @@ export function CreateStoreModal({ open, onClose }: Props) {
           )}
 
           <Input label="Address line 1 *" error={errors.line1?.message} {...register('line1')} />
+          <LocationSearchInput
+            value={watch('localityLabel')}
+            pincode={watch('pincode')}
+            error={errors.localityLabel?.message}
+            onSelect={(selection) => {
+              setValue('localityLabel', selection.label);
+              setValue('pincode', selection.pincode);
+              setValue('latitude', selection.latitude);
+              setValue('longitude', selection.longitude);
+              setValue('locationCityId', selection.locationCityId);
+              setValue('locationAreaId', selection.locationAreaId);
+              setValue('locationPincodeId', selection.locationPincodeId);
+            }}
+          />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Address line 2" {...register('line2')} />
             <Input label="Pincode *" error={errors.pincode?.message} {...register('pincode')} maxLength={6} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Latitude *" type="number" step="0.0001" error={errors.latitude?.message} {...register('latitude')} />
-            <Input label="Longitude *" type="number" step="0.0001" error={errors.longitude?.message} {...register('longitude')} />
-          </div>
+          <input type="hidden" {...register('latitude')} />
+          <input type="hidden" {...register('longitude')} />
+          <input type="hidden" {...register('locationCityId')} />
+          <input type="hidden" {...register('locationAreaId')} />
+          <input type="hidden" {...register('locationPincodeId')} />
+          <input type="hidden" {...register('localityLabel')} />
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="Store phone *"

@@ -12,6 +12,7 @@ import { RiderClusteringService } from '../fleet-os/rider-clustering.service';
 import { BatchingService } from '../fleet-os/batching.service';
 import { FleetAlertService } from '../fleet-os/fleet-alert.service';
 import { HotspotService } from '../ai-commerce/hotspot.service';
+import { LocationDirectoryService } from '../location-directory/location-directory.service';
 import { unassignedOrderWhere } from '../rider-assignment/rider-assignment.util';
 import {
   checkStoreDeliverability,
@@ -46,6 +47,7 @@ export class GeospatialService {
     private readonly batching: BatchingService,
     private readonly fleetAlerts: FleetAlertService,
     private readonly hotspots: HotspotService,
+    private readonly locations: LocationDirectoryService,
   ) {}
 
   async checkDeliverability(dto: CheckDeliverabilityDto) {
@@ -252,6 +254,11 @@ export class GeospatialService {
 
   async createAddress(userId: string, dto: CreateAddressDto) {
     const bp = await this.requireBuyerProfile(userId);
+    const validated = await this.locations.validatePincode({
+      pincode: dto.pincode,
+      locationCityId: dto.locationCityId,
+      locationAreaId: dto.locationAreaId,
+    });
     if (dto.isDefault) {
       await this.prisma.address.updateMany({
         where: { buyerProfileId: bp.id },
@@ -265,11 +272,14 @@ export class GeospatialService {
         line1: dto.line1,
         line2: dto.line2,
         landmark: dto.landmark,
-        city: dto.city,
-        state: dto.state,
+        city: dto.city || validated.city,
+        state: dto.state || validated.state,
         pincode: dto.pincode,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
+        latitude: dto.latitude ?? validated.latitude,
+        longitude: dto.longitude ?? validated.longitude,
+        locationPincodeId: dto.locationPincodeId ?? validated.locationPincodeId,
+        locationAreaId: dto.locationAreaId ?? validated.locationAreaId,
+        locationCityId: dto.locationCityId ?? validated.locationCityId,
         isDefault: dto.isDefault ?? false,
       },
     });

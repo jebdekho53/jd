@@ -38,6 +38,7 @@ import { CorporateWalletService } from '../corporate/corporate-wallet.service';
 import { ApprovalService } from '../corporate/approval.service';
 import { PurchaseRequestStatus } from '@prisma/client';
 import { EmailNotificationService } from '../email/email-notification.service';
+import { LocationDirectoryService } from '../location-directory/location-directory.service';
 
 const CHECKOUT_TTL_MINUTES = 15;
 
@@ -70,6 +71,7 @@ export class CheckoutService {
     private readonly corporateWallet: CorporateWalletService,
     private readonly corporateApproval: ApprovalService,
     private readonly emailNotifications: EmailNotificationService,
+    private readonly locations: LocationDirectoryService,
   ) {}
 
   // ── Initiate checkout (Razorpay / online payment) ──────────────────────────
@@ -85,6 +87,7 @@ export class CheckoutService {
     }
 
     await this.validateCartForCheckout(cart);
+    await this.validateDeliveryAddress(dto.deliveryAddress);
     await this.geospatial.validateCheckoutLocation(cart.storeId, dto.deliveryAddress.lat, dto.deliveryAddress.lng);
 
     if (dto.corporatePurchaseRequestId) {
@@ -240,6 +243,7 @@ export class CheckoutService {
     }
 
     await this.validateCartForCheckout(cart);
+    await this.validateDeliveryAddress(dto.deliveryAddress);
     await this.geospatial.validateCheckoutLocation(cart.storeId, dto.deliveryAddress.lat, dto.deliveryAddress.lng);
 
     const buyerProfile = await this.prisma.buyerProfile.findUnique({
@@ -705,6 +709,14 @@ export class CheckoutService {
   }
 
   // ── Private: validate cart before checkout ─────────────────────────────────
+
+  private async validateDeliveryAddress(address: InitiateCheckoutDto['deliveryAddress']): Promise<void> {
+    await this.locations.validatePincode({
+      pincode: address.pincode,
+      locationCityId: address.locationCityId,
+      locationAreaId: address.locationAreaId,
+    });
+  }
 
   private async validateCartForCheckout(cart: { storeId: string; items: any[] }): Promise<void> {
     const store = await this.prisma.store.findFirst({

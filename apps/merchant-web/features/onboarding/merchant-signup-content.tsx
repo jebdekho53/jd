@@ -9,6 +9,8 @@ import { Button, Input, Select, useToast } from '@/design-system/primitives';
 import { MarketingShell } from '@/features/marketing/components/marketing-shell';
 import { MerchantOtpFlow } from '@/features/auth/components/merchant-otp-flow';
 import { useCitiesQuery } from '@/hooks/use-geo';
+import { LocationSearchInput } from '@/features/locations/components/location-search-input';
+import type { LocationSelection } from '@/features/locations/components/location-search-input';
 import {
   updateOnboardingStep,
   uploadOnboardingDocument,
@@ -79,10 +81,14 @@ export function MerchantSignupContent() {
     panNumber: '',
     storeName: '',
     storeAddress: '',
+    locality: '',
     state: '',
     city: '',
     cityId: '',
     pincode: '',
+    locationPincodeId: '',
+    locationAreaId: '',
+    locationCityId: '',
     latitude: 28.6139,
     longitude: 77.209,
     deliveryRadiusKm: 5,
@@ -176,23 +182,50 @@ export function MerchantSignupContent() {
   };
 
   const nextFromStore = async () => {
-    if (!form.storeName.trim() || !form.storeAddress.trim() || !form.cityId || !form.pincode.trim()) {
-      toast('Store name, address, city and pincode are required', 'error');
+    if (
+      !form.storeName.trim() ||
+      !form.storeAddress.trim() ||
+      !form.cityId ||
+      !form.pincode.trim() ||
+      !form.locationPincodeId
+    ) {
+      toast('Store name, address, locality, city and pincode are required', 'error');
       return;
     }
     const city = cities.find((c) => c.id === form.cityId);
     await saveStep('STORE_DETAILS', {
       storeName: form.storeName.trim(),
       storeAddress: form.storeAddress.trim(),
+      locality: form.locality,
       state: form.state,
       city: city?.name ?? form.city,
       cityId: form.cityId,
       pincode: form.pincode.trim(),
+      locationPincodeId: form.locationPincodeId,
+      locationAreaId: form.locationAreaId || undefined,
+      locationCityId: form.locationCityId || undefined,
       latitude: form.latitude,
       longitude: form.longitude,
       deliveryRadiusKm: form.deliveryRadiusKm,
     });
     setStep(4);
+  };
+
+  const handleLocationSelect = (selection: LocationSelection) => {
+    const ncrCity = cities.find((c) => c.slug === 'delhi-ncr') ?? cities[0];
+    setForm((f) => ({
+      ...f,
+      locality: selection.label,
+      city: selection.city,
+      state: selection.state,
+      pincode: selection.pincode,
+      latitude: selection.latitude,
+      longitude: selection.longitude,
+      locationPincodeId: selection.locationPincodeId ?? '',
+      locationAreaId: selection.locationAreaId ?? '',
+      locationCityId: selection.locationCityId ?? '',
+      cityId: ncrCity?.id ?? f.cityId,
+    }));
   };
 
   const handleFile = async (documentType: string, file: File) => {
@@ -401,8 +434,20 @@ export function MerchantSignupContent() {
                   value={form.storeAddress}
                   onChange={(e) => setForm({ ...form, storeAddress: e.target.value })}
                 />
+                <LocationSearchInput
+                  value={form.locality}
+                  pincode={form.pincode}
+                  onSelect={handleLocationSelect}
+                />
+                {form.locality && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                    <p>
+                      {form.locality} · {form.city}, {form.state} · {form.pincode}
+                    </p>
+                  </div>
+                )}
                 <Select
-                  label="City"
+                  label="Operational city"
                   value={form.cityId}
                   onChange={(e) => setForm({ ...form, cityId: e.target.value })}
                 >
@@ -411,10 +456,6 @@ export function MerchantSignupContent() {
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </Select>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
-                  <Input label="Pincode" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })} />
-                </div>
                 <Input
                   label="Delivery radius (km)"
                   type="number"

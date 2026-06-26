@@ -99,6 +99,10 @@ export interface CreateStorePayload {
   pincode: string;
   latitude: number;
   longitude: number;
+  locality?: string;
+  locationPincodeId?: string;
+  locationAreaId?: string;
+  locationCityId?: string;
   cityId: string;
   zoneIds?: string[];
   minOrderAmount?: number;

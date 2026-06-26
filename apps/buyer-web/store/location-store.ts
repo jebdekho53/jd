@@ -1,19 +1,26 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type LocationSource = 'gps' | 'manual' | 'default';
+export type LocationSource = 'gps' | 'manual' | 'default' | 'master';
 
 export interface LocationCoords {
   lat: number;
   lng: number;
   label: string;
   source: LocationSource;
+  pincode?: string;
+  city?: string;
+  area?: string;
+  locationPincodeId?: string;
+  locationAreaId?: string;
+  locationCityId?: string;
 }
 
 interface LocationState extends LocationCoords {
   isReady: boolean;
   setFromGps: (lat: number, lng: number, label?: string) => void;
   setManual: (lat: number, lng: number, label: string) => void;
+  setFromMaster: (coords: Omit<LocationCoords, 'source'>) => void;
   setDefault: (lat: number, lng: number, label: string) => void;
   /** @deprecated Use setManual — kept for legacy ui-store consumers */
   setLocation: (lat: number, lng: number, label: string) => void;
@@ -31,9 +38,9 @@ const EMPTY: LocationCoords & { isReady: boolean } = {
 
 /** Delhi default coords — used for store discovery until user picks a location */
 export const FALLBACK_LOCATIONS = [
-  { label: 'Connaught Place, Delhi', lat: 28.6139, lng: 77.209 },
-  { label: 'Cyber City, Gurgaon', lat: 28.4941, lng: 77.0886 },
-  { label: 'Sector 18, Noida', lat: 28.5706, lng: 77.3219 },
+  { label: 'Connaught Place, Delhi', lat: 28.6139, lng: 77.209, pincode: '110001' },
+  { label: 'Cyber City, Gurgaon', lat: 28.4941, lng: 77.0886, pincode: '122002' },
+  { label: 'Sector 18, Noida', lat: 28.5706, lng: 77.3219, pincode: '201301' },
 ] as const;
 
 export const DEFAULT_LOCATION = FALLBACK_LOCATIONS[0];
@@ -46,6 +53,12 @@ export const useLocationStore = create<LocationState>()(
         set({ lat, lng, label, source: 'gps', isReady: true }),
       setManual: (lat, lng, label) =>
         set({ lat, lng, label, source: 'manual', isReady: true }),
+      setFromMaster: (coords) =>
+        set({
+          ...coords,
+          source: 'master',
+          isReady: true,
+        }),
       setDefault: (lat, lng, label) =>
         set({ lat, lng, label, source: 'default', isReady: true }),
       setLocation: (lat, lng, label) =>
@@ -54,8 +67,8 @@ export const useLocationStore = create<LocationState>()(
       clear: () => set(EMPTY),
     }),
     {
-      name: 'jebdekho-location-v2',
-      version: 1,
+      name: 'jebdekho-location-v3',
+      version: 2,
       onRehydrateStorage: () => (state) => {
         if (typeof window === 'undefined' || state?.isReady) return;
         try {
@@ -83,12 +96,15 @@ export const useLocationStore = create<LocationState>()(
 
 /** Coords + label for UI and API — falls back to Delhi until user confirms a location */
 export function useEffectiveLocation() {
-  const { lat, lng, label, isReady } = useLocationStore();
+  const { lat, lng, label, pincode, city, area, isReady } = useLocationStore();
   const fallback = DEFAULT_LOCATION;
   return {
     lat: isReady && lat ? lat : fallback.lat,
     lng: isReady && lng ? lng : fallback.lng,
     label: isReady && label ? label : 'Set delivery location',
+    pincode: isReady ? pincode : undefined,
+    city: isReady ? city : undefined,
+    area: isReady ? area : undefined,
     isReady,
   };
 }

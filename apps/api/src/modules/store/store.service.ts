@@ -12,6 +12,7 @@ import { DomainEventsService } from '../domain-events/domain-events.service';
 import { MerchantService } from '../merchant/merchant.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 import { BuyerCacheService } from '../buyer/buyer-cache.service';
+import { LocationDirectoryService } from '../location-directory/location-directory.service';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
 import { ListStoresDto } from './dto/list-stores.dto';
@@ -62,6 +63,7 @@ export class StoreService {
     private readonly domainEvents: DomainEventsService,
     private readonly buyerCache: BuyerCacheService,
     private readonly blocklist: VerificationBlocklistService,
+    private readonly locations: LocationDirectoryService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -90,6 +92,12 @@ export class StoreService {
       throw new BadRequestException(`City not found: ${dto.cityId}`);
     }
 
+    const validatedLocation = await this.locations.validatePincode({
+      pincode: dto.pincode,
+      locationCityId: dto.locationCityId,
+      locationAreaId: dto.locationAreaId,
+    });
+
     const slug = await this.generateUniqueSlug(profile.id, dto.name);
 
     const store = await this.prisma.$transaction(async (tx) => {
@@ -105,8 +113,11 @@ export class StoreService {
           line1: dto.line1,
           line2: dto.line2,
           pincode: dto.pincode,
-          latitude: dto.latitude,
-          longitude: dto.longitude,
+          latitude: dto.latitude ?? validatedLocation.latitude,
+          longitude: dto.longitude ?? validatedLocation.longitude,
+          locationPincodeId: dto.locationPincodeId ?? validatedLocation.locationPincodeId,
+          locationAreaId: dto.locationAreaId ?? validatedLocation.locationAreaId,
+          locationCityId: dto.locationCityId ?? validatedLocation.locationCityId,
           minOrderAmount: dto.minOrderAmount ?? 0,
           deliveryFee: dto.deliveryFee ?? 0,
           avgPrepTimeMins: dto.avgPrepTimeMins ?? 15,

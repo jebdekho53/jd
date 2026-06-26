@@ -159,6 +159,10 @@ enum CategoryScope {
   STORE
 }
 
+enum DeliveryRegion {
+  DELHI_NCR
+}
+
 enum MerchantCategoryStatus {
   PENDING
   DOCUMENTS_REQUIRED
@@ -697,6 +701,10 @@ model MerchantApplication {
   city              String?
   cityId            String?                   @map("city_id")
   pincode           String?
+  locality          String?
+  locationPincodeId String?                   @map("location_pincode_id")
+  locationAreaId    String?                   @map("location_area_id")
+  locationCityId    String?                   @map("location_city_id")
   latitude          Float?
   longitude         Float?
   deliveryRadiusKm  Float?                    @map("delivery_radius_km")
@@ -907,15 +915,23 @@ model Address {
   latitude       Float
   longitude      Float
   serviceAreaId  String?      @map("service_area_id")
+  locationPincodeId String?   @map("location_pincode_id")
+  locationAreaId    String?   @map("location_area_id")
+  locationCityId    String?   @map("location_city_id")
   isDefault      Boolean      @default(false) @map("is_default")
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
   buyerProfile BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
   serviceArea  ServiceArea? @relation(fields: [serviceAreaId], references: [id], onDelete: SetNull)
+  locationPincode LocationPincode? @relation(fields: [locationPincodeId], references: [id], onDelete: SetNull)
+  locationArea    LocationArea?    @relation(fields: [locationAreaId], references: [id], onDelete: SetNull)
+  locationCity    LocationCity?    @relation(fields: [locationCityId], references: [id], onDelete: SetNull)
 
   @@index([buyerProfileId])
   @@index([serviceAreaId])
+  @@index([locationPincodeId])
+  @@index([locationCityId])
   @@index([latitude, longitude])
   @@map("addresses")
 }
@@ -945,6 +961,7 @@ model City {
   cityLaunchPlans   CityLaunchPlan[]
   seoPages          SeoPage[]
   seoFaqs           SeoFaq[]
+  locationCity      LocationCity?
 
   @@index([isActive])
   @@map("cities")
@@ -985,12 +1002,14 @@ model ServiceArea {
   centerLat Float    @map("center_lat")
   centerLng Float    @map("center_lng")
   radiusKm  Float    @default(2) @map("radius_km")
+  locationAreaId String? @map("location_area_id")
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   city              City               @relation(fields: [cityId], references: [id], onDelete: Cascade)
   zone              Zone               @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  locationArea      LocationArea?      @relation(fields: [locationAreaId], references: [id], onDelete: SetNull)
   addresses         Address[]
   storeServiceAreas StoreServiceArea[]
 
@@ -1041,6 +1060,158 @@ model RiderZone {
 }
 
 // =============================================================================
+// MASTER LOCATION DIRECTORY (canonical India address hierarchy)
+// =============================================================================
+
+model LocationState {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  slug        String   @unique
+  countryCode String   @default("IN") @map("country_code")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  districts LocationDistrict[]
+  cities    LocationCity[]
+  pincodes  LocationPincode[]
+  aliases   LocationAlias[]
+
+  @@index([isActive])
+  @@map("location_states")
+}
+
+model LocationDistrict {
+  id        String   @id @default(cuid())
+  stateId   String   @map("state_id")
+  name      String
+  slug      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  state    LocationState    @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  cities   LocationCity[]
+  pincodes LocationPincode[]
+  aliases  LocationAlias[]
+
+  @@unique([stateId, slug])
+  @@index([stateId, isActive])
+  @@map("location_districts")
+}
+
+model LocationCity {
+  id                String          @id @default(cuid())
+  stateId           String          @map("state_id")
+  districtId        String          @map("district_id")
+  name              String
+  slug              String
+  deliveryRegion    DeliveryRegion? @map("delivery_region")
+  latitude          Float?
+  longitude         Float?
+  isActive          Boolean         @default(true) @map("is_active")
+  operationalCityId String?         @unique @map("operational_city_id")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  state            LocationState     @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  district         LocationDistrict  @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  operationalCity  City?             @relation(fields: [operationalCityId], references: [id], onDelete: SetNull)
+  areas            LocationArea[]
+  pincodes         LocationPincode[]
+  aliases          LocationAlias[]
+  addresses        Address[]
+  stores           Store[]
+
+  @@unique([districtId, slug])
+  @@index([stateId, isActive])
+  @@index([deliveryRegion, isActive])
+  @@map("location_cities")
+}
+
+model LocationArea {
+  id        String   @id @default(cuid())
+  cityId    String   @map("city_id")
+  name      String
+  slug      String
+  subArea   String?  @map("sub_area")
+  latitude  Float?
+  longitude Float?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  city       LocationCity      @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  pincodes   LocationPincode[]
+  aliases    LocationAlias[]
+  addresses  Address[]
+  stores     Store[]
+  serviceAreas ServiceArea[]
+
+  @@unique([cityId, slug])
+  @@index([cityId, isActive])
+  @@map("location_areas")
+}
+
+model LocationPincode {
+  id             String         @id @default(cuid())
+  pincode        String
+  stateId        String         @map("state_id")
+  districtId     String         @map("district_id")
+  cityId         String         @map("city_id")
+  areaId         String?        @map("area_id")
+  postOffice     String?        @map("post_office")
+  subArea        String?        @map("sub_area")
+  latitude       Float
+  longitude      Float
+  deliveryRegion DeliveryRegion @map("delivery_region")
+  isActive       Boolean        @default(true) @map("is_active")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  state     LocationState    @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  district  LocationDistrict @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  city      LocationCity     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  area      LocationArea?    @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  aliases   LocationAlias[]
+  addresses Address[]
+  stores    Store[]
+
+  @@unique([pincode, postOffice])
+  @@index([pincode])
+  @@index([cityId, isActive])
+  @@index([areaId])
+  @@index([deliveryRegion, isActive])
+  @@map("location_pincodes")
+}
+
+model LocationAlias {
+  id         String   @id @default(cuid())
+  alias      String
+  slug       String   @unique
+  normalized String
+  stateId    String?  @map("state_id")
+  districtId String?  @map("district_id")
+  cityId     String?  @map("city_id")
+  areaId     String?  @map("area_id")
+  pincodeId  String?  @map("pincode_id")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  state    LocationState?    @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  district LocationDistrict? @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  city     LocationCity?     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  area     LocationArea?     @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  pincode  LocationPincode?  @relation(fields: [pincodeId], references: [id], onDelete: Cascade)
+
+  @@index([normalized])
+  @@index([isActive])
+  @@map("location_aliases")
+}
+
+// =============================================================================
 // STORES & CATALOG
 // =============================================================================
 
@@ -1061,6 +1232,9 @@ model Store {
   locality          String?
   latitude          Float
   longitude         Float
+  locationPincodeId String?     @map("location_pincode_id")
+  locationAreaId    String?     @map("location_area_id")
+  locationCityId    String?     @map("location_city_id")
   deliveryRadiusKm  Float       @default(5) @map("delivery_radius_km")
   storeType         StoreType   @default(RETAIL_STORE) @map("store_type")
   status            StoreStatus @default(DRAFT)
@@ -1089,6 +1263,9 @@ model Store {
 
   merchantProfile   MerchantProfile    @relation(fields: [merchantProfileId], references: [id], onDelete: Restrict)
   city              City               @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  locationPincode   LocationPincode?   @relation(fields: [locationPincodeId], references: [id], onDelete: SetNull)
+  locationArea      LocationArea?      @relation(fields: [locationAreaId], references: [id], onDelete: SetNull)
+  locationCity      LocationCity?      @relation(fields: [locationCityId], references: [id], onDelete: SetNull)
   hours             StoreHour[]
   storeZones        StoreZone[]
   storeServiceAreas StoreServiceArea[]
@@ -1128,6 +1305,8 @@ model Store {
 
   @@unique([merchantProfileId, slug])
   @@index([cityId, isActive])
+  @@index([locationPincodeId])
+  @@index([locationCityId])
   @@index([latitude, longitude])
   @@index([status])
   @@index([status, isActive])

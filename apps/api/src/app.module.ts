@@ -27,6 +27,7 @@ import { OrderTimelineModule } from './modules/order/order-timeline.module';
 import { RiderAssignmentModule } from './modules/rider-assignment/rider-assignment.module';
 import { RiderModule } from './modules/rider/rider.module';
 import { GeoModule } from './modules/geo/geo.module';
+import { LocationDirectoryModule } from './modules/location-directory/location-directory.module';
 import { CategoryGovernanceModule } from './modules/category-governance/category-governance.module';
 import { MerchantDashboardModule } from './modules/merchant-dashboard/merchant-dashboard.module';
 import { AdminDashboardModule } from './modules/admin-dashboard/admin-dashboard.module';
@@ -124,6 +125,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     RiderAssignmentModule,
     RiderModule,
     GeoModule,
+    LocationDirectoryModule,
     CategoryGovernanceModule,
     MerchantDashboardModule,
     AdminDashboardModule,

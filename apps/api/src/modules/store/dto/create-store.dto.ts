@@ -68,6 +68,21 @@ export class CreateStoreDto {
   @IsString()
   cityId: string;
 
+  @ApiProperty({ required: false, example: 'loc-city-cuid' })
+  @IsOptional()
+  @IsString()
+  locationCityId?: string;
+
+  @ApiProperty({ required: false, example: 'loc-area-cuid' })
+  @IsOptional()
+  @IsString()
+  locationAreaId?: string;
+
+  @ApiProperty({ required: false, example: 'loc-pincode-cuid' })
+  @IsOptional()
+  @IsString()
+  locationPincodeId?: string;
+
   @ApiProperty({ required: false, example: 99, description: 'Minimum order amount in INR' })
   @IsOptional()
   @IsNumber()

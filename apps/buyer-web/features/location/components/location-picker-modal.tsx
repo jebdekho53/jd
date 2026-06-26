@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { MapPin, Navigation } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { MapPin, Navigation, Search } from 'lucide-react';
 import { Button, Input, Modal, Text } from '@/design-system/primitives';
 import { requestBrowserLocation } from '@/lib/geolocation';
+import { useLocationSearch } from '@/hooks/use-location-search';
+import type { MasterLocationResult } from '@/services/locations/location-api';
 import { FALLBACK_LOCATIONS, useLocationStore } from '@/store/location-store';
 
 interface LocationPickerModalProps {
@@ -19,10 +21,18 @@ export function LocationPickerModal({
   onConfirm,
   required = false,
 }: LocationPickerModalProps) {
-  const { setFromGps, setManual, setDefault } = useLocationStore();
-  const [manualLabel, setManualLabel] = useState('');
+  const { setFromGps, setFromMaster } = useLocationStore();
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { data: results = [], isFetching } = useLocationSearch(query);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery('');
+      setError(null);
+    }
+  }, [open]);
 
   const handleGps = async () => {
     setLoading(true);
@@ -39,23 +49,29 @@ export function LocationPickerModal({
     }
   };
 
-  const handleManual = () => {
-    const label = manualLabel.trim();
-    if (label.length < 3) {
-      setError('Enter at least 3 characters for your area');
-      return;
-    }
-    // Manual entry uses preset coords until maps API in future sprint
-    const preset = FALLBACK_LOCATIONS.find((l) =>
-      l.label.toLowerCase().includes(label.toLowerCase()),
-    ) ?? FALLBACK_LOCATIONS[0];
-    setManual(preset.lat, preset.lng, label);
+  const handleSelect = (item: MasterLocationResult) => {
+    setFromMaster({
+      lat: item.latitude,
+      lng: item.longitude,
+      label: item.label,
+      pincode: item.pincode,
+      city: item.city,
+      area: item.area,
+      locationPincodeId: item.locationPincodeId,
+      locationAreaId: item.locationAreaId,
+      locationCityId: item.locationCityId,
+    });
     onConfirm?.();
     if (!required) onClose();
   };
 
   const handlePreset = (preset: (typeof FALLBACK_LOCATIONS)[number]) => {
-    setDefault(preset.lat, preset.lng, preset.label);
+    setFromMaster({
+      lat: preset.lat,
+      lng: preset.lng,
+      label: preset.label,
+      pincode: preset.pincode,
+    });
     onConfirm?.();
     if (!required) onClose();
   };
@@ -66,7 +82,7 @@ export function LocationPickerModal({
       onClose={required ? () => {} : onClose}
       dismissible={!required}
       title="Set delivery location"
-      description="We need your location to show nearby stores. Your address is never shared with merchants."
+      description="Search your area, sector, or pincode. We use official India Post data for Delhi NCR."
       size="md"
     >
       <div className="space-y-6">
@@ -80,21 +96,52 @@ export function LocationPickerModal({
             <span className="w-full border-t border-neutral-200" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-neutral-500">or enter manually</span>
+            <span className="bg-white px-2 text-neutral-500">or search</span>
           </div>
         </div>
 
-        <Input
-          label="Area / landmark"
-          placeholder="e.g. Connaught Place, Delhi"
-          value={manualLabel}
-          onChange={(e) => setManualLabel(e.target.value)}
-          error={error ?? undefined}
-        />
-        <Button variant="outline" fullWidth onClick={handleManual}>
-          <MapPin className="h-4 w-4" aria-hidden />
-          Save manual location
-        </Button>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-9 h-4 w-4 text-neutral-400" />
+          <Input
+            label="Area, sector, or pincode"
+            placeholder="e.g. Muradnagar, Sector 62 Noida, 201206"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9"
+            error={error ?? undefined}
+          />
+        </div>
+
+        {query.trim().length >= 2 && (
+          <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-neutral-200 p-1">
+            {isFetching && (
+              <Text variant="caption" className="px-3 py-2 text-neutral-500">
+                Searching…
+              </Text>
+            )}
+            {!isFetching && results.length === 0 && (
+              <Text variant="caption" className="px-3 py-2 text-neutral-500">
+                No locations found. Try a nearby area or pincode.
+              </Text>
+            )}
+            {results.map((item) => (
+              <button
+                key={`${item.type}-${item.id}`}
+                type="button"
+                onClick={() => handleSelect(item)}
+                className="flex w-full items-start gap-2 rounded-md px-3 py-2 text-left hover:bg-emerald-50"
+              >
+                <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                <span>
+                  <span className="block text-sm font-medium text-neutral-900">{item.label}</span>
+                  <span className="block text-xs text-neutral-500">
+                    {[item.area, item.city, item.pincode].filter(Boolean).join(' · ')}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <div>
           <Text variant="label" className="mb-3 block">

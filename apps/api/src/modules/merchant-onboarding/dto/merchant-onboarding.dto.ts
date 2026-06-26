@@ -105,6 +105,26 @@ export class UpdateOnboardingStepDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  locality?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locationPincodeId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locationAreaId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locationCityId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsNumber()
   @Min(-90)
   @Max(90)

@@ -38,6 +38,26 @@ export class DeliveryAddressDto {
   @ApiProperty({ example: 77.209 })
   @IsLongitude()
   lng: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  locality?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  locationPincodeId?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  locationAreaId?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  locationCityId?: string;
 }
 
 export class InitiateCheckoutDto {

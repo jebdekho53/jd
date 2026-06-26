@@ -157,6 +157,10 @@ export class MerchantOnboardingService {
     if (dto.city) data.city = dto.city;
     if (dto.cityId) data.cityId = dto.cityId;
     if (dto.pincode) data.pincode = dto.pincode;
+    if (dto.locality) data.locality = dto.locality;
+    if (dto.locationPincodeId) data.locationPincodeId = dto.locationPincodeId;
+    if (dto.locationAreaId) data.locationAreaId = dto.locationAreaId;
+    if (dto.locationCityId) data.locationCityId = dto.locationCityId;
     if (dto.latitude !== undefined) data.latitude = dto.latitude;
     if (dto.longitude !== undefined) data.longitude = dto.longitude;
     if (dto.deliveryRadiusKm !== undefined) data.deliveryRadiusKm = dto.deliveryRadiusKm;
@@ -333,6 +337,9 @@ export class MerchantOnboardingService {
         latitude: app.latitude!,
         longitude: app.longitude!,
         cityId: app.cityId!,
+        locationPincodeId: app.locationPincodeId ?? undefined,
+        locationAreaId: app.locationAreaId ?? undefined,
+        locationCityId: app.locationCityId ?? undefined,
       };
       const store = await this.storeService.createStore(userId, storeDto, ipAddress);
       storeId = store.id;

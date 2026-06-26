@@ -6,6 +6,7 @@
 
 import { NotificationChannel, PrismaClient, RoleName, StoreStatus, UserStatus, MerchantCategoryStatus, CategoryScope, KycStatus, RiderStatus, VehicleType, VendorType, FranchisePartnerStatus, CityLaunchStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { seedLocationDirectory } from './seed-location-directory';
 
 const prisma = new PrismaClient();
 
@@ -61,6 +62,8 @@ const PERMISSIONS = [
   { name: 'coupons:write', module: 'coupons', description: 'Manage coupons' },
   { name: 'cities:read', module: 'geo', description: 'View cities' },
   { name: 'cities:write', module: 'geo', description: 'Manage cities' },
+  { name: 'locations:read', module: 'locations', description: 'View master locations' },
+  { name: 'locations:manage', module: 'locations', description: 'Manage master locations' },
   { name: 'platform:settings', module: 'platform', description: 'Manage platform settings' },
   { name: 'stores:approve', module: 'admin', description: 'Approve stores' },
   { name: 'stores:reject', module: 'admin', description: 'Reject stores' },
@@ -124,6 +127,7 @@ const ROLE_PERMISSIONS: Record<RoleName, string[]> = {
     'coupons:read', 'coupons:write',
     'analytics:read',
     'cities:read', 'cities:write',
+    'locations:read', 'locations:manage',
     'platform:settings',
     'stores:approve', 'stores:reject', 'stores:suspend',
     'categories:read', 'categories:manage', 'categories:approve',
@@ -1016,6 +1020,7 @@ async function main(): Promise<void> {
   await seedRolesAndPermissions();
   await seedPlatformSettings();
   await seedDelhiNcr();
+  await seedLocationDirectory();
   await seedNotificationTemplates();
   await seedGlobalCategories();
   await seedDemoBuyer();

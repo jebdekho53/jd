@@ -21,6 +21,7 @@ import {
   Headphones,
   Package,
   Settings,
+  MapPin,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useSessionQuery, useLogoutMutation } from '@/hooks/use-auth';
@@ -51,6 +52,7 @@ const NAV = [
   { href: '/crm', label: 'CRM & Growth', icon: BarChart3 },
   { href: '/merchant-success', label: 'Merchant Success', icon: Star },
   { href: '/fulfillment-network', label: 'Fulfillment Network', icon: Activity },
+  { href: '/locations', label: 'Master Locations', icon: MapPin },
   { href: '/supply-chain', label: 'Supply Chain', icon: Package },
   { href: '/expansion', label: 'Expansion', icon: Radio },
   { href: '/ai-commerce', label: 'AI Commerce', icon: BarChart3 },

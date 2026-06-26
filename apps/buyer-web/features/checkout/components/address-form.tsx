@@ -1,19 +1,29 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { MapPin } from 'lucide-react';
-import { Button, Input, Text } from '@/design-system/primitives';
+import { Button, Input } from '@/design-system/primitives';
 import { useCheckoutStore } from '@/store/checkout-store';
 import { useLocationStore } from '@/store/location-store';
+import {
+  LocationSearchInput,
+  type LocationSelection,
+} from '@/features/location/components/location-search-input';
 import type { DeliveryAddress } from '@/types/checkout';
 
 const schema = z.object({
   line1: z.string().min(2, 'Enter house / flat number and street'),
   line2: z.string().optional(),
-  city: z.string().min(2, 'Enter city'),
+  locality: z.string().min(2, 'Select a delivery locality from the directory'),
+  city: z.string().min(2),
   pincode: z.string().length(6, 'Enter a valid 6-digit PIN code'),
+  lat: z.number(),
+  lng: z.number(),
+  locationPincodeId: z.string().optional(),
+  locationAreaId: z.string().optional(),
+  locationCityId: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -29,25 +39,53 @@ export function AddressForm({ onNext }: AddressFormProps) {
   const {
     register,
     handleSubmit,
+    control,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       line1: (deliveryAddress?.line1 as string) ?? '',
       line2: deliveryAddress?.line2 ?? '',
-      city: deliveryAddress?.city ?? '',
-      pincode: deliveryAddress?.pincode ?? '',
+      locality: deliveryAddress?.locality ?? location.label ?? '',
+      city: deliveryAddress?.city ?? location.city ?? '',
+      pincode: deliveryAddress?.pincode ?? location.pincode ?? '',
+      lat: deliveryAddress?.lat ?? location.lat ?? 28.6139,
+      lng: deliveryAddress?.lng ?? location.lng ?? 77.209,
+      locationPincodeId: deliveryAddress?.locationPincodeId,
+      locationAreaId: deliveryAddress?.locationAreaId,
+      locationCityId: deliveryAddress?.locationCityId,
     },
   });
+
+  const locality = watch('locality');
+  const city = watch('city');
+  const pincode = watch('pincode');
+
+  const handleLocationSelect = (selection: LocationSelection) => {
+    setValue('locality', selection.label, { shouldValidate: true });
+    setValue('city', selection.city, { shouldValidate: true });
+    setValue('pincode', selection.pincode, { shouldValidate: true });
+    setValue('lat', selection.latitude, { shouldValidate: true });
+    setValue('lng', selection.longitude, { shouldValidate: true });
+    setValue('locationPincodeId', selection.locationPincodeId);
+    setValue('locationAreaId', selection.locationAreaId);
+    setValue('locationCityId', selection.locationCityId);
+  };
 
   const onSubmit = (data: FormData) => {
     const addr: DeliveryAddress = {
       line1: data.line1,
       line2: data.line2 ?? undefined,
+      locality: data.locality,
       city: data.city,
       pincode: data.pincode,
-      lat: location.lat || 28.6139,
-      lng: location.lng || 77.209,
+      lat: data.lat,
+      lng: data.lng,
+      locationPincodeId: data.locationPincodeId,
+      locationAreaId: data.locationAreaId,
+      locationCityId: data.locationCityId,
     };
     setDeliveryAddress(addr);
     onNext();
@@ -60,7 +98,7 @@ export function AddressForm({ onNext }: AddressFormProps) {
         <span>
           {location.isReady
             ? location.label || 'Location detected'
-            : 'No location set — using default coordinates'}
+            : 'Search your delivery locality below'}
         </span>
       </div>
 
@@ -75,19 +113,24 @@ export function AddressForm({ onNext }: AddressFormProps) {
         placeholder="e.g. Near Metro Station"
         {...register('line2')}
       />
-      <Input
-        label="City *"
-        placeholder="e.g. New Delhi"
-        error={errors.city?.message}
-        {...register('city')}
+      <Controller
+        name="locality"
+        control={control}
+        render={() => (
+          <LocationSearchInput
+            value={locality}
+            onSelect={handleLocationSelect}
+            error={errors.locality?.message}
+          />
+        )}
       />
-      <Input
-        label="PIN code *"
-        placeholder="110001"
-        maxLength={6}
-        error={errors.pincode?.message}
-        {...register('pincode')}
-      />
+      {locality && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          <p>
+            {locality} · {city} · PIN {pincode}
+          </p>
+        </div>
+      )}
 
       <Button type="submit" fullWidth>
         Continue to payment

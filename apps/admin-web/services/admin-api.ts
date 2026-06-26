@@ -34,6 +34,13 @@ import type {
   MerchantCategoryStatus,
   StoreCategoryRequestStatus,
 } from '@/types/category-governance';
+import type {
+  ImportLocationsResult,
+  ListMasterLocationsParams,
+  MasterLocationFilters,
+  MasterLocationListResult,
+  MasterLocationStats,
+} from '@/types/location-directory';
 
 // ─── Auth (BFF: /api/auth/*) ─────────────────────────────────────────────────
 
@@ -590,4 +597,45 @@ export async function moderateReview(
     },
   );
   return res.data;
+}
+
+// ─── Master Location Directory ─────────────────────────────────────────────────
+
+export async function listMasterLocations(
+  params: ListMasterLocationsParams = {},
+): Promise<MasterLocationListResult> {
+  const res = await adminFetch<ApiResponse<MasterLocationListResult>>(
+    `/api/admin/locations${buildQuery(params)}`,
+  );
+  return res.data;
+}
+
+export async function getMasterLocationStats(): Promise<MasterLocationStats> {
+  const res = await adminFetch<ApiResponse<MasterLocationStats>>('/api/admin/locations/stats');
+  return res.data;
+}
+
+export async function getMasterLocationFilters(): Promise<MasterLocationFilters> {
+  const res = await adminFetch<ApiResponse<MasterLocationFilters>>('/api/admin/locations/filters');
+  return res.data;
+}
+
+export async function setMasterLocationActive(id: string, isActive: boolean) {
+  const res = await adminFetch<ApiResponse<unknown>>(`/api/admin/locations/pincodes/${id}/active`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
+  });
+  return res.data;
+}
+
+export async function importMasterLocations(csv: string): Promise<ImportLocationsResult> {
+  const res = await adminFetch<ApiResponse<ImportLocationsResult>>('/api/admin/locations/import', {
+    method: 'POST',
+    body: JSON.stringify({ csv }),
+  });
+  return res.data;
+}
+
+export function exportMasterLocations(): void {
+  window.location.href = '/api/admin/locations/export';
 }

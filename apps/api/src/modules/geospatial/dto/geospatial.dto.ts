@@ -113,6 +113,21 @@ export class CreateAddressDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  locationCityId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locationAreaId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locationPincodeId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsBoolean()
   isDefault?: boolean;
 }
@@ -164,6 +179,21 @@ export class UpdateAddressDto {
   @Type(() => Number)
   @IsNumber()
   longitude?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locationCityId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locationAreaId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locationPincodeId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

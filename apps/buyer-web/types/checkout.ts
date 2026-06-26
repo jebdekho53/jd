@@ -1,10 +1,14 @@
 export interface DeliveryAddress {
   line1: string;
   line2?: string;
+  locality?: string;
   city: string;
   pincode: string;
   lat: number;
   lng: number;
+  locationPincodeId?: string;
+  locationAreaId?: string;
+  locationCityId?: string;
 }
 
 export interface InitiateCheckoutPayload {

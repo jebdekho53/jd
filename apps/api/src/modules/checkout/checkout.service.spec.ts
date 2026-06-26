@@ -7,6 +7,7 @@ import { CartService } from '../cart/cart.service';
 import { ReservationService } from './reservation.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
+import { LocationDirectoryService } from '../location-directory/location-directory.service';
 
 const CHECKOUT_ID = 'chk_test_001';
 const ORDER_ID = 'ord_test_001';
@@ -67,6 +68,14 @@ const mockReservation = {
 };
 const mockAudit = { log: jest.fn() };
 const mockDomainEvents = { emit: jest.fn() };
+const mockLocations = {
+  validatePincode: jest.fn().mockResolvedValue({
+    pincode: '110001',
+    latitude: 28.61,
+    longitude: 77.21,
+    locationPincodeId: 'pin_1',
+  }),
+};
 
 describe('CheckoutService', () => {
   let service: CheckoutService;
@@ -80,6 +89,7 @@ describe('CheckoutService', () => {
         { provide: ReservationService, useValue: mockReservation },
         { provide: AuditService, useValue: mockAudit },
         { provide: DomainEventsService, useValue: mockDomainEvents },
+        { provide: LocationDirectoryService, useValue: mockLocations },
       ],
     }).compile();
 
