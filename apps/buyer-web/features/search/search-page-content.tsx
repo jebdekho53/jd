@@ -3,23 +3,31 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Check, SlidersHorizontal, Store, Tag } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
 import { SmartSearchSection } from '@/components/discovery/smart-search-section';
 import { CategoryExplorer } from '@/components/discovery/category-explorer';
 import { EmptyState, ErrorState } from '@/components/common/state-blocks';
 import { ProductGridSkeleton } from '@/components/common/skeletons';
-import { CategoryFilter } from '@/features/categories/category-filter';
 import { ProductCard } from '@/features/products/product-card';
 import { StoreCardItem } from '@/features/stores/store-card';
+import { BottomSheet, Chip, SegmentedControl } from '@/design-system/primitives';
 import { useCategories, useUnifiedSearch } from '@/hooks/use-buyer-queries';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useSearchHistory } from '@/hooks/use-search-history';
 import { useEffectiveLocation } from '@/store/location-store';
 import { resolveCollection } from '@/lib/search-collections';
 import { SectionHeader } from '@/components/v2/section-header';
+import { cn } from '@/lib/utils';
 import type { UnifiedSearchProduct } from '@/types/buyer';
 
-const TABS = ['all', 'products', 'stores', 'categories'] as const;
+const TABS = [
+  { value: 'all', label: 'All' },
+  { value: 'products', label: 'Products' },
+  { value: 'stores', label: 'Stores' },
+  { value: 'categories', label: 'Categories' },
+] as const;
+
 const SORTS = [
   { value: 'relevance', label: 'Relevance' },
   { value: 'distance', label: 'Nearest' },
@@ -58,8 +66,23 @@ function toProductCard(p: UnifiedSearchProduct) {
   };
 }
 
+function isDeal(p: UnifiedSearchProduct): boolean {
+  return Boolean(p.store.hasOffer || (p.mrp != null && p.mrp > p.basePrice));
+}
+
 interface SearchPageContentProps {
   forcedDeals?: boolean;
+}
+
+function flattenCategories<T extends { id: string; name: string; children: T[] }>(
+  categories: T[],
+): { id: string; name: string }[] {
+  const out: { id: string; name: string }[] = [];
+  for (const c of categories) {
+    out.push({ id: c.id, name: c.name });
+    if (c.children?.length) out.push(...flattenCategories(c.children));
+  }
+  return out;
 }
 
 export function SearchPageContent({ forcedDeals = false }: SearchPageContentProps) {
@@ -74,8 +97,9 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
 
   const [query, setQuery] = useState(initialQuery);
   const [categoryId, setCategoryId] = useState<string | null>(initialCategory);
-  const [tab, setTab] = useState<(typeof TABS)[number]>('all');
-  const [sort, setSort] = useState<string>('relevance');
+  const [tab, setTab] = useState<(typeof TABS)[number]['value']>('all');
+  const [sort, setSort] = useState<string>(forcedDeals ? 'price_low_high' : 'relevance');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const { add: addHistory } = useSearchHistory();
 
   const qFromUrl = searchParams.get('q') ?? collection?.q ?? '';
@@ -86,6 +110,8 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
   const debouncedQuery = useDebounce(query, 400);
 
   const { data: categories = [] } = useCategories(storeIdParam ?? undefined);
+  const flatCategories = useMemo(() => flattenCategories(categories), [categories]);
+  const activeCategoryName = flatCategories.find((c) => c.id === categoryId)?.name;
 
   const searchParams_ = useMemo(
     () => ({
@@ -115,23 +141,32 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
 
   const showEmptyPrompt = !canSearch;
 
+  const products = useMemo(() => {
+    const list = data?.products ?? [];
+    return forcedDeals ? list.filter(isDeal) : list;
+  }, [data?.products, forcedDeals]);
+
+  const sortActive = sort !== (forcedDeals ? 'price_low_high' : 'relevance');
+  const filterCount = (categoryId ? 1 : 0) + (sortActive ? 1 : 0);
+
+  const heading = forcedDeals ? 'Deals & offers' : collection ? collection.title : 'Search & Discover';
+  const subheading = forcedDeals
+    ? 'Best discounts and offers from stores near you'
+    : 'Nearby in-stock products from top-rated stores — ranked for your location';
+
   return (
     <PageShell>
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div>
-          <h1 className="text-2xl font-bold text-jd-text-primary">
-            {collection ? collection.title : 'Search & Discover'}
-          </h1>
-          <p className="mt-1 text-sm text-jd-text-muted">
-            Nearby in-stock products from top-rated stores — ranked for your location
-          </p>
+          <h1 className="text-xl font-bold text-jd-text-primary md:text-2xl">{heading}</h1>
+          <p className="mt-1 text-sm text-jd-text-muted">{subheading}</p>
         </div>
 
         <SmartSearchSection
           value={query}
           onChange={setQuery}
           onSubmit={(q) => router.replace(`/search?q=${encodeURIComponent(q)}`)}
-          autoFocus
+          autoFocus={!forcedDeals}
         />
 
         {showEmptyPrompt && (
@@ -142,160 +177,252 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
             </section>
             <EmptyState
               variant="search"
-              title="Start typing to search"
-              description="Search products, stores, brands, and categories near you."
+              title={forcedDeals ? 'Find the best deals' : 'Start typing to search'}
+              description={
+                forcedDeals
+                  ? 'Search a product to compare discounted prices across nearby stores.'
+                  : 'Search products, stores, brands, and categories near you.'
+              }
             />
           </>
         )}
 
         {!showEmptyPrompt && (
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex flex-wrap gap-1 rounded-xl bg-cream-2 p-1">
-              {TABS.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTab(t)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize ${
-                    tab === t ? 'bg-card text-primary shadow-sm' : 'text-jd-text-muted'
-                  }`}
+          <>
+            {/* Controls: tabs + filters */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 overflow-x-auto scrollbar-none">
+                  <SegmentedControl
+                    options={TABS}
+                    value={tab}
+                    onChange={(v) => setTab(v)}
+                    size="sm"
+                    aria-label="Result type"
+                    className="min-w-[300px]"
+                  />
+                </div>
+                <Chip
+                  size="sm"
+                  active={filterCount > 0}
+                  leadingIcon={<SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />}
+                  onClick={() => setFiltersOpen(true)}
                 >
-                  {t}
-                </button>
-              ))}
-            </div>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-              className="rounded-lg border border-border/60 bg-card px-3 py-1.5 text-xs"
-              aria-label="Sort results"
-            >
-              {SORTS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            <CategoryFilter categories={categories} selectedId={categoryId} onSelect={setCategoryId} />
-          </div>
-        )}
+                  {filterCount > 0 ? `Filters (${filterCount})` : 'Filters'}
+                </Chip>
+              </div>
 
-        {!showEmptyPrompt && isLoading && <ProductGridSkeleton />}
-
-        {!showEmptyPrompt && isError && (
-          <ErrorState
-            message={error instanceof Error ? error.message : 'Search failed'}
-            onRetry={() => refetch()}
-          />
-        )}
-
-        {!showEmptyPrompt && !isLoading && !isError && data && (
-          <div className="space-y-8">
-            {(tab === 'all' || tab === 'products') && data.products.length > 0 && (
-              <section>
-                <SectionHeader title="Products" subtitle={`${data.meta.totalProducts} results`} />
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                  {data.products.map((product) => (
-                    <div key={product.id} className="relative">
-                      {product.store.distanceKm != null && (
-                        <span className="absolute right-2 top-2 z-10 rounded-full bg-card/90 px-2 py-0.5 text-[10px] font-medium text-jd-text-muted">
-                          {product.store.distanceKm.toFixed(1)} km
-                        </span>
-                      )}
-                      {product.store.hasOffer && (
-                        <span className="absolute left-2 top-2 z-10 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-white">
-                          Offer
-                        </span>
-                      )}
-                      {!product.inStock && (
-                        <span className="absolute bottom-16 left-2 z-10 rounded bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">
-                          Low stock
-                        </span>
-                      )}
-                      <ProductCard product={toProductCard(product)} showStore trackView />
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {(tab === 'all' || tab === 'stores') && data.stores.length > 0 && (
-              <section>
-                <SectionHeader title="Stores" />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {data.stores.map((store) => (
-                    <StoreCardItem
-                      key={store.id}
-                      store={{
-                        id: store.id,
-                        name: store.name,
-                        slug: store.slug,
-                        logoUrl: store.logoUrl,
-                        bannerUrl: store.bannerUrl,
-                        description: null,
-                        address: { line1: '', line2: null, pincode: '' },
-                        ratingAvg: store.ratingAvg,
-                        ratingCount: 0,
-                        deliveryFee: 0,
-                        minOrderAmount: 0,
-                        avgPrepTimeMins: store.etaMins,
-                        distanceKm: store.distanceKm,
-                        isOpen: true,
-                        todayHours: null,
-                      }}
-                      variant="compact"
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {(tab === 'all' || tab === 'categories') && data.categories.length > 0 && (
-              <section>
-                <SectionHeader title="Categories" />
-                <div className="flex flex-wrap gap-2">
-                  {data.categories.map((c) => (
-                    <Link
+              {/* Quick category chips */}
+              {flatCategories.length > 0 && (tab === 'all' || tab === 'products') && (
+                <div className="mt-2 flex gap-2 overflow-x-auto scrollbar-none">
+                  <Chip size="sm" active={categoryId === null} onClick={() => setCategoryId(null)}>
+                    All
+                  </Chip>
+                  {flatCategories.slice(0, 12).map((c) => (
+                    <Chip
                       key={c.id}
-                      href={`/search?categoryId=${c.id}`}
-                      className="rounded-full border px-4 py-2 text-sm hover:border-primary hover:text-primary"
+                      size="sm"
+                      active={categoryId === c.id}
+                      onClick={() => setCategoryId(categoryId === c.id ? null : c.id)}
                     >
                       {c.name}
-                    </Link>
+                    </Chip>
                   ))}
                 </div>
-              </section>
-            )}
-
-            {tab === 'all' && data.brands.length > 0 && (
-              <section>
-                <SectionHeader title="Brands" />
-                <div className="flex flex-wrap gap-2">
-                  {data.brands.map((b) => (
-                    <Link
-                      key={b.name}
-                      href={`/search?q=${encodeURIComponent(b.name)}`}
-                      className="rounded-full bg-cream-3 px-4 py-2 text-sm font-medium"
-                    >
-                      {b.name}
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {data.products.length === 0 &&
-              data.stores.length === 0 &&
-              data.categories.length === 0 && (
-                <EmptyState
-                  variant="search"
-                  title="No results found"
-                  description={`Nothing matched "${debouncedQuery}". Try a different term or browse categories.`}
-                />
               )}
-          </div>
+            </div>
+
+            {isLoading && <ProductGridSkeleton />}
+
+            {isError && (
+              <ErrorState
+                message={error instanceof Error ? error.message : 'Search failed'}
+                onRetry={() => refetch()}
+              />
+            )}
+
+            {!isLoading && !isError && data && (
+              <div className="space-y-8">
+                {(tab === 'all' || tab === 'products') && products.length > 0 && (
+                  <section>
+                    <SectionHeader
+                      title="Products"
+                      subtitle={`${products.length}${forcedDeals ? ' deals' : ' results'}${
+                        activeCategoryName ? ` in ${activeCategoryName}` : ''
+                      }`}
+                    />
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                      {products.map((product) => (
+                        <ProductCard
+                          key={product.id}
+                          product={toProductCard(product)}
+                          showStore
+                          trackView
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {(tab === 'all' || tab === 'stores') && data.stores.length > 0 && (
+                  <section>
+                    <SectionHeader title="Stores" />
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {data.stores.map((store) => (
+                        <StoreCardItem
+                          key={store.id}
+                          store={{
+                            id: store.id,
+                            name: store.name,
+                            slug: store.slug,
+                            logoUrl: store.logoUrl,
+                            bannerUrl: store.bannerUrl,
+                            description: null,
+                            address: { line1: '', line2: null, pincode: '' },
+                            ratingAvg: store.ratingAvg,
+                            ratingCount: 0,
+                            deliveryFee: 0,
+                            minOrderAmount: 0,
+                            avgPrepTimeMins: store.etaMins,
+                            distanceKm: store.distanceKm,
+                            isOpen: true,
+                            todayHours: null,
+                          }}
+                          variant="compact"
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {(tab === 'all' || tab === 'categories') && data.categories.length > 0 && (
+                  <section>
+                    <SectionHeader title="Categories" />
+                    <div className="flex flex-wrap gap-2">
+                      {data.categories.map((c) => (
+                        <Link
+                          key={c.id}
+                          href={`/search?categoryId=${c.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium transition hover:border-primary hover:text-primary"
+                        >
+                          <Tag className="h-3.5 w-3.5" aria-hidden />
+                          {c.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {tab === 'all' && data.brands.length > 0 && (
+                  <section>
+                    <SectionHeader title="Brands" />
+                    <div className="flex flex-wrap gap-2">
+                      {data.brands.map((b) => (
+                        <Link
+                          key={b.name}
+                          href={`/search?q=${encodeURIComponent(b.name)}`}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-muted px-4 py-2 text-sm font-medium text-foreground transition hover:bg-primary/10 hover:text-primary"
+                        >
+                          <Store className="h-3.5 w-3.5" aria-hidden />
+                          {b.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {products.length === 0 &&
+                  data.stores.length === 0 &&
+                  data.categories.length === 0 && (
+                    <EmptyState
+                      variant="search"
+                      title="No results found"
+                      description={`Nothing matched "${debouncedQuery}". Try a different term or browse categories.`}
+                    />
+                  )}
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      {/* Sort & filters bottom sheet */}
+      <BottomSheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Sort & filters"
+        size="lg"
+        footer={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setCategoryId(null);
+                setSort(forcedDeals ? 'price_low_high' : 'relevance');
+              }}
+              className="h-11 flex-1 rounded-xl border border-border text-sm font-semibold text-foreground transition hover:bg-muted"
+            >
+              Clear all
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(false)}
+              className="h-11 flex-[2] rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition hover:bg-secondary btn-press"
+            >
+              Show results
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-6 pb-2">
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-jd-text-muted">
+              Sort by
+            </p>
+            <div className="space-y-1">
+              {SORTS.map((s) => {
+                const active = sort === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setSort(s.value)}
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-xl px-3 py-3 text-sm transition',
+                      active ? 'bg-primary/5 font-semibold text-primary' : 'hover:bg-muted',
+                    )}
+                  >
+                    {s.label}
+                    {active && <Check className="h-4 w-4" aria-hidden />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {flatCategories.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-jd-text-muted">
+                Category
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Chip active={categoryId === null} onClick={() => setCategoryId(null)}>
+                  All categories
+                </Chip>
+                {flatCategories.map((c) => (
+                  <Chip
+                    key={c.id}
+                    active={categoryId === c.id}
+                    onClick={() => setCategoryId(categoryId === c.id ? null : c.id)}
+                  >
+                    {c.name}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </BottomSheet>
     </PageShell>
   );
 }
