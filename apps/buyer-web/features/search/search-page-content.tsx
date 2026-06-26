@@ -51,17 +51,19 @@ function toProductCard(p: UnifiedSearchProduct) {
     isVeg: null,
     tags: [],
     category: p.category,
-    variants: [
-      {
-        id: `${p.id}-default`,
-        name: 'Default',
-        price: p.basePrice,
-        mrp: p.mrp,
-        weightGrams: null,
-        isDefault: true,
-        availableQty: p.availableQty,
-      },
-    ],
+    variants: p.variantId
+      ? [
+          {
+            id: p.variantId,
+            name: 'Default',
+            price: p.basePrice,
+            mrp: p.mrp,
+            weightGrams: null,
+            isDefault: true,
+            availableQty: p.availableQty,
+          },
+        ]
+      : [],
     store: p.store,
   };
 }

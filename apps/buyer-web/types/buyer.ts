@@ -161,6 +161,8 @@ export interface UnifiedSearchProduct {
   };
   inStock: boolean;
   availableQty: number;
+  /** Default purchasable variant; required for add-to-cart from search */
+  variantId?: string;
 }
 
 export interface UnifiedSearchResult {

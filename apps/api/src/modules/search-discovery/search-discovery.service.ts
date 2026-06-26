@@ -113,6 +113,7 @@ export class SearchDiscoveryService {
           imageUrls: row.imageUrls,
           basePrice: price,
           mrp: row.mrp,
+          variantId: row.variantId,
           category: row.category,
           store: {
             id: row.store.id,
@@ -124,8 +125,8 @@ export class SearchDiscoveryService {
             etaMins: eta,
             hasOffer: offerStoreIds.has(row.storeId),
           },
-          inStock: row.totalQty > 0,
-          availableQty: row.totalQty,
+          inStock: row.defaultVariantQty > 0,
+          availableQty: row.defaultVariantQty,
           score,
           sortPrice: price,
           sortEta: eta,
@@ -583,6 +584,8 @@ export class SearchDiscoveryService {
         const prices = p.variants.map((v) => Number(v.price));
         const minPrice = prices.length ? Math.min(...prices) : Number(p.basePrice);
         const defaultVariant = p.variants.find((v) => v.isDefault) ?? p.variants[0];
+        if (!defaultVariant) return null;
+        const defaultVariantQty = Math.max(0, defaultVariant.inventory?.availableQty ?? 0);
         return {
           id: p.id,
           storeId: p.storeId,
@@ -595,10 +598,13 @@ export class SearchDiscoveryService {
           category: p.category,
           store: p.store,
           totalQty: qty,
+          variantId: defaultVariant.id,
+          defaultVariantQty,
           minPrice,
-          mrp: defaultVariant?.mrp ? Number(defaultVariant.mrp) : p.mrp ? Number(p.mrp) : null,
+          mrp: defaultVariant.mrp ? Number(defaultVariant.mrp) : p.mrp ? Number(p.mrp) : null,
         };
       })
+      .filter((p): p is NonNullable<typeof p> => p !== null)
       .filter((p) => {
         if (dto.minPrice != null && p.minPrice < dto.minPrice) return false;
         if (dto.maxPrice != null && p.minPrice > dto.maxPrice) return false;
