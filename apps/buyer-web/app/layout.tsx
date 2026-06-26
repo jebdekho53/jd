@@ -57,7 +57,7 @@ const organizationJsonLd = {
   '@type': 'Organization',
   name: 'JebDekho',
   url: siteUrl,
-  logo: `${siteUrl}/logo.svg`,
+  logo: `${siteUrl}/logo.png`,
   sameAs: [],
 };
 

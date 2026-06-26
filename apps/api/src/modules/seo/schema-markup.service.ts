@@ -16,7 +16,7 @@ export class SchemaMarkupService {
       '@type': 'Organization',
       name: SITE_NAME,
       url: this.siteUrl,
-      logo: absoluteUrl('/logo.svg', this.siteUrl),
+      logo: absoluteUrl('/logo.png', this.siteUrl),
       sameAs: [],
     };
   }

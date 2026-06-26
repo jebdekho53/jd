@@ -6,7 +6,7 @@ export const EMAIL_COLORS = {
   white: '#FFFFFF',
 } as const;
 
-export const EMAIL_LOGO_URL = 'https://jebdekho.com/logo.svg';
+export const EMAIL_LOGO_URL = 'https://jebdekho.com/logo.png';
 
 export const EMAIL_TEMPLATE = {
   OTP: 'otp',
