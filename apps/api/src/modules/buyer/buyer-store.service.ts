@@ -195,21 +195,86 @@ export class BuyerStoreService {
     categoryId: string,
     dto: DiscoverStoresDto & { subcategoryId?: string },
   ): Promise<{ stores: (StoreCard & { productCount: number })[]; total: number }> {
-    const { lat, lng, radiusKm = 5, page = 1, limit = 20, subcategoryId } = dto;
+    const { lat, lng, radiusKm = 5, page = 1, limit = 20, subcategoryId, sort = 'distance' } = dto;
     const storeCounts = await fetchStoresForCategory(this.prisma, categoryId, subcategoryId);
     if (storeCounts.length === 0) return { stores: [], total: 0 };
 
-    const discovery = await this.discoverStores({ lat, lng, radiusKm, page: 1, limit: 100, sort: 'distance' });
     const countMap = new Map<string, number>(
       storeCounts.map((s) => [s.storeId, s.productCount]),
     );
 
-    const matched = discovery.stores
-      .filter((s) => countMap.has(s.id))
-      .map((s) => ({ ...s, productCount: countMap.get(s.id) ?? 0 }));
+    const categoryStores = await this.prisma.store.findMany({
+      where: {
+        id: { in: [...countMap.keys()] },
+        status: StoreStatus.APPROVED,
+        isActive: true,
+        deletedAt: null,
+      },
+      include: {
+        hours: true,
+        storeServiceAreas: {
+          include: {
+            serviceArea: {
+              select: { centerLat: true, centerLng: true, radiusKm: true },
+            },
+          },
+        },
+      },
+    });
 
-    const total = matched.length;
-    const stores = matched.slice((page - 1) * limit, page * limit);
+    const now = nowIST();
+    const todayEnum = dayOfWeekEnum(now);
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+
+    const enriched = categoryStores
+      .map((store) => {
+        const deliverable = checkStoreDeliverability(lat, lng, store);
+        if (!deliverable.deliverable || deliverable.distanceKm == null) return null;
+        if (deliverable.distanceKm > radiusKm) return null;
+
+        const todayHour = store.hours.find((h) => h.dayOfWeek === todayEnum) ?? null;
+        const isOpen = computeIsOpen(todayHour, nowMins);
+        const stats = store.reputationStats as { rankingScore?: number } | null;
+        const reputationScore =
+          stats?.rankingScore ?? store.ratingAvg * Math.log10(store.ratingCount + 2);
+
+        return {
+          card: {
+            id: store.id,
+            name: store.name,
+            slug: store.slug,
+            logoUrl: store.logoUrl,
+            bannerUrl: store.bannerUrl,
+            description: store.description,
+            address: { line1: store.line1, line2: store.line2, pincode: store.pincode },
+            ratingAvg: store.ratingAvg,
+            ratingCount: store.ratingCount,
+            deliveryFee: Number(store.deliveryFee),
+            minOrderAmount: Number(store.minOrderAmount),
+            avgPrepTimeMins: store.avgPrepTimeMins,
+            distanceKm: deliverable.distanceKm,
+            isOpen,
+            todayHours: todayHour && !todayHour.isClosed
+              ? { openTime: todayHour.openTime, closeTime: todayHour.closeTime }
+              : null,
+            productCount: countMap.get(store.id) ?? 0,
+          } as StoreCard & { productCount: number },
+          createdAt: store.createdAt,
+          reputationScore,
+        };
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null);
+
+    const sorted = sortStoreCards(enriched, sort);
+    const total = sorted.length;
+    const stores: (StoreCard & { productCount: number })[] = sorted
+      .slice((page - 1) * limit, page * limit)
+      .map((s) => s.card);
+
+    this.logger.log(
+      `listStoresForCategory categoryId=${categoryId} subcategoryId=${subcategoryId ?? '—'} → ${total} deliverable (${stores.length} on page ${page})`,
+    );
+
     return { stores, total };
   }
 
@@ -325,10 +390,10 @@ function computeIsOpen(
   return nowMins >= open && nowMins < close;
 }
 
-function sortStoreCards(
-  stores: { card: StoreCard; createdAt: Date; reputationScore: number }[],
+function sortStoreCards<T extends StoreCard>(
+  stores: { card: T; createdAt: Date; reputationScore: number }[],
   sort: string,
-): { card: StoreCard; createdAt: Date; reputationScore: number }[] {
+): { card: T; createdAt: Date; reputationScore: number }[] {
   const copy = [...stores];
   switch (sort) {
     case 'popular':

@@ -38,6 +38,8 @@ const makeStore = (overrides: Partial<Record<string, unknown>> = {}) => ({
     },
   ],
   storeServiceAreas: [],
+  verificationDocuments: [],
+  merchantProfile: { gstNumber: null, kycStatus: 'APPROVED', createdAt: new Date() },
   categories: [],
   _count: { products: 5 },
   ...overrides,
@@ -58,6 +60,14 @@ const mockPrisma = {
   },
   category: {
     findMany: jest.fn().mockResolvedValue([]),
+    findFirst: jest.fn().mockResolvedValue(null),
+  },
+  storeCategory: {
+    findMany: jest.fn().mockResolvedValue([]),
+  },
+  product: {
+    groupBy: jest.fn().mockResolvedValue([]),
+    findMany: jest.fn().mockResolvedValue([]),
   },
 };
 
@@ -76,6 +86,7 @@ describe('BuyerStoreService', () => {
     jest.clearAllMocks();
     mockPrisma.merchantCategory.findMany.mockResolvedValue([]);
     mockPrisma.category.findMany.mockResolvedValue([]);
+    mockPrisma.product.findMany.mockResolvedValue([]);
     // Reset cache mock to passthrough
     mockCache.wrap.mockImplementation((_, fn: () => Promise<unknown>) => fn());
   });
@@ -197,15 +208,11 @@ describe('BuyerStoreService', () => {
   // ── getStoreBySlug ──────────────────────────────────────────────────────
 
   describe('getStoreBySlug', () => {
-    it('returns store detail with global catalog categories', async () => {
+    it('returns store detail for a visible approved store', async () => {
       mockPrisma.store.findFirst.mockResolvedValue(makeStore());
-      mockPrisma.category.findMany.mockResolvedValue([
-        { id: 'c-1', name: 'Dairy', slug: 'dairy', imageUrl: null, parentId: null, sortOrder: 0, children: [] },
-      ]);
 
       const detail = await service.getStoreBySlug('test-store');
       expect(detail.slug).toBe('test-store');
-      expect(detail.categories).toHaveLength(1);
       expect(detail.productCount).toBe(5);
       expect(detail.hours).toBeInstanceOf(Array);
     });
@@ -222,6 +229,48 @@ describe('BuyerStoreService', () => {
       expect(mockCache.wrap).toHaveBeenCalledWith(
         expect.stringContaining('buyer:store:test-store'),
         expect.any(Function),
+      );
+    });
+  });
+
+  describe('listStoresForCategory', () => {
+    const DAIRY_ID = 'cat-dairy';
+    const GROCERY_ID = 'cat-grocery';
+
+    beforeEach(() => {
+      mockPrisma.category.findFirst.mockImplementation(({ where }: { where: { id: string } }) => {
+        if (where.id === DAIRY_ID) {
+          return Promise.resolve({ id: DAIRY_ID, parentId: GROCERY_ID });
+        }
+        return Promise.resolve(null);
+      });
+      mockPrisma.storeCategory.findMany.mockResolvedValue([
+        { storeId: 's-1', subcategoryId: DAIRY_ID },
+      ]);
+      mockPrisma.product.groupBy.mockResolvedValue([
+        { storeId: 's-1', _count: { id: 1 } },
+      ]);
+    });
+
+    it('returns category-qualified stores that deliver to the buyer', async () => {
+      const store = makeStore();
+      mockPrisma.store.findMany.mockResolvedValue([store]);
+
+      const { stores, total } = await service.listStoresForCategory(DAIRY_ID, {
+        lat: 28.6139,
+        lng: 77.209,
+        radiusKm: 20,
+        page: 1,
+        limit: 12,
+      });
+
+      expect(total).toBe(1);
+      expect(stores[0].name).toBe('Test Store');
+      expect(stores[0].productCount).toBe(1);
+      expect(mockPrisma.store.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: { in: ['s-1'] } }),
+        }),
       );
     });
   });
