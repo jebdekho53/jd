@@ -55,6 +55,7 @@ const NAV = [
   { href: '/merchant-success', label: 'Merchant Success', icon: Star },
   { href: '/fulfillment-network', label: 'Fulfillment Network', icon: Activity },
   { href: '/locations', label: 'Master Locations', icon: MapPin },
+  { href: '/delivery-coverage', label: 'Delivery Coverage', icon: MapPin },
   { href: '/supply-chain', label: 'Supply Chain', icon: Package },
   { href: '/expansion', label: 'Expansion', icon: Radio },
   { href: '/ai-commerce', label: 'AI Commerce', icon: BarChart3 },

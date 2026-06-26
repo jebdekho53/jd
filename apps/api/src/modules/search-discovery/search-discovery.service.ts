@@ -3,6 +3,10 @@ import { Prisma, SearchEventType, StoreStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { BuyerStoreService } from '../buyer/buyer-store.service';
 import { checkStoreDeliverability } from '../../common/utils/geospatial.util';
+import {
+  checkStoreDeliverabilityWithCoverage,
+  findActiveDeliveryArea,
+} from '../../common/utils/delivery-coverage.util';
 import { SearchCacheService } from './search-cache.service';
 import { SearchAnalyticsService } from './search-analytics.service';
 import { AdServingService } from '../ads/ad-serving.service';
@@ -504,15 +508,22 @@ export class SearchDiscoveryService {
 
   private productDistance(
     dto: BuyerSearchDto,
-    store: { latitude: number; longitude: number },
+    store: {
+      latitude: number;
+      longitude: number;
+      deliveryRadiusKm?: number | null;
+      storeServiceAreas?: Array<{ serviceArea: { centerLat: number; centerLng: number; radiusKm: number } }>;
+      deliveryAreas?: Array<{ pincode: string; isActive: boolean }>;
+    },
   ): number | null {
     if (dto.lat == null || dto.lng == null) return null;
-    const d = checkStoreDeliverability(dto.lat, dto.lng, {
+    const d = checkStoreDeliverabilityWithCoverage(dto.lat, dto.lng, {
       latitude: store.latitude,
       longitude: store.longitude,
       deliveryRadiusKm: 20,
-      storeServiceAreas: [],
-    });
+      storeServiceAreas: store.storeServiceAreas ?? [],
+      deliveryAreas: store.deliveryAreas,
+    }, { buyerPincode: dto.pincode });
     return d.distanceKm;
   }
 
@@ -521,7 +532,12 @@ export class SearchDiscoveryService {
     const q = dto.q?.trim();
     const where: Prisma.ProductWhereInput = {
       ...PRODUCT_VISIBLE,
-      store: STORE_VISIBLE,
+      store: {
+        ...STORE_VISIBLE,
+        ...(dto.pincode && {
+          deliveryAreas: { some: { pincode: dto.pincode, isActive: true } },
+        }),
+      },
       ...(dto.storeId && { storeId: dto.storeId }),
       ...(categoryId && { categoryId }),
       ...(q && buildProductTextSearchWhere(q)),
@@ -540,6 +556,14 @@ export class SearchDiscoveryService {
             longitude: true,
             ratingAvg: true,
             avgPrepTimeMins: true,
+            deliveryRadiusKm: true,
+            deliveryAreas: {
+              where: { isActive: true },
+              select: { pincode: true, isActive: true, priority: true, deliveryFee: true, minimumOrder: true, estimatedMinutes: true },
+            },
+            storeServiceAreas: {
+              include: { serviceArea: { select: { centerLat: true, centerLng: true, radiusKm: true } } },
+            },
           },
         },
         variants: {
@@ -581,8 +605,13 @@ export class SearchDiscoveryService {
         if (dto.minPrice != null && p.minPrice < dto.minPrice) return false;
         if (dto.maxPrice != null && p.minPrice > dto.maxPrice) return false;
         if (dto.lat != null && dto.lng != null) {
-          const d = this.productDistance(dto, p.store);
-          if (d != null && d > 20) return false;
+          const pincodeMatch = dto.pincode
+            ? Boolean(findActiveDeliveryArea(p.store.deliveryAreas, dto.pincode))
+            : false;
+          if (!pincodeMatch) {
+            const d = this.productDistance(dto, p.store);
+            if (d != null && d > 20) return false;
+          }
         }
         return true;
       });
@@ -594,13 +623,22 @@ export class SearchDiscoveryService {
     const stores = await this.prisma.store.findMany({
       where: {
         ...STORE_VISIBLE,
+        ...(dto.pincode && {
+          deliveryAreas: { some: { pincode: dto.pincode, isActive: true } },
+        }),
         OR: [
           { name: { contains: q, mode: 'insensitive' } },
           { description: { contains: q, mode: 'insensitive' } },
           { locality: { contains: q, mode: 'insensitive' } },
         ],
       },
-      include: { storeServiceAreas: { include: { serviceArea: true } } },
+      include: {
+        storeServiceAreas: { include: { serviceArea: true } },
+        deliveryAreas: {
+          where: { isActive: true },
+          select: { pincode: true, isActive: true, priority: true, deliveryFee: true, minimumOrder: true, estimatedMinutes: true },
+        },
+      },
       take: 30,
     });
 
@@ -608,9 +646,14 @@ export class SearchDiscoveryService {
 
     return stores
       .map((store) => {
-        const deliverable = checkStoreDeliverability(dto.lat!, dto.lng!, store);
-        if (!deliverable.deliverable || deliverable.distanceKm == null) return null;
-        if (deliverable.distanceKm > 20) return null;
+        const deliverable = checkStoreDeliverabilityWithCoverage(dto.lat!, dto.lng!, store, {
+          buyerPincode: dto.pincode,
+        });
+        if (!deliverable.deliverable) return null;
+        const pincodeMatch = dto.pincode
+          ? Boolean(findActiveDeliveryArea(store.deliveryAreas, dto.pincode))
+          : false;
+        if (!pincodeMatch && deliverable.distanceKm != null && deliverable.distanceKm > 20) return null;
         return {
           id: store.id,
           name: store.name,
@@ -618,8 +661,8 @@ export class SearchDiscoveryService {
           logoUrl: store.logoUrl,
           bannerUrl: store.bannerUrl,
           ratingAvg: store.ratingAvg,
-          distanceKm: deliverable.distanceKm,
-          etaMins: estimateDeliveryEtaMins(deliverable.distanceKm, store.avgPrepTimeMins),
+          distanceKm: deliverable.distanceKm ?? 0,
+          etaMins: estimateDeliveryEtaMins(deliverable.distanceKm ?? 0, store.avgPrepTimeMins),
           categories: categoryMap.get(store.id) ?? [],
         };
       })

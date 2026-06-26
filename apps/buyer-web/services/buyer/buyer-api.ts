@@ -48,6 +48,7 @@ export async function discoverStores(params: DiscoverStoresParams): Promise<Pagi
   const query = {
     lat: params.lat,
     lng: params.lng,
+    pincode: params.pincode,
     radiusKm: params.radiusKm ?? 20,
     page: params.page ?? 1,
     limit: params.limit ?? 20,
@@ -106,6 +107,7 @@ export async function unifiedSearch(
     storeId: params.storeId,
     lat: params.lat,
     lng: params.lng,
+    pincode: params.pincode,
     minPrice: params.minPrice,
     maxPrice: params.maxPrice,
     sort: params.sort ?? 'relevance',

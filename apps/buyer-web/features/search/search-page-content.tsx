@@ -65,7 +65,7 @@ interface SearchPageContentProps {
 export function SearchPageContent({ forcedDeals = false }: SearchPageContentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { lat, lng } = useEffectiveLocation();
+  const { lat, lng, pincode } = useEffectiveLocation();
   const storeIdParam = searchParams.get('storeId');
   const initialCategory = searchParams.get('categoryId');
   const collectionParam = searchParams.get('collection');
@@ -94,12 +94,13 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
       storeId: storeIdParam ?? undefined,
       lat: lat ?? undefined,
       lng: lng ?? undefined,
+      pincode: pincode ?? undefined,
       sort,
       tab,
       page: 1,
       limit: 24,
     }),
-    [debouncedQuery, categoryId, storeIdParam, lat, lng, sort, tab],
+    [debouncedQuery, categoryId, storeIdParam, lat, lng, pincode, sort, tab],
   );
 
   const canSearch = debouncedQuery.trim().length >= 2 || Boolean(categoryId);

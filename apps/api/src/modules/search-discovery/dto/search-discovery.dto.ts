@@ -7,6 +7,8 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Length,
+  Matches,
   Max,
   Min,
 } from 'class-validator';
@@ -38,6 +40,13 @@ export class BuyerSearchDto {
   @Transform(({ value }) => (value != null ? parseFloat(value) : undefined))
   @IsLongitude()
   lng?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(6, 6)
+  @Matches(/^\d{6}$/)
+  pincode?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

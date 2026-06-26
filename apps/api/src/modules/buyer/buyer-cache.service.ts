@@ -10,8 +10,8 @@ const BUYER_CACHE_TTL = 60;
  * (~1 km grid cell) so nearby requests share a cache entry.
  */
 export const BUYER_CACHE_KEYS = {
-  storeDiscovery: (lat: number, lng: number, radius: number, page: number, limit: number, sort: string) =>
-    `buyer:stores:${lat.toFixed(2)}:${lng.toFixed(2)}:r${radius}:s${sort}:p${page}:l${limit}`,
+  storeDiscovery: (lat: number, lng: number, radius: number, page: number, limit: number, sort: string, pincode?: string) =>
+    `buyer:stores:${lat.toFixed(2)}:${lng.toFixed(2)}:r${radius}:s${sort}:p${page}:l${limit}:pc${pincode ?? ''}`,
 
   storeDetail: (slug: string) => `buyer:store:${slug}`,
 

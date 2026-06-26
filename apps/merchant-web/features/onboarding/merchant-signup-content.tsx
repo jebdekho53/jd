@@ -94,6 +94,7 @@ export function MerchantSignupContent() {
     latitude: 28.6139,
     longitude: 77.209,
     deliveryRadiusKm: 5,
+    deliveryCoverageInput: '',
     storeLogoUrl: '',
     storeBannerUrl: '',
     accountHolderName: '',
@@ -122,6 +123,9 @@ export function MerchantSignupContent() {
       latitude: app.latitude ?? f.latitude,
       longitude: app.longitude ?? f.longitude,
       deliveryRadiusKm: app.deliveryRadiusKm ?? f.deliveryRadiusKm,
+      deliveryCoverageInput: Array.isArray(app.deliveryCoveragePincodes)
+        ? (app.deliveryCoveragePincodes as string[]).filter((p) => p !== app.pincode).join(', ')
+        : f.deliveryCoverageInput,
       storeLogoUrl: app.storeLogoUrl ?? f.storeLogoUrl,
       storeBannerUrl: app.storeBannerUrl ?? f.storeBannerUrl,
       accountHolderName: app.bankAccount?.accountHolderName ?? f.accountHolderName,
@@ -244,6 +248,15 @@ export function MerchantSignupContent() {
       latitude: form.latitude,
       longitude: form.longitude,
       deliveryRadiusKm: form.deliveryRadiusKm,
+      deliveryCoveragePincodes: [
+        ...new Set([
+          form.pincode.trim(),
+          ...form.deliveryCoverageInput
+            .split(/[\s,]+/)
+            .map((p) => p.trim())
+            .filter((p) => /^\d{6}$/.test(p)),
+        ]),
+      ],
       storeLogoUrl: form.storeLogoUrl,
       storeBannerUrl: form.storeBannerUrl,
     });
@@ -501,6 +514,19 @@ export function MerchantSignupContent() {
                   value={form.deliveryRadiusKm}
                   onChange={(e) => setForm({ ...form, deliveryRadiusKm: Number(e.target.value) })}
                 />
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Delivery coverage pincodes</label>
+                  <p className="mb-2 text-xs text-slate-500">
+                    Store pincode {form.pincode ? `(${form.pincode})` : ''} is included. Add more comma-separated pincodes.
+                  </p>
+                  <textarea
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    rows={3}
+                    placeholder="201204, 201003, 110094"
+                    value={form.deliveryCoverageInput}
+                    onChange={(e) => setForm({ ...form, deliveryCoverageInput: e.target.value })}
+                  />
+                </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <ImageUploadField
                     label="Store logo"

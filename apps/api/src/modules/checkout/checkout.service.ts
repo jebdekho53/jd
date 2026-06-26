@@ -88,7 +88,12 @@ export class CheckoutService {
 
     await this.validateCartForCheckout(cart);
     await this.validateDeliveryAddress(dto.deliveryAddress);
-    await this.geospatial.validateCheckoutLocation(cart.storeId, dto.deliveryAddress.lat, dto.deliveryAddress.lng);
+    await this.geospatial.validateCheckoutLocation(
+      cart.storeId,
+      dto.deliveryAddress.lat,
+      dto.deliveryAddress.lng,
+      dto.deliveryAddress.pincode,
+    );
 
     if (dto.corporatePurchaseRequestId) {
       await this.validateCorporatePurchaseRequest(userId, dto.corporatePurchaseRequestId, cart.totals.grandTotal);
@@ -244,7 +249,12 @@ export class CheckoutService {
 
     await this.validateCartForCheckout(cart);
     await this.validateDeliveryAddress(dto.deliveryAddress);
-    await this.geospatial.validateCheckoutLocation(cart.storeId, dto.deliveryAddress.lat, dto.deliveryAddress.lng);
+    await this.geospatial.validateCheckoutLocation(
+      cart.storeId,
+      dto.deliveryAddress.lat,
+      dto.deliveryAddress.lng,
+      dto.deliveryAddress.pincode,
+    );
 
     const buyerProfile = await this.prisma.buyerProfile.findUnique({
       where: { userId },

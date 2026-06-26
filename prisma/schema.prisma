@@ -709,8 +709,9 @@ model MerchantApplication {
   longitude         Float?
   deliveryRadiusKm  Float?                    @map("delivery_radius_km")
   storeLogoUrl      String?                   @map("store_logo_url") @db.Text
-  storeBannerUrl    String?                   @map("store_banner_url") @db.Text
-  rejectionReason   String?                   @map("rejection_reason") @db.Text
+  storeBannerUrl         String?                   @map("store_banner_url") @db.Text
+  deliveryCoveragePincodes Json?                 @map("delivery_coverage_pincodes")
+  rejectionReason        String?                   @map("rejection_reason") @db.Text
   adminNotes        String?                   @map("admin_notes") @db.Text
   riskScore         Int                       @default(0) @map("risk_score")
   riskFlags         Json?                     @map("risk_flags")
@@ -1035,6 +1036,31 @@ model StoreServiceArea {
   @@map("store_service_areas")
 }
 
+/// Per-pincode delivery coverage for a merchant store.
+model StoreDeliveryArea {
+  id                String   @id @default(cuid())
+  storeId           String   @map("store_id")
+  pincode           String
+  city              String?
+  state             String?
+  deliveryFee       Decimal? @map("delivery_fee") @db.Decimal(10, 2)
+  minimumOrder      Decimal? @map("minimum_order") @db.Decimal(10, 2)
+  estimatedMinutes  Int?     @map("estimated_minutes")
+  priority          Int      @default(0)
+  isActive          Boolean  @default(true) @map("is_active")
+  locationPincodeId String?  @map("location_pincode_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  store           Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  locationPincode LocationPincode? @relation(fields: [locationPincodeId], references: [id], onDelete: SetNull)
+
+  @@unique([storeId, pincode])
+  @@index([pincode])
+  @@index([storeId, isActive])
+  @@map("store_delivery_areas")
+}
+
 model StoreZone {
   id      String @id @default(cuid())
   storeId String @map("store_id")
@@ -1157,6 +1183,7 @@ model LocationArea {
   @@map("location_areas")
 }
 
+/// Canonical India pincode master (PincodeMaster) — post office, city, district, state, coordinates.
 model LocationPincode {
   id             String         @id @default(cuid())
   pincode        String
@@ -1177,9 +1204,10 @@ model LocationPincode {
   district  LocationDistrict @relation(fields: [districtId], references: [id], onDelete: Cascade)
   city      LocationCity     @relation(fields: [cityId], references: [id], onDelete: Cascade)
   area      LocationArea?    @relation(fields: [areaId], references: [id], onDelete: SetNull)
-  aliases   LocationAlias[]
-  addresses Address[]
-  stores    Store[]
+  aliases           LocationAlias[]
+  addresses         Address[]
+  stores            Store[]
+  storeDeliveryAreas StoreDeliveryArea[]
 
   @@unique([pincode, postOffice])
   @@index([pincode])
@@ -1272,6 +1300,7 @@ model Store {
   hours             StoreHour[]
   storeZones        StoreZone[]
   storeServiceAreas StoreServiceArea[]
+  deliveryAreas     StoreDeliveryArea[]
   products          Product[]
   productSearchIndexes ProductSearchIndex[]
   categories        Category[]

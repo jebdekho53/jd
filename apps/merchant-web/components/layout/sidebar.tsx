@@ -27,6 +27,7 @@ import { useStoresQuery } from '@/hooks/use-stores';
 const nav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/stores', label: 'My Stores', icon: Store },
+  { href: '/settings/delivery-coverage', label: 'Delivery Coverage', icon: Store },
   { href: '/categories', label: 'Categories', icon: Tags },
   { href: '/products', label: 'Products', icon: Package },
   { href: '/inventory', label: 'Inventory', icon: Layers },

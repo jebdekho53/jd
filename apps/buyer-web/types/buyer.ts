@@ -96,6 +96,7 @@ export interface CategoryItem {
 export interface DiscoverStoresParams {
   lat: number;
   lng: number;
+  pincode?: string;
   radiusKm?: number;
   page?: number;
   limit?: number;
@@ -131,6 +132,7 @@ export interface SearchProductsParams {
   storeId?: string;
   lat?: number;
   lng?: number;
+  pincode?: string;
   minPrice?: number;
   maxPrice?: number;
   sort?: string;

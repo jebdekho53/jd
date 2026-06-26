@@ -27,6 +27,7 @@ export interface MerchantApplication {
   latitude?: number | null;
   longitude?: number | null;
   deliveryRadiusKm?: number | null;
+  deliveryCoveragePincodes?: string[] | null;
   storeLogoUrl?: string | null;
   storeBannerUrl?: string | null;
   documents?: Array<{ documentType: string; fileName: string; fileUrl: string }>;

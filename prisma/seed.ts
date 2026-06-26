@@ -291,6 +291,7 @@ async function seedPlatformSettings(): Promise<void> {
     { key: 'otp.rate_limit', value: { requests: 3, windowMinutes: 10 } },
     { key: 'rider.assignment_timeout_seconds', value: { seconds: 30 } },
     { key: 'store.approval_required', value: { required: true } },
+    { key: 'delivery.max_areas_per_store', value: { max: 50 } },
   ];
 
   for (const setting of settings) {

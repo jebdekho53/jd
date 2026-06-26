@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
   IsBoolean,
   IsEmail,
   IsEnum,
@@ -154,6 +155,12 @@ export class UpdateOnboardingStepDto {
   @IsOptional()
   @IsUrl()
   storeBannerUrl?: string;
+
+  @ApiPropertyOptional({ type: [String], example: ['201206', '201204'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  deliveryCoveragePincodes?: string[];
 }
 
 export class UploadMerchantDocumentDto {

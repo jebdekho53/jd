@@ -59,6 +59,7 @@ import { SeoModule } from './modules/seo/seo.module';
 import { EmailModule } from './modules/email/email.module';
 import { MerchantOnboardingModule } from './modules/merchant-onboarding/merchant-onboarding.module';
 import { AdminAuthModule } from './modules/admin-auth/admin-auth.module';
+import { DeliveryCoverageModule } from './modules/delivery-coverage/delivery-coverage.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
@@ -155,6 +156,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     MembershipModule,
     CorporateModule,
     SeoModule,
+    DeliveryCoverageModule,
   ],
   providers: [
     // Apply global throttle guard to every route

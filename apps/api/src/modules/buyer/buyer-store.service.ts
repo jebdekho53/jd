@@ -5,6 +5,11 @@ import { fetchStoreVisibleCategories, fetchStoresForCategory } from './buyer-cat
 import { BuyerCacheService, BUYER_CACHE_KEYS } from './buyer-cache.service';
 import { DiscoverStoresDto } from './dto/discover-stores.dto';
 import { checkStoreDeliverability, normalizeDeliveryRadiusKm } from '../../common/utils/geospatial.util';
+import {
+  checkStoreDeliverabilityWithCoverage,
+  findActiveDeliveryArea,
+  resolveDeliveryTerms,
+} from '../../common/utils/delivery-coverage.util';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -80,9 +85,9 @@ export class BuyerStoreService {
   async discoverStores(
     dto: DiscoverStoresDto,
   ): Promise<{ stores: StoreCard[]; total: number }> {
-    const { lat, lng, radiusKm = 5, page = 1, limit = 20, sort = 'distance' } = dto;
+    const { lat, lng, radiusKm = 5, page = 1, limit = 20, sort = 'distance', pincode } = dto;
 
-    const cacheKey = BUYER_CACHE_KEYS.storeDiscovery(lat, lng, radiusKm, page, limit, sort);
+    const cacheKey = BUYER_CACHE_KEYS.storeDiscovery(lat, lng, radiusKm, page, limit, sort, pincode);
 
     return this.cache.wrap(cacheKey, async () => {
       const latDelta = radiusKm / 111;
@@ -103,9 +108,31 @@ export class BuyerStoreService {
             },
           },
         },
+        deliveryAreas: {
+          where: { isActive: true },
+          select: {
+            pincode: true,
+            isActive: true,
+            deliveryFee: true,
+            minimumOrder: true,
+            estimatedMinutes: true,
+            priority: true,
+          },
+        },
       } as const;
 
-      const [byLocation, byServiceArea] = await Promise.all([
+      const pincodeQuery =
+        pincode && /^\d{6}$/.test(pincode)
+          ? this.prisma.store.findMany({
+              where: {
+                ...visibleWhere,
+                deliveryAreas: { some: { pincode, isActive: true } },
+              },
+              include: storeInclude,
+            })
+          : Promise.resolve([]);
+
+      const [byLocation, byServiceArea, byPincode] = await Promise.all([
         this.prisma.store.findMany({
           where: {
             ...visibleWhere,
@@ -128,10 +155,11 @@ export class BuyerStoreService {
           },
           include: storeInclude,
         }),
+        pincodeQuery,
       ]);
 
       const candidateMap = new Map<string, (typeof byLocation)[number]>();
-      for (const store of [...byLocation, ...byServiceArea]) {
+      for (const store of [...byLocation, ...byServiceArea, ...byPincode]) {
         candidateMap.set(store.id, store);
       }
 
@@ -141,9 +169,23 @@ export class BuyerStoreService {
 
       const enriched = [...candidateMap.values()]
         .map((store) => {
-          const deliverable = checkStoreDeliverability(lat, lng, store);
-          if (!deliverable.deliverable || deliverable.distanceKm == null) return null;
-          if (deliverable.distanceKm > radiusKm) return null;
+          const deliverable = checkStoreDeliverabilityWithCoverage(lat, lng, store, {
+            buyerPincode: pincode,
+          });
+          if (!deliverable.deliverable) return null;
+
+          const pincodeMatch = pincode
+            ? Boolean(findActiveDeliveryArea(store.deliveryAreas, pincode))
+            : false;
+          if (
+            !pincodeMatch &&
+            deliverable.distanceKm != null &&
+            deliverable.distanceKm > radiusKm
+          ) {
+            return null;
+          }
+
+          const terms = resolveDeliveryTerms(store, pincode);
 
           const todayHour = store.hours.find((h) => h.dayOfWeek === todayEnum) ?? null;
           const isOpen = computeIsOpen(todayHour, nowMins);
@@ -164,10 +206,10 @@ export class BuyerStoreService {
               address: { line1: store.line1, line2: store.line2, pincode: store.pincode },
               ratingAvg: store.ratingAvg,
               ratingCount: store.ratingCount,
-              deliveryFee: Number(store.deliveryFee),
-              minOrderAmount: Number(store.minOrderAmount),
-              avgPrepTimeMins: store.avgPrepTimeMins,
-              distanceKm: deliverable.distanceKm,
+              deliveryFee: terms.deliveryFee,
+              minOrderAmount: terms.minOrderAmount,
+              avgPrepTimeMins: terms.estimatedMinutes,
+              distanceKm: deliverable.distanceKm ?? 0,
               isOpen,
               todayHours: todayHour && !todayHour.isClosed
                 ? { openTime: todayHour.openTime, closeTime: todayHour.closeTime }

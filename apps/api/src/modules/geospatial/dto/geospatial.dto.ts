@@ -8,6 +8,8 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Length,
+  Matches,
   Max,
   Min,
 } from 'class-validator';
@@ -55,6 +57,13 @@ export class CheckDeliverabilityDto {
   @Min(-180)
   @Max(180)
   lng!: number;
+
+  @ApiPropertyOptional({ example: '201206' })
+  @IsOptional()
+  @IsString()
+  @Length(6, 6)
+  @Matches(/^\d{6}$/)
+  pincode?: string;
 }
 
 export class UpdateStoreRadiusDto {

@@ -15,13 +15,16 @@ import { useEffectiveLocation, useUiStore } from '@/store/ui-store';
 
 export default function StoresPage() {
   const router = useRouter();
-  const { lat, lng } = useEffectiveLocation();
+  const { lat, lng, pincode } = useEffectiveLocation();
   const { storeSearchQuery, setStoreSearchQuery } = useUiStore();
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<'distance' | 'rating'>('distance');
 
   const { data: categories = [] } = useCategories();
-  const storeParams = useMemo(() => ({ lat, lng, radiusKm: 20, page, limit: 12 }), [lat, lng, page]);
+  const storeParams = useMemo(
+    () => ({ lat, lng, pincode, radiusKm: 20, page, limit: 12 }),
+    [lat, lng, pincode, page],
+  );
   const { data, isLoading, isError, error, refetch, isFetching } = useDiscoverStores(storeParams);
 
   const filteredStores = useMemo(() => {

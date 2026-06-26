@@ -180,6 +180,29 @@ export class StoreService {
         });
       }
 
+      const coveragePincodes = [
+        ...new Set([dto.pincode, ...(dto.deliveryCoveragePincodes ?? [])].filter((p) => /^\d{6}$/.test(p))),
+      ];
+      for (const pc of coveragePincodes) {
+        try {
+          const loc = await this.locations.validatePincode({ pincode: pc });
+          await tx.storeDeliveryArea.create({
+            data: {
+              storeId: created.id,
+              pincode: pc,
+              city: loc.city,
+              state: loc.state,
+              locationPincodeId: loc.id,
+              deliveryFee: dto.deliveryFee,
+              minimumOrder: dto.minOrderAmount,
+              estimatedMinutes: dto.avgPrepTimeMins,
+            },
+          });
+        } catch {
+          // skip non-master pincodes during create
+        }
+      }
+
       return created;
     });
 

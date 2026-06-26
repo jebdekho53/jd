@@ -129,4 +129,10 @@ export class CreateStoreDto {
   @ValidateNested({ each: true })
   @Type(() => StoreHourDto)
   hours?: StoreHourDto[];
+
+  @ApiProperty({ required: false, type: [String], description: 'Additional delivery coverage pincodes' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  deliveryCoveragePincodes?: string[];
 }

@@ -8,6 +8,7 @@ import {
   DIRECTORY_DISTRICTS,
   DIRECTORY_STATES,
 } from './data/location-directory/delhi-ncr';
+import { EXTENDED_NCR_PINCODES } from './data/location-directory/delhi-ncr-extended';
 import { aliasVariants, normalizeLocationText, slugify } from './data/location-directory/utils';
 
 const prisma = new PrismaClient();
@@ -170,6 +171,58 @@ async function seedCities(
   return { cityIds, areaIds, pincodeIds };
 }
 
+async function seedExtendedPincodes(
+  stateIds: IdMap,
+  districtIds: IdMap,
+  cityIds: IdMap,
+): Promise<void> {
+  const ghaziabadCityId = cityIds.get('ghaziabad');
+  const stateId = stateIds.get('UP');
+  const districtId = districtIds.get('ghaziabad');
+  if (!ghaziabadCityId || !stateId || !districtId) return;
+
+  const areaRow = await prisma.locationArea.upsert({
+    where: { cityId_slug: { cityId: ghaziabadCityId, slug: 'ncr-extended' } },
+    update: { isActive: true },
+    create: {
+      cityId: ghaziabadCityId,
+      name: 'NCR Extended Coverage',
+      slug: 'ncr-extended',
+      latitude: 28.6692,
+      longitude: 77.4538,
+      isActive: true,
+    },
+  });
+
+  let added = 0;
+  for (const p of EXTENDED_NCR_PINCODES) {
+    await prisma.locationPincode.upsert({
+      where: { pincode_postOffice: { pincode: p.pincode, postOffice: p.postOffice } },
+      update: {
+        latitude: p.lat,
+        longitude: p.lng,
+        isActive: true,
+        areaId: areaRow.id,
+      },
+      create: {
+        pincode: p.pincode,
+        postOffice: p.postOffice,
+        stateId,
+        districtId,
+        cityId: ghaziabadCityId,
+        areaId: areaRow.id,
+        subArea: p.subArea,
+        latitude: p.lat,
+        longitude: p.lng,
+        deliveryRegion: DeliveryRegion.DELHI_NCR,
+        isActive: true,
+      },
+    });
+    added++;
+  }
+  console.log(`  Extended NCR pincode seed: ${added} records`);
+}
+
 async function seedAliases(
   stateIds: IdMap,
   districtIds: IdMap,
@@ -304,6 +357,7 @@ export async function seedLocationDirectory(): Promise<void> {
   const stateIds = await seedStates();
   const districtIds = await seedDistricts(stateIds);
   const { cityIds, areaIds, pincodeIds } = await seedCities(stateIds, districtIds);
+  await seedExtendedPincodes(stateIds, districtIds, cityIds);
   await seedAliases(stateIds, districtIds, cityIds, areaIds, pincodeIds);
 
   const [states, districts, cities, areas, pincodes, aliases] = await Promise.all([

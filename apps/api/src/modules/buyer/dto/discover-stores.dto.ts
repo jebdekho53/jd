@@ -1,10 +1,13 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsIn,
   IsLatitude,
   IsLongitude,
   IsNumber,
   IsOptional,
+  IsString,
+  Length,
+  Matches,
   Max,
   Min,
 } from 'class-validator';
@@ -22,6 +25,13 @@ export class DiscoverStoresDto {
   @Transform(({ value }) => parseFloat(value))
   @IsLongitude()
   lng: number;
+
+  @ApiPropertyOptional({ example: '201206', description: 'Buyer pincode for delivery coverage' })
+  @IsOptional()
+  @IsString()
+  @Length(6, 6)
+  @Matches(/^\d{6}$/)
+  pincode?: string;
 
   @ApiProperty({
     required: false,

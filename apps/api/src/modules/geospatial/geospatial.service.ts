@@ -19,23 +19,14 @@ import {
   estimateStoreToBuyerEta,
   normalizeDeliveryRadiusKm,
 } from '../../common/utils/geospatial.util';
+import { checkStoreDeliverabilityWithCoverage } from '../../common/utils/delivery-coverage.util';
+import { STORE_GEO_INCLUDE } from '../../common/constants/store-geo.include';
 import {
   CheckDeliverabilityDto,
   CreateAddressDto,
   UpdateAddressDto,
   UpdateStoreRadiusDto,
 } from './dto/geospatial.dto';
-
-const STORE_GEO_INCLUDE = {
-  city: { select: { id: true, name: true, slug: true } },
-  storeServiceAreas: {
-    include: {
-      serviceArea: {
-        select: { id: true, name: true, pincode: true, centerLat: true, centerLng: true, radiusKm: true },
-      },
-    },
-  },
-} satisfies Prisma.StoreInclude;
 
 @Injectable()
 export class GeospatialService {
@@ -62,7 +53,9 @@ export class GeospatialService {
     });
     if (!store) throw new NotFoundException('Store not found');
 
-    const result = checkStoreDeliverability(dto.lat, dto.lng, store);
+    const result = checkStoreDeliverabilityWithCoverage(dto.lat, dto.lng, store, {
+      buyerPincode: dto.pincode,
+    });
     const etaMins = result.deliverable
       ? estimateStoreToBuyerEta(
           store.latitude,
@@ -198,7 +191,12 @@ export class GeospatialService {
       .sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
   }
 
-  async validateCheckoutLocation(storeId: string, lat: number, lng: number): Promise<void> {
+  async validateCheckoutLocation(
+    storeId: string,
+    lat: number,
+    lng: number,
+    buyerPincode?: string,
+  ): Promise<void> {
     const store = await this.prisma.store.findFirst({
       where: {
         id: storeId,
@@ -206,14 +204,27 @@ export class GeospatialService {
         isActive: true,
         deletedAt: null,
       },
-      include: { storeServiceAreas: { include: { serviceArea: true } } },
+      include: {
+        storeServiceAreas: { include: { serviceArea: true } },
+        deliveryAreas: {
+          where: { isActive: true },
+          select: {
+            pincode: true,
+            isActive: true,
+            deliveryFee: true,
+            minimumOrder: true,
+            estimatedMinutes: true,
+            priority: true,
+          },
+        },
+      },
     });
     if (!store) throw new BadRequestException('Store is no longer accepting orders');
 
-    const result = checkStoreDeliverability(lat, lng, store);
+    const result = checkStoreDeliverabilityWithCoverage(lat, lng, store, { buyerPincode });
     if (!result.deliverable) {
       throw new BadRequestException({
-        message: 'Store does not deliver to your location.',
+        message: 'This store currently does not deliver to your location.',
         code: 'OUT_OF_DELIVERY_ZONE',
         nearestStores: await this.findNearestStores(lat, lng, 3, storeId),
       });
