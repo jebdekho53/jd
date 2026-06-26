@@ -109,6 +109,15 @@ export function CategoryExplorer({ categories = [], className }: CategoryExplore
 /** Horizontal scroll variant for mobile category rail */
 export function CategoryRail({ categories = [], className }: CategoryExplorerProps) {
   const flat = flattenCategories(categories).slice(0, 12);
+  const display =
+    flat.length > 0
+      ? flat
+      : FALLBACK_CATEGORIES.map((c) => ({
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+          imageUrl: null as string | null,
+        }));
 
   return (
     <div
@@ -116,8 +125,8 @@ export function CategoryRail({ categories = [], className }: CategoryExplorerPro
       role="list"
       aria-label="Categories"
     >
-      {(flat.length ? flat : FALLBACK_CATEGORIES).map((cat) => {
-        const Icon = 'icon' in cat ? cat.icon : getIcon(cat.slug);
+      {display.map((cat) => {
+        const Icon = getIcon(cat.slug);
         const href = `/categories/${cat.slug}`;
         return (
           <Link
