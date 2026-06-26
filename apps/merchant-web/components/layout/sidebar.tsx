@@ -19,6 +19,7 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { BrandLockup } from '@/components/brand/brand-lockup';
 import { useAuthStore } from '@/store/auth-store';
 import { useStoreStore } from '@/store/store-store';
 import { useLogoutMutation } from '@/hooks/use-auth';
@@ -70,11 +71,8 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
 
   return (
     <aside className="flex h-full w-64 flex-col border-r border-slate-200 bg-white">
-      <div className="flex h-14 items-center gap-2 border-b border-slate-100 px-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">
-          JD
-        </div>
-        <span className="text-sm font-semibold text-slate-900">Merchant</span>
+      <div className="flex h-14 items-center border-b border-slate-100 px-4">
+        <BrandLockup subtitle="Merchant" href="/dashboard" />
       </div>
 
       {stores.length > 0 && (

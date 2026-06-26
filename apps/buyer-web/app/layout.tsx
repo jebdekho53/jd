@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { getSiteUrl } from '@jebdekho/web-config';
-import { BRAND_LOGO_SRC, BRAND_NAME } from '@/lib/brand';
+import { BRAND_LOGO_SRC, BRAND_NAME, BRAND_ICONS } from '@/lib/brand';
 import { QueryProvider } from '@/components/providers/query-provider';
 import './globals.css';
 
@@ -16,13 +16,7 @@ export const metadata: Metadata = {
   },
   description: 'Discover nearby stores and order fresh groceries delivered to your door.',
   manifest: '/manifest.json',
-  icons: {
-    icon: [
-      { url: BRAND_LOGO_SRC, sizes: '1254x1254', type: 'image/png' },
-      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-    ],
-    apple: [{ url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
-  },
+  icons: BRAND_ICONS,
   alternates: { canonical: siteUrl },
   openGraph: {
     type: 'website',

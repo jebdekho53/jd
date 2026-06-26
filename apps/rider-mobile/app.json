@@ -10,9 +10,11 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
+    "icon": "./assets/icon.png",
     "splash": {
+      "image": "./assets/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0f766e"
+      "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": false,
@@ -23,7 +25,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0f766e"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#ffffff"
       },
       "package": "com.jebdekho.rider"
     },
@@ -34,7 +37,8 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0f766e",
+          "image": "./assets/logo.png",
+          "backgroundColor": "#ffffff",
           "resizeMode": "contain"
         }
       ],

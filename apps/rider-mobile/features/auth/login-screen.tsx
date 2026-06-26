@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button } from '@/components/ui/button';
@@ -66,9 +67,7 @@ export function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.header}>
-        <View style={styles.logo}>
-          <Text style={styles.logoText}>JD</Text>
-        </View>
+        <Image source={require('@/assets/logo.png')} style={styles.logo} accessibilityLabel="JebDekho" />
         <Text style={styles.title}>Rider Login</Text>
         <Text style={styles.subtitle}>Real-time delivery execution</Text>
       </View>
@@ -131,15 +130,12 @@ const styles = StyleSheet.create({
   },
   header: { alignItems: 'center', marginBottom: 24 },
   logo: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#0f766e',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 56,
+    height: 56,
+    borderRadius: 14,
     marginBottom: 12,
+    backgroundColor: '#fff',
   },
-  logoText: { color: '#fff', fontWeight: '700', fontSize: 18 },
   title: { fontSize: 22, fontWeight: '700', color: '#0f172a' },
   subtitle: { fontSize: 14, color: '#64748b', marginTop: 4 },
   card: { gap: 12 },

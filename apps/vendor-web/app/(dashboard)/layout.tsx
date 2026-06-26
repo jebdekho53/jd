@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Package, ShoppingBag, LayoutDashboard } from 'lucide-react';
+import { BrandLockup } from '@/components/brand/brand-lockup';
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -11,7 +12,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-screen">
       <aside className="w-56 border-r border-slate-800 bg-slate-900 p-4">
-        <p className="mb-6 text-sm font-semibold text-white">Jebdekho Vendor</p>
+        <BrandLockup subtitle="Vendor" href="/dashboard" className="mb-6" />
         <nav className="space-y-1">
           {NAV.map(({ href, label, icon: Icon }) => (
             <Link

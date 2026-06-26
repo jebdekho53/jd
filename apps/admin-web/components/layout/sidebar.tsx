@@ -25,6 +25,7 @@ import {
   ImageIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { BrandLockup } from '@/components/brand/brand-lockup';
 import { useSessionQuery, useLogoutMutation } from '@/hooks/use-auth';
 
 const NAV = [
@@ -76,14 +77,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <aside className="flex h-full w-60 flex-col border-r border-slate-200 bg-slate-900 text-slate-100">
-      <div className="flex h-14 items-center gap-2 border-b border-slate-800 px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-admin-600">
-          <Shield className="h-4 w-4 text-white" />
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-white">Jebdekho</p>
-          <p className="text-[10px] uppercase tracking-wider text-slate-400">Admin</p>
-        </div>
+      <div className="flex h-14 items-center border-b border-slate-800 px-4">
+        <BrandLockup subtitle="Admin" href="/dashboard" inverted />
       </div>
 
       <nav className="flex-1 space-y-0.5 p-2">

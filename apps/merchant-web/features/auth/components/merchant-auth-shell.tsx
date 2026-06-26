@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Store, TrendingUp, Truck, Wallet } from 'lucide-react';
+import { BrandLockup } from '@/components/brand/brand-lockup';
+import { LogoLink } from '@/components/brand/logo';
 
 const BENEFITS = [
   { icon: Store, label: 'List products in minutes' },
@@ -24,9 +26,7 @@ export function MerchantAuthShell({ title, subtitle, children, footer }: Merchan
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col lg:flex-row">
         <aside className="hidden flex-1 flex-col justify-between bg-gradient-to-br from-brand-700 to-brand-900 px-10 py-12 text-white lg:flex">
           <div>
-            <Link href="/" className="text-2xl font-bold tracking-tight">
-              JebDekho <span className="font-normal text-brand-200">Merchant</span>
-            </Link>
+            <BrandLockup subtitle="Merchant" href="/" inverted className="mb-0 gap-3" />
             <p className="mt-6 max-w-sm text-lg text-brand-100">
               Sell to customers near you. Manage orders, inventory, and payouts from one dashboard.
             </p>
@@ -52,9 +52,7 @@ export function MerchantAuthShell({ title, subtitle, children, footer }: Merchan
         <main className="flex flex-1 flex-col justify-center px-4 py-10 sm:px-8">
           <div className="mx-auto w-full max-w-md">
             <div className="mb-8 flex justify-center lg:hidden">
-              <Link href="/" className="text-xl font-bold text-brand-700">
-                JebDekho Merchant
-              </Link>
+              <LogoLink href="/" size="lg" priority />
             </div>
 
             <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-lg shadow-slate-200/50 sm:p-8">

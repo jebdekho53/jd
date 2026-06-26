@@ -46,22 +46,25 @@ export default async function Home() {
     >
       <div
         style={{
-          display: 'inline-flex',
+          display: 'flex',
           alignItems: 'center',
-          gap: 8,
+          gap: 12,
           marginBottom: 24,
-          padding: '6px 12px',
-          borderRadius: 999,
-          background: 'rgba(56, 189, 248, 0.12)',
-          border: '1px solid rgba(56, 189, 248, 0.25)',
-          fontSize: 12,
-          fontWeight: 600,
-          color: '#7dd3fc',
-          letterSpacing: '0.04em',
-          textTransform: 'uppercase',
         }}
       >
-        Port 3004 · Rider BFF
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo.png"
+          alt="JebDekho"
+          width={40}
+          height={40}
+          style={{ borderRadius: 10, objectFit: 'contain', background: '#fff', padding: 4 }}
+        />
+        <div>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: '#7dd3fc', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            Port 3004 · Rider BFF
+          </p>
+        </div>
       </div>
 
       <h1

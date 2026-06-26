@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Lock, Shield, Store, ShoppingBag, Bike, Users } from 'lucide-react';
 import { Button, Input, useToast } from '@/design-system';
+import { BrandLockup } from '@/components/brand/brand-lockup';
 import { useLoginMutation, useLoginStatsQuery, useSessionQuery } from '@/hooks/use-auth';
 import { isAdminUser } from '@/types/admin';
 
@@ -85,14 +86,8 @@ export function LoginPageContent() {
       {/* Left panel */}
       <div className="relative flex flex-1 flex-col justify-between bg-gradient-to-br from-slate-900 via-admin-900 to-slate-950 p-8 text-white lg:p-12">
         <div>
-          <div className="mb-10 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-lg font-bold backdrop-blur">
-              JD
-            </div>
-            <div>
-              <p className="text-lg font-semibold tracking-tight">JebDekho</p>
-              <p className="text-sm text-white/60">Admin Control Tower</p>
-            </div>
+          <div className="mb-10">
+            <BrandLockup subtitle="Admin Control Tower" inverted className="gap-3" />
           </div>
 
           <h1 className="max-w-md text-3xl font-bold leading-tight lg:text-4xl">
