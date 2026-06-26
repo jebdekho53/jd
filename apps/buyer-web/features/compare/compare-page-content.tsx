@@ -1,15 +1,16 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { Scale, ArrowUpDown } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Scale, TrendingDown } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
 import { EmptyState, ErrorState } from '@/components/common/state-blocks';
 import { ProductGridSkeleton } from '@/components/common/skeletons';
 import { SmartSearchSection } from '@/components/discovery/smart-search-section';
 import { AddToCartButton } from '@/features/cart/components/add-to-cart-button';
+import { Chip } from '@/design-system/primitives';
 import { useProductSearch } from '@/hooks/use-buyer-queries';
 import { useDebounce } from '@/hooks/use-debounce';
 import { buildCompareGroups } from '@/lib/compare-products';
@@ -17,6 +18,12 @@ import { formatCurrency, cn } from '@/lib/utils';
 import type { CompareGroup } from '@/lib/compare-products';
 
 type SortKey = 'price' | 'discount' | 'store';
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: 'price', label: 'Lowest price' },
+  { key: 'discount', label: 'Best discount' },
+  { key: 'store', label: 'A–Z' },
+];
 
 function sortGroups(groups: CompareGroup[], sort: SortKey): CompareGroup[] {
   return [...groups].sort((a, b) => {
@@ -29,11 +36,17 @@ function sortGroups(groups: CompareGroup[], sort: SortKey): CompareGroup[] {
 }
 
 export function ComparePageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialQ = searchParams.get('q') ?? '';
   const [query, setQuery] = useState(initialQ);
   const [sort, setSort] = useState<SortKey>('price');
   const debouncedQuery = useDebounce(query, 400);
+
+  const qFromUrl = searchParams.get('q') ?? '';
+  useEffect(() => {
+    setQuery(qFromUrl);
+  }, [qFromUrl]);
 
   const { data, isLoading, isError, error, refetch } = useProductSearch(
     { q: debouncedQuery.trim() || undefined, page: 1, limit: 60 },
@@ -45,22 +58,31 @@ export function ComparePageContent() {
     [data, sort],
   );
 
+  const canSearch = debouncedQuery.trim().length >= 2;
+
   return (
     <PageShell>
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div>
           <div className="flex items-center gap-2">
-            <Scale className="h-6 w-6 text-primary" aria-hidden />
-            <h1 className="text-2xl font-bold text-jd-text-primary">Price comparison</h1>
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
+              <Scale className="h-5 w-5" aria-hidden />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-jd-text-primary md:text-2xl">Price comparison</h1>
+              <p className="text-sm text-jd-text-muted">Find the cheapest nearby seller</p>
+            </div>
           </div>
-          <p className="mt-1 text-sm text-jd-text-muted">
-            Compare prices across nearby stores and find the best deal
-          </p>
         </div>
 
-        <SmartSearchSection initialQuery={query} autoFocus />
+        <SmartSearchSection
+          value={query}
+          onChange={setQuery}
+          onSubmit={(q) => router.replace(`/compare?q=${encodeURIComponent(q)}`)}
+          autoFocus
+        />
 
-        {debouncedQuery.trim().length < 2 && (
+        {!canSearch && (
           <EmptyState
             variant="search"
             title="Search to compare"
@@ -68,42 +90,26 @@ export function ComparePageContent() {
           />
         )}
 
-        {debouncedQuery.trim().length >= 2 && (
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium text-jd-text-muted">Sort by:</span>
-            {(
-              [
-                { key: 'price', label: 'Lowest price' },
-                { key: 'discount', label: 'Highest discount' },
-                { key: 'store', label: 'Store name' },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setSort(opt.key)}
-                className={cn(
-                  'inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition',
-                  sort === opt.key ? 'bg-primary text-white' : 'bg-cream-3 text-jd-text-secondary',
-                )}
-              >
-                <ArrowUpDown className="h-3 w-3" aria-hidden />
+        {canSearch && (
+          <div className="flex gap-2 overflow-x-auto scrollbar-none">
+            {SORT_OPTIONS.map((opt) => (
+              <Chip key={opt.key} size="sm" active={sort === opt.key} onClick={() => setSort(opt.key)}>
                 {opt.label}
-              </button>
+              </Chip>
             ))}
           </div>
         )}
 
-        {debouncedQuery.trim().length >= 2 && isLoading && <ProductGridSkeleton count={4} />}
+        {canSearch && isLoading && <ProductGridSkeleton count={4} />}
 
-        {debouncedQuery.trim().length >= 2 && isError && (
+        {canSearch && isError && (
           <ErrorState
             message={error instanceof Error ? error.message : 'Comparison failed'}
             onRetry={() => refetch()}
           />
         )}
 
-        {debouncedQuery.trim().length >= 2 && !isLoading && !isError && groups.length === 0 && (
+        {canSearch && !isLoading && !isError && groups.length === 0 && (
           <EmptyState
             variant="search"
             title="No comparisons found"
@@ -118,90 +124,98 @@ export function ComparePageContent() {
               return (
                 <article
                   key={group.key}
-                  className="rounded-2xl border border-border/50 bg-card p-4 shadow-card"
+                  className="overflow-hidden rounded-3xl border border-border bg-card shadow-card"
                 >
-                  <div className="flex gap-4">
-                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-cream-3">
+                  <div className="flex gap-3 border-b border-border p-4">
+                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-cream-3">
                       {group.imageUrl ? (
-                        <Image src={group.imageUrl} alt="" fill className="object-cover" sizes="80px" />
+                        <Image src={group.imageUrl} alt="" fill className="object-cover" sizes="64px" />
                       ) : (
-                        <div className="flex h-full items-center justify-center text-2xl font-bold text-primary/20">
+                        <div className="flex h-full items-center justify-center text-xl font-bold text-primary/20">
                           {group.name.charAt(0)}
                         </div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h2 className="font-semibold text-jd-text-primary">{group.name}</h2>
+                      <h2 className="line-clamp-2 font-semibold text-jd-text-primary">{group.name}</h2>
                       <p className="text-xs text-jd-text-muted">{group.unit}</p>
                       {group.savingsPercent > 0 && (
-                        <p className="mt-1 text-sm font-semibold text-success">
+                        <p className="mt-1 flex items-center gap-1 text-sm font-semibold text-success">
+                          <TrendingDown className="h-3.5 w-3.5" aria-hidden />
                           Save up to {group.savingsPercent}% ({formatCurrency(group.savingsAmount)})
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="w-full min-w-[320px] text-sm">
-                      <thead>
-                        <tr className="border-b text-left text-xs text-jd-text-muted">
-                          <th className="pb-2 pr-4">Store</th>
-                          <th className="pb-2 pr-4">Price</th>
-                          <th className="pb-2">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.offers.map((offer, i) => {
-                          const isBest = i === group.bestIndex;
-                          return (
-                            <tr
-                              key={offer.storeId}
-                              className={cn('border-b border-border/30', isBest && 'bg-primary/5')}
+                  {/* Mobile + desktop: card list (no cramped table) */}
+                  <div className="divide-y divide-border">
+                    {group.offers.map((offer, i) => {
+                      const isBest = i === group.bestIndex;
+                      const save =
+                        offer.mrp && offer.mrp > offer.price ? offer.mrp - offer.price : 0;
+                      return (
+                        <div
+                          key={offer.storeId}
+                          className={cn(
+                            'flex items-center justify-between gap-3 px-4 py-3',
+                            isBest && 'bg-success/5',
+                          )}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <Link
+                              href={`/stores/${offer.storeSlug}`}
+                              className="line-clamp-1 text-sm font-semibold text-jd-text-primary hover:text-primary"
                             >
-                              <td className="py-3 pr-4">
-                                <Link
-                                  href={`/stores/${offer.storeSlug}`}
-                                  className="font-medium text-jd-text-primary hover:text-primary"
-                                >
-                                  {offer.storeName}
-                                </Link>
-                                {isBest && (
-                                  <span className="ml-2 rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase">
-                                    Best price
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-3 pr-4 font-bold">{formatCurrency(offer.price)}</td>
-                              <td className="py-3">
-                                <AddToCartButton
-                                  productId={offer.productId}
-                                  variantId={offer.variantId}
-                                  storeId={offer.storeId}
-                                  storeName={offer.storeName}
-                                  availableQty={99}
-                                  compact
-                                  className="h-8 text-xs"
-                                />
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                              {offer.storeName}
+                            </Link>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                              <span className="text-base font-bold text-jd-text-primary">
+                                {formatCurrency(offer.price)}
+                              </span>
+                              {offer.mrp && offer.mrp > offer.price && (
+                                <span className="text-xs text-jd-text-muted line-through">
+                                  {formatCurrency(offer.mrp)}
+                                </span>
+                              )}
+                              {save > 0 && (
+                                <span className="text-xs font-medium text-success">
+                                  −{formatCurrency(save)}
+                                </span>
+                              )}
+                              {isBest && (
+                                <span className="rounded bg-success px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
+                                  Best
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <AddToCartButton
+                            productId={offer.productId}
+                            variantId={offer.variantId}
+                            storeId={offer.storeId}
+                            storeName={offer.storeName}
+                            availableQty={99}
+                            compact
+                            className="h-9 shrink-0 text-xs"
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
 
-                  <div className="mt-3 flex gap-2">
+                  <div className="flex gap-4 border-t border-border bg-muted/30 px-4 py-2.5">
                     <Link
                       href={`/products/${best?.productId}?store=${best?.storeSlug}`}
                       className="text-xs font-semibold text-primary hover:underline"
                     >
-                      View product details
+                      View details
                     </Link>
                     <Link
                       href={`/search?q=${encodeURIComponent(group.name)}`}
                       className="text-xs text-jd-text-muted hover:text-primary"
                     >
-                      See all results
+                      All results
                     </Link>
                   </div>
                 </article>

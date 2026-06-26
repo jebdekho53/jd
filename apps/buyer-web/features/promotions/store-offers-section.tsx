@@ -21,8 +21,8 @@ export function StoreOffersSection({ storeSlug }: { storeSlug: string }) {
   if (offerList.length === 0 && couponList.length === 0) return null;
 
   return (
-    <section className="space-y-4 rounded-2xl border bg-white p-4">
-      <h2 className="text-lg font-semibold">Offers & coupons</h2>
+    <section className="space-y-3 rounded-3xl border border-border bg-card p-4 shadow-card">
+      <h2 className="text-lg font-semibold text-jd-text-primary">Offers & coupons</h2>
       {offerList.length > 0 && (
         <ul className="space-y-2">
           {offerList.map((o) => (
