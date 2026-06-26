@@ -7,8 +7,10 @@ node_modules/
 .env.local
 .env.*.local
 
-# Build outputs
-dist/
+# Serwist (generated at build time)
+apps/buyer-web/public/sw.js
+apps/buyer-web/public/swe-worker-*.js
+
 .next/
 out/
 build/

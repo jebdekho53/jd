@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, Check, Clock, MapPin, Search, ShoppingBag, SlidersHorizontal, Star, Truck } from 'lucide-react';
+import { RecentStoreTracker } from '@/components/pwa/recent-store-tracker';
 import { PageShell } from '@/components/layout/site-shell';
 import { DeliveryBadge } from '@/components/v2/delivery-badge';
 import { SectionHeader } from '@/components/v2/section-header';
@@ -100,6 +101,12 @@ export function StoreDetailView({ slug }: StoreDetailViewProps) {
 
   return (
     <PageShell>
+      <RecentStoreTracker
+        id={store.id}
+        name={store.name}
+        slug={store.slug}
+        imageUrl={store.logoUrl}
+      />
       <div className="space-y-5 pb-4">
         {/* Mobile back */}
         <Link
