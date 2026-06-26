@@ -36,6 +36,7 @@ export const buyerKeys = {
   categoryStores: (categoryId: string, params: DiscoverStoresParams & { subcategoryId?: string }) =>
     [...buyerKeys.all, 'category-stores', categoryId, params] as const,
   searchGrouped: (params: SearchProductsParams) => [...buyerKeys.all, 'search-grouped', params] as const,
+  product: (id: string, storeSlug?: string) => [...buyerKeys.all, 'product', id, storeSlug ?? ''] as const,
   unifiedSearch: (params: SearchProductsParams & { tab?: string }) =>
     [...buyerKeys.all, 'unified-search', params] as const,
   searchSuggestions: (q: string, lat?: number, lng?: number) =>
@@ -76,6 +77,16 @@ export async function getStoreProducts(
     limit: params.limit ?? 20,
   });
   return unwrapPaginated(res);
+}
+
+export async function getProductById(
+  id: string,
+  storeSlug?: string,
+): Promise<BuyerProductWithStore> {
+  const res = await apiGetClient<ApiResponse<BuyerProductWithStore>>(`/buyer/products/${id}`, {
+    store: storeSlug,
+  });
+  return res.data;
 }
 
 export async function searchProducts(

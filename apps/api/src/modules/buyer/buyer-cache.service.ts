@@ -29,6 +29,9 @@ export const BUYER_CACHE_KEYS = {
     `buyer:search:${q ?? ''}:cat${categoryId ?? ''}:sub${subcategoryId ?? ''}:s${storeId ?? ''}:p${page}:l${limit}`,
 
   categories: (storeId: string | undefined) => `buyer:categories:s${storeId ?? 'global'}`,
+
+  productDetail: (productId: string, storeSlug?: string) =>
+    `buyer:product:${productId}:s${storeSlug ?? ''}`,
 } as const;
 
 @Injectable()

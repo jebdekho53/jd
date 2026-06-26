@@ -8,6 +8,7 @@ import {
   getCategoryStores,
   getStoreBySlug,
   getStoreProducts,
+  getProductById,
   searchProducts,
   searchProductsGrouped,
   unifiedSearch,
@@ -43,6 +44,14 @@ export function useStoreProducts(slug: string, params: StoreProductsParams = {})
     queryFn: () => getStoreProducts(slug, params),
     enabled: Boolean(slug),
     placeholderData: keepPreviousData,
+  });
+}
+
+export function useProductById(id: string, storeSlug?: string) {
+  return useQuery({
+    queryKey: buyerKeys.product(id, storeSlug),
+    queryFn: () => getProductById(id, storeSlug),
+    enabled: Boolean(id),
   });
 }
 

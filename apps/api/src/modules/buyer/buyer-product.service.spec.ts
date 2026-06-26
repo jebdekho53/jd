@@ -48,6 +48,7 @@ const PRODUCT = {
 const mockPrisma = {
   product: {
     findMany: jest.fn().mockResolvedValue([PRODUCT]),
+    findFirst: jest.fn().mockResolvedValue(PRODUCT),
     count: jest.fn().mockResolvedValue(1),
   },
   category: {
@@ -81,6 +82,7 @@ describe('BuyerProductService', () => {
       async (arr: [Promise<unknown[]>, Promise<number>]) => Promise.all(arr),
     );
     mockPrisma.product.findMany.mockResolvedValue([PRODUCT]);
+    mockPrisma.product.findFirst.mockResolvedValue(PRODUCT);
     mockPrisma.product.count.mockResolvedValue(1);
     mockPrisma.store.findFirst.mockResolvedValue({
       id: 's-1',
@@ -121,6 +123,29 @@ describe('BuyerProductService', () => {
       await service.listStoreProducts('s-1', { categoryId: 'c-1' });
       const whereArg = mockPrisma.product.findMany.mock.calls[0][0].where;
       expect(whereArg.categoryId).toBe('c-1');
+    });
+  });
+
+  describe('getProductById', () => {
+    it('returns a product with store info', async () => {
+      const product = await service.getProductById('p-1');
+      expect(product).not.toBeNull();
+      expect(product!.name).toBe('Amul Milk');
+      expect(product!.store.slug).toBe('test-store');
+    });
+
+    it('filters by store slug when provided', async () => {
+      await service.getProductById('p-1', 'test-store');
+      const whereArg = mockPrisma.product.findFirst.mock.calls[0][0].where;
+      expect(whereArg.store).toEqual(
+        expect.objectContaining({ slug: 'test-store', status: StoreStatus.APPROVED }),
+      );
+    });
+
+    it('returns null when product is not found', async () => {
+      mockPrisma.product.findFirst.mockResolvedValueOnce(null);
+      const product = await service.getProductById('missing');
+      expect(product).toBeNull();
     });
   });
 

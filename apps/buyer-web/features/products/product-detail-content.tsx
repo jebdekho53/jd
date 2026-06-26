@@ -13,11 +13,12 @@ import { SectionHeader } from '@/components/v2/section-header';
 import { ActionBar } from '@/design-system/primitives';
 import { AddToCartButton } from '@/features/cart/components/add-to-cart-button';
 import { ProductCard } from '@/features/products/product-card';
-import { useProductSearch, useStoreProducts, useStore } from '@/hooks/use-buyer-queries';
+import { useProductById, useProductSearch } from '@/hooks/use-buyer-queries';
 import { useRecentlyViewed } from '@/hooks/use-recently-viewed';
 import { useWishlist } from '@/hooks/use-wishlist';
 import { buildCompareGroups } from '@/lib/compare-products';
 import { productJsonLd } from '@/lib/seo/metadata';
+import { ApiError } from '@/services/api/client';
 import { formatCurrency, cn } from '@/lib/utils';
 import type { BuyerProductWithStore } from '@/types/buyer';
 
@@ -117,40 +118,33 @@ export function ProductDetailContent({ productId }: { productId: string }) {
   const { isWishlisted, toggle } = useWishlist();
   const [copied, setCopied] = useState(false);
 
-  const searchQ = nameHint ?? recentItem?.name ?? productId;
-  const { data: searchData, isLoading: searchLoading, isError, error, refetch } = useProductSearch(
-    { q: searchQ, page: 1, limit: 40 },
-    searchQ.length >= 2,
+  const searchQ = nameHint ?? recentItem?.name ?? '';
+  const {
+    data: primaryProduct,
+    isLoading: productLoading,
+    isError,
+    error,
+    refetch,
+  } = useProductById(productId, storeSlug);
+
+  const { data: searchData } = useProductSearch(
+    { q: primaryProduct?.name ?? searchQ, page: 1, limit: 40 },
+    Boolean(primaryProduct?.name ?? (searchQ.length >= 2)),
   );
 
-  const { data: storeProducts, isLoading: storeLoading } = useStoreProducts(storeSlug ?? '', {
-    page: 1,
-    limit: 100,
-  });
-  const { data: storeDetail } = useStore(storeSlug ?? '');
-
   const offers: BuyerProductWithStore[] = useMemo(() => {
-    const fromSearch = (searchData?.data ?? []).filter((p) => p.id === productId);
+    if (!primaryProduct) return [];
+    const fromSearch = (searchData?.data ?? []).filter(
+      (p) =>
+        p.id === productId ||
+        p.name.toLowerCase() === primaryProduct.name.toLowerCase(),
+    );
     if (fromSearch.length > 0) return fromSearch;
-    const allSearch = searchData?.data ?? [];
-    const byName = allSearch.filter((p) => p.name.toLowerCase() === searchQ.toLowerCase());
-    if (byName.length > 0) return byName;
-    if (storeSlug && storeProducts?.data && storeDetail) {
-      const found = storeProducts.data.find((p) => p.id === productId);
-      if (found) {
-        return [
-          {
-            ...found,
-            store: { id: storeDetail.id, name: storeDetail.name, slug: storeDetail.slug },
-          },
-        ];
-      }
-    }
-    return allSearch.slice(0, 1);
-  }, [searchData, storeProducts, storeDetail, productId, searchQ, storeSlug]);
+    return [primaryProduct];
+  }, [primaryProduct, searchData, productId]);
 
   const product = offers[0];
-  const isLoading = searchLoading || (Boolean(storeSlug) && storeLoading);
+  const isLoading = productLoading;
   const compareGroup = useMemo(
     () => (offers.length > 0 ? buildCompareGroups(offers, 1)[0] : undefined),
     [offers],
@@ -171,7 +165,7 @@ export function ProductDetailContent({ productId }: { productId: string }) {
     );
   }
 
-  if (isError) {
+  if (isError && !(error instanceof ApiError && error.status === 404)) {
     return (
       <PageShell>
         <ErrorState

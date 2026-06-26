@@ -194,6 +194,71 @@ export class BuyerProductService {
     });
   }
 
+  // ── Single product by ID (PDP) ───────────────────────────────────────────
+
+  async getProductById(
+    productId: string,
+    storeSlug?: string,
+  ): Promise<BuyerProductWithStore | null> {
+    const cacheKey = BUYER_CACHE_KEYS.productDetail(productId, storeSlug);
+
+    return this.cache.wrap(cacheKey, async () => {
+      const storeWhere: Prisma.StoreWhereInput = storeSlug
+        ? { ...STORE_VISIBLE_WHERE, slug: storeSlug }
+        : STORE_VISIBLE_WHERE;
+
+      const raw = await this.prisma.product.findFirst({
+        where: {
+          ...PRODUCT_VISIBLE_WHERE,
+          id: productId,
+          store: storeWhere,
+        },
+        include: {
+          variants: {
+            where: { isActive: true },
+            include: { inventory: true },
+            orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+          },
+          category: { select: { id: true, name: true, slug: true } },
+          store: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              ratingAvg: true,
+              avgPrepTimeMins: true,
+            },
+          },
+        },
+      });
+
+      if (!raw) return null;
+
+      return {
+        id: raw.id,
+        name: raw.name,
+        slug: raw.slug,
+        description: raw.description,
+        brand: raw.brand,
+        imageUrls: raw.imageUrls,
+        basePrice: Number(raw.basePrice),
+        mrp: raw.mrp ? Number(raw.mrp) : null,
+        unit: raw.unit,
+        isVeg: raw.isVeg,
+        tags: raw.tags,
+        category: raw.category,
+        variants: raw.variants.map(mapVariant),
+        store: {
+          id: raw.store.id,
+          name: raw.store.name,
+          slug: raw.store.slug,
+          ratingAvg: raw.store.ratingAvg ? Number(raw.store.ratingAvg) : undefined,
+          avgPrepTimeMins: raw.store.avgPrepTimeMins ?? undefined,
+        },
+      } satisfies BuyerProductWithStore;
+    });
+  }
+
   // ── Full-text product search with field-weighted ranking ────────────────
   //
   // Ranking: name (100) > brand (50) > tags (25) > description (10)

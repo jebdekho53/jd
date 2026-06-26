@@ -74,7 +74,13 @@ export function ProductCard({
   const resolvedStoreId = storeId ?? store?.id;
   const weight = getWeightLabel(product);
 
-  const productHref = `/products/${product.id}${store?.slug ? `?store=${store.slug}` : ''}`;
+  const productHref = (() => {
+    const params = new URLSearchParams();
+    if (store?.slug) params.set('store', store.slug);
+    params.set('q', product.name);
+    const qs = params.toString();
+    return `/products/${product.id}${qs ? `?${qs}` : ''}`;
+  })();
   const compareHref = `/compare?q=${encodeURIComponent(product.name)}`;
 
   const handleView = () => {

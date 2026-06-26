@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Logger,
+  NotFoundException,
   Param,
   Query,
 } from '@nestjs/common';
@@ -118,6 +119,26 @@ export class BuyerController {
   async searchProductsGrouped(@Query() dto: SearchProductsDto) {
     const { groups, total } = await this.productService.searchProductsGrouped(dto);
     return { success: true, data: groups, meta: { total, storeCount: groups.length } };
+  }
+
+  @Get('products/:id')
+  @ApiParam({ name: 'id', description: 'Product ID' })
+  @ApiOperation({
+    summary: 'Get a single in-stock product by ID',
+    description:
+      'Returns one visible product with store info. Optionally narrow to a store via the `store` slug query param.',
+  })
+  @ApiResponse({ status: 200, description: 'Product detail' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async getProduct(
+    @Param('id') id: string,
+    @Query('store') storeSlug?: string,
+  ) {
+    const data = await this.productService.getProductById(id, storeSlug);
+    if (!data) {
+      throw new NotFoundException('Product not found');
+    }
+    return { success: true, data };
   }
 
   @Get('categories/:categoryId/stores')
