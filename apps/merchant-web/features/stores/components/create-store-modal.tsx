@@ -12,7 +12,7 @@ import { useCitiesQuery, useZonesQuery } from '@/hooks/use-geo';
 import { useUpsertMerchantProfileMutation } from '@/hooks/use-merchant-profile';
 import { useToast } from '@/design-system/primitives';
 import { useStoreStore } from '@/store/store-store';
-import { LocationSearchInput } from '@/features/locations/components/location-search-input';
+import { MerchantAddressPicker } from '@/components/google-maps/merchant-address-picker';
 import { ImageUploadField } from '@/features/media/components/image-upload-field';
 
 const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
@@ -261,11 +261,29 @@ export function CreateStoreModal({ open, onClose }: Props) {
           )}
 
           <Input label="Address line 1 *" error={errors.line1?.message} {...register('line1')} />
-          <LocationSearchInput
-            value={watch('localityLabel')}
-            pincode={watch('pincode')}
-            error={errors.localityLabel?.message}
-            onSelect={(selection) => {
+          <MerchantAddressPicker
+            searchLabel="Store location *"
+            masterValue={watch('localityLabel')}
+            masterPincode={watch('pincode')}
+            value={{
+              locality: watch('localityLabel') ?? '',
+              city: '',
+              state: '',
+              pincode: watch('pincode') ?? '',
+              lat: watch('latitude') ?? 28.6139,
+              lng: watch('longitude') ?? 77.209,
+            }}
+            onChange={(selection) => {
+              setValue('localityLabel', selection.locality);
+              setValue('pincode', selection.pincode);
+              setValue('latitude', selection.lat);
+              setValue('longitude', selection.lng);
+              setValue('locationCityId', selection.locationCityId);
+              setValue('locationAreaId', selection.locationAreaId);
+              setValue('locationPincodeId', selection.locationPincodeId);
+            }}
+            onLine1Suggestion={(line1) => setValue('line1', line1)}
+            onMasterSelect={(selection) => {
               setValue('localityLabel', selection.label);
               setValue('pincode', selection.pincode);
               setValue('latitude', selection.latitude);
@@ -274,6 +292,7 @@ export function CreateStoreModal({ open, onClose }: Props) {
               setValue('locationAreaId', selection.locationAreaId);
               setValue('locationPincodeId', selection.locationPincodeId);
             }}
+            error={errors.localityLabel?.message ?? errors.pincode?.message}
           />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Address line 2" {...register('line2')} />

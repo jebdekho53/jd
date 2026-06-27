@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { ArrowLeft, CheckCircle, Send, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardHeader, CardBody, Button, Input, Textarea, Spinner } from '@/design-system/primitives';
+import { MerchantAddressPicker } from '@/components/google-maps/merchant-address-picker';
 import { StoreStatusBadge } from './components/store-status-badge';
 import { StoreDocumentsPanel } from './components/store-documents-panel';
 import { ImageUploadField } from '@/features/media/components/image-upload-field';
@@ -26,6 +27,12 @@ const schema = z.object({
   line1: z.string().min(5).max(200),
   line2: z.string().optional(),
   pincode: z.string().regex(/^\d{6}$/),
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+  locationCityId: z.string().optional(),
+  locationAreaId: z.string().optional(),
+  locationPincodeId: z.string().optional(),
+  localityLabel: z.string().optional(),
   deliveryFee: z.coerce.number().min(0),
   minOrderAmount: z.coerce.number().min(0),
   avgPrepTimeMins: z.coerce.number().min(1).max(120),
@@ -44,7 +51,7 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
   const [bannerUrl, setBannerUrl] = useState('');
   const [brandingDirty, setBrandingDirty] = useState(false);
 
-  const { register, handleSubmit, formState: { errors, isDirty } } = useForm<FormData>({
+  const { register, handleSubmit, watch, setValue, formState: { errors, isDirty } } = useForm<FormData>({
     resolver: zodResolver(schema),
     values: store ? {
       name: store.name,
@@ -53,6 +60,9 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
       line1: store.line1,
       line2: store.line2 ?? '',
       pincode: store.pincode,
+      latitude: store.latitude,
+      longitude: store.longitude,
+      localityLabel: store.line1,
       deliveryFee: store.deliveryFee,
       minOrderAmount: store.minOrderAmount,
       avgPrepTimeMins: store.avgPrepTimeMins,
@@ -267,6 +277,41 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
             </div>
             <Input label="Address line 1" error={errors.line1?.message} disabled={!canEdit} {...register('line1')} />
             <Input label="Address line 2" {...register('line2')} disabled={!canEdit} />
+            {canEdit && (
+              <MerchantAddressPicker
+                searchLabel="Store location"
+                masterValue={watch('localityLabel')}
+                masterPincode={watch('pincode')}
+                value={{
+                  locality: watch('localityLabel') ?? '',
+                  city: '',
+                  state: '',
+                  pincode: watch('pincode') ?? '',
+                  lat: watch('latitude') ?? store.latitude,
+                  lng: watch('longitude') ?? store.longitude,
+                }}
+                onChange={(selection) => {
+                  setValue('localityLabel', selection.locality, { shouldDirty: true });
+                  setValue('pincode', selection.pincode, { shouldDirty: true });
+                  setValue('latitude', selection.lat, { shouldDirty: true });
+                  setValue('longitude', selection.lng, { shouldDirty: true });
+                  setValue('locationCityId', selection.locationCityId, { shouldDirty: true });
+                  setValue('locationAreaId', selection.locationAreaId, { shouldDirty: true });
+                  setValue('locationPincodeId', selection.locationPincodeId, { shouldDirty: true });
+                }}
+                onLine1Suggestion={(line1) => setValue('line1', line1, { shouldDirty: true })}
+                onMasterSelect={(selection) => {
+                  setValue('localityLabel', selection.label, { shouldDirty: true });
+                  setValue('pincode', selection.pincode, { shouldDirty: true });
+                  setValue('latitude', selection.latitude, { shouldDirty: true });
+                  setValue('longitude', selection.longitude, { shouldDirty: true });
+                  setValue('locationCityId', selection.locationCityId, { shouldDirty: true });
+                  setValue('locationAreaId', selection.locationAreaId, { shouldDirty: true });
+                  setValue('locationPincodeId', selection.locationPincodeId, { shouldDirty: true });
+                }}
+                error={errors.pincode?.message}
+              />
+            )}
             <div className="grid grid-cols-3 gap-3">
               <Input label="Min order (₹)" type="number" {...register('minOrderAmount')} disabled={!canEdit} />
               <Input label="Delivery fee (₹)" type="number" {...register('deliveryFee')} disabled={!canEdit} />

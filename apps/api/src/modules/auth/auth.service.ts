@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { DomainEventType, OtpPurpose, Prisma, RoleName, UserStatus } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
+import { secureRandomInt } from '../../common/utils/secure-random.util';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { REDIS_KEYS, REDIS_TTL } from '../../redis/redis.constants';
@@ -797,7 +798,7 @@ export class AuthService {
 
   private async generatePlaceholderPhone(): Promise<string> {
     for (let i = 0; i < 10; i++) {
-      const suffix = String(Math.floor(1_000_000 + Math.random() * 9_000_000));
+      const suffix = String(secureRandomInt(1_000_000, 9_999_999));
       const phone = `+910000${suffix}`;
       const exists = await this.prisma.user.findUnique({ where: { phone } });
       if (!exists) return phone;

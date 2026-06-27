@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { RiderAssignmentModule } from '../rider-assignment/rider-assignment.module';
+import { LogisticsModule } from '../logistics/logistics.module';
 import { CheckoutModule } from '../checkout/checkout.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { WalletLoyaltyModule } from '../wallet-loyalty/wallet-loyalty.module';
@@ -11,7 +12,7 @@ import { MerchantOrderController } from './merchant-order.controller';
 import { AdminOrderController } from './admin-order.controller';
 
 @Module({
-  imports: [RiderAssignmentModule, CheckoutModule, InventoryModule, WalletLoyaltyModule, FinanceModule, ComplianceModule],
+  imports: [RiderAssignmentModule, LogisticsModule, CheckoutModule, InventoryModule, WalletLoyaltyModule, FinanceModule, ComplianceModule],
   controllers: [BuyerOrderController, MerchantOrderController, AdminOrderController],
   providers: [OrderService],
   exports: [OrderService],

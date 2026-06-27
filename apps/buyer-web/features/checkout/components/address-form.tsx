@@ -8,9 +8,9 @@ import { Button, Input } from '@/design-system/primitives';
 import { useCheckoutStore } from '@/store/checkout-store';
 import { useLocationStore } from '@/store/location-store';
 import {
-  LocationSearchInput,
-  type LocationSelection,
-} from '@/features/location/components/location-search-input';
+  BuyerAddressPicker,
+  type AddressLocationValue,
+} from '@/components/google-maps/buyer-address-picker';
 import {
   getDefaultSavedDeliveryAddress,
   persistDeliveryAddress,
@@ -20,7 +20,7 @@ import type { DeliveryAddress } from '@/types/checkout';
 const schema = z.object({
   line1: z.string().min(2, 'Enter house / flat number and street'),
   line2: z.string().optional(),
-  locality: z.string().min(2, 'Select a delivery locality from the directory'),
+  locality: z.string().min(2, 'Select a delivery locality'),
   city: z.string().min(2),
   pincode: z.string().length(6, 'Enter a valid 6-digit PIN code'),
   lat: z.number(),
@@ -66,16 +66,24 @@ export function AddressForm({ onNext }: AddressFormProps) {
   const locality = watch('locality');
   const city = watch('city');
   const pincode = watch('pincode');
+  const lat = watch('lat');
+  const lng = watch('lng');
 
-  const handleLocationSelect = (selection: LocationSelection) => {
-    setValue('locality', selection.label, { shouldValidate: true });
+  const handleLocationChange = (selection: AddressLocationValue) => {
+    setValue('locality', selection.locality, { shouldValidate: true });
     setValue('city', selection.city, { shouldValidate: true });
     setValue('pincode', selection.pincode, { shouldValidate: true });
-    setValue('lat', selection.latitude, { shouldValidate: true });
-    setValue('lng', selection.longitude, { shouldValidate: true });
+    setValue('lat', selection.lat, { shouldValidate: true });
+    setValue('lng', selection.lng, { shouldValidate: true });
     setValue('locationPincodeId', selection.locationPincodeId);
     setValue('locationAreaId', selection.locationAreaId);
     setValue('locationCityId', selection.locationCityId);
+    if (selection.line1) {
+      setValue('line1', selection.line1, { shouldValidate: true });
+    }
+    if (selection.line2) {
+      setValue('line2', selection.line2);
+    }
   };
 
   const onSubmit = (data: FormData) => {
@@ -103,7 +111,7 @@ export function AddressForm({ onNext }: AddressFormProps) {
         <span>
           {location.isReady
             ? location.label || 'Location detected'
-            : 'Search your delivery locality below'}
+            : 'Search your delivery address below'}
         </span>
       </div>
 
@@ -122,20 +130,15 @@ export function AddressForm({ onNext }: AddressFormProps) {
         name="locality"
         control={control}
         render={() => (
-          <LocationSearchInput
-            value={locality}
-            onSelect={handleLocationSelect}
-            error={errors.locality?.message}
+          <BuyerAddressPicker
+            value={{ locality, city, state: '', pincode, lat, lng }}
+            onChange={handleLocationChange}
+            onLine1Suggestion={(line1) => setValue('line1', line1, { shouldValidate: true })}
+            error={errors.locality?.message ?? errors.pincode?.message}
+            searchLabel="Delivery address *"
           />
         )}
       />
-      {locality && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-          <p>
-            {locality} · {city} · PIN {pincode}
-          </p>
-        </div>
-      )}
 
       <Button type="submit" fullWidth>
         Continue to payment

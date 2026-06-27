@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Razorpay = require('razorpay');
 import * as crypto from 'crypto';
+import { getConfig } from '../../config/configuration';
 
 @Injectable()
 export class RazorpayService implements OnModuleInit {
@@ -11,8 +12,11 @@ export class RazorpayService implements OnModuleInit {
   readonly keyId: string;
   private readonly keySecret: string;
   private readonly webhookSecret: string;
+  private readonly nodeEnv: string;
 
   constructor(private readonly config: ConfigService) {
+    const cfg = getConfig(config);
+    this.nodeEnv = cfg.nodeEnv;
     this.keyId = this.config.get<string>('RAZORPAY_KEY_ID', '') ?? '';
     this.keySecret = this.config.get<string>('RAZORPAY_KEY_SECRET', '') ?? '';
     this.webhookSecret = this.config.get<string>('RAZORPAY_WEBHOOK_SECRET', '') ?? '';
@@ -24,6 +28,12 @@ export class RazorpayService implements OnModuleInit {
       return;
     }
 
+    if (this.nodeEnv === 'production' && !this.webhookSecret) {
+      throw new Error(
+        'RAZORPAY_WEBHOOK_SECRET is required in production when Razorpay keys are configured',
+      );
+    }
+
     this.client = new Razorpay({
       key_id: this.keyId,
       key_secret: this.keySecret,
@@ -33,6 +43,10 @@ export class RazorpayService implements OnModuleInit {
 
   isConfigured(): boolean {
     return Boolean(this.client);
+  }
+
+  hasWebhookSecret(): boolean {
+    return this.webhookSecret.length > 0;
   }
 
   /**
@@ -69,15 +83,22 @@ export class RazorpayService implements OnModuleInit {
     razorpayPaymentId: string,
     razorpaySignature: string,
   ): boolean {
+    if (!this.keySecret || !razorpaySignature) return false;
+
     const payload = `${razorpayOrderId}|${razorpayPaymentId}`;
     const expectedSignature = crypto
       .createHmac('sha256', this.keySecret)
       .update(payload)
       .digest('hex');
-    return crypto.timingSafeEqual(
-      Buffer.from(expectedSignature, 'hex'),
-      Buffer.from(razorpaySignature, 'hex'),
-    );
+
+    try {
+      return crypto.timingSafeEqual(
+        Buffer.from(expectedSignature, 'hex'),
+        Buffer.from(razorpaySignature, 'hex'),
+      );
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -85,6 +106,8 @@ export class RazorpayService implements OnModuleInit {
    * Razorpay signs the raw request body using the webhook secret.
    */
   verifyWebhookSignature(rawBody: Buffer, signature: string): boolean {
+    if (!this.webhookSecret || !signature) return false;
+
     const expectedSignature = crypto
       .createHmac('sha256', this.webhookSecret)
       .update(rawBody)

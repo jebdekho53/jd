@@ -75,7 +75,20 @@ export const validationSchema = Joi.object({
   // Razorpay — empty until live keys are configured (COD works without)
   RAZORPAY_KEY_ID: Joi.string().empty('').optional(),
   RAZORPAY_KEY_SECRET: Joi.string().empty('').optional(),
-  RAZORPAY_WEBHOOK_SECRET: Joi.string().empty('').optional(),
+  RAZORPAY_WEBHOOK_SECRET: Joi.string()
+    .empty('')
+    .when('NODE_ENV', {
+      is: 'production',
+      then: Joi.when('RAZORPAY_KEY_ID', {
+        is: Joi.string().min(1),
+        then: Joi.required().messages({
+          'any.required':
+            'RAZORPAY_WEBHOOK_SECRET is required in production when Razorpay is enabled',
+        }),
+        otherwise: Joi.optional(),
+      }),
+      otherwise: Joi.optional(),
+    }),
 
   // CORS
   CORS_ORIGINS: Joi.string().when('NODE_ENV', {
@@ -119,4 +132,20 @@ export const validationSchema = Joi.object({
   ADMIN_PASSWORD: Joi.string().empty('').optional(),
   ADMIN_NAME: Joi.string().empty('').default('Platform Admin'),
   ADMIN_URL: Joi.string().uri().empty('').default('https://admin.jebdekho.com'),
+
+  // Logistics providers
+  DELIVERY_PROVIDER: Joi.string()
+    .valid('shadowfax', 'porter', 'delhivery', 'borzo', 'own_fleet')
+    .default('shadowfax'),
+  ENABLE_OWN_FLEET: Joi.string().valid('true', 'false').default('false'),
+  ENABLE_SHADOWFAX: Joi.string().valid('true', 'false').default('true'),
+  ENABLE_PORTER: Joi.string().valid('true', 'false').default('false'),
+  ENABLE_DELHIVERY: Joi.string().valid('true', 'false').default('false'),
+  ENABLE_BORZO: Joi.string().valid('true', 'false').default('false'),
+  SHADOWFAX_API_URL: Joi.string().uri().empty('').optional(),
+  SHADOWFAX_CLIENT_ID: Joi.string().empty('').optional(),
+  SHADOWFAX_CLIENT_SECRET: Joi.string().empty('').optional(),
+  SHADOWFAX_TEST_TOKEN: Joi.string().empty('').optional(),
+  SHADOWFAX_PRODUCTION_TOKEN: Joi.string().empty('').optional(),
+  SHADOWFAX_WEBHOOK_SECRET: Joi.string().empty('').optional(),
 });

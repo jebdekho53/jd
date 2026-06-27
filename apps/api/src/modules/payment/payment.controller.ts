@@ -8,6 +8,8 @@ import {
   Post,
   RawBodyRequest,
   Req,
+  UnauthorizedException,
+  BadRequestException,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
@@ -92,16 +94,18 @@ export class PaymentController {
     summary: 'Razorpay webhook endpoint',
     description:
       'Verifies X-Razorpay-Signature before processing. Handles payment.captured and ' +
-      'payment.failed events. Always returns 200 to Razorpay to prevent retries on ' +
-      'non-critical errors.',
+      'payment.failed events.',
   })
   async handleWebhook(
     @Req() req: RawBodyRequest<Request>,
     @Headers('x-razorpay-signature') signature: string,
   ) {
     const rawBody = req.rawBody;
-    if (!rawBody || !signature) {
-      return { success: false };
+    if (!rawBody) {
+      throw new BadRequestException('Missing request body');
+    }
+    if (!signature) {
+      throw new UnauthorizedException('Missing webhook signature');
     }
     await this.paymentService.handleWebhook(rawBody, signature);
     return { success: true };

@@ -3,9 +3,11 @@
 import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MapPin, Plus, Trash2, Upload } from 'lucide-react';
+import { GoogleStoreMap, useGoogleMaps } from '@jebdekho/google-maps';
 import { useStoreStore } from '@/store/store-store';
-import { LocationSearchInput } from '@/features/locations/components/location-search-input';
+import { MerchantAddressPicker } from '@/components/google-maps/merchant-address-picker';
 import { merchantFetch } from '@/services/api/merchant-client';
+import { useStoreQuery } from '@/hooks/use-stores';
 import { Button } from '@/design-system/primitives';
 
 interface DeliveryArea {
@@ -27,6 +29,11 @@ export function DeliveryCoverageContent() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState('');
   const [bulkInput, setBulkInput] = useState('');
+  const [pickerPincode, setPickerPincode] = useState('');
+  const { data: storeDetail } = useStoreQuery(storeId ?? '');
+  const storeLat = storeDetail?.latitude ?? 28.6139;
+  const storeLng = storeDetail?.longitude ?? 77.209;
+  const { isConfigured, isLoaded } = useGoogleMaps();
 
   const { data, isLoading } = useQuery({
     queryKey: ['merchant', 'delivery-coverage', storeId, search],
@@ -104,9 +111,20 @@ export function DeliveryCoverageContent() {
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border bg-white p-4 space-y-3">
           <h3 className="font-medium flex items-center gap-2"><MapPin className="h-4 w-4" /> Add pincode</h3>
-          <LocationSearchInput
-            onSelect={(item) => {
-              if (item.pincode) addMutation.mutate(item.pincode);
+          <MerchantAddressPicker
+            searchLabel="Search area to add pincode"
+            value={{ pincode: pickerPincode, locality: '', city: '', state: '', lat: storeLat, lng: storeLng }}
+            onChange={(selection) => {
+              if (selection.pincode && /^\d{6}$/.test(selection.pincode)) {
+                setPickerPincode(selection.pincode);
+                addMutation.mutate(selection.pincode);
+              }
+            }}
+            onMasterSelect={(item) => {
+              if (item.pincode) {
+                setPickerPincode(item.pincode);
+                addMutation.mutate(item.pincode);
+              }
             }}
           />
         </div>
@@ -129,6 +147,23 @@ export function DeliveryCoverageContent() {
           </Button>
         </div>
       </div>
+
+      {storeDetail?.latitude != null && storeDetail.longitude != null && (
+        <div className="mb-6 rounded-xl border bg-white p-4">
+          <h3 className="mb-3 font-medium">Coverage map</h3>
+          {isConfigured && isLoaded ? (
+            <GoogleStoreMap
+              buyerLat={storeLat}
+              buyerLng={storeLng}
+              stores={[{ id: storeDetail.id, name: storeDetail.name, lat: storeLat, lng: storeLng }]}
+            />
+          ) : (
+            <p className="text-sm text-slate-500">
+              Store at {storeLat.toFixed(4)}, {storeLng.toFixed(4)} · {data?.coverageCount ?? 0} pincodes covered
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap gap-2">
         <input

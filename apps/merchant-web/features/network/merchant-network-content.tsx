@@ -1,6 +1,8 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { GoogleStoreMap, useGoogleMaps } from '@jebdekho/google-maps';
 import { useStoreStore } from '@/store/store-store';
 
 async function fetchNetwork(path: string, storeId?: string) {
@@ -52,6 +54,22 @@ export function MerchantNetworkContent() {
     enabled: !!storeId,
   });
 
+  const { isConfigured, isLoaded } = useGoogleMaps();
+
+  const hubStores = useMemo(() => {
+    return (overview?.stores ?? []).filter((s: NetworkStore) =>
+      ['DARK_STORE', 'WAREHOUSE', 'MICRO_FULFILLMENT_CENTER'].includes(s.storeType),
+    );
+  }, [overview?.stores]);
+
+  const mapCenter = useMemo(() => {
+    const stores = overview?.stores ?? [];
+    if (stores.length === 0) return { lat: 28.6139, lng: 77.209 };
+    const lat = stores.reduce((s: number, st: NetworkStore) => s + (st.latitude ?? 0), 0) / stores.length;
+    const lng = stores.reduce((s: number, st: NetworkStore) => s + (st.longitude ?? 0), 0) / stores.length;
+    return { lat, lng };
+  }, [overview?.stores]);
+
   if (!storeId) {
     return <p className="text-sm text-slate-500">Select a store to view your fulfillment network.</p>;
   }
@@ -65,6 +83,28 @@ export function MerchantNetworkContent() {
         <StatCard label="Dark Stores" value={String(overview?.darkStores ?? 0)} />
         <StatCard label="Warehouses" value={String(overview?.warehouses ?? 0)} />
         <StatCard label="Split Orders" value={`${overview?.splitOrderRatio ?? 0}%`} />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-lg font-semibold">Warehouse & dark-store map</h2>
+        {hubStores.length > 0 && isConfigured && isLoaded ? (
+          <GoogleStoreMap
+            buyerLat={mapCenter.lat}
+            buyerLng={mapCenter.lng}
+            stores={hubStores.map((s: NetworkStore) => ({
+              id: s.id,
+              name: s.name,
+              lat: s.latitude,
+              lng: s.longitude,
+            }))}
+          />
+        ) : (
+          <p className="text-sm text-slate-500">
+            {hubStores.length === 0
+              ? 'No warehouse or dark-store hubs in your network yet.'
+              : 'Enable Google Maps to view hub locations on the map.'}
+          </p>
+        )}
       </section>
 
       <section>

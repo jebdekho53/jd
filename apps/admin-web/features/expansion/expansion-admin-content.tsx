@@ -1,6 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { OpsMapOverlay } from '@/features/maps/ops-map-overlay';
+import { useOperationsMapQuery } from '@/features/maps/use-operations-map';
+import { useGoogleMaps } from '@jebdekho/google-maps';
 
 async function fetchExpansion(path: string) {
   const res = await fetch(path.startsWith('/api') ? path : `/api/admin/expansion/${path}`);
@@ -12,6 +15,8 @@ async function fetchExpansion(path: string) {
 type Tab = 'cities' | 'franchises' | 'territories' | 'conflicts' | 'revenue';
 
 export function ExpansionAdminContent() {
+  const { isConfigured, isLoaded } = useGoogleMaps();
+  const { data: opsMap } = useOperationsMapQuery(60_000);
   const { data: overview, isLoading } = useQuery({
     queryKey: ['admin', 'expansion'],
     queryFn: () => fetchExpansion('/api/admin/expansion'),
@@ -45,6 +50,13 @@ export function ExpansionAdminContent() {
           {cities.length === 0 && <p className="text-xs text-slate-500">No city launch plans yet.</p>}
         </div>
       </section>
+
+      {opsMap && isConfigured && isLoaded && (
+        <section className="rounded-xl border border-slate-700 bg-slate-800 p-4">
+          <h2 className="mb-3 text-sm font-semibold text-slate-200">Franchise territories map</h2>
+          <OpsMapOverlay data={opsMap} showRiders={false} showUnassigned={false} showZones={false} showFranchise />
+        </section>
+      )}
 
       <section className="grid gap-6 lg:grid-cols-2">
         <Panel title="Franchise Partners">

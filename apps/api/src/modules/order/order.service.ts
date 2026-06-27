@@ -29,7 +29,7 @@ import {
   type MerchantPipelineColumn,
 } from './merchant-pipeline.util';
 import { merchantOrderDayFilter, orderIstDayFilter } from '../../common/utils/ist-day.util';
-import { RiderAssignmentService } from '../rider-assignment/rider-assignment.service';
+import { DeliveryDispatchService } from '../logistics/delivery-dispatch.service';
 import { ReservationService } from '../checkout/reservation.service';
 import { RewardService } from '../wallet-loyalty/reward.service';
 import { LedgerService } from '../finance/ledger.service';
@@ -235,7 +235,7 @@ export class OrderService implements OnModuleInit {
     private readonly domainEvents: DomainEventsService,
     private readonly cache: OrderCacheService,
     private readonly statusHistory: OrderStatusHistoryService,
-    private readonly riderAssignment: RiderAssignmentService,
+    private readonly deliveryDispatch: DeliveryDispatchService,
     private readonly reservation: ReservationService,
     private readonly rewards: RewardService,
     private readonly ledger: LedgerService,
@@ -834,18 +834,29 @@ export class OrderService implements OnModuleInit {
     this.logger.log({ userId, orderId, from: order.status, to: targetStatus }, 'Order status advanced');
 
     if (targetStatus === OrderStatus.READY_FOR_PICKUP) {
-      void this.riderAssignment.autoAssign(orderId).then((result) => {
-        if (result) {
+      void this.deliveryDispatch.dispatchAfterReadyForPickup(orderId).then((result) => {
+        if (result?.mode === 'own_fleet') {
           void this.cache.invalidateAll(orderId);
           this.logger.log(
             { orderId, riderProfileId: result.riderProfileId, deliveryId: result.deliveryId },
             'Auto-assigned rider after READY_FOR_PICKUP',
           );
+        } else if (result?.mode === 'provider') {
+          void this.cache.invalidateAll(orderId);
+          this.logger.log(
+            {
+              orderId,
+              deliveryId: result.deliveryId,
+              shipmentId: result.shipmentId,
+              trackingNumber: result.trackingNumber,
+            },
+            'Provider shipment created after READY_FOR_PICKUP',
+          );
         } else {
-          this.logger.warn({ orderId }, 'Auto-assign found no eligible rider — order stays READY_FOR_PICKUP');
+          this.logger.warn({ orderId }, 'Dispatch found no provider/rider — order stays READY_FOR_PICKUP');
         }
       }).catch((err) => {
-        this.logger.error({ orderId, err }, 'Auto-assign failed after READY_FOR_PICKUP');
+        this.logger.error({ orderId, err }, 'Dispatch failed after READY_FOR_PICKUP');
       });
     }
 

@@ -23,6 +23,7 @@ import {
   Settings,
   MapPin,
   ImageIcon,
+  Truck,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { BrandLockup } from '@/components/brand/brand-lockup';
@@ -44,6 +45,7 @@ const NAV = [
   { href: '/inventory', label: 'Inventory', icon: Shield },
   { href: '/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/orders/unassigned', label: 'Unassigned', icon: Bike },
+  { href: '/logistics', label: 'Logistics', icon: Truck },
   { href: '/fleet/live', label: 'Fleet Live', icon: Activity },
   { href: '/operations/map', label: 'Operations Map', icon: Activity },
   { href: '/riders/live', label: 'Riders Live', icon: Bike },

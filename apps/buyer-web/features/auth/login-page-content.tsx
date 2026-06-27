@@ -25,6 +25,7 @@ import {
 } from '@/hooks/use-auth';
 import { isValidIndianPhone, normalizeIndianPhone } from '@/lib/phone';
 import { DEMO_OTP, DEMO_PHONE_DIGITS, DEMO_PHONE_E164, IS_DEV } from '@/lib/demo-auth';
+import { safeReturnUrl } from '@jebdekho/web-config';
 
 type LoginTab = 'mobile' | 'email';
 type MobileStep = 'phone' | 'otp';
@@ -49,7 +50,7 @@ export function LoginPageContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const returnUrl = searchParams.get('returnUrl') ?? '/stores';
+  const returnUrl = safeReturnUrl(searchParams.get('returnUrl'));
 
   const [tab, setTab] = useState<LoginTab>('mobile');
   const [mobileStep, setMobileStep] = useState<MobileStep>('phone');

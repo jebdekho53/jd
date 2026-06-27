@@ -17,11 +17,13 @@ import {
   computeDeliveryEta,
   safeDistanceKm,
 } from '../../common/utils/delivery-eta.util';
+import type { RequestUser } from '../../common/types';
 import { OrderCacheService } from '../order/order-cache.service';
+import { labelForNormalizedStatus } from '../logistics/mappers/normalized-status-labels';
 import { unassignedOrderWhere } from '../rider-assignment/rider-assignment.util';
 import { UpdateRiderLocationDto } from '../rider/dto/update-rider-location.dto';
 import { DeliveryTrackingCacheService } from './delivery-tracking-cache.service';
-import { TRACKING_EVENTS } from './delivery-tracking.events';
+import { TRACKING_EVENTS, type TrackingNamespace } from './delivery-tracking.events';
 
 const ACTIVE_DELIVERY_STATUSES: DeliveryStatus[] = [
   DeliveryStatus.ASSIGNED,
@@ -68,6 +70,24 @@ export interface LiveTrackingView {
   trackingActive: boolean;
   progressStage: string;
   updatedAt: string;
+  provider?: {
+    type: string;
+    name: string;
+    trackingNumber: string | null;
+    normalizedStatus: string;
+    normalizedStatusLabel?: string;
+    badgeLabel?: string;
+    driverName?: string | null;
+    driverPhone?: string | null;
+    vehicleType?: string | null;
+  };
+  providerTimeline?: Array<{
+    status: string;
+    label: string;
+    description?: string | null;
+    occurredAt: string;
+  }>;
+  hasLiveProviderLocation?: boolean;
 }
 
 @Injectable()
@@ -246,6 +266,85 @@ export class DeliveryTrackingService {
     });
     if (!order) throw new NotFoundException('Order not found');
     return this.buildTrackingView(order);
+  }
+
+  /**
+   * Validates WebSocket room subscription — mirrors REST tracking ownership rules.
+   */
+  async assertSubscribeAccess(
+    user: RequestUser,
+    data: { namespace: TrackingNamespace; id: string; orderId?: string },
+  ): Promise<void> {
+    const orderId = data.orderId ?? data.id;
+
+    switch (data.namespace) {
+      case 'buyer': {
+        if (!user.roles.includes('BUYER')) {
+          throw new ForbiddenException('Buyer role required');
+        }
+        const bp = await this.prisma.buyerProfile.findUnique({
+          where: { userId: user.id },
+          select: { id: true },
+        });
+        if (!bp) throw new ForbiddenException('Buyer profile not found');
+
+        const order = await this.prisma.order.findFirst({
+          where: { id: orderId, buyerProfileId: bp.id },
+          select: { id: true },
+        });
+        if (!order) throw new ForbiddenException('Order access denied');
+        return;
+      }
+      case 'merchant': {
+        if (!user.roles.includes('MERCHANT')) {
+          throw new ForbiddenException('Merchant role required');
+        }
+        const stores = await this.prisma.store.findMany({
+          where: { merchantProfile: { userId: user.id } },
+          select: { id: true },
+        });
+        const storeIds = stores.map((s) => s.id);
+        if (storeIds.length === 0) throw new ForbiddenException('No stores');
+
+        const order = await this.prisma.order.findFirst({
+          where: { id: orderId, storeId: { in: storeIds } },
+          select: { id: true },
+        });
+        if (!order) throw new ForbiddenException('Order access denied');
+        return;
+      }
+      case 'rider': {
+        if (!user.roles.includes('RIDER')) {
+          throw new ForbiddenException('Rider role required');
+        }
+        const rider = await this.prisma.riderProfile.findUnique({
+          where: { userId: user.id },
+          select: { id: true },
+        });
+        if (!rider) throw new ForbiddenException('Rider profile not found');
+
+        const delivery = await this.prisma.delivery.findFirst({
+          where: { orderId, riderProfileId: rider.id },
+          select: { id: true },
+        });
+        if (!delivery) throw new ForbiddenException('Delivery access denied');
+        return;
+      }
+      case 'admin': {
+        const isAdmin = user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN');
+        if (!isAdmin) throw new ForbiddenException('Admin role required');
+        if (data.id !== 'fleet' && orderId) {
+          const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            select: { id: true },
+          });
+          if (!order) throw new NotFoundException('Order not found');
+        }
+        return;
+      }
+      default:
+        throw new ForbiddenException('Invalid tracking namespace');
+    }
   }
 
   async getFleetLive(statusFilter?: string) {
@@ -459,6 +558,32 @@ export class DeliveryTrackingService {
           },
         },
       },
+      providerShipment: {
+        select: {
+          id: true,
+          providerType: true,
+          trackingNumber: true,
+          normalizedStatus: true,
+          driverName: true,
+          driverPhone: true,
+          vehicleType: true,
+          estimatedEtaMins: true,
+          estimatedArrivalAt: true,
+          provider: { select: { name: true } },
+          events: {
+            orderBy: { occurredAt: 'asc' },
+            take: 100,
+            select: {
+              lat: true,
+              lng: true,
+              occurredAt: true,
+              normalizedStatus: true,
+              description: true,
+              providerStatus: true,
+            },
+          },
+        },
+      },
     } satisfies Prisma.OrderSelect;
   }
 
@@ -489,11 +614,35 @@ export class DeliveryTrackingService {
         lastLocationAt: Date | null;
       } | null;
     } | null;
+    providerShipment?: {
+      id: string;
+      providerType: string;
+      trackingNumber: string | null;
+      normalizedStatus: string;
+      driverName: string | null;
+      driverPhone: string | null;
+      vehicleType: string | null;
+      estimatedEtaMins: number | null;
+      estimatedArrivalAt: Date | null;
+      provider: { name: string };
+      events: Array<{
+        lat: number | null;
+        lng: number | null;
+        occurredAt: Date;
+        normalizedStatus: string;
+        description: string | null;
+        providerStatus: string | null;
+      }>;
+    } | null;
   }): Promise<LiveTrackingView> {
     const cached = await this.trackingCache.getTracking<LiveTrackingView>(order.id);
     if (cached) return cached;
 
-    const trackable = TRACKABLE_ORDER_STATUSES.includes(order.status) && Boolean(order.delivery);
+    const hasProvider = Boolean(order.providerShipment);
+    const trackable =
+      TRACKABLE_ORDER_STATUSES.includes(order.status) &&
+      Boolean(order.delivery) &&
+      (Boolean(order.delivery?.riderProfile) || hasProvider);
     if (!trackable || !order.delivery) {
       throw new ForbiddenException('Live tracking not available for this order');
     }
@@ -506,7 +655,44 @@ export class DeliveryTrackingService {
       select: { lat: true, lng: true, recordedAt: true },
     });
 
+    const providerEvents = order.providerShipment?.events ?? [];
+    const providerRoute = providerEvents
+      .filter((e) => e.lat != null && e.lng != null)
+      .map((e) => ({
+        lat: e.lat!,
+        lng: e.lng!,
+        recordedAt: e.occurredAt.toISOString(),
+      }));
+
     const rider = order.delivery.riderProfile;
+    const provider = order.providerShipment;
+    const latestProviderLoc = [...providerEvents].reverse().find((e) => e.lat != null && e.lng != null);
+
+    const syntheticRider =
+      !rider && provider?.driverName
+        ? {
+            id: `provider:${provider.id}`,
+            name: provider.driverName,
+            lat: latestProviderLoc?.lat ?? null,
+            lng: latestProviderLoc?.lng ?? null,
+            heading: null,
+            speed: null,
+            lastLocationAt: latestProviderLoc?.occurredAt.toISOString() ?? null,
+            vehicleType: provider.vehicleType,
+          }
+        : rider
+          ? {
+              id: rider.id,
+              name: rider.name,
+              lat: rider.currentLat,
+              lng: rider.currentLng,
+              heading: rider.currentHeading,
+              speed: rider.currentSpeed,
+              lastLocationAt: rider.lastLocationAt?.toISOString() ?? null,
+              vehicleType: rider.vehicleType,
+            }
+          : null;
+
     const etaResult = computeDeliveryEta({
       orderStatus: order.status,
       deliveryStatus: order.delivery.status,
@@ -514,20 +700,20 @@ export class DeliveryTrackingService {
       storeLng: order.store.longitude,
       customerLat: order.deliveryLat,
       customerLng: order.deliveryLng,
-      riderLat: rider?.currentLat,
-      riderLng: rider?.currentLng,
+      riderLat: syntheticRider?.lat ?? undefined,
+      riderLng: syntheticRider?.lng ?? undefined,
       pickedUpAt: order.delivery.pickedUpAt,
-      hasActiveAssignment: Boolean(rider),
+      hasActiveAssignment: Boolean(syntheticRider),
     });
 
     const riderDistanceFromStoreKm =
-      rider?.currentLat != null && rider?.currentLng != null
-        ? safeDistanceKm(rider.currentLat, rider.currentLng, order.store.latitude, order.store.longitude)
+      syntheticRider?.lat != null && syntheticRider?.lng != null
+        ? safeDistanceKm(syntheticRider.lat, syntheticRider.lng, order.store.latitude, order.store.longitude)
         : null;
 
     const riderDistanceToCustomerKm =
-      rider?.currentLat != null && rider?.currentLng != null
-        ? safeDistanceKm(rider.currentLat, rider.currentLng, order.deliveryLat, order.deliveryLng)
+      syntheticRider?.lat != null && syntheticRider?.lng != null
+        ? safeDistanceKm(syntheticRider.lat, syntheticRider.lng, order.deliveryLat, order.deliveryLng)
         : null;
 
     const view: LiveTrackingView = {
@@ -545,26 +731,24 @@ export class DeliveryTrackingService {
         lng: order.deliveryLng,
         address: order.deliveryAddress as Record<string, unknown>,
       },
-      rider: rider
-        ? {
-            id: rider.id,
-            name: rider.name,
-            lat: rider.currentLat,
-            lng: rider.currentLng,
-            heading: rider.currentHeading,
-            speed: rider.currentSpeed,
-            lastLocationAt: rider.lastLocationAt?.toISOString() ?? null,
-            vehicleType: rider.vehicleType,
-          }
-        : null,
-      route: points.map((p) => ({
-        lat: p.lat,
-        lng: p.lng,
-        recordedAt: p.recordedAt.toISOString(),
-      })),
+      rider: syntheticRider,
+      route:
+        points.length > 0
+          ? points.map((p) => ({
+              lat: p.lat,
+              lng: p.lng,
+              recordedAt: p.recordedAt.toISOString(),
+            }))
+          : providerRoute,
       eta: {
-        estimatedMins: order.delivery.estimatedMins ?? etaResult.estimatedMins,
-        estimatedArrivalAt: order.delivery.estimatedArrivalAt?.toISOString() ?? null,
+        estimatedMins:
+          order.delivery.estimatedMins ??
+          provider?.estimatedEtaMins ??
+          etaResult.estimatedMins,
+        estimatedArrivalAt:
+          order.delivery.estimatedArrivalAt?.toISOString() ??
+          provider?.estimatedArrivalAt?.toISOString() ??
+          null,
         etaAvailable: etaResult.etaAvailable,
         distanceKm: order.delivery.distanceKm,
         riderDistanceFromStoreKm,
@@ -573,6 +757,28 @@ export class DeliveryTrackingService {
       trackingActive: trackable && order.status !== OrderStatus.DELIVERED,
       progressStage: this.resolveProgressStage(order.status, order.delivery.status),
       updatedAt: new Date().toISOString(),
+      ...(provider
+        ? {
+            provider: {
+              type: provider.providerType,
+              name: provider.provider.name,
+              trackingNumber: provider.trackingNumber,
+              normalizedStatus: provider.normalizedStatus,
+              normalizedStatusLabel: labelForNormalizedStatus(provider.normalizedStatus),
+              badgeLabel: `Delivered by ${provider.provider.name}`,
+              driverName: provider.driverName,
+              driverPhone: provider.driverPhone,
+              vehicleType: provider.vehicleType,
+            },
+            providerTimeline: providerEvents.map((e) => ({
+              status: e.normalizedStatus,
+              label: labelForNormalizedStatus(e.normalizedStatus),
+              description: e.description ?? e.providerStatus,
+              occurredAt: e.occurredAt.toISOString(),
+            })),
+            hasLiveProviderLocation: Boolean(latestProviderLoc),
+          }
+        : {}),
     };
 
     await this.trackingCache.setTracking(order.id, view);

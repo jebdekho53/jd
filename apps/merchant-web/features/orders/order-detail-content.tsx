@@ -8,6 +8,7 @@ import { OrderActionButtons } from './components/order-action-buttons';
 import { OrderTimeline } from '@jebdekho/order-timeline';
 import { RiderAssignmentCard } from './components/rider-assignment-card';
 import { MerchantDeliveryTracking } from '@/features/tracking/merchant-delivery-tracking';
+import { MerchantShipmentPanel } from '@/features/logistics/merchant-shipment-panel';
 import { CustomerPanel } from './components/customer-panel';
 import { OrderSlaBadge } from './components/order-sla-badge';
 import { AwaitingRiderAlert } from './components/awaiting-rider-alert';
@@ -138,6 +139,7 @@ export function OrderDetailContent({ orderId }: { orderId: string }) {
             </Card>
           )}
           <MerchantDeliveryTracking orderId={order.id} orderStatus={order.status} />
+          <MerchantShipmentPanel orderId={order.id} />
           <Card>
             <CardHeader><h2 className="font-semibold">Order Timeline</h2></CardHeader>
             <CardBody>

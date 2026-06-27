@@ -27,8 +27,17 @@ interface ProfilePreferencesState {
   initReferralCode: (userId: string) => void;
 }
 
+function secureThreeDigitSuffix(): number {
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    return 100 + (buf[0] % 900);
+  }
+  return 100;
+}
+
 function generateReferralCode(userId: string): string {
-  return `JEB${userId.slice(-4).toUpperCase()}${Math.floor(100 + Math.random() * 900)}`;
+  return `JEB${userId.slice(-4).toUpperCase()}${secureThreeDigitSuffix()}`;
 }
 
 export const useProfilePreferencesStore = create<ProfilePreferencesState>()(

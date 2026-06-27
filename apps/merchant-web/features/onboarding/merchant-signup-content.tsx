@@ -9,7 +9,7 @@ import { Button, Input, Select, useToast } from '@/design-system/primitives';
 import { MarketingShell } from '@/features/marketing/components/marketing-shell';
 import { MerchantOtpFlow } from '@/features/auth/components/merchant-otp-flow';
 import { useCitiesQuery } from '@/hooks/use-geo';
-import { LocationSearchInput } from '@/features/locations/components/location-search-input';
+import { MerchantAddressPicker } from '@/components/google-maps/merchant-address-picker';
 import type { LocationSelection } from '@/features/locations/components/location-search-input';
 import {
   updateOnboardingStep,
@@ -486,10 +486,36 @@ export function MerchantSignupContent() {
                   value={form.storeAddress}
                   onChange={(e) => setForm({ ...form, storeAddress: e.target.value })}
                 />
-                <LocationSearchInput
-                  value={form.locality}
-                  pincode={form.pincode}
-                  onSelect={handleLocationSelect}
+                <MerchantAddressPicker
+                  searchLabel="Store location *"
+                  masterValue={form.locality}
+                  masterPincode={form.pincode}
+                  value={{
+                    locality: form.locality,
+                    city: form.city,
+                    state: form.state,
+                    pincode: form.pincode,
+                    lat: form.latitude,
+                    lng: form.longitude,
+                  }}
+                  onChange={(selection) => {
+                    const ncrCity = cities.find((c) => c.slug === 'delhi-ncr') ?? cities[0];
+                    setForm((f) => ({
+                      ...f,
+                      locality: selection.locality,
+                      city: selection.city,
+                      state: selection.state,
+                      pincode: selection.pincode,
+                      latitude: selection.lat,
+                      longitude: selection.lng,
+                      locationPincodeId: selection.locationPincodeId ?? '',
+                      locationAreaId: selection.locationAreaId ?? '',
+                      locationCityId: selection.locationCityId ?? '',
+                      cityId: ncrCity?.id ?? f.cityId,
+                    }));
+                  }}
+                  onLine1Suggestion={(line1) => setForm((f) => ({ ...f, storeAddress: line1 }))}
+                  onMasterSelect={handleLocationSelect}
                 />
                 {form.locality && (
                   <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">

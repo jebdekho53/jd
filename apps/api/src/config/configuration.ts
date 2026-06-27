@@ -114,6 +114,23 @@ export function getConfig(configService: ConfigService) {
       webhookSecret: configService.get<string>('RAZORPAY_WEBHOOK_SECRET', ''),
     },
 
+    logistics: {
+      deliveryProvider: configService.get<string>('DELIVERY_PROVIDER', 'shadowfax'),
+      enableOwnFleet: configService.get<string>('ENABLE_OWN_FLEET', 'false') === 'true',
+      enableShadowfax: configService.get<string>('ENABLE_SHADOWFAX', 'true') === 'true',
+      enablePorter: configService.get<string>('ENABLE_PORTER', 'false') === 'true',
+      enableDelhivery: configService.get<string>('ENABLE_DELHIVERY', 'false') === 'true',
+      enableBorzo: configService.get<string>('ENABLE_BORZO', 'false') === 'true',
+      shadowfax: {
+        apiUrl: configService.get<string>('SHADOWFAX_API_URL', ''),
+        clientId: configService.get<string>('SHADOWFAX_CLIENT_ID', ''),
+        clientSecret: configService.get<string>('SHADOWFAX_CLIENT_SECRET', ''),
+        testToken: configService.get<string>('SHADOWFAX_TEST_TOKEN', ''),
+        productionToken: configService.get<string>('SHADOWFAX_PRODUCTION_TOKEN', ''),
+        webhookSecret: configService.get<string>('SHADOWFAX_WEBHOOK_SECRET', ''),
+      },
+    },
+
     buyerSiteUrl: configService.get<string>('BUYER_SITE_URL', 'https://jebdekho.com'),
 
     smtp: (() => {

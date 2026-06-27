@@ -56,3 +56,5 @@ export function getAppUrl(app: keyof typeof PRODUCTION_URLS): string {
 export function getTrackingWsBase(): string {
   return getWsBaseUrl().replace(/\/$/, '');
 }
+
+export { safeReturnUrl, DEFAULT_RETURN_PATH } from './safe-return-url';

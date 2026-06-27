@@ -13,6 +13,7 @@ import { RedisService } from '../../redis/redis.service';
 import { REDIS_KEYS, REDIS_TTL } from '../../redis/redis.constants';
 import { getConfig } from '../../config/configuration';
 import { isDemoPhone } from '../../common/utils/demo-auth.util';
+import { secureNumericCode } from '../../common/utils/secure-random.util';
 import { Msg91Service } from './msg91.service';
 
 @Injectable()
@@ -147,10 +148,7 @@ export class OtpService {
   }
 
   private generateCode(): string {
-    const length = this.cfg.otp.length;
-    const min = Math.pow(10, length - 1);
-    const max = Math.pow(10, length) - 1;
-    return String(Math.floor(min + Math.random() * (max - min + 1)));
+    return secureNumericCode(this.cfg.otp.length);
   }
 
   private async enforceRateLimit(phone: string): Promise<void> {

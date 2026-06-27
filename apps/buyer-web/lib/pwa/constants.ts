@@ -15,8 +15,10 @@ export const PRIVATE_DOCUMENT_PREFIXES = [
   '/wallet',
   '/corporate',
   '/profile',
+  '/plus',
 ] as const;
 
+/** BFF + backend paths that must never be cached by the service worker. */
 export const PRIVATE_API_PREFIXES = [
   '/api/auth',
   '/api/buyer/checkout',
@@ -26,6 +28,13 @@ export const PRIVATE_API_PREFIXES = [
   '/api/buyer/cart',
   '/api/buyer/plus',
   '/api/buyer/rewards',
+  '/api/buyer/addresses',
+  '/api/buyer/referrals',
+  '/api/buyer/support',
+  '/api/buyer/crm',
+  '/api/buyer/profile',
+  '/api/corporate',
+  '/api/buyer/offers/recommended',
 ] as const;
 
 export function isPrivateDocumentPath(pathname: string): boolean {

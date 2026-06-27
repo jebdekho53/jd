@@ -1,20 +1,27 @@
 #!/usr/bin/env node
 /**
  * Generates PWA icons, splash screens, and screenshots from public/logo.png.
- * Optional — committed assets under public/pwa/ are used when sharp is unavailable.
+ * Uses a white canvas so transparent PNG logos render cleanly on favicons and home-screen icons.
  */
-import { access } from 'node:fs/promises';
+import { access, copyFile } from 'node:fs/promises';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
+const repoRoot = path.join(root, '../..');
 const logoPath = path.join(root, 'public/logo.png');
 const iconsDir = path.join(root, 'public/pwa/icons');
 const splashDir = path.join(root, 'public/pwa/splash');
 const shotsDir = path.join(root, 'public/pwa/screenshots');
 const markerIcon = path.join(iconsDir, 'icon-192.png');
+
+const GREEN = '#16a34a';
+const GREEN_DARK = '#15803d';
+const ICON_BG = { r: 255, g: 255, b: 255, alpha: 1 };
+const ICON_SIZES = [72, 96, 128, 144, 152, 180, 192, 256, 384, 512];
+const OTHER_WEB_APPS = ['admin-web', 'merchant-web', 'rider-web', 'vendor-web'];
 
 async function hasCommittedAssets() {
   try {
@@ -39,26 +46,40 @@ try {
   process.exit(1);
 }
 
-const GREEN = '#16a34a';
-const GREEN_DARK = '#15803d';
-
-const ICON_SIZES = [72, 96, 128, 144, 152, 180, 192, 256, 384, 512];
-
 async function ensureDirs() {
   await mkdir(iconsDir, { recursive: true });
   await mkdir(splashDir, { recursive: true });
   await mkdir(shotsDir, { recursive: true });
 }
 
-async function iconBuffer(size, padding = 0.12) {
-  const inner = Math.round(size * (1 - padding * 2));
-  const logo = await sharp(logoPath).resize(inner, inner, { fit: 'contain' }).png().toBuffer();
+function paddingForSize(size) {
+  if (size <= 32) return 0.06;
+  if (size <= 48) return 0.08;
+  if (size <= 96) return 0.1;
+  return 0.12;
+}
+
+async function logoBuffer(inner) {
+  return sharp(logoPath)
+    .ensureAlpha()
+    .resize(inner, inner, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+}
+
+async function iconBuffer(size, { padding, background = ICON_BG } = {}) {
+  const pad = padding ?? paddingForSize(size);
+  const inner = Math.round(size * (1 - pad * 2));
+  const logo = await logoBuffer(inner);
   return sharp({
     create: {
       width: size,
       height: size,
       channels: 4,
-      background: { r: 22, g: 163, b: 74, alpha: 1 },
+      background,
     },
   })
     .composite([{ input: logo, gravity: 'centre' }])
@@ -67,14 +88,14 @@ async function iconBuffer(size, padding = 0.12) {
 }
 
 async function maskableBuffer(size) {
-  const inner = Math.round(size * 0.55);
-  const logo = await sharp(logoPath).resize(inner, inner, { fit: 'contain' }).png().toBuffer();
+  const inner = Math.round(size * 0.52);
+  const logo = await logoBuffer(inner);
   return sharp({
     create: {
       width: size,
       height: size,
       channels: 4,
-      background: { r: 22, g: 163, b: 74, alpha: 1 },
+      background: ICON_BG,
     },
   })
     .composite([{ input: logo, gravity: 'centre' }])
@@ -83,9 +104,10 @@ async function maskableBuffer(size) {
 }
 
 async function monochromeBuffer(size) {
-  const inner = Math.round(size * 0.7);
+  const inner = Math.round(size * 0.72);
   const logo = await sharp(logoPath)
-    .resize(inner, inner, { fit: 'contain' })
+    .ensureAlpha()
+    .resize(inner, inner, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .greyscale()
     .png()
     .toBuffer();
@@ -100,7 +122,11 @@ async function monochromeBuffer(size) {
 async function splash(width, height, filename) {
   const logoSize = Math.min(width, height) * 0.22;
   const logo = await sharp(logoPath)
-    .resize(Math.round(logoSize), Math.round(logoSize), { fit: 'contain' })
+    .ensureAlpha()
+    .resize(Math.round(logoSize), Math.round(logoSize), {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
     .png()
     .toBuffer();
 
@@ -136,6 +162,17 @@ async function screenshot(width, height, filename, label) {
   await sharp(Buffer.from(svg)).png().toFile(path.join(shotsDir, filename));
 }
 
+async function syncLegacyIcons() {
+  const icon192 = path.join(root, 'public/icon-192.png');
+  for (const app of OTHER_WEB_APPS) {
+    const destDir = path.join(repoRoot, 'apps', app, 'public');
+    await copyFile(icon192, path.join(destDir, 'icon-192.png'));
+    for (const file of ['favicon.ico', 'favicon-16x16.png', 'favicon-32x32.png']) {
+      await copyFile(path.join(root, 'public', file), path.join(destDir, file));
+    }
+  }
+}
+
 async function main() {
   await ensureDirs();
 
@@ -154,8 +191,9 @@ async function main() {
 
   await sharp(await iconBuffer(180)).toFile(path.join(iconsDir, 'apple-touch-icon.png'));
   await sharp(await iconBuffer(48)).toFile(path.join(root, 'public/favicon.ico'));
+  await sharp(await iconBuffer(32)).toFile(path.join(root, 'public/favicon-32x32.png'));
+  await sharp(await iconBuffer(16)).toFile(path.join(root, 'public/favicon-16x16.png'));
 
-  // Legacy paths used elsewhere
   await sharp(await iconBuffer(192)).toFile(path.join(root, 'public/icon-192.png'));
   await sharp(await iconBuffer(512)).toFile(path.join(root, 'public/icon-512.png'));
 
@@ -174,6 +212,8 @@ async function main() {
     path.join(iconsDir, 'safari-pinned-tab.svg'),
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#16a34a"/></svg>`,
   );
+
+  await syncLegacyIcons();
 
   console.log('PWA assets generated in public/pwa/');
 }

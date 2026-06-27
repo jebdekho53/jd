@@ -63,6 +63,38 @@ if (!pub.includes('BEGIN PUBLIC KEY')) {
 }
 
 console.log('Production env verification passed');
+
+// Google Maps (warn only — master directory fallback)
+const gmapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+if (!gmapsKey.trim()) {
+  console.warn('WARN: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is missing — buyer/merchant maps will use directory fallback');
+}
+
+// Shadowfax when primary provider
+const deliveryProvider = (process.env.DELIVERY_PROVIDER || 'shadowfax').toLowerCase();
+if (deliveryProvider === 'shadowfax') {
+  const shadowfaxVars = [
+    ['ENABLE_SHADOWFAX', process.env.ENABLE_SHADOWFAX || 'true'],
+    ['ENABLE_OWN_FLEET', process.env.ENABLE_OWN_FLEET || 'false'],
+    ['SHADOWFAX_API_URL', process.env.SHADOWFAX_API_URL || ''],
+    ['SHADOWFAX_WEBHOOK_SECRET', process.env.SHADOWFAX_WEBHOOK_SECRET || ''],
+  ];
+  for (const [key, val] of shadowfaxVars) {
+    if (!String(val).trim()) {
+      console.error(`ERROR: ${key} is required when DELIVERY_PROVIDER=shadowfax`);
+      process.exit(1);
+    }
+  }
+  if (process.env.ENABLE_OWN_FLEET === 'true') {
+    console.error('ERROR: ENABLE_OWN_FLEET must be false when DELIVERY_PROVIDER=shadowfax');
+    process.exit(1);
+  }
+  const token = process.env.SHADOWFAX_PRODUCTION_TOKEN || process.env.SHADOWFAX_TEST_TOKEN || '';
+  if (!token.trim()) {
+    console.error('ERROR: SHADOWFAX_PRODUCTION_TOKEN or SHADOWFAX_TEST_TOKEN required for shadowfax');
+    process.exit(1);
+  }
+}
 NODE
 
 echo "OK: .env.production verified"

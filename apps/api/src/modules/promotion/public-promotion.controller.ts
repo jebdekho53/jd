@@ -69,20 +69,6 @@ export class PublicPromotionController {
     return { success: true, data };
   }
 
-  @Get('offers/recommended')
-  async recommended(
-    @Query('buyerProfileId') buyerProfileId: string,
-    @Query('lat') lat?: string,
-    @Query('lng') lng?: string,
-  ) {
-    const data = await this.offers.getPersonalizedOffers(
-      buyerProfileId,
-      lat ? Number(lat) : undefined,
-      lng ? Number(lng) : undefined,
-    );
-    return { success: true, data };
-  }
-
   @Post('campaigns/events')
   async trackEvent(@Body() dto: TrackCampaignEventDto) {
     await this.analytics.trackEvent({

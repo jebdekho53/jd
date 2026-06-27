@@ -53,11 +53,14 @@ export async function getOffersNearYou(lat: number, lng: number, limit = 12) {
   return res.data;
 }
 
-export async function getRecommendedOffers(buyerProfileId: string, lat?: number, lng?: number) {
-  const params = new URLSearchParams({ buyerProfileId });
+export async function getRecommendedOffers(lat?: number, lng?: number) {
+  const params = new URLSearchParams();
   if (lat != null) params.set('lat', String(lat));
   if (lng != null) params.set('lng', String(lng));
-  const res = await apiGet<ApiResponse<CampaignOffer[]>>(`/buyer/offers/recommended?${params}`);
+  const qs = params.toString();
+  const res = await buyerFetch<ApiResponse<CampaignOffer[]>>(
+    `/api/buyer/offers/recommended${qs ? `?${qs}` : ''}`,
+  );
   return res.data;
 }
 

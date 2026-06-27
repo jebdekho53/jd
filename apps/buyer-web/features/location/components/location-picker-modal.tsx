@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import { MapPin, Navigation, Search } from 'lucide-react';
 import { Button, Input, Modal, Text } from '@/design-system/primitives';
+import { GooglePlacesAutocomplete, GoogleMapPicker, useGoogleMaps, DEFAULT_MAP_CENTER, type ParsedGoogleAddress } from '@jebdekho/google-maps';
 import { requestBrowserLocation } from '@/lib/geolocation';
 import { useLocationSearch } from '@/hooks/use-location-search';
+import { useReverseGeocode } from '@/hooks/use-reverse-geocode';
 import type { MasterLocationResult } from '@/services/locations/location-api';
 import { FALLBACK_LOCATIONS, useLocationStore } from '@/store/location-store';
 
@@ -22,24 +24,68 @@ export function LocationPickerModal({
   required = false,
 }: LocationPickerModalProps) {
   const { setFromGps, setFromMaster } = useLocationStore();
+  const { isConfigured } = useGoogleMaps();
+  const { geocode, isLoading: isGeocoding } = useReverseGeocode();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mapPosition, setMapPosition] = useState<{ lat: number; lng: number }>(DEFAULT_MAP_CENTER);
+  const [preview, setPreview] = useState<{
+    lat: number;
+    lng: number;
+    label: string;
+    pincode?: string;
+    city?: string;
+    area?: string;
+  } | null>(null);
   const { data: results = [], isFetching } = useLocationSearch(query);
 
   useEffect(() => {
     if (!open) {
       setQuery('');
       setError(null);
+      setPreview(null);
     }
   }, [open]);
+
+  const confirmMaster = (coords: {
+    lat: number;
+    lng: number;
+    label: string;
+    pincode?: string;
+    city?: string;
+    area?: string;
+    locationPincodeId?: string;
+    locationAreaId?: string;
+    locationCityId?: string;
+  }) => {
+    setFromMaster(coords);
+    setMapPosition({ lat: coords.lat, lng: coords.lng });
+    onConfirm?.();
+    if (!required) onClose();
+  };
 
   const handleGps = async () => {
     setLoading(true);
     setError(null);
     try {
       const pos = await requestBrowserLocation();
+      if (isConfigured) {
+        const parsed = await geocode(pos.lat, pos.lng);
+        if (parsed) {
+          confirmMaster({
+            lat: parsed.lat,
+            lng: parsed.lng,
+            label: parsed.locality || parsed.formattedAddress,
+            pincode: parsed.pincode || undefined,
+            city: parsed.city,
+            area: parsed.locality,
+          });
+          return;
+        }
+      }
       setFromGps(pos.lat, pos.lng);
+      setMapPosition({ lat: pos.lat, lng: pos.lng });
       onConfirm?.();
       if (!required) onClose();
     } catch (err) {
@@ -50,7 +96,7 @@ export function LocationPickerModal({
   };
 
   const handleSelect = (item: MasterLocationResult) => {
-    setFromMaster({
+    confirmMaster({
       lat: item.latitude,
       lng: item.longitude,
       label: item.label,
@@ -61,19 +107,49 @@ export function LocationPickerModal({
       locationAreaId: item.locationAreaId,
       locationCityId: item.locationCityId,
     });
-    onConfirm?.();
-    if (!required) onClose();
   };
 
   const handlePreset = (preset: (typeof FALLBACK_LOCATIONS)[number]) => {
-    setFromMaster({
+    confirmMaster({
       lat: preset.lat,
       lng: preset.lng,
       label: preset.label,
       pincode: preset.pincode,
     });
-    onConfirm?.();
-    if (!required) onClose();
+  };
+
+  const handleGooglePlace = (address: ParsedGoogleAddress) => {
+    setMapPosition({ lat: address.lat, lng: address.lng });
+    setPreview({
+      lat: address.lat,
+      lng: address.lng,
+      label: address.locality || address.formattedAddress,
+      pincode: address.pincode || undefined,
+      city: address.city,
+      area: address.locality,
+    });
+  };
+
+  const handleMapMove = async (coords: { lat: number; lng: number }) => {
+    setMapPosition(coords);
+    if (!isConfigured) return;
+    const parsed = await geocode(coords.lat, coords.lng);
+    if (parsed) {
+      setPreview({
+        lat: parsed.lat,
+        lng: parsed.lng,
+        label: parsed.locality || parsed.formattedAddress,
+        pincode: parsed.pincode || undefined,
+        city: parsed.city,
+        area: parsed.locality,
+      });
+    }
+  };
+
+  const handleConfirmPreview = () => {
+    if (!preview) return;
+    confirmMaster(preview);
+    setPreview(null);
   };
 
   return (
@@ -82,21 +158,54 @@ export function LocationPickerModal({
       onClose={required ? () => {} : onClose}
       dismissible={!required}
       title="Set delivery location"
-      description="Search your area, sector, or pincode. We use official India Post data for Delhi NCR."
+      description={
+        isConfigured
+          ? 'Search on Google Maps, use GPS, or pick from our directory.'
+          : 'Search your area, sector, or pincode. We use official India Post data for Delhi NCR.'
+      }
       size="md"
     >
       <div className="space-y-6">
-        <Button fullWidth loading={loading} onClick={handleGps}>
+        <Button fullWidth loading={loading || isGeocoding} onClick={handleGps}>
           <Navigation className="h-4 w-4" aria-hidden />
           Use current location
         </Button>
+
+        {isConfigured && (
+          <>
+            <GooglePlacesAutocomplete
+              label="Search address"
+              placeholder="Street, area, or landmark"
+              onPlaceSelect={handleGooglePlace}
+            />
+            <GoogleMapPicker
+              position={mapPosition}
+              onPositionChange={handleMapMove}
+              heightClassName="h-40 sm:h-48"
+              disabled={isGeocoding}
+            />
+            {preview && (
+              <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
+                <p className="font-medium text-emerald-900">{preview.label}</p>
+                <p className="text-emerald-800">
+                  {[preview.area, preview.city, preview.pincode].filter(Boolean).join(' · ')}
+                </p>
+                <Button type="button" fullWidth size="sm" onClick={handleConfirmPreview}>
+                  Confirm this location
+                </Button>
+              </div>
+            )}
+          </>
+        )}
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t border-neutral-200" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-neutral-500">or search</span>
+            <span className="bg-white px-2 text-neutral-500">
+              {isConfigured ? 'or directory search' : 'or search'}
+            </span>
           </div>
         </div>
 

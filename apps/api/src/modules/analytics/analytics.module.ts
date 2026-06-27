@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
+import { WebSocketModule } from '../../common/websocket/websocket.module';
 import { AnalyticsAggregatorService } from './analytics-aggregator.service';
 import { AnalyticsSnapshotService } from './analytics-snapshot.service';
 import { AnalyticsMaterializerService } from './analytics-materializer.service';
@@ -13,7 +14,7 @@ import { DeliveryTrackingModule } from '../delivery-tracking/delivery-tracking.m
 import { MerchantDashboardModule } from '../merchant-dashboard/merchant-dashboard.module';
 
 @Module({
-  imports: [DeliveryTrackingModule, MerchantDashboardModule],
+  imports: [DeliveryTrackingModule, MerchantDashboardModule, WebSocketModule],
   controllers: [AdminAnalyticsController, MerchantAnalyticsController],
   providers: [
     AnalyticsService,

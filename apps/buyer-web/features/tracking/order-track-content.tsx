@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
-import { DeliveryMap } from '@/features/tracking/delivery-map';
+import { DeliveryTrackingMap } from '@/features/tracking/delivery-tracking-map';
+import { sortProviderTimeline, hasProviderTimeline } from '@/lib/tracking/provider-timeline';
 import { DeliveryProgressTracker } from '@/features/tracking/delivery-progress-tracker';
 import { useDeliveryTracking } from '@/features/tracking/use-delivery-tracking';
 import { useOrderDetailQuery } from '@/hooks/use-orders';
@@ -49,21 +50,41 @@ export function OrderTrackContent({ orderId }: OrderTrackContentProps) {
             <Skeleton className="h-80 w-full" />
           ) : error || !tracking ? (
             <div className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">
-              Live tracking is available after a rider is assigned.
+              Live tracking is available after delivery is assigned.
             </div>
           ) : (
             <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
               <div className="space-y-4">
-                <DeliveryMap
-                  store={{ lat: tracking.store.lat, lng: tracking.store.lng, label: 'Store' }}
-                  customer={{ lat: tracking.customer.lat, lng: tracking.customer.lng, label: 'You' }}
+                <DeliveryTrackingMap
+                  store={{ lat: tracking.store.lat, lng: tracking.store.lng }}
+                  customer={{ lat: tracking.customer.lat, lng: tracking.customer.lng }}
                   rider={
                     tracking.rider?.lat != null && tracking.rider.lng != null
-                      ? { lat: tracking.rider.lat, lng: tracking.rider.lng, label: 'Rider' }
-                      : null
+                      ? { lat: tracking.rider.lat, lng: tracking.rider.lng }
+                      : tracking.rider
+                        ? { lat: tracking.store.lat, lng: tracking.store.lng }
+                        : null
                   }
                   route={tracking.route}
+                  hasLiveProviderLocation={tracking.hasLiveProviderLocation}
                 />
+
+                {hasProviderTimeline(tracking.providerTimeline) && (
+                  <div className="rounded-2xl border bg-card p-5 shadow-sm">
+                    <h2 className="mb-3 text-sm font-semibold">Delivery timeline</h2>
+                    <ul className="space-y-3 border-l-2 border-muted pl-4">
+                      {sortProviderTimeline(tracking.providerTimeline).map((e, i) => (
+                        <li key={`${e.occurredAt}-${i}`} className="relative">
+                          <span className="absolute -left-[1.35rem] top-1.5 h-2 w-2 rounded-full bg-brand-500" />
+                          <p className="text-sm font-medium">{e.label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(e.occurredAt).toLocaleString('en-IN')}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <div className="rounded-2xl border bg-card p-5 shadow-sm">
                   <h2 className="mb-3 text-sm font-semibold">Delivery progress</h2>
@@ -78,6 +99,11 @@ export function OrderTrackContent({ orderId }: OrderTrackContentProps) {
                     <div className="mt-1">
                       <OrderStatusBadge status={order.status} />
                     </div>
+                  )}
+                  {tracking.provider?.badgeLabel && (
+                    <p className="mt-2 inline-flex rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {tracking.provider.badgeLabel}
+                    </p>
                   )}
                   <div className="mt-4 space-y-2 text-sm">
                     <div>
@@ -105,6 +131,35 @@ export function OrderTrackContent({ orderId }: OrderTrackContentProps) {
                 {order?.delivery?.rider && (
                   <RiderDeliveryPanel orderStatus={order.status} delivery={order.delivery} />
                 )}
+                {!order?.delivery?.rider && tracking.rider && (
+                  <div className="rounded-2xl border bg-card p-5 shadow-sm">
+                    <p className="text-xs text-muted-foreground">Delivery partner</p>
+                    <p className="mt-1 font-medium">{tracking.rider.name}</p>
+                    {tracking.provider?.driverPhone && (
+                      <p className="text-sm text-muted-foreground">{tracking.provider.driverPhone}</p>
+                    )}
+                    {tracking.rider.vehicleType && (
+                      <p className="text-sm text-muted-foreground">
+                        {tracking.rider.vehicleType.replace(/_/g, ' ')}
+                      </p>
+                    )}
+                    {!tracking.hasLiveProviderLocation && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Live map location unavailable — see timeline for updates.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="rounded-2xl border bg-card p-5 shadow-sm">
+                  <p className="text-sm font-medium">Need help?</p>
+                  <Link
+                    href="/profile/support"
+                    className="mt-2 inline-block text-sm text-brand-700 underline"
+                  >
+                    Contact support
+                  </Link>
+                </div>
               </div>
             </div>
           )}

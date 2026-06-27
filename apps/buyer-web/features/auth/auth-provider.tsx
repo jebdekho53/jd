@@ -3,9 +3,9 @@
 import { createContext, useCallback, useContext, useEffect, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { fetchMe, useLogoutMutation } from '@/hooks/use-auth';
-import { SessionError } from '@/services/auth/auth-api';
 import { getQueryClient } from '@/lib/query-client';
 import { mergeGuestCartIntoServer } from '@/lib/merge-guest-cart';
+import { isAuthExpiredError, isOfflineSessionError } from '@/lib/auth/offline-session';
 import { useAuthStore } from '@/store/auth-store';
 import { useProfileStore } from '@/store/profile-store';
 import type { AuthUser } from '@/types/auth';
@@ -19,11 +19,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const { setUser, setLoading, clearSession } = useAuthStore();
+  const { setUser, setLoading, clearSession, setSessionOffline } = useAuthStore();
   const logoutMutation = useLogoutMutation();
 
   const refreshSession = useCallback(async () => {
     setLoading(true);
+    setSessionOffline(false);
     try {
       const user = await fetchMe();
       if (user) {
@@ -33,17 +34,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearSession();
       }
     } catch (err) {
-      // Network / server errors — do not wipe cookies; user may still be logged in.
-      if (err instanceof SessionError && err.status === 401) {
+      if (isAuthExpiredError(err)) {
         clearSession();
+      } else if (isOfflineSessionError(err)) {
+        const cached = useAuthStore.getState().lastKnownUser;
+        if (cached) {
+          setUser(cached);
+        } else {
+          setLoading(false);
+        }
+        setSessionOffline(true);
       } else {
         setLoading(false);
       }
     }
-  }, [setUser, setLoading, clearSession]);
+  }, [setUser, setLoading, clearSession, setSessionOffline]);
 
   useEffect(() => {
     refreshSession();
+  }, [refreshSession]);
+
+  useEffect(() => {
+    const retryWhenOnline = () => {
+      if (navigator.onLine) {
+        void refreshSession();
+      }
+    };
+    window.addEventListener('online', retryWhenOnline);
+    return () => window.removeEventListener('online', retryWhenOnline);
   }, [refreshSession]);
 
   const logout = useCallback(async () => {

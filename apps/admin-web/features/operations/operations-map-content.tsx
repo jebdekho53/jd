@@ -2,78 +2,12 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useGoogleMaps } from '@jebdekho/google-maps';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
-import { adminFetch } from '@/services/api/admin-client';
+import { OpsMapOverlay } from '@/features/maps/ops-map-overlay';
+import { useOperationsMapQuery } from '@/features/maps/use-operations-map';
 
-type OpsMapData = {
-  fleet: {
-    riders: Array<{
-      id: string;
-      name: string;
-      status: string;
-      location: { lat: number; lng: number } | null;
-      currentDelivery: { orderId: string; orderNumber: string } | null;
-    }>;
-    stats: {
-      onlineRiders: number;
-      busyRiders: number;
-      unassignedOrders: number;
-      activeOrders: number;
-    };
-  };
-  stores: Array<{
-    id: string;
-    name: string;
-    latitude: number;
-    longitude: number;
-    deliveryRadiusKm: number;
-    locality: string | null;
-  }>;
-  zones: Array<{
-    id: string;
-    name: string;
-    centerLat: number;
-    centerLng: number;
-    radiusKm: number;
-  }>;
-  unassignedOrders: Array<{
-    id: string;
-    orderNumber: string;
-    deliveryLat: number;
-    deliveryLng: number;
-  }>;
-  franchiseTerritories?: Array<{
-    id: string;
-    city: string;
-    state: string;
-    exclusivityEnabled: boolean;
-    color: string;
-    franchise: { id: string; businessName: string };
-  }>;
-  riderClusters?: Array<{
-    id: string;
-    city: string;
-    locality: string;
-    demandSupplyRatio: number;
-    color: string;
-  }>;
-  fleetAlerts?: Array<{ id: string; message: string; alertType?: string }>;
-  batchRoutes?: Array<{ id: string; riderName: string; status: string; orders: string[] }>;
-  activeDeliveries: Array<{
-    riderId: string;
-    riderName: string;
-    lat: number;
-    lng: number;
-    order: { orderId: string; orderNumber: string };
-  }>;
-  updatedAt: string;
-};
-
-async function fetchOpsMap() {
-  const res = await adminFetch<{ success: boolean; data: OpsMapData }>('/api/admin/geo/operations-map');
-  return res.data;
-}
+type OpsMapData = import('@/features/maps/use-operations-map').OpsMapData;
 
 function OpsSvgMap({ data }: { data: OpsMapData }) {
   const width = 720;
@@ -146,11 +80,8 @@ function OpsSvgMap({ data }: { data: OpsMapData }) {
 }
 
 export function OperationsMapContent() {
-  const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['ops-map'],
-    queryFn: fetchOpsMap,
-    refetchInterval: 15_000,
-  });
+  const { isConfigured, isLoaded } = useGoogleMaps();
+  const { data, isLoading, refetch, isFetching } = useOperationsMapQuery(15_000);
 
   return (
     <DashboardShell title="Operations Map">
@@ -185,7 +116,11 @@ export function OperationsMapContent() {
               <Legend color="#8b5cf6" label="Exclusive territory" />
               <Legend color="#6366f1" label="Shared territory" />
             </div>
-            <OpsSvgMap data={data} />
+            {isConfigured && isLoaded ? (
+              <OpsMapOverlay data={data} showFranchise />
+            ) : (
+              <OpsSvgMap data={data} />
+            )}
             {(data.franchiseTerritories ?? []).length > 0 && (
               <Panel title="Franchise territories">
                 <ul className="space-y-1 text-sm">

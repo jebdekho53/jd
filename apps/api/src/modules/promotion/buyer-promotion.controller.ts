@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -8,6 +8,7 @@ import { RequestUser } from '../../common/types';
 import { ApiTags as Tags } from '../../common/constants';
 import { CartService } from '../cart/cart.service';
 import { PromotionCartService } from './promotion-cart.service';
+import { OfferEngineService } from './offer-engine.service';
 import { ApplyCouponDto } from './dto/promotion.dto';
 
 @ApiTags(Tags.BUYERS)
@@ -19,6 +20,7 @@ export class BuyerPromotionController {
   constructor(
     private readonly cartService: CartService,
     private readonly promoCart: PromotionCartService,
+    private readonly offers: OfferEngineService,
   ) {}
 
   @Post('cart/coupon/validate')
@@ -47,6 +49,22 @@ export class BuyerPromotionController {
     await this.promoCart.removeCoupon(user.id);
     await this.cartService.invalidateCache(user.id);
     const data = await this.cartService.getCart(user.id);
+    return { success: true, data };
+  }
+
+  @Get('offers/recommended')
+  @ApiOperation({ summary: 'Personalized offers for the authenticated buyer' })
+  async recommended(
+    @CurrentUser() user: RequestUser,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+  ) {
+    const buyerProfileId = await this.cartService.getBuyerProfileId(user.id);
+    const data = await this.offers.getPersonalizedOffers(
+      buyerProfileId,
+      lat ? Number(lat) : undefined,
+      lng ? Number(lng) : undefined,
+    );
     return { success: true, data };
   }
 }

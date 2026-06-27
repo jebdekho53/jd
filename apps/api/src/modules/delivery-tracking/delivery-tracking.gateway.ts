@@ -1,36 +1,81 @@
-import { Logger } from '@nestjs/common';
+import { ForbiddenException, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
   ConnectedSocket,
   MessageBody,
+  OnGatewayConnection,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { WsAuthService } from '../../common/websocket/ws-auth.service';
+import { wsGatewayCorsOptions } from '../../common/websocket/ws-cors.util';
+import type { RequestUser } from '../../common/types';
+import { DeliveryTrackingService } from './delivery-tracking.service';
 import { TRACKING_EVENTS, orderRoom, trackingRoom, type TrackingNamespace } from './delivery-tracking.events';
 
+interface AuthenticatedSocket extends Socket {
+  data: Socket['data'] & { user?: RequestUser };
+}
+
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: wsGatewayCorsOptions(),
   namespace: '/tracking',
 })
-export class DeliveryTrackingGateway {
+export class DeliveryTrackingGateway implements OnGatewayConnection {
   private readonly logger = new Logger(DeliveryTrackingGateway.name);
+
+  constructor(
+    private readonly wsAuth: WsAuthService,
+    private readonly tracking: DeliveryTrackingService,
+  ) {}
 
   @WebSocketServer()
   server!: Server;
 
+  handleConnection(client: AuthenticatedSocket): void {
+    const user = this.wsAuth.authenticateSocket(client);
+    if (!user) {
+      this.logger.warn(`Rejected unauthenticated tracking socket ${client.id}`);
+      client.disconnect(true);
+      return;
+    }
+    client.data.user = user;
+  }
+
   @SubscribeMessage('subscribe')
-  handleSubscribe(
-    @ConnectedSocket() client: Socket,
+  async handleSubscribe(
+    @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() data: { namespace: TrackingNamespace; id: string; orderId?: string },
   ) {
+    const user = client.data.user;
+    if (!user) {
+      return { error: 'Unauthorized' };
+    }
+
+    if (!data?.namespace || !data?.id) {
+      return { error: 'Invalid subscription payload' };
+    }
+
+    try {
+      await this.tracking.assertSubscribeAccess(user, data);
+    } catch (err) {
+      const message = err instanceof ForbiddenException ? err.message : 'Access denied';
+      this.logger.warn(
+        `Tracking subscribe denied for user ${user.id} namespace=${data.namespace}`,
+      );
+      return { error: message };
+    }
+
     const room = trackingRoom(data.namespace, data.id);
     client.join(room);
     if (data.orderId) {
       client.join(orderRoom(data.orderId));
     }
-    this.logger.debug(`Client ${client.id} joined ${room}${data.orderId ? ` + ${orderRoom(data.orderId)}` : ''}`);
+    this.logger.debug(
+      `Client ${client.id} joined ${room}${data.orderId ? ` + ${orderRoom(data.orderId)}` : ''}`,
+    );
     return { subscribed: room, orderId: data.orderId ?? null };
   }
 

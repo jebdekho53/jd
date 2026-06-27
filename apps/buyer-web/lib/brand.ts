@@ -7,6 +7,8 @@ const PWA_ICON_SIZES = [72, 96, 128, 144, 152, 180, 192, 256, 384, 512] as const
 export const BRAND_ICONS = {
   icon: [
     { url: '/favicon.ico', sizes: '48x48' },
+    { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
     ...PWA_ICON_SIZES.map((s) => ({
       url: `/pwa/icons/icon-${s}.png`,
       sizes: `${s}x${s}`,

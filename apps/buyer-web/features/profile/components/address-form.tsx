@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { AddressLabel, ProfileAddress, UpsertAddressInput } from '@/features/profile/types';
+import { BuyerAddressPicker, type AddressLocationValue } from '@/components/google-maps/buyer-address-picker';
 import { cn } from '@/lib/utils';
 
 const LABELS: AddressLabel[] = ['Home', 'Work', 'Other'];
@@ -27,11 +28,40 @@ export function AddressForm({
   const [landmark, setLandmark] = useState(initial?.landmark ?? '');
   const [pincode, setPincode] = useState(initial?.pincode ?? '');
   const [city, setCity] = useState(initial?.city ?? '');
+  const [lat, setLat] = useState(initial?.lat ?? 28.6139);
+  const [lng, setLng] = useState(initial?.lng ?? 77.209);
+  const [locality, setLocality] = useState(initial?.city ?? '');
   const [isDefault, setIsDefault] = useState(initial?.isDefault ?? false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  const handleLocationChange = (selection: AddressLocationValue) => {
+    setLocality(selection.locality);
+    setCity(selection.city);
+    setPincode(selection.pincode);
+    setLat(selection.lat);
+    setLng(selection.lng);
+    setLocationError(null);
+    if (selection.line1 && !line1) setLine1(selection.line1);
+    if (selection.line2 && !line2) setLine2(selection.line2);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ label, line1, line2: line2 || undefined, landmark: landmark || undefined, pincode, city: city || undefined, isDefault });
+    if (!pincode || pincode.length !== 6) {
+      setLocationError('Select a valid address with 6-digit pincode');
+      return;
+    }
+    onSubmit({
+      label,
+      line1,
+      line2: line2 || undefined,
+      landmark: landmark || undefined,
+      pincode,
+      city: city || undefined,
+      lat,
+      lng,
+      isDefault,
+    });
   };
 
   return (
@@ -58,6 +88,14 @@ export function AddressForm({
           ))}
         </div>
       </fieldset>
+
+      <BuyerAddressPicker
+        value={{ locality, city, state: '', pincode, lat, lng }}
+        onChange={handleLocationChange}
+        onLine1Suggestion={setLine1}
+        error={locationError ?? undefined}
+        searchLabel="Search address"
+      />
 
       <div className="space-y-3">
         <label className="block">
@@ -93,20 +131,19 @@ export function AddressForm({
             <span className="mb-1 block text-xs font-medium text-jd-text-muted">Pincode</span>
             <input
               required
+              readOnly
               pattern="[0-9]{6}"
               maxLength={6}
               value={pincode}
-              onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
-              className="w-full rounded-xl border border-border/60 bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="w-full rounded-xl border border-border/60 bg-muted/40 px-3 py-2.5 text-sm outline-none"
             />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-jd-text-muted">City</span>
             <input
+              readOnly
               value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="City"
-              className="w-full rounded-xl border border-border/60 bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="w-full rounded-xl border border-border/60 bg-muted/40 px-3 py-2.5 text-sm outline-none"
             />
           </label>
         </div>

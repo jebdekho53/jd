@@ -1,0 +1,496 @@
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  DeliveryProviderType,
+  DeliveryStatus,
+  DomainEventType,
+  OrderActorType,
+  OrderStatus,
+  Prisma,
+  ShipmentProviderStatus,
+} from '@prisma/client';
+import { PrismaService } from '../../database/prisma.service';
+import { safeDistanceKm } from '../../common/utils/delivery-eta.util';
+import { DomainEventsService } from '../domain-events/domain-events.service';
+import { OrderStatusHistoryService } from '../order/order-status-history.service';
+import { OrderCacheService } from '../order/order-cache.service';
+import type { CreateShipmentInput } from './interfaces/logistics-provider.interface';
+import { LogisticsProviderRegistry } from './logistics-provider.registry';
+import { LOGISTICS_EVENTS, LOGISTICS_RETRY_MAX } from './logistics.constants';
+import { LogisticsProviderError } from './errors/logistics.errors';
+import { normalizedToDeliveryStatus } from './mappers/shadowfax-status.mapper';
+import { maskSensitivePayload } from './utils/mask-sensitive.util';
+
+const PROVIDER_NAMES: Record<DeliveryProviderType, string> = {
+  [DeliveryProviderType.SHADOWFAX]: 'Shadowfax',
+  [DeliveryProviderType.PORTER]: 'Porter',
+  [DeliveryProviderType.DELHIVERY]: 'Delhivery',
+  [DeliveryProviderType.BORZO]: 'Borzo',
+  [DeliveryProviderType.OWN_FLEET]: 'JebDekho Riders',
+};
+
+@Injectable()
+export class DeliveryOrchestratorService {
+  private readonly logger = new Logger(DeliveryOrchestratorService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly registry: LogisticsProviderRegistry,
+    private readonly domainEvents: DomainEventsService,
+    private readonly statusHistory: OrderStatusHistoryService,
+    private readonly orderCache: OrderCacheService,
+    private readonly events: EventEmitter2,
+    private readonly config: ConfigService,
+  ) {}
+
+  async dispatchShipment(orderId: string, attempt = 1): Promise<{
+    shipmentId: string;
+    deliveryId: string;
+    trackingNumber: string;
+    estimatedEtaMins: number | null;
+  }> {
+    const existing = await this.prisma.providerShipment.findUnique({
+      where: { orderId },
+      select: { id: true, externalShipmentId: true, trackingNumber: true, deliveryId: true, estimatedEtaMins: true },
+    });
+    if (existing?.externalShipmentId) {
+      return {
+        shipmentId: existing.id,
+        deliveryId: existing.deliveryId!,
+        trackingNumber: existing.trackingNumber ?? existing.externalShipmentId,
+        estimatedEtaMins: existing.estimatedEtaMins,
+      };
+    }
+
+    const providerType = this.registry.primaryType;
+    if (providerType === DeliveryProviderType.OWN_FLEET) {
+      throw new BadRequestException('Own fleet dispatch must use RiderAssignmentService');
+    }
+
+    const providerRecord = await this.ensureProviderRecord(providerType);
+    const provider = this.registry.get(providerType);
+    const input = await this.buildShipmentInput(orderId);
+
+    try {
+      const result = await provider.createShipment(input);
+      const deliveryStatus = normalizedToDeliveryStatus(result.normalizedStatus);
+
+      const delivery = await this.prisma.delivery.upsert({
+        where: { orderId },
+        create: {
+          orderId,
+          status: deliveryStatus === DeliveryStatus.PENDING ? DeliveryStatus.ASSIGNED : deliveryStatus,
+          pickupLat: input.pickup.lat,
+          pickupLng: input.pickup.lng,
+          deliveryLat: input.dropoff.lat,
+          deliveryLng: input.dropoff.lng,
+          distanceKm: safeDistanceKm(input.pickup.lat, input.pickup.lng, input.dropoff.lat, input.dropoff.lng),
+          estimatedMins: result.estimatedEtaMins ?? null,
+          estimatedArrivalAt: result.estimatedArrivalAt ?? null,
+          assignedAt: new Date(),
+          assignedBy: 'logistics-orchestrator',
+        },
+        update: {
+          status: deliveryStatus === DeliveryStatus.PENDING ? DeliveryStatus.ASSIGNED : deliveryStatus,
+          estimatedMins: result.estimatedEtaMins ?? null,
+          estimatedArrivalAt: result.estimatedArrivalAt ?? null,
+        },
+      });
+
+      const shipment = await this.prisma.providerShipment.create({
+        data: {
+          orderId,
+          deliveryId: delivery.id,
+          providerId: providerRecord.id,
+          providerType,
+          externalShipmentId: result.externalShipmentId,
+          trackingNumber: result.trackingNumber,
+          normalizedStatus: result.normalizedStatus,
+          providerStatus: result.providerStatus,
+          estimatedEtaMins: result.estimatedEtaMins,
+          estimatedArrivalAt: result.estimatedArrivalAt,
+          deliveryCost: result.deliveryCost != null ? new Prisma.Decimal(result.deliveryCost) : null,
+          driverName: result.driverName,
+          driverPhone: result.driverPhone,
+          vehicleType: result.vehicleType,
+          labelUrl: result.labelUrl,
+          rawResponse: maskSensitivePayload(result.rawResponse ?? {}) as Prisma.InputJsonValue,
+        },
+      });
+
+      await this.prisma.providerTrackingEvent.create({
+        data: {
+          shipmentId: shipment.id,
+          providerStatus: result.providerStatus,
+          normalizedStatus: result.normalizedStatus,
+          description: 'Shipment created',
+          rawPayload: maskSensitivePayload(result.rawResponse ?? {}) as Prisma.InputJsonValue,
+        },
+      });
+
+      await this.statusHistory.transition({
+        orderId,
+        toStatus: OrderStatus.RIDER_ASSIGNED,
+        actorType: OrderActorType.SYSTEM,
+        actorId: 'logistics-orchestrator',
+        note: `Shipment created via ${PROVIDER_NAMES[providerType]}`,
+      });
+
+      void this.domainEvents.emit(
+        DomainEventType.RIDER_ASSIGNED,
+        'provider_shipment',
+        shipment.id,
+        {
+          orderId,
+          providerType,
+          trackingNumber: result.trackingNumber,
+        } as Prisma.InputJsonValue,
+      );
+      this.events.emit(LOGISTICS_EVENTS.SHIPMENT_CREATED, { orderId, shipmentId: shipment.id, providerType });
+
+      void this.orderCache.invalidateAll(orderId);
+
+      return {
+        shipmentId: shipment.id,
+        deliveryId: delivery.id,
+        trackingNumber: result.trackingNumber,
+        estimatedEtaMins: result.estimatedEtaMins ?? null,
+      };
+    } catch (err) {
+      const retryable = err instanceof LogisticsProviderError && err.retryable;
+      this.logger.error({ orderId, providerType, attempt, err }, 'Shipment creation failed');
+
+      await this.prisma.providerShipment.upsert({
+        where: { orderId },
+        create: {
+          orderId,
+          providerId: providerRecord.id,
+          providerType,
+          normalizedStatus: ShipmentProviderStatus.FAILED,
+          retryCount: attempt,
+          lastError: err instanceof Error ? err.message : 'Unknown error',
+        },
+        update: {
+          retryCount: attempt,
+          lastError: err instanceof Error ? err.message : 'Unknown error',
+          normalizedStatus: ShipmentProviderStatus.FAILED,
+        },
+      });
+
+      this.events.emit(LOGISTICS_EVENTS.SHIPMENT_FAILED, { orderId, providerType, attempt, err });
+
+      if (retryable && attempt < LOGISTICS_RETRY_MAX) {
+        return this.dispatchShipment(orderId, attempt + 1);
+      }
+      throw err;
+    }
+  }
+
+  async retryShipment(orderId: string): Promise<{
+    shipmentId: string;
+    deliveryId: string;
+    trackingNumber: string;
+    estimatedEtaMins: number | null;
+  }> {
+    const shipment = await this.prisma.providerShipment.findUnique({ where: { orderId } });
+    if (shipment?.externalShipmentId) {
+      throw new BadRequestException('Shipment already exists — cancel before retrying');
+    }
+    if (shipment) {
+      await this.prisma.providerShipment.delete({ where: { id: shipment.id } });
+    }
+    return this.dispatchShipment(orderId);
+  }
+
+  async cancelShipment(orderId: string, reason?: string): Promise<void> {
+    const shipment = await this.prisma.providerShipment.findUnique({ where: { orderId } });
+    if (!shipment?.externalShipmentId) {
+      throw new NotFoundException('No active provider shipment for this order');
+    }
+
+    const provider = this.registry.get(shipment.providerType);
+    await provider.cancelShipment(shipment.externalShipmentId, reason);
+
+    await this.prisma.$transaction([
+      this.prisma.providerShipment.update({
+        where: { id: shipment.id },
+        data: {
+          normalizedStatus: ShipmentProviderStatus.CANCELLED,
+          providerStatus: 'cancelled',
+          cancelledAt: new Date(),
+        },
+      }),
+      ...(shipment.deliveryId
+        ? [
+            this.prisma.delivery.update({
+              where: { id: shipment.deliveryId },
+              data: { status: DeliveryStatus.CANCELLED },
+            }),
+          ]
+        : []),
+    ]);
+  }
+
+  async syncShipmentTracking(orderId: string): Promise<void> {
+    const shipment = await this.prisma.providerShipment.findUnique({
+      where: { orderId },
+      include: { delivery: true },
+    });
+    if (!shipment?.externalShipmentId) return;
+
+    const provider = this.registry.get(shipment.providerType);
+    const track = await provider.trackShipment(shipment.externalShipmentId);
+    await this.applyStatusUpdate(shipment.id, track.providerStatus, track.normalizedStatus, {
+      driverName: track.driverName,
+      driverPhone: track.driverPhone,
+      vehicleType: track.vehicleType,
+      estimatedEtaMins: track.estimatedEtaMins,
+      estimatedArrivalAt: track.estimatedArrivalAt,
+      lat: track.lat,
+      lng: track.lng,
+      rawPayload: track.rawResponse,
+    });
+  }
+
+  async applyStatusUpdate(
+    shipmentId: string,
+    providerStatus: string,
+    normalizedStatus: ShipmentProviderStatus,
+    extras?: {
+      driverName?: string;
+      driverPhone?: string;
+      vehicleType?: string;
+      estimatedEtaMins?: number;
+      estimatedArrivalAt?: Date;
+      lat?: number;
+      lng?: number;
+      rawPayload?: unknown;
+      podUrl?: string;
+    },
+  ): Promise<void> {
+    const shipment = await this.prisma.providerShipment.findUnique({
+      where: { id: shipmentId },
+      include: { delivery: true, order: { select: { id: true, status: true } } },
+    });
+    if (!shipment) return;
+
+    if (shipment.normalizedStatus === normalizedStatus && !extras?.driverName) return;
+
+    const deliveryStatus = normalizedToDeliveryStatus(normalizedStatus);
+
+    await this.prisma.$transaction([
+      this.prisma.providerShipment.update({
+        where: { id: shipmentId },
+        data: {
+          providerStatus,
+          normalizedStatus,
+          driverName: extras?.driverName ?? undefined,
+          driverPhone: extras?.driverPhone ?? undefined,
+          vehicleType: extras?.vehicleType ?? undefined,
+          estimatedEtaMins: extras?.estimatedEtaMins ?? undefined,
+          estimatedArrivalAt: extras?.estimatedArrivalAt ?? undefined,
+          podUrl: extras?.podUrl ?? undefined,
+          deliveredAt:
+            normalizedStatus === ShipmentProviderStatus.DELIVERED ? new Date() : undefined,
+        },
+      }),
+      ...(shipment.deliveryId
+        ? [
+            this.prisma.delivery.update({
+              where: { id: shipment.deliveryId },
+              data: {
+                status: deliveryStatus,
+                estimatedMins: extras?.estimatedEtaMins ?? undefined,
+                estimatedArrivalAt: extras?.estimatedArrivalAt ?? undefined,
+                pickedUpAt:
+                  normalizedStatus === ShipmentProviderStatus.PICKED_UP ? new Date() : undefined,
+                deliveredAt:
+                  normalizedStatus === ShipmentProviderStatus.DELIVERED ? new Date() : undefined,
+                deliveryProofUrl: extras?.podUrl ?? undefined,
+              },
+            }),
+          ]
+        : []),
+      this.prisma.providerTrackingEvent.create({
+        data: {
+          shipmentId,
+          providerStatus,
+          normalizedStatus,
+          description: providerStatus,
+          lat: extras?.lat,
+          lng: extras?.lng,
+          rawPayload: maskSensitivePayload(extras?.rawPayload ?? {}) as Prisma.InputJsonValue,
+        },
+      }),
+    ]);
+
+    await this.syncOrderStatus(shipment.orderId, normalizedStatus);
+    void this.orderCache.invalidateAll(shipment.orderId);
+    this.events.emit(LOGISTICS_EVENTS.SHIPMENT_STATUS_UPDATED, {
+      orderId: shipment.orderId,
+      shipmentId,
+      normalizedStatus,
+    });
+  }
+
+  private async syncOrderStatus(orderId: string, status: ShipmentProviderStatus): Promise<void> {
+    const target = this.orderStatusForShipment(status);
+    if (!target) return;
+    await this.statusHistory.transition({
+      orderId,
+      toStatus: target,
+      actorType: OrderActorType.SYSTEM,
+      actorId: 'logistics-orchestrator',
+      note: `Provider status: ${status}`,
+      skipIfAlreadyStatus: true,
+    });
+  }
+
+  private orderStatusForShipment(status: ShipmentProviderStatus): OrderStatus | null {
+    switch (status) {
+      case ShipmentProviderStatus.ASSIGNED:
+      case ShipmentProviderStatus.PICKUP_STARTED:
+        return OrderStatus.RIDER_ASSIGNED;
+      case ShipmentProviderStatus.PICKED_UP:
+        return OrderStatus.PICKED_UP;
+      case ShipmentProviderStatus.IN_TRANSIT:
+      case ShipmentProviderStatus.NEARBY:
+        return OrderStatus.OUT_FOR_DELIVERY;
+      case ShipmentProviderStatus.DELIVERED:
+        return OrderStatus.DELIVERED;
+      case ShipmentProviderStatus.FAILED:
+        return OrderStatus.DELIVERY_FAILED;
+      case ShipmentProviderStatus.CANCELLED:
+        return OrderStatus.CANCELLED_BY_MERCHANT;
+      default:
+        return null;
+    }
+  }
+
+  private async ensureProviderRecord(type: DeliveryProviderType) {
+    return this.prisma.deliveryProvider.upsert({
+      where: { type },
+      create: {
+        type,
+        name: PROVIDER_NAMES[type],
+        isActive: true,
+        isPrimary: type === this.registry.primaryType,
+      },
+      update: {
+        isPrimary: type === this.registry.primaryType,
+      },
+    });
+  }
+
+  private async buildShipmentInput(orderId: string): Promise<CreateShipmentInput> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        store: {
+          select: {
+            name: true,
+            phone: true,
+            line1: true,
+            line2: true,
+            pincode: true,
+            latitude: true,
+            longitude: true,
+            city: { select: { name: true } },
+          },
+        },
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    const addr = order.deliveryAddress as Record<string, string>;
+    const codAmount =
+      order.paymentMethod === 'COD' ? Number(order.totalAmount) : undefined;
+
+    return {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      pickup: {
+        name: order.store.name,
+        phone: order.store.phone ?? '0000000000',
+        line1: order.store.line1,
+        line2: order.store.line2 ?? undefined,
+        city: order.store.city.name,
+        pincode: order.store.pincode,
+        lat: order.store.latitude,
+        lng: order.store.longitude,
+      },
+      dropoff: {
+        name: addr.name ?? addr.recipientName ?? 'Customer',
+        phone: addr.phone ?? addr.mobile ?? '0000000000',
+        line1: addr.line1 ?? addr.addressLine1 ?? 'Address',
+        line2: addr.line2 ?? addr.addressLine2 ?? undefined,
+        city: addr.city ?? 'City',
+        state: addr.state ?? undefined,
+        pincode: addr.pincode ?? addr.postalCode ?? '000000',
+        lat: order.deliveryLat,
+        lng: order.deliveryLng,
+      },
+      codAmount,
+    };
+  }
+
+  async getDashboardStats() {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const [todayCount, delivered, failed, avgCost, avgEta, webhookFailures, unhealthy] =
+      await Promise.all([
+        this.prisma.providerShipment.count({ where: { createdAt: { gte: startOfDay } } }),
+        this.prisma.providerShipment.count({
+          where: { createdAt: { gte: startOfDay }, normalizedStatus: ShipmentProviderStatus.DELIVERED },
+        }),
+        this.prisma.providerShipment.count({
+          where: {
+            createdAt: { gte: startOfDay },
+            normalizedStatus: { in: [ShipmentProviderStatus.FAILED, ShipmentProviderStatus.CANCELLED] },
+          },
+        }),
+        this.prisma.providerShipment.aggregate({
+          where: { createdAt: { gte: startOfDay }, deliveryCost: { not: null } },
+          _avg: { deliveryCost: true },
+        }),
+        this.prisma.providerShipment.aggregate({
+          where: { createdAt: { gte: startOfDay }, estimatedEtaMins: { not: null } },
+          _avg: { estimatedEtaMins: true },
+        }),
+        this.prisma.providerWebhook.count({
+          where: { createdAt: { gte: startOfDay }, status: 'FAILED' },
+        }),
+        this.prisma.providerHealth.findFirst({
+          where: { providerType: this.registry.primaryType },
+          orderBy: { lastCheckedAt: 'desc' },
+        }),
+      ]);
+
+    const retryQueue = await this.prisma.providerShipment.count({
+      where: {
+        externalShipmentId: null,
+        normalizedStatus: ShipmentProviderStatus.FAILED,
+        retryCount: { lt: LOGISTICS_RETRY_MAX },
+      },
+    });
+
+    return {
+      activeProvider: this.registry.primaryType,
+      todayShipments: todayCount,
+      successRate: todayCount > 0 ? delivered / todayCount : 0,
+      failureRate: todayCount > 0 ? failed / todayCount : 0,
+      averageDeliveryCost: avgCost._avg.deliveryCost ? Number(avgCost._avg.deliveryCost) : null,
+      averageEtaMins: avgEta._avg.estimatedEtaMins,
+      webhookFailures,
+      providerHealth: unhealthy,
+      retryQueue,
+    };
+  }
+}

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { BuyerModule } from '../buyer/buyer.module';
+import { CartModule } from '../cart/cart.module';
 import { MerchantDashboardModule } from '../merchant-dashboard/merchant-dashboard.module';
 import { AdsModule } from '../ads/ads.module';
 import { SeoModule } from '../seo/seo.module';
@@ -11,7 +12,7 @@ import { AdminSearchAnalyticsController } from './admin-search-analytics.control
 import { MerchantSearchInsightsController } from './merchant-search-insights.controller';
 
 @Module({
-  imports: [BuyerModule, MerchantDashboardModule, AdsModule, SeoModule],
+  imports: [BuyerModule, CartModule, MerchantDashboardModule, AdsModule, SeoModule],
   controllers: [
     BuyerSearchController,
     BuyerDiscoverController,

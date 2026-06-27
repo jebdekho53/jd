@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Clock, MapPin, Star, Store } from 'lucide-react';
 import { BottomSheet } from '@/design-system/primitives';
+import { GoogleStoreMap, useGoogleMaps } from '@jebdekho/google-maps';
 import type { MapStorePin } from '@/services/geo/map-api';
 
 interface StoreMapProps {
@@ -37,7 +38,7 @@ function project(
   };
 }
 
-export function StoreMap({
+function SvgStoreMap({
   buyerLat,
   buyerLng,
   stores,
@@ -106,6 +107,30 @@ export function StoreMap({
       </svg>
     </div>
   );
+}
+
+export function StoreMap(props: StoreMapProps) {
+  const { isConfigured, isLoaded } = useGoogleMaps();
+  if (isConfigured && isLoaded) {
+    return (
+      <GoogleStoreMap
+        buyerLat={props.buyerLat}
+        buyerLng={props.buyerLng}
+        className={props.className}
+        onSelectStore={
+          props.onSelectStore
+            ? (store) => {
+                const match = props.stores.find((s) => s.id === store.id);
+                if (match) props.onSelectStore?.(match);
+              }
+            : undefined
+        }
+        selectedStoreId={props.selectedStoreId}
+        stores={props.stores.map((s) => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng }))}
+      />
+    );
+  }
+  return <SvgStoreMap {...props} />;
 }
 
 export function StoreMapList({

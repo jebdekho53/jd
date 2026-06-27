@@ -1846,6 +1846,7 @@ model Order {
   fulfillmentOrders FulfillmentOrder[]
   fulfillmentAudits FulfillmentAudit[]
   deliveryBatchItem DeliveryBatchItem?
+  providerShipment  ProviderShipment?
   adConversions     AdConversion[]
   membershipUsages  MembershipUsage[]
   corporatePurchaseRequests PurchaseRequest[]
@@ -1973,6 +1974,7 @@ model Delivery {
   assignments  DeliveryAssignment[]
   trackingPoints DeliveryTracking[]
   riderPayoutItems RiderPayoutItem[]
+  providerShipment ProviderShipment?
 
   @@index([riderProfileId, status])
   @@index([status])
@@ -6165,4 +6167,160 @@ model EmailLog {
   @@index([recipient, createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
   @@map("email_logs")
+}
+
+// =============================================================================
+// THIRD-PARTY LOGISTICS (Shadowfax, Porter, etc.)
+// =============================================================================
+
+enum DeliveryProviderType {
+  SHADOWFAX
+  PORTER
+  DELHIVERY
+  BORZO
+  OWN_FLEET
+}
+
+enum ShipmentProviderStatus {
+  PENDING
+  ASSIGNED
+  PICKUP_STARTED
+  PICKED_UP
+  IN_TRANSIT
+  NEARBY
+  DELIVERED
+  FAILED
+  RETURNED
+  CANCELLED
+}
+
+enum ProviderWebhookStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+  DUPLICATE
+}
+
+model DeliveryProvider {
+  id        String               @id @default(cuid())
+  type      DeliveryProviderType @unique
+  name      String
+  isActive  Boolean              @default(true) @map("is_active")
+  isPrimary Boolean              @default(false) @map("is_primary")
+  config    Json?
+  createdAt DateTime             @default(now()) @map("created_at")
+  updatedAt DateTime             @updatedAt @map("updated_at")
+
+  shipments ProviderShipment[]
+  webhooks  ProviderWebhook[]
+  health    ProviderHealth[]
+
+  @@map("delivery_providers")
+}
+
+model ProviderShipment {
+  id                 String                 @id @default(cuid())
+  orderId            String                 @unique @map("order_id")
+  deliveryId         String?                @unique @map("delivery_id")
+  providerId         String                 @map("provider_id")
+  providerType       DeliveryProviderType   @map("provider_type")
+  externalShipmentId String?                @map("external_shipment_id")
+  trackingNumber     String?                @map("tracking_number")
+  normalizedStatus   ShipmentProviderStatus @default(PENDING) @map("normalized_status")
+  providerStatus     String?                @map("provider_status")
+  estimatedEtaMins   Int?                   @map("estimated_eta_mins")
+  estimatedArrivalAt DateTime?              @map("estimated_arrival_at")
+  deliveryCost       Decimal?               @map("delivery_cost") @db.Decimal(10, 2)
+  driverName         String?                @map("driver_name")
+  driverPhone        String?                @map("driver_phone")
+  vehicleType        String?                @map("vehicle_type")
+  labelUrl           String?                @map("label_url")
+  podUrl             String?                @map("pod_url")
+  rawResponse        Json?                  @map("raw_response")
+  retryCount         Int                    @default(0) @map("retry_count")
+  lastError          String?                @map("last_error") @db.Text
+  cancelledAt        DateTime?              @map("cancelled_at")
+  deliveredAt        DateTime?              @map("delivered_at")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+
+  order    Order            @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  delivery Delivery?        @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+  provider DeliveryProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  events   ProviderTrackingEvent[]
+
+  @@index([providerType, normalizedStatus])
+  @@index([externalShipmentId])
+  @@index([trackingNumber])
+  @@index([createdAt(sort: Desc)])
+  @@map("provider_shipments")
+}
+
+model ProviderWebhook {
+  id           String                @id @default(cuid())
+  providerId   String                @map("provider_id")
+  providerType DeliveryProviderType  @map("provider_type")
+  eventId      String?               @map("event_id")
+  payload      Json
+  signature    String?
+  status       ProviderWebhookStatus @default(RECEIVED)
+  errorMessage String?               @map("error_message") @db.Text
+  processedAt  DateTime?             @map("processed_at")
+  createdAt    DateTime              @default(now()) @map("created_at")
+
+  provider DeliveryProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@unique([providerType, eventId])
+  @@index([providerId, status, createdAt(sort: Desc)])
+  @@map("provider_webhooks")
+}
+
+model ProviderTrackingEvent {
+  id               String                 @id @default(cuid())
+  shipmentId       String                 @map("shipment_id")
+  providerStatus   String?                @map("provider_status")
+  normalizedStatus ShipmentProviderStatus @map("normalized_status")
+  description      String?
+  lat              Float?
+  lng              Float?
+  occurredAt       DateTime               @default(now()) @map("occurred_at")
+  rawPayload       Json?                  @map("raw_payload")
+  createdAt        DateTime               @default(now()) @map("created_at")
+
+  shipment ProviderShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId, occurredAt(sort: Desc)])
+  @@map("provider_tracking_events")
+}
+
+model ProviderRateCard {
+  id           String               @id @default(cuid())
+  providerType DeliveryProviderType @map("provider_type")
+  zoneCode     String?              @map("zone_code")
+  baseFee      Decimal              @map("base_fee") @db.Decimal(10, 2)
+  perKmFee     Decimal?             @map("per_km_fee") @db.Decimal(10, 2)
+  currency     String               @default("INR")
+  isActive     Boolean              @default(true) @map("is_active")
+  metadata     Json?
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+
+  @@index([providerType, isActive])
+  @@map("provider_rate_cards")
+}
+
+model ProviderHealth {
+  id           String               @id @default(cuid())
+  providerId   String               @map("provider_id")
+  providerType DeliveryProviderType @map("provider_type")
+  isHealthy    Boolean              @default(true) @map("is_healthy")
+  latencyMs    Int?                 @map("latency_ms")
+  lastCheckedAt DateTime            @default(now()) @map("last_checked_at")
+  lastError    String?              @map("last_error") @db.Text
+  metadata     Json?
+
+  provider DeliveryProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerType, lastCheckedAt(sort: Desc)])
+  @@map("provider_health")
 }

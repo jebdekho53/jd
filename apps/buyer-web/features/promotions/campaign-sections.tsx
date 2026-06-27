@@ -6,6 +6,7 @@ import { SectionHeader } from '@/components/v2/section-header';
 import { HorizontalCarousel } from '@/components/v2/horizontal-carousel';
 import { getFlashSales, getOffersNearYou, getRecommendedOffers } from '@/services/promotions/promotions-api';
 import { useEffectiveLocation } from '@/store/location-store';
+import { useAuthStore } from '@/store/auth-store';
 
 function Countdown({ expiresAt }: { expiresAt: string }) {
   const end = new Date(expiresAt).getTime();
@@ -81,14 +82,15 @@ export function OffersNearYouSection() {
   );
 }
 
-export function RecommendedDealsSection({ buyerProfileId }: { buyerProfileId?: string }) {
+export function RecommendedDealsSection() {
   const { lat, lng } = useEffectiveLocation();
+  const { isAuthenticated } = useAuthStore();
   const { data: deals = [] } = useQuery({
-    queryKey: ['offers', 'recommended', buyerProfileId, lat, lng],
-    queryFn: () => getRecommendedOffers(buyerProfileId!, lat ?? undefined, lng ?? undefined),
-    enabled: Boolean(buyerProfileId),
+    queryKey: ['offers', 'recommended', lat, lng],
+    queryFn: () => getRecommendedOffers(lat ?? undefined, lng ?? undefined),
+    enabled: isAuthenticated,
   });
-  if (!buyerProfileId || deals.length === 0) return null;
+  if (!isAuthenticated || deals.length === 0) return null;
 
   return (
     <section>

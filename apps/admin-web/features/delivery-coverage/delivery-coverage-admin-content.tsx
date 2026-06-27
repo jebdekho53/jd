@@ -5,9 +5,14 @@ import { useQuery } from '@tanstack/react-query';
 import { MapPin } from 'lucide-react';
 import { adminFetch } from '@/services/api/admin-client';
 import { Input, Button } from '@/design-system';
+import { OpsMapOverlay } from '@/features/maps/ops-map-overlay';
+import { useOperationsMapQuery } from '@/features/maps/use-operations-map';
+import { useGoogleMaps } from '@jebdekho/google-maps';
 
 export function DeliveryCoverageAdminContent() {
   const [pincode, setPincode] = useState('');
+  const { isConfigured, isLoaded } = useGoogleMaps();
+  const { data: opsMap } = useOperationsMapQuery(60_000);
 
   const { data: overview } = useQuery({
     queryKey: ['admin', 'delivery-coverage', 'overview'],
@@ -59,6 +64,13 @@ export function DeliveryCoverageAdminContent() {
         <HeatList title="Top covered areas" items={o?.topCoveredAreas ?? []} />
         <HeatList title="Least covered areas" items={o?.leastCoveredAreas ?? []} />
       </div>
+
+      {opsMap && isConfigured && isLoaded && (
+        <div className="rounded-xl border bg-white p-4">
+          <h3 className="mb-3 font-medium">Store coverage map</h3>
+          <OpsMapOverlay data={opsMap} showRiders={false} showUnassigned={false} showZones />
+        </div>
+      )}
 
       <div className="rounded-xl border bg-white p-4">
         <div className="flex gap-2">

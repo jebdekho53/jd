@@ -5,6 +5,7 @@ import { BRAND_LOGO_SRC, BRAND_NAME, BRAND_TAGLINE, BRAND_ICONS } from '@/lib/br
 import { PWA_THEME_COLOR, PWA_BACKGROUND_COLOR } from '@/lib/pwa/constants';
 import { APPLE_SPLASH_LINKS } from '@/lib/pwa/apple-splash';
 import { QueryProvider } from '@/components/providers/query-provider';
+import { GoogleMapsProvider } from '@/components/providers/google-maps-provider';
 import { PwaProvider } from '@/components/pwa/pwa-provider';
 import './globals.css';
 
@@ -75,7 +76,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${inter.variable} pwa-root`}>
         <QueryProvider>
-          <PwaProvider>{children}</PwaProvider>
+          <GoogleMapsProvider>
+            <PwaProvider>{children}</PwaProvider>
+          </GoogleMapsProvider>
         </QueryProvider>
       </body>
     </html>

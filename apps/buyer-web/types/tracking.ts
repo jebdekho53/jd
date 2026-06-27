@@ -27,4 +27,22 @@ export interface LiveTrackingData {
   trackingActive: boolean;
   progressStage: string;
   updatedAt: string;
+  provider?: {
+    type: string;
+    name: string;
+    trackingNumber: string | null;
+    normalizedStatus: string;
+    normalizedStatusLabel?: string;
+    badgeLabel?: string;
+    driverName?: string | null;
+    driverPhone?: string | null;
+    vehicleType?: string | null;
+  };
+  providerTimeline?: Array<{
+    status: string;
+    label: string;
+    description?: string | null;
+    occurredAt: string;
+  }>;
+  hasLiveProviderLocation?: boolean;
 }

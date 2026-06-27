@@ -1,0 +1,16 @@
+{
+  "name": "@jebdekho/google-maps",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "peerDependencies": {
+    "@react-google-maps/api": ">=2.20.0",
+    "lucide-react": ">=0.400.0",
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@types/google.maps": "^3.58.1",
+    "@types/react": "~19.1.17"
+  }
+}

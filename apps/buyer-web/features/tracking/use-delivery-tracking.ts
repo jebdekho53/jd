@@ -33,12 +33,23 @@ export function useDeliveryTracking(orderId: string, orderStatus?: string) {
 
     (async () => {
       try {
+        const tokenRes = await fetch('/api/auth/ws-token', { credentials: 'include' });
+        if (cancelled || !tokenRes.ok) return;
+
+        const tokenJson = (await tokenRes.json()) as {
+          success?: boolean;
+          data?: { token?: string };
+        };
+        const token = tokenJson.data?.token;
+        if (!token || cancelled) return;
+
         const { io } = await import('socket.io-client');
         if (cancelled) return;
 
         const socket = io(`${trackingWsBase()}/tracking`, {
           transports: ['websocket', 'polling'],
           reconnection: true,
+          auth: { token },
         });
 
         socketRef.current = socket;
