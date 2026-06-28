@@ -1,4 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
+import type {
+  ClaimApprovalMode,
+  ClaimProofRequirement,
+  ClaimRefundMethod,
+  PreparedFoodPolicy,
+  ReturnClaimReason,
+} from '@prisma/client';
 import { GstSlab } from '@prisma/client';
 import {
   IsArray,
@@ -18,12 +25,12 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
-  ClaimApprovalMode,
-  ClaimProofRequirement,
-  ClaimRefundMethod,
-  PreparedFoodPolicy,
-  ReturnClaimReason,
-} from '@prisma/client';
+  ClaimApprovalModeEnum,
+  ClaimProofRequirementEnum,
+  ClaimRefundMethodEnum,
+  PreparedFoodPolicyEnum,
+  ReturnClaimReasonEnum,
+} from '../../../common/constants/claim-policy.enums';
 
 const SKU_REGEX = /^[A-Za-z0-9_-]{2,50}$/;
 
@@ -254,14 +261,14 @@ export class CreateProductDto {
   @Min(1)
   returnWindowHours?: number;
 
-  @ApiProperty({ required: false, enum: ClaimApprovalMode })
+  @ApiProperty({ required: false, enum: ClaimApprovalModeEnum })
   @IsOptional()
-  @IsEnum(ClaimApprovalMode)
+  @IsEnum(ClaimApprovalModeEnum)
   approvalMode?: ClaimApprovalMode;
 
-  @ApiProperty({ required: false, enum: ClaimProofRequirement })
+  @ApiProperty({ required: false, enum: ClaimProofRequirementEnum })
   @IsOptional()
-  @IsEnum(ClaimProofRequirement)
+  @IsEnum(ClaimProofRequirementEnum)
   proofRequired?: ClaimProofRequirement;
 
   @ApiProperty({ required: false })
@@ -270,10 +277,10 @@ export class CreateProductDto {
   @Min(0)
   autoApproveBelowAmount?: number;
 
-  @ApiProperty({ required: false, enum: ReturnClaimReason, isArray: true })
+  @ApiProperty({ required: false, enum: ReturnClaimReasonEnum, isArray: true })
   @IsOptional()
   @IsArray()
-  @IsEnum(ReturnClaimReason, { each: true })
+  @IsEnum(ReturnClaimReasonEnum, { each: true })
   returnReasons?: ReturnClaimReason[];
 
   @ApiProperty({ required: false })
@@ -282,9 +289,9 @@ export class CreateProductDto {
   @Min(0)
   restockingFee?: number;
 
-  @ApiProperty({ required: false, enum: ClaimRefundMethod })
+  @ApiProperty({ required: false, enum: ClaimRefundMethodEnum })
   @IsOptional()
-  @IsEnum(ClaimRefundMethod)
+  @IsEnum(ClaimRefundMethodEnum)
   refundMethod?: ClaimRefundMethod;
 
   @ApiProperty({ required: false })
@@ -299,9 +306,9 @@ export class CreateProductDto {
   @Length(0, 5000)
   replacementPolicyText?: string;
 
-  @ApiProperty({ required: false, enum: PreparedFoodPolicy })
+  @ApiProperty({ required: false, enum: PreparedFoodPolicyEnum })
   @IsOptional()
-  @IsEnum(PreparedFoodPolicy)
+  @IsEnum(PreparedFoodPolicyEnum)
   preparedFoodPolicy?: PreparedFoodPolicy;
 
   @ApiProperty({ required: false, default: false })

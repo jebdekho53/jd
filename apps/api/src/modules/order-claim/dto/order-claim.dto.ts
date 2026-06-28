@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
+import type {
   OrderClaimStatus,
   OrderClaimType,
   ReturnClaimReason,
@@ -19,6 +19,11 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import {
+  OrderClaimStatusEnum,
+  OrderClaimTypeEnum,
+  ReturnClaimReasonEnum,
+} from '../../../common/constants/claim-policy.enums';
 
 export class ClaimItemDto {
   @ApiProperty()
@@ -42,12 +47,12 @@ export class ClaimEvidenceDto {
 }
 
 export class CreateOrderClaimDto {
-  @ApiProperty({ enum: OrderClaimType })
-  @IsEnum(OrderClaimType)
+  @ApiProperty({ enum: OrderClaimTypeEnum })
+  @IsEnum(OrderClaimTypeEnum)
   claimType: OrderClaimType;
 
-  @ApiProperty({ enum: ReturnClaimReason })
-  @IsEnum(ReturnClaimReason)
+  @ApiProperty({ enum: ReturnClaimReasonEnum })
+  @IsEnum(ReturnClaimReasonEnum)
   reason: ReturnClaimReason;
 
   @ApiPropertyOptional()
@@ -79,14 +84,14 @@ export class CreateOrderClaimDto {
 }
 
 export class ListMerchantClaimsDto {
-  @ApiPropertyOptional({ enum: OrderClaimStatus })
+  @ApiPropertyOptional({ enum: OrderClaimStatusEnum })
   @IsOptional()
-  @IsEnum(OrderClaimStatus)
+  @IsEnum(OrderClaimStatusEnum)
   status?: OrderClaimStatus;
 
-  @ApiPropertyOptional({ enum: OrderClaimType })
+  @ApiPropertyOptional({ enum: OrderClaimTypeEnum })
   @IsOptional()
-  @IsEnum(OrderClaimType)
+  @IsEnum(OrderClaimTypeEnum)
   claimType?: OrderClaimType;
 
   @ApiPropertyOptional()

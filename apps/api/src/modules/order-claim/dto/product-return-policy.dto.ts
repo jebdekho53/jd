@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
+import type {
   ClaimApprovalMode,
   ClaimProofRequirement,
   ClaimRefundMethod,
@@ -18,6 +18,13 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import {
+  ClaimApprovalModeEnum,
+  ClaimProofRequirementEnum,
+  ClaimRefundMethodEnum,
+  PreparedFoodPolicyEnum,
+  ReturnClaimReasonEnum,
+} from '../../../common/constants/claim-policy.enums';
 
 export class ProductReturnPolicyDto {
   @ApiPropertyOptional({ default: false })
@@ -41,14 +48,14 @@ export class ProductReturnPolicyDto {
   @Min(1)
   returnWindowHours?: number;
 
-  @ApiPropertyOptional({ enum: ClaimApprovalMode })
+  @ApiPropertyOptional({ enum: ClaimApprovalModeEnum })
   @IsOptional()
-  @IsEnum(ClaimApprovalMode)
+  @IsEnum(ClaimApprovalModeEnum)
   approvalMode?: ClaimApprovalMode;
 
-  @ApiPropertyOptional({ enum: ClaimProofRequirement })
+  @ApiPropertyOptional({ enum: ClaimProofRequirementEnum })
   @IsOptional()
-  @IsEnum(ClaimProofRequirement)
+  @IsEnum(ClaimProofRequirementEnum)
   proofRequired?: ClaimProofRequirement;
 
   @ApiPropertyOptional()
@@ -57,10 +64,10 @@ export class ProductReturnPolicyDto {
   @Min(0)
   autoApproveBelowAmount?: number;
 
-  @ApiPropertyOptional({ enum: ReturnClaimReason, isArray: true })
+  @ApiPropertyOptional({ enum: ReturnClaimReasonEnum, isArray: true })
   @IsOptional()
   @IsArray()
-  @IsEnum(ReturnClaimReason, { each: true })
+  @IsEnum(ReturnClaimReasonEnum, { each: true })
   returnReasons?: ReturnClaimReason[];
 
   @ApiPropertyOptional()
@@ -69,9 +76,9 @@ export class ProductReturnPolicyDto {
   @Min(0)
   restockingFee?: number;
 
-  @ApiPropertyOptional({ enum: ClaimRefundMethod })
+  @ApiPropertyOptional({ enum: ClaimRefundMethodEnum })
   @IsOptional()
-  @IsEnum(ClaimRefundMethod)
+  @IsEnum(ClaimRefundMethodEnum)
   refundMethod?: ClaimRefundMethod;
 
   @ApiPropertyOptional()
@@ -86,9 +93,9 @@ export class ProductReturnPolicyDto {
   @Length(0, 5000)
   replacementPolicyText?: string;
 
-  @ApiPropertyOptional({ enum: PreparedFoodPolicy })
+  @ApiPropertyOptional({ enum: PreparedFoodPolicyEnum })
   @IsOptional()
-  @IsEnum(PreparedFoodPolicy)
+  @IsEnum(PreparedFoodPolicyEnum)
   preparedFoodPolicy?: PreparedFoodPolicy;
 
   @ApiPropertyOptional({ default: false })

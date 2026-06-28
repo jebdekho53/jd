@@ -19,13 +19,17 @@ if (
   node -e "
     try {
       const c = require('@prisma/client');
-      if (!c.OrderClaimStatus) {
-        console.log('WARN: @prisma/client is stale — run: pnpm db:generate (then rebuild API)');
+      const keys = ['OrderClaimStatus', 'ClaimApprovalMode'];
+      const missing = keys.filter((k) => !c[k]);
+      if (missing.length) {
+        console.log('WARN: @prisma/client missing:', missing.join(', '), '— run pnpm db:generate');
         process.exit(0);
       }
-      console.log('OK: OrderClaimStatus enum present in Prisma client');
+      console.log('OK: OrderClaim + ClaimApprovalMode enums in Prisma client');
+      require('./dist/modules/product/dto/create-product.dto');
+      console.log('OK: create-product.dto loads from dist');
     } catch (e) {
-      console.log('WARN: cannot load @prisma/client:', e.message);
+      console.log('WARN: DTO/Prisma load failed:', e.message);
     }
   "
 ); then

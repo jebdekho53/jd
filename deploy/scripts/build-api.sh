@@ -23,4 +23,15 @@ if [[ ! -f apps/api/dist/main.js ]]; then
   exit 1
 fi
 
+echo "==> Verify claim-policy DTOs load (IsEnum boot check)"
+(
+  cd "${ROOT}/apps/api"
+  node -e "
+    require('./dist/modules/product/dto/create-product.dto');
+    require('./dist/modules/order-claim/dto/order-claim.dto');
+    console.log('OK: claim policy DTOs load without Prisma enum crash');
+  "
+)
+
 echo "==> API build OK — reload with: pm2 reload jebdekho-api --update-env"
+echo "    Then wait ~5s and: curl http://127.0.0.1:\${API_PORT:-3001}/health"
