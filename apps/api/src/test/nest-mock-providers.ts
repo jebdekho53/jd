@@ -33,6 +33,7 @@ export const checkoutServiceMocks = {
   corporateApproval: stub({ markApproved: jest.fn() }),
   emailNotifications: stub({ sendOrderConfirmation: jest.fn().mockResolvedValue(undefined) }),
   buyerPush: stub({ notifyOrderPlaced: jest.fn().mockResolvedValue(undefined) }),
+  deliveryDispatch: stub({ dispatchAfterOrderPlaced: jest.fn().mockResolvedValue(null) }),
 };
 
 export const orderServiceMocks = {
@@ -42,6 +43,7 @@ export const orderServiceMocks = {
       deliveryId: 'del1',
       riderProfileId: 'rp1',
     }),
+    dispatchAfterOrderPlaced: jest.fn().mockResolvedValue(null),
   }),
   rewards: stub({
     creditPointsForOrder: jest.fn(),

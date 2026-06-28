@@ -40,6 +40,7 @@ import { PurchaseRequestStatus } from '@prisma/client';
 import { EmailNotificationService } from '../email/email-notification.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 import { LocationDirectoryService } from '../location-directory/location-directory.service';
+import { DeliveryDispatchService } from '../logistics/delivery-dispatch.service';
 
 const CHECKOUT_TTL_MINUTES = 15;
 
@@ -74,6 +75,7 @@ export class CheckoutService {
     private readonly emailNotifications: EmailNotificationService,
     private readonly locations: LocationDirectoryService,
     private readonly buyerPush: BuyerPushNotificationService,
+    private readonly deliveryDispatch: DeliveryDispatchService,
   ) {}
 
   // ── Initiate checkout (Razorpay / online payment) ──────────────────────────
@@ -90,6 +92,11 @@ export class CheckoutService {
 
     await this.validateCartForCheckout(cart);
     await this.validateDeliveryAddress(dto.deliveryAddress);
+    if (!dto.payerContact?.name?.trim() || !dto.payerContact?.email?.trim() || !dto.payerContact?.phone?.trim()) {
+      throw new BadRequestException(
+        'Payer contact (name, email, and phone) is required for online payment',
+      );
+    }
     await this.geospatial.validateCheckoutLocation(
       cart.storeId,
       dto.deliveryAddress.lat,
@@ -123,6 +130,7 @@ export class CheckoutService {
       promo: cart.totals.promo,
       appliedCouponCode: cart.appliedCouponCode,
       corporatePurchaseRequestId: dto.corporatePurchaseRequestId,
+      payerContact: dto.payerContact,
     });
 
     const address = dto.deliveryAddress;
@@ -407,6 +415,8 @@ export class CheckoutService {
     void this.buyerPush.notifyOrderPlaced(order.id).catch(() => {});
 
     void this.orderCache.invalidateAll(order.id);
+
+    this.scheduleRiderDispatch(order.id);
 
     return { orderId: order.id, orderNumber: order.orderNumber, status: order.status };
   }
@@ -807,6 +817,12 @@ export class CheckoutService {
     await this.prisma.purchaseRequest.update({
       where: { id: requestId },
       data: { status: PurchaseRequestStatus.APPROVED },
+    });
+  }
+
+  private scheduleRiderDispatch(orderId: string): void {
+    void this.deliveryDispatch.dispatchAfterOrderPlaced(orderId).catch((err) => {
+      this.logger.error({ orderId, err }, 'Rider dispatch failed after order placed');
     });
   }
 }

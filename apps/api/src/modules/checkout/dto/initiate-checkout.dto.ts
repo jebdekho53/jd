@@ -10,6 +10,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { PayerContactDto } from './payer-contact.dto';
 
 export class DeliveryAddressDto {
   @ApiProperty({ example: '42 MG Road' })
@@ -96,4 +97,10 @@ export class InitiateCheckoutDto {
   @IsOptional()
   @IsString()
   corporatePurchaseRequestId?: string;
+
+  @ApiProperty({ type: PayerContactDto, required: false, description: 'Required for Razorpay prefill and receipts' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PayerContactDto)
+  payerContact?: PayerContactDto;
 }

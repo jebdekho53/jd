@@ -5,16 +5,16 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { AIProductAnalysisStatus, MerchantAiCreditTransactionStatus, MerchantAiCreditTransactionType } from '@prisma/client';
+import { AIProductAnalysisStatus, MerchantAiWalletTransactionStatus, MerchantAiWalletTransactionType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { MerchantService } from '../merchant/merchant.service';
-import { UploadService } from '../upload/upload.service';
-import { UploadImagePurpose } from '../upload/dto/upload-image.dto';
 import { CategoryService } from './category.service';
 import { ProductService } from './product.service';
 import { ProductDuplicateService } from './product-duplicate.service';
 import { MerchantAiBillingService } from './merchant-ai-billing.service';
+import { MerchantAiWalletService } from './merchant-ai-wallet.service';
+import { AiProductImageService } from './ai-product-image.service';
 import { OpenAiVisionClient } from './openai-vision.client';
 import { ConfirmAiProductDto } from './dto/product-ai.dto';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -31,16 +31,19 @@ export class ProductAiService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly merchantService: MerchantService,
-    private readonly uploadService: UploadService,
+    private readonly imageService: AiProductImageService,
     private readonly visionClient: OpenAiVisionClient,
     private readonly billing: MerchantAiBillingService,
+    private readonly wallet: MerchantAiWalletService,
     private readonly productService: ProductService,
     private readonly categoryService: CategoryService,
     private readonly duplicateService: ProductDuplicateService,
     private readonly audit: AuditService,
   ) {}
 
-  getAvailability() {
+  async getAvailability(userId: string) {
+    const profile = await this.merchantService.requireMerchantProfile(userId);
+    const wallet = await this.wallet.getOrCreateWallet(profile.id);
     return {
       available: this.visionClient.isConfigured(),
       message: this.visionClient.isConfigured()
@@ -48,6 +51,11 @@ export class ProductAiService {
         : AI_PRODUCT_UNAVAILABLE_MESSAGE,
       code: this.visionClient.isConfigured() ? null : AI_NOT_CONFIGURED_CODE,
       pricePaise: this.billing.getPricePaise(),
+      walletBalancePaise: wallet.balancePaise,
+      walletBalanceRupee: wallet.balancePaise / 100,
+      minimumRechargePaise: this.billing.getMinRechargePaise(),
+      minimumRechargeRupee: this.billing.getMinRechargePaise() / 100,
+      hasSufficientBalance: wallet.balancePaise >= this.billing.getPricePaise(),
     };
   }
 
@@ -57,16 +65,17 @@ export class ProductAiService {
     this.visionClient.assertConfigured();
     await this.billing.assertDailyAnalysisLimit(profile.id);
 
-    const { url: uploadedImageUrl } = await this.uploadService.uploadImage(
-      dataUrl,
-      UploadImagePurpose.AI_PRODUCT,
-    );
+    const images = await this.imageService.optimizeForAiAnalysis(dataUrl);
 
     const analysis = await this.prisma.aIProductAnalysis.create({
       data: {
         merchantProfileId: profile.id,
         storeId,
-        uploadedImageUrl,
+        uploadedImageUrl: images.optimizedUrl,
+        originalImageUrl: images.originalUrl,
+        optimizedImageUrl: images.optimizedUrl,
+        thumbnailImageUrl: images.thumbnailUrl,
+        aiAnalysisImageUrl: images.aiAnalysisUrl,
         status: AIProductAnalysisStatus.PROCESSING,
         chargeAmountPaise: this.billing.getPricePaise(),
       },
@@ -82,7 +91,7 @@ export class ProductAiService {
     });
 
     try {
-      const extracted = await this.visionClient.analyzeProductImage(uploadedImageUrl);
+      const extracted = await this.visionClient.analyzeProductImage(images.aiAnalysisUrl);
       const categoryMatch = await this.matchCategory(storeId, userId, extracted);
 
       const updated = await this.prisma.aIProductAnalysis.update({
@@ -163,6 +172,19 @@ export class ProductAiService {
       throw new BadRequestException('Analysis must be completed before confirmation');
     }
 
+    const extracted = (analysis.extractedJson ?? {}) as Record<string, unknown>;
+    const supplementBlocked =
+      Boolean(extracted.isSupplement) &&
+      (extracted.canPublishDirectly === false ||
+        extracted.labelReadable === false ||
+        (analysis.confidence ?? 0) < AI_LOW_CONFIDENCE_THRESHOLD);
+
+    if (dto.publish && supplementBlocked) {
+      throw new BadRequestException(
+        'Supplement label is not clear. Please upload a clearer front-label image or save as draft.',
+      );
+    }
+
     const confidence = analysis.confidence ?? 0;
     if (dto.publish && confidence < AI_LOW_CONFIDENCE_THRESHOLD) {
       throw new BadRequestException(
@@ -185,6 +207,8 @@ export class ProductAiService {
       profile.id,
       storeId,
       analysisId,
+      userId,
+      ipAddress,
     );
 
     await this.prisma.aIProductAnalysis.update({
@@ -198,13 +222,13 @@ export class ProductAiService {
       brand: dto.brand,
       sku: dto.sku,
       categoryId: dto.categoryId,
-      imageUrls: [analysis.uploadedImageUrl],
+      imageUrls: [analysis.optimizedImageUrl ?? analysis.uploadedImageUrl],
       basePrice: dto.basePrice,
       mrp: dto.mrp,
       unit: dto.unit ?? 'piece',
       quantity: dto.quantity ?? 0,
       tags: dto.tags,
-      ingredients: dto.ingredients,
+      ingredients: dto.ingredients ?? (extracted.ingredients as string | undefined) ?? undefined,
       shelfLife: dto.shelfLife,
       countryOfOrigin: dto.countryOfOrigin,
       manufacturerName: dto.manufacturerName,
@@ -275,6 +299,8 @@ export class ProductAiService {
         storeId,
         analysisId,
         (e as Error).message,
+        userId,
+        ipAddress,
       );
       throw e;
     }
@@ -352,8 +378,8 @@ export class ProductAiService {
     const where = { merchantProfileId: profile.id, storeId };
 
     const [transactions, total, debitAgg, refundAgg] = await Promise.all([
-      this.prisma.merchantAiCreditTransaction.findMany({
-        where,
+      this.prisma.merchantAiWalletTransaction.findMany({
+        where: { merchantProfileId: profile.id, storeId },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
@@ -368,52 +394,53 @@ export class ProductAiService {
           },
         },
       }),
-      this.prisma.merchantAiCreditTransaction.count({ where }),
-      this.prisma.merchantAiCreditTransaction.aggregate({
-        where: { ...where, type: MerchantAiCreditTransactionType.DEBIT, status: MerchantAiCreditTransactionStatus.SUCCESS },
+      this.prisma.merchantAiWalletTransaction.count({ where: { merchantProfileId: profile.id, storeId } }),
+      this.prisma.merchantAiWalletTransaction.aggregate({
+        where: {
+          merchantProfileId: profile.id,
+          storeId,
+          type: MerchantAiWalletTransactionType.DEBIT,
+          status: MerchantAiWalletTransactionStatus.SUCCESS,
+        },
         _sum: { amountPaise: true },
       }),
-      this.prisma.merchantAiCreditTransaction.aggregate({
-        where: { ...where, type: MerchantAiCreditTransactionType.REFUND, status: MerchantAiCreditTransactionStatus.REFUNDED },
+      this.prisma.merchantAiWalletTransaction.aggregate({
+        where: {
+          merchantProfileId: profile.id,
+          storeId,
+          type: MerchantAiWalletTransactionType.REFUND,
+          status: MerchantAiWalletTransactionStatus.REFUNDED,
+        },
         _sum: { amountPaise: true },
       }),
     ]);
 
-    const items = await Promise.all(
-      transactions.map(async (tx) => {
-        const refund = tx.type === MerchantAiCreditTransactionType.DEBIT
-          ? await this.prisma.merchantAiCreditTransaction.findFirst({
-              where: {
-                analysisId: tx.analysisId,
-                type: MerchantAiCreditTransactionType.REFUND,
-              },
-              orderBy: { createdAt: 'desc' },
-            })
-          : null;
+    const wallet = await this.wallet.getOrCreateWallet(profile.id);
 
-        const productName =
-          tx.analysis?.createdProduct?.name ??
-          ((tx.analysis?.extractedJson as Record<string, unknown> | null)?.name as string | undefined) ??
-          '—';
+    const items = transactions.map((tx) => {
+      const productName =
+        tx.analysis?.createdProduct?.name ??
+        ((tx.analysis?.extractedJson as Record<string, unknown> | null)?.name as string | undefined) ??
+        (tx.type === MerchantAiWalletTransactionType.RECHARGE ? 'Wallet recharge' : '—');
 
-        return {
-          analysisId: tx.analysisId,
-          productName,
-          amountPaise: tx.amountPaise,
-          amountRupee: tx.amountPaise / 100,
-          status: tx.status,
-          type: tx.type,
-          chargedAt: tx.type === MerchantAiCreditTransactionType.DEBIT ? tx.createdAt : null,
-          refundedAt: refund?.createdAt ?? null,
-          reason: tx.reason,
-          createdAt: tx.createdAt,
-        };
-      }),
-    );
+      return {
+        analysisId: tx.analysisId,
+        productName,
+        amountPaise: tx.amountPaise,
+        amountRupee: tx.amountPaise / 100,
+        status: tx.status,
+        type: tx.type,
+        chargedAt: tx.type === MerchantAiWalletTransactionType.DEBIT ? tx.createdAt : null,
+        refundedAt: tx.type === MerchantAiWalletTransactionType.REFUND ? tx.createdAt : null,
+        reason: tx.reason,
+        createdAt: tx.createdAt,
+      };
+    });
 
     return {
       items,
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      walletBalancePaise: wallet.balancePaise,
       summary: {
         grossRevenuePaise: debitAgg._sum.amountPaise ?? 0,
         refundedPaise: refundAgg._sum.amountPaise ?? 0,
@@ -489,6 +516,10 @@ export class ProductAiService {
       id: string;
       storeId: string;
       uploadedImageUrl: string;
+      originalImageUrl?: string | null;
+      optimizedImageUrl?: string | null;
+      thumbnailImageUrl?: string | null;
+      aiAnalysisImageUrl?: string | null;
       extractedJson: unknown;
       confidence: number | null;
       status: AIProductAnalysisStatus;
@@ -503,10 +534,17 @@ export class ProductAiService {
     const extracted = (analysis.extractedJson ?? {}) as Record<string, unknown>;
     const { categoryMatch: _cm, ...fields } = extracted;
 
+    const supplementBlocked =
+      Boolean(fields.isSupplement) &&
+      (fields.canPublishDirectly === false || fields.labelReadable === false);
+
     return {
       id: analysis.id,
       storeId: analysis.storeId,
       uploadedImageUrl: analysis.uploadedImageUrl,
+      originalImageUrl: analysis.originalImageUrl,
+      optimizedImageUrl: analysis.optimizedImageUrl,
+      thumbnailImageUrl: analysis.thumbnailImageUrl,
       extracted: fields,
       categoryMatch: categoryMatch ?? _cm ?? null,
       confidence: analysis.confidence,
@@ -518,9 +556,17 @@ export class ProductAiService {
       chargedAt: analysis.chargedAt,
       createdAt: analysis.createdAt,
       lowConfidence: (analysis.confidence ?? 0) < AI_LOW_CONFIDENCE_THRESHOLD,
-      publishBlocked: (analysis.confidence ?? 0) < AI_LOW_CONFIDENCE_THRESHOLD,
-      missingPrice:
-        fields.sellingPrice == null && fields.mrp == null,
+      publishBlocked:
+        (analysis.confidence ?? 0) < AI_LOW_CONFIDENCE_THRESHOLD || supplementBlocked,
+      supplementBlocked,
+      supplementWarning: supplementBlocked
+        ? 'Supplement label is not clear. Please upload a clearer front-label image or save as draft.'
+        : null,
+      missingPrice: fields.sellingPrice == null && fields.mrp == null,
+      isSupplement: Boolean(fields.isSupplement),
+      labelReadable: fields.labelReadable ?? null,
+      canPublishDirectly: fields.canPublishDirectly !== false && !supplementBlocked,
+      imageQualityScore: fields.imageQualityScore ?? null,
     };
   }
 }

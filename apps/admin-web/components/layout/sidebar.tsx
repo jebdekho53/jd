@@ -43,6 +43,7 @@ const NAV = [
   { href: '/catalog', label: 'Catalog', icon: FolderTree },
   { href: '/catalog/image-coverage', label: 'Image Coverage', icon: ImageIcon },
   { href: '/ai-product-usage', label: 'AI Product Usage', icon: Sparkles },
+  { href: '/merchant-ai-wallets', label: 'Merchant AI Wallets', icon: Sparkles },
   { href: '/category-requests', label: 'Category Requests', icon: Tags },
   { href: '/inventory', label: 'Inventory', icon: Shield },
   { href: '/orders', label: 'Orders', icon: ShoppingBag },

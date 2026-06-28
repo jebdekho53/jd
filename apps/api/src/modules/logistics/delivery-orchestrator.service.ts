@@ -27,6 +27,7 @@ import { LogisticsProviderError } from './errors/logistics.errors';
 import { normalizedToDeliveryStatus } from './mappers/shadowfax-status.mapper';
 import { maskSensitivePayload } from './utils/mask-sensitive.util';
 import { isDispatchPaymentCleared } from '../order/merchant-order-visibility.util';
+import { isDispatchEligibleOrderStatus } from './utils/dispatch-eligibility.util';
 
 const PROVIDER_NAMES: Record<DeliveryProviderType, string> = {
   [DeliveryProviderType.SHADOWFAX]: 'Shadowfax',
@@ -74,9 +75,9 @@ export class DeliveryOrchestratorService {
       select: { status: true, paymentMethod: true, paymentStatus: true },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (order.status !== OrderStatus.READY_FOR_PICKUP) {
+    if (!isDispatchEligibleOrderStatus(order.status)) {
       throw new BadRequestException(
-        `Cannot dispatch shipment: order must be READY_FOR_PICKUP (current: ${order.status})`,
+        `Cannot dispatch shipment: order status ${order.status} is not eligible for dispatch`,
       );
     }
     if (!isDispatchPaymentCleared(order.paymentMethod, order.paymentStatus)) {
@@ -444,6 +445,7 @@ export class DeliveryOrchestratorService {
     if (!order) throw new NotFoundException('Order not found');
 
     const addr = order.deliveryAddress as Record<string, string>;
+    const payerContact = await this.resolvePayerContact(orderId);
     const codAmount =
       order.paymentMethod === 'COD' ? Number(order.totalAmount) : undefined;
 
@@ -461,8 +463,8 @@ export class DeliveryOrchestratorService {
         lng: order.store.longitude,
       },
       dropoff: {
-        name: addr.name ?? addr.recipientName ?? 'Customer',
-        phone: addr.phone ?? addr.mobile ?? '0000000000',
+        name: payerContact?.name ?? addr.name ?? addr.recipientName ?? 'Customer',
+        phone: payerContact?.phone ?? addr.phone ?? addr.mobile ?? '0000000000',
         line1: addr.line1 ?? addr.addressLine1 ?? 'Address',
         line2: addr.line2 ?? addr.addressLine2 ?? undefined,
         city: addr.city ?? 'City',
@@ -473,6 +475,30 @@ export class DeliveryOrchestratorService {
       },
       codAmount,
     };
+  }
+
+  private async resolvePayerContact(
+    orderId: string,
+  ): Promise<{ name: string; phone: string } | null> {
+    const checkout = await this.prisma.checkout.findFirst({
+      where: { orderId },
+      select: { cartSnapshot: true },
+    });
+    if (!checkout?.cartSnapshot) return null;
+
+    try {
+      const snap =
+        typeof checkout.cartSnapshot === 'string'
+          ? (JSON.parse(checkout.cartSnapshot) as Record<string, unknown>)
+          : (checkout.cartSnapshot as Record<string, unknown>);
+      const raw = snap.payerContact as { name?: string; phone?: string } | undefined;
+      if (raw?.name?.trim() && raw?.phone?.trim()) {
+        return { name: raw.name.trim(), phone: raw.phone.replace(/\D/g, '').slice(-10) };
+      }
+    } catch {
+      return null;
+    }
+    return null;
   }
 
   async getDashboardStats() {

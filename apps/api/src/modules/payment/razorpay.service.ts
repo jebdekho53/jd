@@ -121,4 +121,16 @@ export class RazorpayService implements OnModuleInit {
       return false;
     }
   }
+
+  /** Fetch payments for a Razorpay order (server-side reconciliation). */
+  async fetchOrderPayments(
+    razorpayOrderId: string,
+  ): Promise<Array<{ id: string; status: string }>> {
+    if (!this.client) {
+      throw new Error('Razorpay is not configured');
+    }
+    const result = await this.client.orders.fetchPayments(razorpayOrderId);
+    const items = (result as { items?: Array<{ id: string; status: string }> }).items ?? [];
+    return items;
+  }
 }

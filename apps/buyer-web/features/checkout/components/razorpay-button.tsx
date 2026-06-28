@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/design-system/primitives';
-import { useCreateRazorpayOrderMutation, useVerifyPaymentMutation } from '@/hooks/use-checkout';
+import {
+  useCreateRazorpayOrderMutation,
+  useSyncPaymentMutation,
+  useVerifyPaymentMutation,
+} from '@/hooks/use-checkout';
 import { useToast } from '@/design-system/primitives';
 import {
   isStandalonePwa,
@@ -50,11 +54,49 @@ export function RazorpayButton({
 }: RazorpayButtonProps) {
   const createOrder = useCreateRazorpayOrderMutation();
   const verifyPayment = useVerifyPaymentMutation();
+  const syncPayment = useSyncPaymentMutation();
   const { toast } = useToast();
 
   useEffect(() => {
     loadRazorpayScript();
   }, []);
+
+  const confirmPayment = useCallback(
+    async (
+      response: {
+        razorpay_order_id: string;
+        razorpay_payment_id: string;
+        razorpay_signature: string;
+      },
+    ) => {
+      try {
+        const result = await verifyPayment.mutateAsync({
+          checkoutId,
+          razorpayOrderId: response.razorpay_order_id,
+          razorpayPaymentId: response.razorpay_payment_id,
+          razorpaySignature: response.razorpay_signature,
+        });
+        toast('Payment successful!', 'success');
+        onSuccess(result.orderId, result.orderNumber);
+        return;
+      } catch {
+        // Client verify can fail even when Razorpay captured — reconcile server-side
+        try {
+          const synced = await syncPayment.mutateAsync(checkoutId);
+          toast('Payment confirmed!', 'success');
+          onSuccess(synced.orderId, synced.orderNumber);
+          return;
+        } catch {
+          toast(
+            'Payment verification failed. If amount was deducted, check your orders in a minute or contact support.',
+            'error',
+          );
+          onFailure?.('Verification failed');
+        }
+      }
+    },
+    [checkoutId, verifyPayment, syncPayment, toast, onSuccess, onFailure],
+  );
 
   const handlePay = useCallback(async () => {
     const loaded = await loadRazorpayScript();
@@ -77,26 +119,6 @@ export function RazorpayButton({
       sessionStorage.setItem(RAZORPAY_CHECKOUT_SESSION_KEY, checkoutId);
     }
 
-    const modalHandler = async (response: {
-      razorpay_order_id: string;
-      razorpay_payment_id: string;
-      razorpay_signature: string;
-    }) => {
-      try {
-        const result = await verifyPayment.mutateAsync({
-          checkoutId,
-          razorpayOrderId: response.razorpay_order_id,
-          razorpayPaymentId: response.razorpay_payment_id,
-          razorpaySignature: response.razorpay_signature,
-        });
-        toast('Payment successful!', 'success');
-        onSuccess(result.orderId, result.orderNumber);
-      } catch {
-        toast('Payment verification failed. Contact support.', 'error');
-        onFailure?.('Verification failed');
-      }
-    };
-
     const rzp = new window.Razorpay({
       key: orderData.keyId,
       amount: orderData.amount,
@@ -106,6 +128,7 @@ export function RazorpayButton({
       description: `Order ${orderData.orderNumber}`,
       prefill: {
         name: orderData.buyerName,
+        email: orderData.buyerEmail,
         contact: orderData.buyerPhone,
       },
       theme: { color: '#16a34a' },
@@ -115,21 +138,20 @@ export function RazorpayButton({
             callback_url: razorpayCallbackUrl(),
           }
         : {
-            handler: modalHandler,
+            handler: confirmPayment,
           }),
       modal: {
         ondismiss: () => {
           if (!standalone) toast('Payment cancelled', 'info');
         },
-        // Avoid nested iframe issues on mobile installed apps
         ...(standalone ? {} : { confirm_close: true }),
       },
     });
 
     rzp.open();
-  }, [checkoutId, createOrder, verifyPayment, toast, onSuccess, onFailure]);
+  }, [checkoutId, createOrder, confirmPayment, toast, onFailure]);
 
-  const busy = createOrder.isPending || verifyPayment.isPending;
+  const busy = createOrder.isPending || verifyPayment.isPending || syncPayment.isPending;
   const autoOpenedRef = useRef(false);
 
   useEffect(() => {

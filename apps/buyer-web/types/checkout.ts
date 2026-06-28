@@ -11,11 +11,18 @@ export interface DeliveryAddress {
   locationCityId?: string;
 }
 
+export interface PayerContact {
+  name: string;
+  email: string;
+  phone: string;
+}
+
 export interface InitiateCheckoutPayload {
   deliveryAddress: DeliveryAddress;
   buyerNote?: string;
   walletAmountToUse?: number;
   rewardPointsToRedeem?: number;
+  payerContact?: PayerContact;
 }
 
 export interface CheckoutResult {
@@ -44,6 +51,7 @@ export interface RazorpayOrderResult {
   orderNumber: string;
   buyerName: string;
   buyerPhone: string;
+  buyerEmail: string;
 }
 
 export interface VerifyPaymentPayload {
@@ -56,7 +64,13 @@ export interface VerifyPaymentPayload {
 export interface VerifyPaymentResult {
   orderId: string;
   orderNumber: string;
-  totalAmount: number;
+  totalAmount?: number;
+}
+
+export interface SyncPaymentResult {
+  orderId: string;
+  orderNumber: string;
+  message?: string;
 }
 
 export type PaymentMethod = 'COD' | 'RAZORPAY';

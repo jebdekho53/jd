@@ -12,15 +12,18 @@ import { CouponPanel } from '@/features/checkout/components/coupon-panel';
 import { DeliverabilityPanel } from '@/features/checkout/components/deliverability-panel';
 import { WalletCheckoutPanel } from '@/features/checkout/components/wallet-checkout-panel';
 import { RazorpayButton } from '@/features/checkout/components/razorpay-button';
+import { PayerContactForm } from '@/features/checkout/components/payer-contact-form';
 import { PwaPaymentBanner } from '@/components/pwa/pwa-payment-banner';
 import { ActionBar, Button, Spinner } from '@/design-system/primitives';
 import { useCartQuery } from '@/hooks/use-cart';
 import { formatCurrency } from '@/lib/utils';
 import { getDefaultSavedDeliveryAddress } from '@/lib/saved-delivery-address';
 import { useInitiateCodCheckoutMutation, useInitiateCheckoutMutation } from '@/hooks/use-checkout';
+import { useProfileQuery } from '@/features/profile/hooks/use-profile';
 import { useCheckoutStore } from '@/store/checkout-store';
 import { useToast } from '@/design-system/primitives';
 import { SessionError } from '@/services/auth/auth-api';
+import type { PayerContact } from '@/types/checkout';
 
 export function CheckoutPageContent() {
   const router = useRouter();
@@ -46,8 +49,10 @@ export function CheckoutPageContent() {
 
   const initiateCod = useInitiateCodCheckoutMutation();
   const initiateOnline = useInitiateCheckoutMutation();
+  const { data: profile } = useProfileQuery();
   const [openRazorpayAfterInit, setOpenRazorpayAfterInit] = useState(false);
   const [checkoutReady, setCheckoutReady] = useState(false);
+  const [payerContact, setPayerContact] = useState<PayerContact | null>(null);
 
   useEffect(() => {
     const applySavedAddress = () => {
@@ -100,9 +105,16 @@ export function CheckoutPageContent() {
         toast(err instanceof SessionError ? err.message : 'Failed to place order', 'error');
       }
     } else {
+      if (!payerContact) {
+        toast('Enter your name, email, and mobile for payment', 'error');
+        return;
+      }
       setStep('processing');
       try {
-        const checkout = await initiateOnline.mutateAsync(payload);
+        const checkout = await initiateOnline.mutateAsync({
+          ...payload,
+          payerContact,
+        });
         const id = checkout.id || checkout.checkoutId;
         if (!id) {
           throw new SessionError('Checkout could not be started. Please try again.', 500);
@@ -135,6 +147,8 @@ export function CheckoutPageContent() {
 
   if (!cart || cart.items.length === 0) return null;
 
+  const onlinePayReady = paymentMethod !== 'RAZORPAY' || Boolean(payerContact);
+
   const renderPaymentCta = () =>
     paymentMethod === 'COD' ? (
       <Button
@@ -157,6 +171,7 @@ export function CheckoutPageContent() {
       <Button
         fullWidth
         loading={initiateOnline.isPending}
+        disabled={!onlinePayReady}
         onClick={handlePlaceOrder}
         className="text-base"
       >
@@ -241,6 +256,18 @@ export function CheckoutPageContent() {
                         }}
                       />
                     </div>
+
+                    {paymentMethod === 'RAZORPAY' && (
+                      <div className="mt-4">
+                        <PayerContactForm
+                          value={payerContact}
+                          onChange={setPayerContact}
+                          defaultName={profile?.displayName}
+                          defaultEmail={profile?.email}
+                          defaultPhone={profile?.phone}
+                        />
+                      </div>
+                    )}
 
                     <div className="mt-4">
                       <label

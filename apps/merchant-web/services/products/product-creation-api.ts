@@ -42,7 +42,11 @@ export interface AiAnalysisResult {
   createdAt: string;
   lowConfidence: boolean;
   publishBlocked?: boolean;
+  supplementBlocked?: boolean;
+  supplementWarning?: string | null;
   missingPrice: boolean;
+  optimizedImageUrl?: string | null;
+  canPublishDirectly?: boolean;
 }
 
 export interface AiChargeReceipt {
@@ -72,6 +76,11 @@ export interface AiAvailability {
   message: string | null;
   code: string | null;
   pricePaise: number;
+  walletBalancePaise?: number;
+  walletBalanceRupee?: number;
+  minimumRechargePaise?: number;
+  minimumRechargeRupee?: number;
+  hasSufficientBalance?: boolean;
 }
 
 export interface AiConfirmPayload extends Omit<CreateProductPayload, 'imageUrls'> {

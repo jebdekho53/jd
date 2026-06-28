@@ -6,6 +6,7 @@ import {
   getCheckoutStatus,
   initiateCodCheckout,
   initiateCheckout,
+  syncRazorpayPayment,
   verifyRazorpayPayment,
 } from '@/services/checkout/checkout-api';
 import { cartKeys } from '@/hooks/use-cart';
@@ -59,6 +60,18 @@ export function useVerifyPaymentMutation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: VerifyPaymentPayload) => verifyRazorpayPayment(payload),
+    onSuccess: () => {
+      qc.setQueryData(cartKeys.current(), null);
+      qc.invalidateQueries({ queryKey: orderKeys.all });
+      qc.invalidateQueries({ queryKey: profileKeys.stats() });
+    },
+  });
+}
+
+export function useSyncPaymentMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (checkoutId: string) => syncRazorpayPayment(checkoutId),
     onSuccess: () => {
       qc.setQueryData(cartKeys.current(), null);
       qc.invalidateQueries({ queryKey: orderKeys.all });

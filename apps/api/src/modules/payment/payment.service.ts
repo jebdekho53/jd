@@ -23,9 +23,11 @@ import { EmailNotificationService } from '../email/email-notification.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 import { OrderFinancialsService } from '../finance/order-financials.service';
 import { OrderCacheService } from '../order/order-cache.service';
+import { DeliveryDispatchService } from '../logistics/delivery-dispatch.service';
 import { RazorpayService } from './razorpay.service';
 import { CreateRazorpayOrderDto } from './dto/create-razorpay-order.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
+import { normalizePayerPhone } from '../checkout/dto/payer-contact.dto';
 
 @Injectable()
 export class PaymentService {
@@ -42,6 +44,7 @@ export class PaymentService {
     private readonly buyerPush: BuyerPushNotificationService,
     private readonly orderFinancials: OrderFinancialsService,
     private readonly orderCache: OrderCacheService,
+    private readonly deliveryDispatch: DeliveryDispatchService,
   ) {}
 
   // ── Create Razorpay order for a reserved checkout ─────────────────────────
@@ -56,7 +59,7 @@ export class PaymentService {
     }
 
     const checkout = await this.requireOwnedCheckout(userId, dto.checkoutId);
-    const buyer = await this.getBuyerContact(userId);
+    const buyer = await this.resolvePayerContact(checkout, userId);
 
     if (checkout.status !== CheckoutStatus.RESERVED) {
       throw new BadRequestException(
@@ -149,8 +152,14 @@ export class PaymentService {
     const checkout = await this.requireOwnedCheckout(userId, dto.checkoutId);
 
     if (checkout.status === CheckoutStatus.COMPLETED) {
-      // Replay protection: already processed
-      return { success: true, orderId: checkout.orderId, message: 'Payment already verified' };
+      const order = checkout.order;
+      if (!order) throw new NotFoundException('Order not found');
+      return {
+        success: true,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        message: 'Payment already verified',
+      };
     }
 
     if (checkout.status !== CheckoutStatus.RESERVED) {
@@ -178,92 +187,91 @@ export class PaymentService {
         where: { id: checkout.id, status: { not: CheckoutStatus.COMPLETED } },
         data: { status: CheckoutStatus.COMPLETED },
       });
-      return { success: true, orderId: checkout.order.id, message: 'Payment already processed' };
+      return {
+        success: true,
+        orderId: checkout.order.id,
+        orderNumber: checkout.order.orderNumber,
+        message: 'Payment already processed',
+      };
     }
 
-    // ── Confirm in a single transaction ──────────────────────────────────────
-    await this.prisma.$transaction(async (tx) => {
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: PaymentStatus.PAID,
-          razorpayPaymentId: dto.razorpayPaymentId,
-          razorpaySignature: dto.razorpaySignature,
-        },
-      });
-      await tx.checkout.update({
-        where: { id: checkout.id },
+    await this.finalizeOnlinePayment({
+      userId,
+      checkout,
+      payment,
+      razorpayPaymentId: dto.razorpayPaymentId,
+      razorpaySignature: dto.razorpaySignature,
+      ipAddress,
+      note: 'Payment verified',
+      auditAction: 'PAYMENT_VERIFIED',
+    });
+
+    return {
+      success: true,
+      orderId: checkout.order.id,
+      orderNumber: checkout.order.orderNumber,
+    };
+  }
+
+  /** Reconcile payment from Razorpay when client verify fails but money was captured. */
+  async syncCheckoutPayment(userId: string, checkoutId: string, ipAddress?: string) {
+    const checkout = await this.requireOwnedCheckout(userId, checkoutId);
+
+    if (checkout.status === CheckoutStatus.COMPLETED && checkout.order) {
+      return {
+        success: true,
+        orderId: checkout.order.id,
+        orderNumber: checkout.order.orderNumber,
+        message: 'Payment already verified',
+      };
+    }
+
+    if (checkout.status !== CheckoutStatus.RESERVED || !checkout.order) {
+      throw new BadRequestException(`Checkout is in status ${checkout.status} — cannot sync payment`);
+    }
+
+    const payment = await this.prisma.payment.findUnique({
+      where: { orderId: checkout.order.id },
+    });
+    if (!payment?.razorpayOrderId) {
+      throw new BadRequestException('No Razorpay payment found for this checkout');
+    }
+
+    if (payment.status === PaymentStatus.PAID) {
+      await this.prisma.checkout.updateMany({
+        where: { id: checkout.id, status: { not: CheckoutStatus.COMPLETED } },
         data: { status: CheckoutStatus.COMPLETED },
       });
-    });
-
-    await this.statusHistory.transition({
-      orderId: checkout.order!.id,
-      toStatus: OrderStatus.PAID,
-      actorType: OrderActorType.BUYER,
-      actorId: userId,
-      note: 'Payment verified',
-      extraOrderData: { paymentStatus: PaymentStatus.PAID },
-      skipIfAlreadyStatus: true,
-    });
-
-    // Stock remains reserved until delivery — no consumption on payment
-    if (checkout.order?.id) {
-      await this.reservationService.linkReservationsToOrder(checkout.id, checkout.order.id);
+      return {
+        success: true,
+        orderId: checkout.order.id,
+        orderNumber: checkout.order.orderNumber,
+        message: 'Payment already processed',
+      };
     }
 
-    await Promise.all([
-      this.audit.log({
-        actorId: userId,
-        action: 'PAYMENT_VERIFIED',
-        resourceType: 'payment',
-        resourceId: payment.id,
-        ipAddress,
-        metadata: {
-          razorpayPaymentId: dto.razorpayPaymentId,
-          orderId: checkout.order.id,
-        } as Prisma.InputJsonValue,
-      }),
-      this.audit.log({
-        actorId: userId,
-        action: 'ORDER_CREATED',
-        resourceType: 'order',
-        resourceId: checkout.order.id,
-        ipAddress,
-        metadata: { orderNumber: checkout.order.orderNumber } as Prisma.InputJsonValue,
-      }),
-      this.domainEvents.emit(
-        DomainEventType.PAYMENT_SUCCESS,
-        'payment',
-        payment.id,
-        { orderId: checkout.order.id, checkoutId: checkout.id },
-        { userId, ipAddress: ipAddress ?? null },
-      ),
-      this.domainEvents.emit(
-        DomainEventType.ORDER_CREATED,
-        'order',
-        checkout.order.id,
-        { orderNumber: checkout.order.orderNumber, storeId: checkout.storeId },
-        { userId, ipAddress: ipAddress ?? null },
-      ),
-    ]);
+    const remotePayments = await this.razorpay.fetchOrderPayments(payment.razorpayOrderId);
+    const captured = remotePayments.find((p) => p.status === 'captured');
+    if (!captured) {
+      throw new BadRequestException('Payment not captured on Razorpay yet');
+    }
 
-    this.logger.log(
-      { userId, orderId: checkout.order.id, razorpayPaymentId: dto.razorpayPaymentId },
-      'Payment verified, order confirmed',
-    );
-
-    void this.emailNotifications.sendOrderConfirmation(checkout.order!.id).catch((err) => {
-      this.logger.error({ err, orderId: checkout.order!.id }, 'Order confirmation email failed');
+    await this.finalizeOnlinePayment({
+      userId,
+      checkout,
+      payment,
+      razorpayPaymentId: captured.id,
+      ipAddress,
+      note: 'Payment synced from Razorpay',
+      auditAction: 'PAYMENT_SYNCED',
     });
-    void this.buyerPush.notifyOrderPlaced(checkout.order!.id).catch(() => {});
 
-    void this.orderFinancials.recordOnlinePaymentConfirmed(checkout.order.id).catch((err) => {
-      this.logger.warn(`Ledger payment confirm failed: ${(err as Error).message}`);
-    });
-    void this.orderCache.invalidateAll(checkout.order.id);
-
-    return { success: true, orderId: checkout.order.id, orderNumber: checkout.order.orderNumber };
+    return {
+      success: true,
+      orderId: checkout.order.id,
+      orderNumber: checkout.order.orderNumber,
+      message: 'Payment synced successfully',
+    };
   }
 
   // ── Razorpay webhook handler ───────────────────────────────────────────────
@@ -363,6 +371,7 @@ export class PaymentService {
     void this.emailNotifications.sendOrderConfirmation(payment.order.id).catch((err) => {
       this.logger.error({ err, orderId: payment.order.id }, 'Order confirmation email failed (webhook)');
     });
+    this.scheduleRiderDispatch(payment.order.id);
   }
 
   private async handlePaymentFailed(
@@ -421,10 +430,134 @@ export class PaymentService {
   private async getBuyerContact(userId: string) {
     const buyerProfile = await this.prisma.buyerProfile.findUnique({
       where: { userId },
-      select: { name: true, user: { select: { phone: true } } },
+      select: { name: true, user: { select: { phone: true, email: true } } },
     });
     if (!buyerProfile) throw new NotFoundException('Buyer profile not found');
-    return { name: buyerProfile.name, phone: buyerProfile.user.phone };
+    return {
+      name: buyerProfile.name,
+      phone: normalizePayerPhone(buyerProfile.user.phone),
+      email: buyerProfile.user.email ?? '',
+    };
+  }
+
+  private async resolvePayerContact(
+    checkout: { cartSnapshot: Prisma.JsonValue },
+    userId: string,
+  ): Promise<{ name: string; phone: string; email: string }> {
+    try {
+      const snap =
+        typeof checkout.cartSnapshot === 'string'
+          ? (JSON.parse(checkout.cartSnapshot) as Record<string, unknown>)
+          : (checkout.cartSnapshot as Record<string, unknown>);
+      const raw = snap?.payerContact as { name?: string; email?: string; phone?: string } | undefined;
+      if (raw?.name?.trim() && raw?.email?.trim() && raw?.phone?.trim()) {
+        return {
+          name: raw.name.trim(),
+          email: raw.email.trim().toLowerCase(),
+          phone: normalizePayerPhone(raw.phone),
+        };
+      }
+    } catch {
+      // fall through to profile contact
+    }
+    return this.getBuyerContact(userId);
+  }
+
+  private async finalizeOnlinePayment(opts: {
+    userId: string;
+    checkout: {
+      id: string;
+      storeId: string;
+      order: { id: string; orderNumber: string } | null;
+    };
+    payment: { id: string };
+    razorpayPaymentId: string;
+    razorpaySignature?: string;
+    ipAddress?: string;
+    note: string;
+    auditAction: 'PAYMENT_VERIFIED' | 'PAYMENT_SYNCED';
+  }) {
+    const order = opts.checkout.order;
+    if (!order) throw new NotFoundException('Order not found');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id: opts.payment.id },
+        data: {
+          status: PaymentStatus.PAID,
+          razorpayPaymentId: opts.razorpayPaymentId,
+          ...(opts.razorpaySignature ? { razorpaySignature: opts.razorpaySignature } : {}),
+        },
+      });
+      await tx.checkout.update({
+        where: { id: opts.checkout.id },
+        data: { status: CheckoutStatus.COMPLETED },
+      });
+    });
+
+    await this.statusHistory.transition({
+      orderId: order.id,
+      toStatus: OrderStatus.PAID,
+      actorType: OrderActorType.BUYER,
+      actorId: opts.userId,
+      note: opts.note,
+      extraOrderData: { paymentStatus: PaymentStatus.PAID },
+      skipIfAlreadyStatus: true,
+    });
+
+    await this.reservationService.linkReservationsToOrder(opts.checkout.id, order.id);
+
+    await Promise.all([
+      this.audit.log({
+        actorId: opts.userId,
+        action: opts.auditAction,
+        resourceType: 'payment',
+        resourceId: opts.payment.id,
+        ipAddress: opts.ipAddress,
+        metadata: {
+          razorpayPaymentId: opts.razorpayPaymentId,
+          orderId: order.id,
+        } as Prisma.InputJsonValue,
+      }),
+      this.audit.log({
+        actorId: opts.userId,
+        action: 'ORDER_CREATED',
+        resourceType: 'order',
+        resourceId: order.id,
+        ipAddress: opts.ipAddress,
+        metadata: { orderNumber: order.orderNumber } as Prisma.InputJsonValue,
+      }),
+      this.domainEvents.emit(
+        DomainEventType.PAYMENT_SUCCESS,
+        'payment',
+        opts.payment.id,
+        { orderId: order.id, checkoutId: opts.checkout.id },
+        { userId: opts.userId, ipAddress: opts.ipAddress ?? null },
+      ),
+      this.domainEvents.emit(
+        DomainEventType.ORDER_CREATED,
+        'order',
+        order.id,
+        { orderNumber: order.orderNumber, storeId: opts.checkout.storeId },
+        { userId: opts.userId, ipAddress: opts.ipAddress ?? null },
+      ),
+    ]);
+
+    this.logger.log(
+      { userId: opts.userId, orderId: order.id, razorpayPaymentId: opts.razorpayPaymentId },
+      opts.note,
+    );
+
+    void this.emailNotifications.sendOrderConfirmation(order.id).catch((err) => {
+      this.logger.error({ err, orderId: order.id }, 'Order confirmation email failed');
+    });
+    void this.buyerPush.notifyOrderPlaced(order.id).catch(() => {});
+
+    void this.orderFinancials.recordOnlinePaymentConfirmed(order.id).catch((err) => {
+      this.logger.warn(`Ledger payment confirm failed: ${(err as Error).message}`);
+    });
+    void this.orderCache.invalidateAll(order.id);
+    this.scheduleRiderDispatch(order.id);
   }
 
   private buildRazorpayOrderResponse(
@@ -436,7 +569,7 @@ export class PaymentService {
       } | null;
     },
     rzpOrder: { id: string; amount: number; currency: string },
-    buyer: { name: string; phone: string },
+    buyer: { name: string; phone: string; email: string },
   ) {
     if (!checkout.order) throw new NotFoundException('Order not found for this checkout');
 
@@ -450,6 +583,7 @@ export class PaymentService {
       currency: rzpOrder.currency,
       buyerName: buyer.name,
       buyerPhone: buyer.phone,
+      buyerEmail: buyer.email,
     };
   }
 
@@ -517,5 +651,11 @@ export class PaymentService {
     } catch {
       return null;
     }
+  }
+
+  private scheduleRiderDispatch(orderId: string): void {
+    void this.deliveryDispatch.dispatchAfterOrderPlaced(orderId).catch((err) => {
+      this.logger.error({ orderId, err }, 'Rider dispatch failed after payment');
+    });
   }
 }

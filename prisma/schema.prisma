@@ -680,6 +680,8 @@ model MerchantProfile {
   merchantApplication  MerchantApplication?
   aiProductAnalyses    AIProductAnalysis[]
   aiCreditTransactions MerchantAiCreditTransaction[]
+  aiWallet             MerchantAiWallet?
+  aiWalletTransactions MerchantAiWalletTransaction[]
 
   @@index([kycStatus])
   @@index([isBlacklisted])
@@ -1341,6 +1343,7 @@ model Store {
   merchantApplication    MerchantApplication?
   aiProductAnalyses      AIProductAnalysis[]
   aiCreditTransactions   MerchantAiCreditTransaction[]
+  aiWalletTransactions   MerchantAiWalletTransaction[]
 
   @@unique([merchantProfileId, slug])
   @@index([cityId, isActive])
@@ -6422,11 +6425,29 @@ enum MerchantAiCreditTransactionStatus {
   REFUNDED
 }
 
+enum MerchantAiWalletTransactionType {
+  RECHARGE
+  DEBIT
+  REFUND
+  ADJUSTMENT
+}
+
+enum MerchantAiWalletTransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
 model AIProductAnalysis {
   id                String                  @id @default(cuid())
   merchantProfileId String                  @map("merchant_profile_id")
   storeId           String                  @map("store_id")
   uploadedImageUrl  String                  @map("uploaded_image_url") @db.Text
+  originalImageUrl  String?                 @map("original_image_url") @db.Text
+  optimizedImageUrl String?                 @map("optimized_image_url") @db.Text
+  thumbnailImageUrl String?                 @map("thumbnail_image_url") @db.Text
+  aiAnalysisImageUrl String?                @map("ai_analysis_image_url") @db.Text
   extractedJson     Json?                   @map("extracted_json")
   confidence        Float?
   status            AIProductAnalysisStatus @default(PROCESSING)
@@ -6441,6 +6462,7 @@ model AIProductAnalysis {
   store           Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
   createdProduct  Product?        @relation(fields: [createdProductId], references: [id], onDelete: SetNull)
   creditTransactions MerchantAiCreditTransaction[]
+  walletTransactions MerchantAiWalletTransaction[]
 
   @@index([merchantProfileId, createdAt(sort: Desc)])
   @@index([storeId, status])
@@ -6468,4 +6490,46 @@ model MerchantAiCreditTransaction {
   @@index([storeId, type])
   @@index([analysisId])
   @@map("merchant_ai_credit_transactions")
+}
+
+model MerchantAiWallet {
+  id                 String   @id @default(cuid())
+  merchantProfileId  String   @unique @map("merchant_profile_id")
+  balancePaise       Int      @default(0) @map("balance_paise")
+  totalRechargedPaise Int     @default(0) @map("total_recharged_paise")
+  totalSpentPaise    Int      @default(0) @map("total_spent_paise")
+  totalRefundedPaise Int      @default(0) @map("total_refunded_paise")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  merchantProfile MerchantProfile @relation(fields: [merchantProfileId], references: [id], onDelete: Cascade)
+
+  @@map("merchant_ai_wallets")
+}
+
+model MerchantAiWalletTransaction {
+  id                String                            @id @default(cuid())
+  merchantProfileId String                            @map("merchant_profile_id")
+  storeId           String?                           @map("store_id")
+  analysisId        String?                           @map("analysis_id")
+  razorpayOrderId   String?                           @map("razorpay_order_id")
+  razorpayPaymentId String?                           @map("razorpay_payment_id")
+  type              MerchantAiWalletTransactionType
+  amountPaise       Int                               @map("amount_paise")
+  balanceBeforePaise Int                              @map("balance_before_paise")
+  balanceAfterPaise Int                               @map("balance_after_paise")
+  status            MerchantAiWalletTransactionStatus @default(PENDING)
+  reason            String?                           @db.Text
+  idempotencyKey    String                            @unique @map("idempotency_key")
+  createdAt         DateTime                          @default(now()) @map("created_at")
+
+  merchantProfile MerchantProfile    @relation(fields: [merchantProfileId], references: [id], onDelete: Cascade)
+  store           Store?             @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  analysis        AIProductAnalysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+
+  @@index([merchantProfileId, createdAt(sort: Desc)])
+  @@index([storeId, type])
+  @@index([analysisId])
+  @@index([razorpayOrderId])
+  @@map("merchant_ai_wallet_transactions")
 }

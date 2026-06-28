@@ -31,6 +31,7 @@ import { IdempotencyInterceptor } from '../../common/interceptors/idempotency.in
 import { PaymentService } from './payment.service';
 import { CreateRazorpayOrderDto } from './dto/create-razorpay-order.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
+import { SyncRazorpayPaymentDto } from './dto/sync-razorpay-payment.dto';
 
 @ApiTags('payments')
 @Controller('payments')
@@ -82,6 +83,27 @@ export class PaymentController {
     @Ip() ip: string,
   ) {
     const data = await this.paymentService.verifyPayment(user.id, dto, ip);
+    return { success: true, data };
+  }
+
+  @Post('razorpay/sync')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('BUYER')
+  @UseInterceptors(IdempotencyInterceptor)
+  @ApiHeader({ name: 'Idempotency-Key', required: false })
+  @ApiOperation({
+    summary: 'Sync Razorpay payment status from server',
+    description:
+      'When client-side verify fails but Razorpay captured the payment, reconcile and mark the order paid.',
+  })
+  async syncPayment(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: SyncRazorpayPaymentDto,
+    @Ip() ip: string,
+  ) {
+    const data = await this.paymentService.syncCheckoutPayment(user.id, dto.checkoutId, ip);
     return { success: true, data };
   }
 

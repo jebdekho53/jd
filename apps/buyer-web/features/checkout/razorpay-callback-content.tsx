@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PageShell } from '@/components/layout/site-shell';
 import { Spinner } from '@/design-system/primitives';
-import { useVerifyPaymentMutation } from '@/hooks/use-checkout';
+import { useSyncPaymentMutation, useVerifyPaymentMutation } from '@/hooks/use-checkout';
 import { useCheckoutStore } from '@/store/checkout-store';
 import { useToast } from '@/design-system/primitives';
 import { RAZORPAY_CHECKOUT_SESSION_KEY } from '@/lib/pwa/standalone';
@@ -13,6 +13,7 @@ export function RazorpayCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const verify = useVerifyPaymentMutation();
+  const sync = useSyncPaymentMutation();
   const { toast } = useToast();
   const { setConfirmed, reset } = useCheckoutStore();
   const started = useRef(false);
@@ -32,6 +33,14 @@ export function RazorpayCallbackContent() {
       return;
     }
 
+    const finish = (orderId: string, orderNumber: string) => {
+      sessionStorage.removeItem(RAZORPAY_CHECKOUT_SESSION_KEY);
+      setConfirmed(orderId, orderNumber);
+      reset();
+      toast('Payment successful!', 'success');
+      router.replace(`/orders/${orderId}/confirmation`);
+    };
+
     void verify
       .mutateAsync({
         checkoutId,
@@ -39,18 +48,20 @@ export function RazorpayCallbackContent() {
         razorpayOrderId,
         razorpaySignature,
       })
-      .then((result) => {
-        sessionStorage.removeItem(RAZORPAY_CHECKOUT_SESSION_KEY);
-        setConfirmed(result.orderId, result.orderNumber);
-        reset();
-        toast('Payment successful!', 'success');
-        router.replace(`/orders/${result.orderId}/confirmation`);
-      })
-      .catch(() => {
-        toast('Payment verification failed. Contact support if amount was deducted.', 'error');
-        router.replace('/checkout');
-      });
-  }, [router, searchParams, setConfirmed, reset, toast, verify]);
+      .then((result) => finish(result.orderId, result.orderNumber))
+      .catch(() =>
+        sync
+          .mutateAsync(checkoutId)
+          .then((result) => finish(result.orderId, result.orderNumber))
+          .catch(() => {
+            toast(
+              'Payment verification failed. If amount was deducted, check your orders shortly or contact support.',
+              'error',
+            );
+            router.replace('/checkout');
+          }),
+      );
+  }, [router, searchParams, setConfirmed, reset, toast, verify, sync]);
 
   return (
     <PageShell>

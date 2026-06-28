@@ -4,11 +4,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  MerchantAiCreditTransactionStatus,
-  MerchantAiCreditTransactionType,
-} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { MerchantAiWalletService } from './merchant-ai-wallet.service';
 
 @Injectable()
 export class MerchantAiBillingService {
@@ -17,10 +14,15 @@ export class MerchantAiBillingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly wallet: MerchantAiWalletService,
   ) {}
 
   getPricePaise(): number {
-    return this.configService.get<number>('AI_PRODUCT_ANALYSIS_PRICE_PAISE', 150);
+    return this.wallet.getProductCostPaise();
+  }
+
+  getMinRechargePaise(): number {
+    return this.wallet.getMinRechargePaise();
   }
 
   buildCreateProductIdempotencyKey(
@@ -28,64 +30,23 @@ export class MerchantAiBillingService {
     storeId: string,
     analysisId: string,
   ): string {
-    return `${merchantProfileId}:${storeId}:${analysisId}:CREATE_PRODUCT`;
-  }
-
-  buildRefundIdempotencyKey(debitIdempotencyKey: string): string {
-    return `${debitIdempotencyKey}:REFUND`;
+    return this.wallet.buildDebitIdempotencyKey(merchantProfileId, storeId, analysisId);
   }
 
   async chargeForProductCreation(
     merchantProfileId: string,
     storeId: string,
     analysisId: string,
+    userId: string,
+    ipAddress?: string,
   ): Promise<{ charged: boolean; amountPaise: number; transactionId: string }> {
-    const amountPaise = this.getPricePaise();
-    const idempotencyKey = this.buildCreateProductIdempotencyKey(
+    return this.wallet.debitForProductCreation(
       merchantProfileId,
       storeId,
       analysisId,
+      userId,
+      ipAddress,
     );
-
-    const existing = await this.prisma.merchantAiCreditTransaction.findUnique({
-      where: { idempotencyKey },
-    });
-    if (existing) {
-      if (existing.status === MerchantAiCreditTransactionStatus.SUCCESS) {
-        return { charged: false, amountPaise: existing.amountPaise, transactionId: existing.id };
-      }
-      if (existing.status === MerchantAiCreditTransactionStatus.PENDING) {
-        const updated = await this.prisma.merchantAiCreditTransaction.update({
-          where: { id: existing.id },
-          data: { status: MerchantAiCreditTransactionStatus.SUCCESS },
-        });
-        return { charged: true, amountPaise: updated.amountPaise, transactionId: updated.id };
-      }
-    }
-
-    try {
-      const tx = await this.prisma.merchantAiCreditTransaction.create({
-        data: {
-          merchantProfileId,
-          storeId,
-          analysisId,
-          amountPaise,
-          type: MerchantAiCreditTransactionType.DEBIT,
-          status: MerchantAiCreditTransactionStatus.SUCCESS,
-          reason: 'AI product creation confirmed',
-          idempotencyKey,
-        },
-      });
-      return { charged: true, amountPaise, transactionId: tx.id };
-    } catch (e) {
-      const dup = await this.prisma.merchantAiCreditTransaction.findUnique({
-        where: { idempotencyKey },
-      });
-      if (dup) {
-        return { charged: false, amountPaise: dup.amountPaise, transactionId: dup.id };
-      }
-      throw e;
-    }
   }
 
   async refundOnProductCreationFailure(
@@ -93,47 +54,17 @@ export class MerchantAiBillingService {
     storeId: string,
     analysisId: string,
     reason: string,
+    userId?: string,
+    ipAddress?: string,
   ): Promise<void> {
-    const debitKey = this.buildCreateProductIdempotencyKey(
+    return this.wallet.refundOnProductCreationFailure(
       merchantProfileId,
       storeId,
       analysisId,
+      reason,
+      userId,
+      ipAddress,
     );
-    const debit = await this.prisma.merchantAiCreditTransaction.findUnique({
-      where: { idempotencyKey: debitKey },
-    });
-    if (!debit || debit.status !== MerchantAiCreditTransactionStatus.SUCCESS) return;
-
-    const refundKey = this.buildRefundIdempotencyKey(debitKey);
-    const existingRefund = await this.prisma.merchantAiCreditTransaction.findUnique({
-      where: { idempotencyKey: refundKey },
-    });
-    if (existingRefund) return;
-
-    await this.prisma.merchantAiCreditTransaction.create({
-      data: {
-        merchantProfileId,
-        storeId,
-        analysisId,
-        amountPaise: debit.amountPaise,
-        type: MerchantAiCreditTransactionType.REFUND,
-        status: MerchantAiCreditTransactionStatus.REFUNDED,
-        reason,
-        idempotencyKey: refundKey,
-      },
-    });
-
-    await this.prisma.merchantAiCreditTransaction.update({
-      where: { id: debit.id },
-      data: { status: MerchantAiCreditTransactionStatus.REFUNDED },
-    });
-
-    if (analysisId) {
-      await this.prisma.aIProductAnalysis.updateMany({
-        where: { id: analysisId },
-        data: { chargedAt: null },
-      });
-    }
   }
 
   async assertDailyAnalysisLimit(merchantProfileId: string): Promise<void> {

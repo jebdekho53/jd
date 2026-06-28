@@ -15,7 +15,7 @@ import {
   type AiAnalysisResult,
   type AiChargeReceipt,
 } from '@/services/products/product-creation-api';
-import { AiChargeReceiptModal } from './ai-charge-receipt-modal';
+import { AiWalletRechargeModal } from './ai-wallet-recharge-modal';
 
 const AI_UNAVAILABLE_MSG =
   'AI product add is temporarily unavailable. Manual and CSV upload are still free.';
@@ -32,7 +32,7 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [analysis, setAnalysis] = useState<AiAnalysisResult | null>(null);
-  const [receipt, setReceipt] = useState<AiChargeReceipt | null>(null);
+  const [rechargeOpen, setRechargeOpen] = useState(false);
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
   const [description, setDescription] = useState('');
@@ -87,7 +87,6 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
     },
     onSuccess: (data) => {
       if (data.receipt) {
-        setReceipt(data.receipt);
         onReceipt?.(data.receipt);
       }
       toast(
@@ -98,6 +97,8 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
       );
       qc.invalidateQueries({ queryKey: ['products', storeId] });
       qc.invalidateQueries({ queryKey: ['merchant', 'ai-billing', storeId] });
+      qc.invalidateQueries({ queryKey: ['merchant', 'ai-wallet'] });
+      qc.invalidateQueries({ queryKey: ['merchant', 'ai-availability', storeId] });
       setAnalysis(null);
       onClose();
     },
@@ -160,9 +161,14 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
   const subcategories = categories?.find((c) => c.id === parentCategoryId)?.children ?? [];
   const categoryWarning = analysis?.categoryMatch?.warning;
   const lowConfidence = analysis?.lowConfidence;
-  const publishBlocked = analysis?.publishBlocked ?? lowConfidence;
+  const supplementBlocked = analysis?.supplementBlocked;
+  const supplementWarning = analysis?.supplementWarning;
+  const publishBlocked = analysis?.publishBlocked ?? lowConfidence ?? supplementBlocked;
   const missingPrice = analysis?.missingPrice;
   const aiUnavailable = availability && !availability.available;
+  const insufficientBalance = availability && availability.hasSufficientBalance === false;
+  const walletBalance = availability?.walletBalanceRupee;
+  const displayImage = analysis?.optimizedImageUrl ?? analysis?.uploadedImageUrl ?? '';
 
   return (
     <>
@@ -170,8 +176,23 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
         <div className="space-y-4">
           <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
             <p>AI suggestions may be inaccurate. Please verify before creating product.</p>
-            <p className="mt-1 font-medium">₹1.50 will be charged only after you confirm.</p>
+            <p className="mt-1 font-medium">
+              ₹1.50 deducted from AI wallet on confirm. Analysis preview is free.
+            </p>
+            {walletBalance != null && (
+              <p className="mt-1">Wallet balance: <strong>₹{walletBalance.toFixed(2)}</strong></p>
+            )}
           </div>
+
+          {insufficientBalance && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+              <p className="font-medium">Insufficient AI wallet balance.</p>
+              <p className="mt-1">Recharge minimum ₹{((availability?.minimumRechargeRupee ?? 100)).toFixed(0)} to continue.</p>
+              <Button size="sm" className="mt-2" onClick={() => setRechargeOpen(true)}>
+                Recharge AI Wallet
+              </Button>
+            </div>
+          )}
 
           {availabilityLoading && (
             <p className="text-sm text-slate-500">Checking AI availability…</p>
@@ -210,13 +231,20 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
           {analysis && (
             <div className="grid gap-4 md:grid-cols-2">
               <div>
+                {displayImage && (
                 <div className="relative mb-3 aspect-square overflow-hidden rounded-xl border">
-                  <Image src={analysis.uploadedImageUrl} alt="" fill className="object-cover" unoptimized />
+                  <Image src={displayImage} alt="" fill className="object-cover" unoptimized />
                 </div>
+                )}
                 <p className="text-sm text-slate-600">
                   Confidence: <strong>{((analysis.confidence ?? 0) * 100).toFixed(0)}%</strong>
                 </p>
-                {lowConfidence && (
+                {supplementWarning && (
+                  <p className="mt-1 flex items-center gap-1 text-sm text-amber-700">
+                    <AlertTriangle className="h-4 w-4" /> {supplementWarning}
+                  </p>
+                )}
+                {lowConfidence && !supplementBlocked && (
                   <p className="mt-1 flex items-center gap-1 text-sm text-amber-700">
                     <AlertTriangle className="h-4 w-4" />
                     Low confidence result. Please verify and save as draft.
@@ -275,14 +303,26 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
               <>
                 <Button
                   variant="outline"
-                  disabled={confirmMutation.isPending || !name || !basePrice}
+                  disabled={confirmMutation.isPending || !name || !basePrice || insufficientBalance}
                   onClick={() => confirmMutation.mutate(false)}
                 >
                   Save as Draft — ₹1.50
                 </Button>
                 <Button
-                  disabled={confirmMutation.isPending || !name || !basePrice || publishBlocked}
-                  title={publishBlocked ? 'Low confidence — save as draft only' : undefined}
+                  disabled={
+                    confirmMutation.isPending ||
+                    !name ||
+                    !basePrice ||
+                    publishBlocked ||
+                    insufficientBalance
+                  }
+                  title={
+                    insufficientBalance
+                      ? 'Recharge AI wallet to continue'
+                      : publishBlocked
+                        ? 'Cannot publish — save as draft only'
+                        : undefined
+                  }
                   onClick={() => confirmMutation.mutate(true)}
                 >
                   Publish Product — ₹1.50
@@ -293,7 +333,15 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
         </div>
       </Modal>
 
-      <AiChargeReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />
+      <AiWalletRechargeModal
+        open={rechargeOpen}
+        onClose={() => setRechargeOpen(false)}
+        minimumRechargePaise={availability?.minimumRechargePaise ?? 10000}
+        onSuccess={() => {
+          void qc.invalidateQueries({ queryKey: ['merchant', 'ai-wallet'] });
+          void qc.invalidateQueries({ queryKey: ['merchant', 'ai-availability', storeId] });
+        }}
+      />
     </>
   );
 }

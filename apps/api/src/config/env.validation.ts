@@ -162,6 +162,7 @@ export const validationSchema = Joi.object({
 
   AI_PRODUCT_ANALYSIS_PRICE_PAISE: Joi.number().integer().min(1).default(150),
   AI_PRODUCT_ANALYSIS_DAILY_LIMIT: Joi.number().integer().min(1).default(20),
+  AI_WALLET_MIN_RECHARGE_PAISE: Joi.number().integer().min(100).default(10000),
   OPENAI_API_KEY: Joi.string().empty('').optional(),
   OPENAI_VISION_MODEL: Joi.string().default('gpt-4o-mini'),
   PRODUCT_CSV_PLACEHOLDER_IMAGE_URL: Joi.string().uri().empty('').optional(),

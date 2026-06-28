@@ -14,9 +14,10 @@ import { FulfillmentNetworkModule } from '../fulfillment-network/fulfillment-net
 import { CorporateModule } from '../corporate/corporate.module';
 import { LocationDirectoryModule } from '../location-directory/location-directory.module';
 import { PushModule } from '../push/push.module';
+import { LogisticsModule } from '../logistics/logistics.module';
 
 @Module({
-  imports: [CartModule, InventoryModule, PromotionModule, GeospatialModule, WalletLoyaltyModule, FinanceModule, TrustSafetyModule, FulfillmentNetworkModule, CorporateModule, LocationDirectoryModule, PushModule],
+  imports: [CartModule, InventoryModule, PromotionModule, GeospatialModule, WalletLoyaltyModule, FinanceModule, TrustSafetyModule, FulfillmentNetworkModule, CorporateModule, LocationDirectoryModule, PushModule, LogisticsModule],
   controllers: [CheckoutController],
   providers: [CheckoutService, ReservationService],
   exports: [CheckoutService, ReservationService],

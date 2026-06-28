@@ -7,6 +7,7 @@ import type {
   RazorpayOrderResult,
   VerifyPaymentPayload,
   VerifyPaymentResult,
+  SyncPaymentResult,
 } from '@/types/checkout';
 
 export async function initiateCheckout(
@@ -62,5 +63,14 @@ export async function verifyRazorpayPayment(
       headers: { 'Idempotency-Key': crypto.randomUUID() },
     },
   );
+  return res.data;
+}
+
+export async function syncRazorpayPayment(checkoutId: string): Promise<SyncPaymentResult> {
+  const res = await buyerFetch<ApiResponse<SyncPaymentResult>>('/api/buyer/payments/sync', {
+    method: 'POST',
+    body: JSON.stringify({ checkoutId }),
+    headers: { 'Idempotency-Key': crypto.randomUUID() },
+  });
   return res.data;
 }

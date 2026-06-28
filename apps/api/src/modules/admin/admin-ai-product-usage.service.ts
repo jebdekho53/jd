@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   AIProductAnalysisStatus,
-  MerchantAiCreditTransactionStatus,
-  MerchantAiCreditTransactionType,
+  MerchantAiWalletTransactionStatus,
+  MerchantAiWalletTransactionType,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { MerchantAiWalletService } from '../product/merchant-ai-wallet.service';
 
 export interface AdminAiUsageFilters {
   status?: AIProductAnalysisStatus;
@@ -20,7 +21,10 @@ export interface AdminAiUsageFilters {
 
 @Injectable()
 export class AdminAiProductUsageService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiWallet: MerchantAiWalletService,
+  ) {}
 
   private buildWhere(filters: AdminAiUsageFilters): Prisma.AIProductAnalysisWhereInput {
     const where: Prisma.AIProductAnalysisWhereInput = {};
@@ -52,27 +56,27 @@ export class AdminAiProductUsageService {
       this.prisma.aIProductAnalysis.count({
         where: { ...where, status: AIProductAnalysisStatus.FAILED },
       }),
-      this.prisma.merchantAiCreditTransaction.count({
+      this.prisma.merchantAiWalletTransaction.count({
         where: {
-          type: MerchantAiCreditTransactionType.REFUND,
+          type: MerchantAiWalletTransactionType.REFUND,
           ...(filters.merchantProfileId ? { merchantProfileId: filters.merchantProfileId } : {}),
           ...(filters.storeId ? { storeId: filters.storeId } : {}),
         },
       }),
-      this.prisma.merchantAiCreditTransaction.aggregate({
+      this.prisma.merchantAiWalletTransaction.aggregate({
         where: {
-          type: MerchantAiCreditTransactionType.DEBIT,
-          status: MerchantAiCreditTransactionStatus.SUCCESS,
+          type: MerchantAiWalletTransactionType.DEBIT,
+          status: MerchantAiWalletTransactionStatus.SUCCESS,
           ...(filters.merchantProfileId ? { merchantProfileId: filters.merchantProfileId } : {}),
           ...(filters.storeId ? { storeId: filters.storeId } : {}),
         },
         _sum: { amountPaise: true },
         _count: true,
       }),
-      this.prisma.merchantAiCreditTransaction.aggregate({
+      this.prisma.merchantAiWalletTransaction.aggregate({
         where: {
-          type: MerchantAiCreditTransactionType.REFUND,
-          status: MerchantAiCreditTransactionStatus.REFUNDED,
+          type: MerchantAiWalletTransactionType.REFUND,
+          status: MerchantAiWalletTransactionStatus.REFUNDED,
           ...(filters.merchantProfileId ? { merchantProfileId: filters.merchantProfileId } : {}),
           ...(filters.storeId ? { storeId: filters.storeId } : {}),
         },
@@ -105,6 +109,7 @@ export class AdminAiProductUsageService {
     const grossPaise = revenueAgg._sum.amountPaise ?? 0;
     const refundedPaise = refundAgg._sum.amountPaise ?? 0;
     const netPaise = Math.max(0, grossPaise - refundedPaise);
+    const walletStats = await this.aiWallet.getWalletStatsForAdmin();
 
     return {
       totalAnalyses,
@@ -117,6 +122,7 @@ export class AdminAiProductUsageService {
       refundedAiRevenuePaise: refundedPaise,
       successfulCharges: revenueAgg._count,
       merchantWise,
+      wallet: walletStats,
     };
   }
 
@@ -214,7 +220,7 @@ export class AdminAiProductUsageService {
         },
         store: { select: { id: true, name: true } },
         createdProduct: { select: { id: true, name: true, slug: true, isActive: true } },
-        creditTransactions: { orderBy: { createdAt: 'asc' } },
+        walletTransactions: { orderBy: { createdAt: 'asc' } },
       },
     });
     if (!analysis) throw new NotFoundException('Analysis not found');
@@ -231,7 +237,7 @@ export class AdminAiProductUsageService {
       chargedAt: analysis.chargedAt,
       createdProduct: analysis.createdProduct,
       errorMessage: analysis.errorMessage,
-      transactions: analysis.creditTransactions,
+      transactions: analysis.walletTransactions,
       createdAt: analysis.createdAt,
       updatedAt: analysis.updatedAt,
     };

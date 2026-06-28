@@ -18,15 +18,29 @@ export interface AiExtractedProduct {
   description: string;
   highlights: string[];
   tags: string[];
-  ingredients: string;
-  shelfLife: string;
-  manufacturerName: string;
-  fssaiLicense: string;
-  barcode: string;
+  ingredients: string | null;
+  shelfLife: string | null;
+  manufacturerName: string | null;
+  fssaiLicense: string | null;
+  barcode: string | null;
+  isSupplement: boolean;
+  requiresClearLabel: boolean;
+  labelReadable: boolean | null;
+  canPublishDirectly: boolean;
+  imageQualityScore: number;
   confidence: number;
 }
 
-const VISION_PROMPT = `Analyze this product image and return strict JSON only with this exact schema:
+const VISION_PROMPT = `You are a product catalog vision assistant for an Indian grocery and retail marketplace.
+
+The input image has been pre-processed for analysis: square 1:1 framing, white/clean background where possible, centered product, max 1200×1200. Evaluate THIS image as-is.
+
+Your job:
+1. Assess image quality (lighting, focus, framing, whether the product is clearly visible).
+2. Extract only information that is clearly readable from the package label or packaging.
+3. Return strict JSON only — no markdown, no commentary.
+
+Schema (use exactly these keys):
 {
   "name": "",
   "brand": "",
@@ -39,19 +53,44 @@ const VISION_PROMPT = `Analyze this product image and return strict JSON only wi
   "description": "",
   "highlights": [],
   "tags": [],
-  "ingredients": "",
-  "shelfLife": "",
-  "manufacturerName": "",
-  "fssaiLicense": "",
-  "barcode": "",
+  "ingredients": null,
+  "shelfLife": null,
+  "manufacturerName": null,
+  "fssaiLicense": null,
+  "barcode": null,
+  "isSupplement": false,
+  "requiresClearLabel": false,
+  "labelReadable": null,
+  "canPublishDirectly": true,
+  "imageQualityScore": 0,
   "confidence": 0
 }
 
-Rules:
-- Be concise
-- Do not hallucinate price — if price not visible, return null
-- confidence between 0 and 1
-- Return JSON only, no markdown`;
+Critical rules — never violate:
+- Return JSON only.
+- If text on the package is blurry, cropped, obscured, or not clearly readable → use null for that field.
+- NEVER invent or guess: price, MRP, ingredients, FSSAI license, manufacturer, barcode, weight, or shelf life.
+- Only populate fields you can directly read from the image.
+- description: factual summary from visible packaging only; do not add marketing claims not shown.
+- highlights/tags: only from visible text on the package.
+
+Supplement / health nutrition detection:
+- Set "isSupplement": true for protein powder, whey, vitamins, health supplements, sports nutrition, ayurvedic capsules/tablets sold as supplements.
+- For supplements:
+  - Set "requiresClearLabel": true
+  - The image MUST show a clear front-facing label (1:1 product shot preferred).
+  - Set "labelReadable": true ONLY if front-label text (product name, brand, net quantity) is sharp and fully readable.
+  - Set "canPublishDirectly": false if ANY of:
+    • label is unreadable or partially cropped
+    • image is not front-facing
+    • imageQualityScore < 0.6
+    • confidence < 0.55
+    • ingredients/FSSAI/manufacturer cannot be read but would be required for supplements
+  - For supplements, leave ingredients/manufacturerName/fssaiLicense as null unless clearly printed and readable.
+
+Scoring:
+- "imageQualityScore": 0.0–1.0 — overall photo quality for e-commerce (lighting, focus, product centered, clean background).
+- "confidence": 0.0–1.0 — confidence in extracted product data overall.`;
 
 @Injectable()
 export class OpenAiVisionClient {
@@ -82,14 +121,14 @@ export class OpenAiVisionClient {
       'https://api.openai.com/v1/chat/completions',
       {
         model,
-        max_tokens: 800,
-        temperature: 0.2,
+        max_tokens: 1200,
+        temperature: 0.1,
         messages: [
           {
             role: 'user',
             content: [
               { type: 'text', text: VISION_PROMPT },
-              { type: 'image_url', image_url: { url: imageUrl } },
+              { type: 'image_url', image_url: { url: imageUrl, detail: 'high' } },
             ],
           },
         ],
@@ -100,7 +139,7 @@ export class OpenAiVisionClient {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        timeout: 60_000,
+        timeout: 90_000,
       },
     );
 
@@ -120,7 +159,19 @@ export class OpenAiVisionClient {
       throw new BadRequestException('AI returned invalid JSON');
     }
 
-    const confidence = this.clampConfidence(parsed.confidence);
+    const confidence = this.clamp01(parsed.confidence);
+    const imageQualityScore = this.clamp01(parsed.imageQualityScore);
+    const isSupplement = Boolean(parsed.isSupplement);
+    const requiresClearLabel = Boolean(parsed.requiresClearLabel) || isSupplement;
+    const labelReadable =
+      parsed.labelReadable === null || parsed.labelReadable === undefined
+        ? null
+        : Boolean(parsed.labelReadable);
+    const canPublishDirectly =
+      parsed.canPublishDirectly === undefined
+        ? !(isSupplement && labelReadable === false)
+        : Boolean(parsed.canPublishDirectly);
+
     return {
       name: String(parsed.name ?? '').slice(0, 200),
       brand: String(parsed.brand ?? '').slice(0, 100),
@@ -137,13 +188,24 @@ export class OpenAiVisionClient {
       tags: Array.isArray(parsed.tags)
         ? parsed.tags.map((t) => String(t)).slice(0, 20)
         : [],
-      ingredients: String(parsed.ingredients ?? '').slice(0, 5000),
-      shelfLife: String(parsed.shelfLife ?? '').slice(0, 200),
-      manufacturerName: String(parsed.manufacturerName ?? '').slice(0, 200),
-      fssaiLicense: String(parsed.fssaiLicense ?? '').slice(0, 50),
-      barcode: String(parsed.barcode ?? '').slice(0, 50),
+      ingredients: this.nullableString(parsed.ingredients, 5000),
+      shelfLife: this.nullableString(parsed.shelfLife, 200),
+      manufacturerName: this.nullableString(parsed.manufacturerName, 200),
+      fssaiLicense: this.nullableString(parsed.fssaiLicense, 50),
+      barcode: this.nullableString(parsed.barcode, 50),
+      isSupplement,
+      requiresClearLabel,
+      labelReadable,
+      canPublishDirectly,
+      imageQualityScore,
       confidence,
     };
+  }
+
+  private nullableString(value: unknown, max: number): string | null {
+    if (value === null || value === undefined || value === '') return null;
+    const s = String(value).trim();
+    return s ? s.slice(0, max) : null;
   }
 
   private parseNullableNumber(value: unknown): number | null {
@@ -152,7 +214,7 @@ export class OpenAiVisionClient {
     return Number.isFinite(n) && n >= 0 ? n : null;
   }
 
-  private clampConfidence(value: unknown): number {
+  private clamp01(value: unknown): number {
     const n = Number(value);
     if (!Number.isFinite(n)) return 0;
     return Math.min(1, Math.max(0, n));

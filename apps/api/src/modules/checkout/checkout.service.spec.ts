@@ -21,6 +21,7 @@ import { CorporateWalletService } from '../corporate/corporate-wallet.service';
 import { ApprovalService } from '../corporate/approval.service';
 import { EmailNotificationService } from '../email/email-notification.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+import { DeliveryDispatchService } from '../logistics/delivery-dispatch.service';
 import { checkoutServiceMocks } from '../../test/nest-mock-providers';
 
 const CHECKOUT_ID = 'chk_test_001';
@@ -51,6 +52,12 @@ const mockDeliveryAddress = {
   pincode: '110001',
   lat: 28.61,
   lng: 77.21,
+};
+
+const mockPayerContact = {
+  name: 'Test Buyer',
+  email: 'buyer@example.com',
+  phone: '9876543210',
 };
 
 const mockPrisma = {
@@ -92,7 +99,7 @@ const mockLocations = {
   }),
 };
 
-const { orderCache, promotions, geospatial, walletCheckout, referral, wallet, orderFinancials, trustSafety, smartFulfillment, corporateWallet, corporateApproval, emailNotifications, buyerPush } =
+const { orderCache, promotions, geospatial, walletCheckout, referral, wallet, orderFinancials, trustSafety, smartFulfillment, corporateWallet, corporateApproval, emailNotifications, buyerPush, deliveryDispatch } =
   checkoutServiceMocks;
 
 describe('CheckoutService', () => {
@@ -121,6 +128,7 @@ describe('CheckoutService', () => {
         { provide: ApprovalService, useValue: corporateApproval },
         { provide: EmailNotificationService, useValue: emailNotifications },
         { provide: BuyerPushNotificationService, useValue: buyerPush },
+        { provide: DeliveryDispatchService, useValue: deliveryDispatch },
       ],
     }).compile();
 
@@ -202,24 +210,30 @@ describe('CheckoutService', () => {
       mockDomainEvents.emit.mockResolvedValue(undefined);
     });
 
+    it('throws BadRequestException when payer contact is missing', async () => {
+      await expect(
+        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress }),
+      ).rejects.toThrow('Payer contact');
+    });
+
     it('throws BadRequestException when cart is empty', async () => {
       mockCartService.getCart.mockResolvedValue(null);
       await expect(
-        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress }),
+        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress, payerContact: mockPayerContact }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('throws BadRequestException when buyer profile not found', async () => {
       mockPrisma.buyerProfile.findUnique.mockResolvedValue(null);
       await expect(
-        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress }),
+        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress, payerContact: mockPayerContact }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('expires checkout and re-throws when reservation fails', async () => {
       mockReservation.reserveInventory.mockRejectedValue(new BadRequestException('Out of stock'));
       await expect(
-        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress }),
+        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress, payerContact: mockPayerContact }),
       ).rejects.toThrow('Out of stock');
 
       expect(mockPrisma.checkout.update).toHaveBeenCalledWith({
@@ -229,7 +243,7 @@ describe('CheckoutService', () => {
     });
 
     it('clears cart after successful checkout', async () => {
-      await service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress });
+      await service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress, payerContact: mockPayerContact });
       expect(mockCartService.clearCart).toHaveBeenCalledWith(USER_ID);
     });
   });
@@ -286,7 +300,7 @@ describe('CheckoutService', () => {
     it('throws BadRequestException when store is inactive', async () => {
       mockPrisma.store.findFirst.mockResolvedValue(null);
       await expect(
-        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress }),
+        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress, payerContact: mockPayerContact }),
       ).rejects.toThrow('Store is no longer accepting orders');
     });
 
@@ -294,7 +308,7 @@ describe('CheckoutService', () => {
       mockPrisma.store.findFirst.mockResolvedValue({ id: STORE_ID });
       mockPrisma.productVariant.findFirst.mockResolvedValue(null);
       await expect(
-        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress }),
+        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress, payerContact: mockPayerContact }),
       ).rejects.toThrow('no longer available');
     });
 
@@ -313,7 +327,7 @@ describe('CheckoutService', () => {
         inventory: { availableQty: 0, reservedQty: 0 },
       });
       await expect(
-        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress }),
+        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress, payerContact: mockPayerContact }),
       ).rejects.toThrow('available');
     });
 
@@ -333,7 +347,7 @@ describe('CheckoutService', () => {
       );
 
       await expect(
-        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress }),
+        service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress, payerContact: mockPayerContact }),
       ).rejects.toThrow('Store does not deliver to your location.');
     });
   });

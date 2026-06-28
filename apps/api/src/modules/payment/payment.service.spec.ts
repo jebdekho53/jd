@@ -12,10 +12,12 @@ import { EmailNotificationService } from '../email/email-notification.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 import { OrderFinancialsService } from '../finance/order-financials.service';
 import { OrderCacheService } from '../order/order-cache.service';
+import { DeliveryDispatchService } from '../logistics/delivery-dispatch.service';
 
 const mockOrderFinancials = { recordOnlinePaymentConfirmed: jest.fn() };
 const mockOrderCache = { invalidateAll: jest.fn() };
 const mockBuyerPush = { notifyOrderPlaced: jest.fn().mockResolvedValue(undefined) };
+const mockDeliveryDispatch = { dispatchAfterOrderPlaced: jest.fn().mockResolvedValue(null) };
 
 const CHECKOUT_ID = 'chk1';
 const ORDER_ID = 'ord1';
@@ -52,6 +54,7 @@ const mockRazorpay = {
   isConfigured: jest.fn().mockReturnValue(true),
   createOrder: jest.fn(),
   verifyPaymentSignature: jest.fn(),
+  fetchOrderPayments: jest.fn(),
 };
 
 const mockReservation = {
@@ -73,6 +76,9 @@ const buildCheckout = (overrides = {}) => ({
   totalAmount: 220,
   orderId: ORDER_ID,
   expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+  cartSnapshot: {
+    payerContact: { name: 'Test Buyer', email: 'buyer@example.com', phone: '9876543210' },
+  },
   order: {
     id: ORDER_ID,
     orderNumber: 'JD-20260622-ABC',
@@ -100,6 +106,7 @@ describe('PaymentService', () => {
         { provide: BuyerPushNotificationService, useValue: mockBuyerPush },
         { provide: OrderFinancialsService, useValue: mockOrderFinancials },
         { provide: OrderCacheService, useValue: mockOrderCache },
+        { provide: DeliveryDispatchService, useValue: mockDeliveryDispatch },
       ],
     }).compile();
 
@@ -115,7 +122,7 @@ describe('PaymentService', () => {
       mockPrisma.buyerProfile.findUnique.mockResolvedValue({
         id: BUYER_PROFILE_ID,
         name: 'Test Buyer',
-        user: { phone: '9876543210' },
+        user: { phone: '9876543210', email: 'buyer@example.com' },
       });
       mockPrisma.checkout.findFirst.mockResolvedValue(buildCheckout());
       mockRazorpay.createOrder.mockResolvedValue({
@@ -138,6 +145,7 @@ describe('PaymentService', () => {
         keyId: 'rzp_test_xxx',
         buyerName: 'Test Buyer',
         buyerPhone: '9876543210',
+        buyerEmail: 'buyer@example.com',
       });
     });
 
@@ -190,7 +198,7 @@ describe('PaymentService', () => {
       mockPrisma.buyerProfile.findUnique.mockResolvedValue({
         id: BUYER_PROFILE_ID,
         name: 'Test Buyer',
-        user: { phone: '9876543210' },
+        user: { phone: '9876543210', email: 'buyer@example.com' },
       });
       mockRazorpay.verifyPaymentSignature.mockReturnValue(true);
       mockPrisma.checkout.findFirst.mockResolvedValue(
@@ -237,6 +245,7 @@ describe('PaymentService', () => {
       expect(result.success).toBe(true);
       expect(mockOrderFinancials.recordOnlinePaymentConfirmed).toHaveBeenCalledWith(ORDER_ID);
       expect(mockOrderCache.invalidateAll).toHaveBeenCalledWith(ORDER_ID);
+      expect(mockDeliveryDispatch.dispatchAfterOrderPlaced).toHaveBeenCalledWith(ORDER_ID);
     });
 
     it('returns idempotent response when payment is already PAID', async () => {
@@ -252,6 +261,44 @@ describe('PaymentService', () => {
         buildCheckout({ order: null }),
       );
       await expect(service.verifyPayment(USER_ID, validDto)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('syncCheckoutPayment', () => {
+    beforeEach(() => {
+      mockPrisma.buyerProfile.findUnique.mockResolvedValue({ id: BUYER_PROFILE_ID });
+      mockPrisma.checkout.findFirst.mockResolvedValue(buildCheckout());
+      mockPrisma.payment.findUnique.mockResolvedValue({
+        id: PAYMENT_ID,
+        orderId: ORDER_ID,
+        status: PaymentStatus.PENDING,
+        razorpayOrderId: RZP_ORDER_ID,
+      });
+      mockRazorpay.fetchOrderPayments.mockResolvedValue([
+        { id: RZP_PAYMENT_ID, status: 'captured' },
+      ]);
+      mockPrisma.$transaction.mockImplementation(async (cb: Function) => {
+        if (typeof cb === 'function') return cb(mockPrisma);
+        return Promise.all(cb);
+      });
+      mockStatusHistory.transition.mockResolvedValue(undefined);
+      mockReservation.linkReservationsToOrder.mockResolvedValue(undefined);
+      mockAudit.log.mockResolvedValue(undefined);
+      mockDomainEvents.emit.mockResolvedValue(undefined);
+    });
+
+    it('marks order paid when Razorpay shows captured payment', async () => {
+      const result = await service.syncCheckoutPayment(USER_ID, CHECKOUT_ID);
+      expect(result.success).toBe(true);
+      expect(result.orderNumber).toBe('JD-20260622-ABC');
+      expect(mockRazorpay.fetchOrderPayments).toHaveBeenCalledWith(RZP_ORDER_ID);
+    });
+
+    it('throws when no captured payment on Razorpay', async () => {
+      mockRazorpay.fetchOrderPayments.mockResolvedValue([{ id: RZP_PAYMENT_ID, status: 'failed' }]);
+      await expect(service.syncCheckoutPayment(USER_ID, CHECKOUT_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

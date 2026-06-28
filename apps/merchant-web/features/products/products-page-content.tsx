@@ -9,6 +9,7 @@ import { AddProductModeSelector, type AddProductMode } from './components/add-pr
 import { ProductCsvImportModal } from './components/product-csv-import-modal';
 import { ProductAiModal } from './components/product-ai-modal';
 import { ProductAiBillingTab } from './components/product-ai-billing-tab';
+import { AiWalletCard } from './components/ai-wallet-card';
 import { AiChargeReceiptModal } from './components/ai-charge-receipt-modal';
 import { useProductsQuery } from '@/hooks/use-products';
 import { useStoreStore } from '@/store/store-store';
@@ -75,6 +76,10 @@ export function ProductsPageContent() {
         <Button onClick={() => setModeSelectorOpen(true)}>
           <Plus className="h-4 w-4" /> Add Product
         </Button>
+      </div>
+
+      <div className="mb-4">
+        <AiWalletCard />
       </div>
 
       <div className="mb-4 flex gap-1 border-b border-slate-200">

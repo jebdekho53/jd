@@ -29,6 +29,18 @@ interface Stats {
   totalAiRevenuePaise: number;
   totalAiRevenueRupee: number;
   merchantWise: { merchantProfileId: string; businessName: string; analysisCount: number }[];
+  wallet?: {
+    totalRechargesPaise: number;
+    totalAiSpendPaise: number;
+    totalRefundsPaise: number;
+    outstandingBalancePaise: number;
+    merchantsWithBalance: number;
+    topMerchantsBySpend?: {
+      merchantProfileId: string;
+      _sum: { amountPaise: number | null };
+      _count: number;
+    }[];
+  };
 }
 
 export function AiProductUsageContent() {
@@ -80,6 +92,22 @@ export function AiProductUsageContent() {
 
   return (
     <div className="space-y-4">
+      {stats?.wallet && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ['Total recharges', `₹${(stats.wallet.totalRechargesPaise / 100).toFixed(2)}`],
+            ['Total AI spend', `₹${(stats.wallet.totalAiSpendPaise / 100).toFixed(2)}`],
+            ['Total refunds', `₹${(stats.wallet.totalRefundsPaise / 100).toFixed(2)}`],
+            ['Outstanding balances', `₹${(stats.wallet.outstandingBalancePaise / 100).toFixed(2)}`],
+          ].map(([label, value]) => (
+            <div key={String(label)} className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
+              <p className="text-xs text-slate-500">{label}</p>
+              <p className="text-xl font-semibold">{value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {stats && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {[
@@ -94,6 +122,19 @@ export function AiProductUsageContent() {
               <p className="text-xl font-semibold">{value}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {stats?.wallet?.topMerchantsBySpend && stats.wallet.topMerchantsBySpend.length > 0 && (
+        <div className="rounded-xl border bg-white p-4">
+          <h3 className="mb-2 text-sm font-medium text-slate-700">Top merchants by AI spend</h3>
+          <div className="flex flex-wrap gap-2">
+            {stats.wallet.topMerchantsBySpend.map((m) => (
+              <span key={m.merchantProfileId} className="rounded-full bg-indigo-50 px-3 py-1 text-xs text-indigo-800">
+                {m.merchantProfileId.slice(0, 8)}…: ₹{((m._sum.amountPaise ?? 0) / 100).toFixed(2)} ({m._count} products)
+              </span>
+            ))}
+          </div>
         </div>
       )}
 

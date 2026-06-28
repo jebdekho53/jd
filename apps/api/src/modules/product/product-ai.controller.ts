@@ -36,8 +36,11 @@ export class ProductAiController {
   @Permissions('products:read')
   @ApiParam({ name: 'storeId' })
   @ApiOperation({ summary: 'Check if AI product add is available' })
-  async availability(@Param('storeId') _storeId: string) {
-    const data = this.aiService.getAvailability();
+  async availability(
+    @CurrentUser() user: RequestUser,
+    @Param('storeId') _storeId: string,
+  ) {
+    const data = await this.aiService.getAvailability(user.id);
     return { success: true, data };
   }
 

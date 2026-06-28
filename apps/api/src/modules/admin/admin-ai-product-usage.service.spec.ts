@@ -2,6 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AIProductAnalysisStatus } from '@prisma/client';
 import { AdminAiProductUsageService } from './admin-ai-product-usage.service';
 import { PrismaService } from '../../database/prisma.service';
+import { MerchantAiWalletService } from '../product/merchant-ai-wallet.service';
+
+const mockWallet = {
+  getWalletStatsForAdmin: jest.fn().mockResolvedValue({
+    totalRechargesPaise: 100000,
+    outstandingBalancePaise: 50000,
+  }),
+};
 
 const mockPrisma = {
   aIProductAnalysis: {
@@ -9,7 +17,7 @@ const mockPrisma = {
     findMany: jest.fn(),
     groupBy: jest.fn(),
   },
-  merchantAiCreditTransaction: {
+  merchantAiWalletTransaction: {
     count: jest.fn(),
     aggregate: jest.fn(),
   },
@@ -24,6 +32,7 @@ describe('AdminAiProductUsageService', () => {
       providers: [
         AdminAiProductUsageService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: MerchantAiWalletService, useValue: mockWallet },
       ],
     }).compile();
     service = module.get(AdminAiProductUsageService);
@@ -35,8 +44,8 @@ describe('AdminAiProductUsageService', () => {
       .mockResolvedValueOnce(10)
       .mockResolvedValueOnce(6)
       .mockResolvedValueOnce(2);
-    mockPrisma.merchantAiCreditTransaction.count.mockResolvedValue(1);
-    mockPrisma.merchantAiCreditTransaction.aggregate
+    mockPrisma.merchantAiWalletTransaction.count.mockResolvedValue(1);
+    mockPrisma.merchantAiWalletTransaction.aggregate
       .mockResolvedValueOnce({ _sum: { amountPaise: 900 }, _count: 6 })
       .mockResolvedValueOnce({ _sum: { amountPaise: 150 } });
     mockPrisma.aIProductAnalysis.groupBy.mockResolvedValue([
