@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { useSessionQuery } from '@/hooks/use-auth';
 import { useToast } from '@/design-system/primitives';
 import { MerchantAuthShell } from './components/merchant-auth-shell';
-import { MerchantOtpFlow } from './components/merchant-otp-flow';
+import { MerchantEmailAuth } from './components/merchant-email-auth';
 import { fetchOnboardingStatus } from '@/services/onboarding/onboarding-api';
 import type { VerifyOtpResult } from '@/types/auth';
 
@@ -60,7 +60,7 @@ export function LoginPageContent() {
   return (
     <MerchantAuthShell
       title="Merchant Login"
-      subtitle="Sign in with OTP to manage your store"
+      subtitle="Sign in with your email and password"
       footer={
         <p className="text-slate-600">
           New to JebDekho?{' '}
@@ -70,11 +70,7 @@ export function LoginPageContent() {
         </p>
       }
     >
-      <MerchantOtpFlow
-        heading="Sign in"
-        submitLabel="Verify & Sign in"
-        onVerified={handleVerified}
-      />
+      <MerchantEmailAuth mode="login" submitLabel="Verify & Sign in" onSuccess={handleVerified} />
     </MerchantAuthShell>
   );
 }

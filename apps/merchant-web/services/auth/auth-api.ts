@@ -21,6 +21,26 @@ export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpR
   return res.data;
 }
 
+export async function emailLogin(email: string, password: string): Promise<VerifyOtpResult> {
+  const res = await merchantFetch<ApiResponse<VerifyOtpResult>>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password, deviceName: 'merchant-web' }),
+  });
+  return res.data;
+}
+
+export async function emailSignup(input: {
+  name: string;
+  email: string;
+  password: string;
+}): Promise<VerifyOtpResult> {
+  const res = await merchantFetch<ApiResponse<VerifyOtpResult>>('/api/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify({ ...input, deviceName: 'merchant-web' }),
+  });
+  return res.data;
+}
+
 export async function fetchMe(): Promise<AuthUser | null> {
   try {
     const res = await merchantFetch<ApiResponse<AuthUser>>('/api/auth/me');

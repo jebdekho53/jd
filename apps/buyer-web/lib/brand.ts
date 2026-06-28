@@ -20,6 +20,6 @@ export const BRAND_ICONS = {
     { url: '/pwa/icons/icon-152.png', sizes: '152x152', type: 'image/png' },
   ],
   other: [
-    { rel: 'mask-icon', url: '/pwa/icons/safari-pinned-tab.svg', color: '#16a34a' },
+    { rel: 'mask-icon', url: '/pwa/icons/safari-pinned-tab.svg', color: '#111827' },
   ],
 };

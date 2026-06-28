@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchMe, requestOtp, verifyOtp, logoutSession } from '@/services/auth/auth-api';
+import { fetchMe, requestOtp, verifyOtp, emailLogin, emailSignup, logoutSession } from '@/services/auth/auth-api';
 import { ApiError } from '@/services/api/merchant-client';
 import type { RequestOtpInput } from '@/services/auth/auth-api';
 import { useAuthStore } from '@/store/auth-store';
@@ -45,6 +45,37 @@ export function useVerifyOtpMutation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ phone, code }: { phone: string; code: string }) => verifyOtp(phone, code),
+    onSuccess: (data) => {
+      clearCurrentStore();
+      qc.clear();
+      setSession(data.user);
+      qc.setQueryData(['auth', 'me'], data.user);
+    },
+  });
+}
+
+export function useEmailLoginMutation() {
+  const { setSession } = useAuthStore();
+  const { clearCurrentStore } = useStoreStore();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ email, password }: { email: string; password: string }) =>
+      emailLogin(email, password),
+    onSuccess: (data) => {
+      clearCurrentStore();
+      qc.clear();
+      setSession(data.user);
+      qc.setQueryData(['auth', 'me'], data.user);
+    },
+  });
+}
+
+export function useEmailSignupMutation() {
+  const { setSession } = useAuthStore();
+  const { clearCurrentStore } = useStoreStore();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; email: string; password: string }) => emailSignup(input),
     onSuccess: (data) => {
       clearCurrentStore();
       qc.clear();

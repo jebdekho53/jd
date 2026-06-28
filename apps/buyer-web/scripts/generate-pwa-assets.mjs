@@ -17,9 +17,10 @@ const splashDir = path.join(root, 'public/pwa/splash');
 const shotsDir = path.join(root, 'public/pwa/screenshots');
 const markerIcon = path.join(iconsDir, 'icon-192.png');
 
-const GREEN = '#16a34a';
-const GREEN_DARK = '#15803d';
 const ICON_BG = { r: 255, g: 255, b: 255, alpha: 1 };
+const SPLASH_BG = '#ffffff';
+const TEXT_PRIMARY = '#111827';
+const TEXT_MUTED = '#6b7280';
 const ICON_SIZES = [72, 96, 128, 144, 152, 180, 192, 256, 384, 512];
 const OTHER_WEB_APPS = ['admin-web', 'merchant-web', 'rider-web', 'vendor-web'];
 
@@ -132,15 +133,9 @@ async function splash(width, height, filename) {
 
   const svg = `
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${GREEN}"/>
-          <stop offset="100%" style="stop-color:${GREEN_DARK}"/>
-        </linearGradient>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#g)"/>
-      <text x="50%" y="${height * 0.72}" text-anchor="middle" fill="white" font-family="system-ui,sans-serif" font-size="${Math.round(width * 0.055)}" font-weight="700">JebDekho</text>
-      <text x="50%" y="${height * 0.78}" text-anchor="middle" fill="rgba(255,255,255,0.9)" font-family="system-ui,sans-serif" font-size="${Math.round(width * 0.028)}">Compare prices. Save more.</text>
+      <rect width="100%" height="100%" fill="${SPLASH_BG}"/>
+      <text x="50%" y="${height * 0.72}" text-anchor="middle" fill="${TEXT_PRIMARY}" font-family="system-ui,sans-serif" font-size="${Math.round(width * 0.055)}" font-weight="700">JebDekho</text>
+      <text x="50%" y="${height * 0.78}" text-anchor="middle" fill="${TEXT_MUTED}" font-family="system-ui,sans-serif" font-size="${Math.round(width * 0.028)}">Compare prices. Save more.</text>
     </svg>`;
 
   await sharp(Buffer.from(svg))
@@ -153,8 +148,8 @@ async function screenshot(width, height, filename, label) {
   const svg = `
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
       <rect width="100%" height="100%" fill="#f9fafb"/>
-      <rect x="0" y="0" width="100%" height="80" fill="${GREEN}"/>
-      <text x="32" y="52" fill="white" font-family="system-ui" font-size="28" font-weight="700">JebDekho</text>
+      <rect x="0" y="0" width="100%" height="80" fill="${SPLASH_BG}" stroke="#e5e7eb"/>
+      <text x="32" y="52" fill="${TEXT_PRIMARY}" font-family="system-ui" font-size="28" font-weight="700">JebDekho</text>
       <text x="32" y="140" fill="#111827" font-family="system-ui" font-size="36" font-weight="700">${label}</text>
       <rect x="32" y="180" width="${width - 64}" height="120" rx="16" fill="white" stroke="#e5e7eb"/>
       <rect x="32" y="320" width="${width - 64}" height="120" rx="16" fill="white" stroke="#e5e7eb"/>
@@ -210,7 +205,7 @@ async function main() {
 
   await writeFile(
     path.join(iconsDir, 'safari-pinned-tab.svg'),
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#16a34a"/></svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="none"/></svg>`,
   );
 
   await syncLegacyIcons();
