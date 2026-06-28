@@ -13,6 +13,26 @@ git rev-parse HEAD 2>/dev/null || echo "(not a git repo)"
 git status --short 2>/dev/null | head -5 || true
 
 echo ""
+echo "=== Prisma client (order-claim types) ==="
+if (
+  cd "${ROOT}/apps/api"
+  node -e "
+    try {
+      const c = require('@prisma/client');
+      if (!c.OrderClaimStatus) {
+        console.log('WARN: @prisma/client is stale — run: pnpm db:generate (then rebuild API)');
+        process.exit(0);
+      }
+      console.log('OK: OrderClaimStatus enum present in Prisma client');
+    } catch (e) {
+      console.log('WARN: cannot load @prisma/client:', e.message);
+    }
+  "
+); then
+  :
+fi
+
+echo ""
 echo "=== jebdekho-api PM2 ==="
 pm2 describe jebdekho-api 2>/dev/null | grep -E 'status|restarts|uptime|script path|node args|error log|out log' || echo "PM2 process jebdekho-api not found"
 
@@ -151,5 +171,6 @@ echo "=== Suggested fixes ==="
 echo "1. pm2 logs jebdekho-api --lines 100   # read the actual crash reason"
 echo "2. Ensure API_PORT=3001 in .env.production"
 echo "3. Quote secrets: SHADOWFAX_WEBHOOK_SECRET=\"your-secret\""
-echo "4. pm2 reload jebdekho-api --update-env   # never pm2 delete during deploy"
-echo "5. curl http://127.0.0.1:3001/health  # must work before nginx/Shadowfax"
+echo "4. ./deploy/scripts/build-api.sh   # generate + migrate + build (never build API alone)"
+echo "5. pm2 reload jebdekho-api --update-env   # only after build succeeds"
+echo "6. curl http://127.0.0.1:3001/health  # must work before nginx/Shadowfax"
