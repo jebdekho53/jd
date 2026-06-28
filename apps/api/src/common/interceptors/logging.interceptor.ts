@@ -17,12 +17,15 @@ export class LoggingInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest<Request & AuthenticatedRequest>();
     const { method, url } = request;
     const userId = request.user?.id ?? 'anonymous';
+    const requestId = request.headers['x-request-id'] ?? '-';
     const start = Date.now();
 
     return next.handle().pipe(
       tap(() => {
         const ms = Date.now() - start;
-        this.logger.debug(`${method} ${url} [user:${userId}] ${ms}ms`);
+        this.logger.debug(
+          `${method} ${url} [req:${requestId}] [user:${userId}] ${ms}ms`,
+        );
       }),
     );
   }

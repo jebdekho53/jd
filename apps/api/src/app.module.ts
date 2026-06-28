@@ -23,6 +23,7 @@ import { CartModule } from './modules/cart/cart.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { OrderModule } from './modules/order/order.module';
+import { OrderClaimModule } from './modules/order-claim/order-claim.module';
 import { OrderTimelineModule } from './modules/order/order-timeline.module';
 import { RiderAssignmentModule } from './modules/rider-assignment/rider-assignment.module';
 import { RiderModule } from './modules/rider/rider.module';
@@ -66,6 +67,7 @@ import { GeocodingModule } from './modules/geocoding/geocoding.module';
 import { PushModule } from './modules/push/push.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
 
 @Module({
   imports: [
@@ -128,6 +130,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     CheckoutModule,
     PaymentModule,
     OrderModule,
+    OrderClaimModule,
     LogisticsModule,
     GeocodingModule,
     RiderAssignmentModule,
@@ -174,6 +177,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
 
     // Global logging interceptor — request timing + user context
+    { provide: APP_INTERCEPTOR, useClass: RequestIdInterceptor },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
   ],
 })

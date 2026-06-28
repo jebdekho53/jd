@@ -28,6 +28,7 @@ import {
   isFssaiRequiredCategory,
   isHsnRequiredCategory,
 } from '../../common/utils/product-compliance.util';
+import { pickReturnPolicyPrismaData } from '../../common/utils/product-return-policy-fields.util';
 import { ListProductsDto } from './dto/list-products.dto';
 
 type VariantWithInventory = ProductVariant & { inventory: Inventory | null };
@@ -125,6 +126,7 @@ export class ProductService {
           hsnCodeId: dto.hsnCodeId,
           gstSlab: dto.gstSlab,
           taxCategory: dto.taxCategory,
+          ...pickReturnPolicyPrismaData(dto),
         },
       });
 
@@ -373,6 +375,7 @@ export class ProductService {
           ...(dto.hsnCodeId !== undefined && { hsnCodeId: dto.hsnCodeId }),
           ...(dto.gstSlab !== undefined && { gstSlab: dto.gstSlab }),
           ...(dto.taxCategory !== undefined && { taxCategory: dto.taxCategory }),
+          ...pickReturnPolicyPrismaData(dto),
         },
       });
 

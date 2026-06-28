@@ -20,6 +20,11 @@ import {
   pickStoreFssaiLicense,
 } from '../product-visibility.util';
 import { ProductVisibilityNotice } from './product-visibility-notice';
+import {
+  DEFAULT_RETURN_POLICY,
+  ProductReturnPolicySection,
+  type ProductReturnPolicyFormState,
+} from './product-return-policy-section';
 
 const schema = z.object({
   name: z.string().min(2).max(200),
@@ -90,6 +95,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
   const [taxCategory, setTaxCategory] = useState<'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED'>('GOODS');
   const [hsnError, setHsnError] = useState<string | null>(null);
   const [fssaiError, setFssaiError] = useState<string | null>(null);
+  const [returnPolicy, setReturnPolicy] = useState<ProductReturnPolicyFormState>(DEFAULT_RETURN_POLICY);
 
   const {
     register,
@@ -188,6 +194,21 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         setHsn(null);
       }
       setTaxCategory((editProduct.taxCategory as typeof taxCategory) ?? 'GOODS');
+      setReturnPolicy({
+        isReturnable: editProduct.isReturnable ?? false,
+        isRefundable: editProduct.isRefundable ?? false,
+        isReplaceable: editProduct.isReplaceable ?? false,
+        returnWindowHours: editProduct.returnWindowHours ?? undefined,
+        approvalMode: editProduct.approvalMode ?? 'MANUAL',
+        proofRequired: editProduct.proofRequired ?? 'NONE',
+        autoApproveBelowAmount: editProduct.autoApproveBelowAmount ?? undefined,
+        returnReasons: editProduct.returnReasons ?? [],
+        refundMethod: editProduct.refundMethod ?? 'ORIGINAL_PAYMENT',
+        preparedFoodPolicy: editProduct.preparedFoodPolicy ?? undefined,
+        allowCustomerChangedMind: editProduct.allowCustomerChangedMind ?? false,
+        returnPolicyText: editProduct.returnPolicyText ?? undefined,
+        replacementPolicyText: editProduct.replacementPolicyText ?? undefined,
+      });
     } else {
       reset({
         quantity: 10,
@@ -197,6 +218,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
       });
       setHsn(null);
       setTaxCategory('GOODS');
+      setReturnPolicy(DEFAULT_RETURN_POLICY);
     }
   }, [editProduct, reset, open, categories]);
 
@@ -255,6 +277,8 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         gstSlab: hsn?.defaultGstSlab,
         taxCategory,
         ...(resolvedFssai ? { fssaiLicense: resolvedFssai } : {}),
+        ...returnPolicy,
+        preparedFoodPolicy: returnPolicy.preparedFoodPolicy || undefined,
       };
       if (editProduct) {
         await updateMutation.mutateAsync(payload);
@@ -403,6 +427,26 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
             )}
           </div>
         </details>
+
+        <ProductReturnPolicySection
+          value={returnPolicy}
+          onChange={setReturnPolicy}
+          onSuggestAi={() => {
+            const name = getValues('name') || editProduct?.name || '';
+            const slug = selectedCategory?.slug ?? '';
+            const isFood = needsFssai;
+            const suggested =
+              name.toLowerCase().includes('milk')
+                ? { isReplaceable: true, returnWindowHours: 2, returnReasons: ['QUALITY_ISSUE', 'DAMAGED'] }
+                : name.toLowerCase().includes('rice')
+                  ? { isRefundable: true, isReplaceable: true, returnWindowHours: 72 }
+                  : isFood
+                    ? { isRefundable: true, returnWindowHours: 2, preparedFoodPolicy: 'REFUND_ONLY' }
+                    : { isRefundable: true, isReplaceable: true, returnWindowHours: 24 };
+            setReturnPolicy({ ...returnPolicy, ...suggested });
+            toast('AI suggestion applied — review and save', 'success');
+          }}
+        />
 
         <details className="rounded-lg border border-neutral-200 p-3">
           <summary className="cursor-pointer text-sm font-semibold text-neutral-800">

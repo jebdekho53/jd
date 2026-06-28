@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
@@ -14,7 +15,9 @@ import { useOrderDetailQuery, useCancelOrderMutation } from '@/hooks/use-orders'
 import { useToast } from '@/design-system/primitives';
 import { OrderReviewPanel } from '@/features/reviews/order-review-panel';
 import { OrderInvoicePanel } from '@/features/orders/order-invoice-panel';
+import { OrderClaimPanel } from '@/features/orders/order-claim-panel';
 import { SessionError } from '@/services/auth/auth-api';
+import type { OrderClaimEligibility } from '@/types/claims';
 
 const BUYER_CANCELLABLE = new Set(['PAYMENT_PENDING', 'PAID']);
 
@@ -27,6 +30,17 @@ export function OrderDetailContent({ orderId }: OrderDetailContentProps) {
   const { data: tracking } = useDeliveryTracking(orderId, order?.status);
   const cancelOrder = useCancelOrderMutation();
   const { toast } = useToast();
+  const [claimEligibility, setClaimEligibility] = useState<OrderClaimEligibility | null>(null);
+
+  useEffect(() => {
+    if (!order || !['DELIVERED', 'COMPLETED'].includes(order.status)) return;
+    void fetch(`/api/buyer/orders/${orderId}/claims/eligibility`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.data) setClaimEligibility(json.data);
+      })
+      .catch(() => {});
+  }, [order, orderId]);
 
   const canCancel = order ? BUYER_CANCELLABLE.has(order.status) : false;
 
@@ -158,6 +172,8 @@ export function OrderDetailContent({ orderId }: OrderDetailContentProps) {
                   existing={order.review}
                   canReview={order.canReview ?? ['DELIVERED', 'COMPLETED'].includes(order.status)}
                 />
+
+                <OrderClaimPanel orderId={order.id} eligibility={claimEligibility} />
               </div>
 
             <div className="space-y-4">

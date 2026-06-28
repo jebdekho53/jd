@@ -26,6 +26,24 @@ export class HealthController {
     return { status: 'ok', timestamp: new Date().toISOString() };
   }
 
+  /** Process uptime for deploy/monitoring (no dependency checks) */
+  @Get('uptime')
+  uptime(): {
+    status: string;
+    uptimeSec: number;
+    pid: number;
+    timestamp: string;
+    nodeEnv: string;
+  } {
+    return {
+      status: 'ok',
+      uptimeSec: Math.floor(process.uptime()),
+      pid: process.pid,
+      timestamp: new Date().toISOString(),
+      nodeEnv: process.env.NODE_ENV ?? 'unknown',
+    };
+  }
+
   /** Database connectivity probe */
   @Get('db')
   @HealthCheck()

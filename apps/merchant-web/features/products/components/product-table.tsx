@@ -9,7 +9,6 @@ import { InventoryInlineEditor } from './inventory-inline-editor';
 import { useDeleteProductMutation, useToggleProductStatusMutation } from '@/hooks/use-products';
 import { useToast } from '@/design-system/primitives';
 import type { Product } from '@/types/product';
-import { useMemo } from 'react';
 import { getProductVisibilityGaps, pickStoreFssaiLicense, VISIBILITY_GAP_LABELS } from '../product-visibility.util';
 
 interface Props {

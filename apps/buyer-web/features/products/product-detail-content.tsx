@@ -28,6 +28,7 @@ import { PdpCompareSection } from './pdp/components/pdp-compare-section';
 import { PdpOffersSection } from './pdp/components/pdp-offers-section';
 import { PdpDeliverySection } from './pdp/components/pdp-delivery-section';
 import { PdpDetailsSection } from './pdp/components/pdp-details-section';
+import { PdpReturnPolicySection } from './pdp/components/pdp-return-policy-section';
 import { PdpTrustSection } from './pdp/components/pdp-trust-section';
 import { PdpReviewsSection } from './pdp/components/pdp-reviews-section';
 import { PdpSimilarSection } from './pdp/components/pdp-similar-section';
@@ -324,6 +325,7 @@ export function ProductDetailContent({ productId }: { productId: string }) {
             <PdpOffersSection productId={product.id} />
 
             <PdpDetailsSection product={product} />
+            <PdpReturnPolicySection policy={product.returnPolicy} />
             <PdpTrustSection />
             <PdpReviewsSection
               productId={product.id}

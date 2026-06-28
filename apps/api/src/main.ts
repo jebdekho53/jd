@@ -66,7 +66,10 @@ async function bootstrap(): Promise<void> {
     // Health endpoints are NOT under /api/v1 for infrastructure tooling
     exclude: [
       'health',
+      'health/db',
+      'health/redis',
       'health/ready',
+      'health/uptime',
       'sitemap.xml',
       'sitemap-products.xml',
       'sitemap-stores.xml',
@@ -124,7 +127,7 @@ async function bootstrap(): Promise<void> {
   app
     .get(Logger)
     .log(
-      `🚀 Jebdekho API running on ${publicApiUrl}/api/v1 [${cfg.nodeEnv}]`,
+      `🚀 Jebdekho API running on ${publicApiUrl}/api/v1 [${cfg.nodeEnv}] pid=${process.pid}`,
       'Bootstrap',
     );
 

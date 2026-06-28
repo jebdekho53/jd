@@ -27,6 +27,8 @@ import {
 } from './buyer-visibility.util';
 import { resolveDeliveryTerms } from '../../common/utils/delivery-coverage.util';
 import { normalizeDeliveryPartnerLabel, resolveStoreDeliveryPartnerLabel } from './logistics-label.util';
+import { buildReturnPolicySummary } from '../../common/utils/product-return-policy.util';
+import type { ReturnPolicySummary } from '../../common/utils/product-return-policy.util';
 import { ConfigService } from '@nestjs/config';
 
 // ── Response shapes ───────────────────────────────────────────────────────────
@@ -75,6 +77,7 @@ export interface BuyerProduct {
   variants: BuyerVariant[];
   metadata?: BuyerProductMetadata;
   reviewSummary?: BuyerProductReviewSummary;
+  returnPolicy?: ReturnPolicySummary;
 }
 
 export interface BuyerProductWithStore extends BuyerProduct {
@@ -323,6 +326,24 @@ export class BuyerProductService {
           ratingAvg: reviewAgg._avg.rating ?? 0,
           ratingCount: reviewAgg._count.id,
         },
+        returnPolicy: buildReturnPolicySummary({
+          isReturnable: raw.isReturnable,
+          isRefundable: raw.isRefundable,
+          isReplaceable: raw.isReplaceable,
+          returnWindowHours: raw.returnWindowHours,
+          approvalMode: raw.approvalMode,
+          proofRequired: raw.proofRequired,
+          autoApproveBelowAmount: raw.autoApproveBelowAmount
+            ? Number(raw.autoApproveBelowAmount)
+            : null,
+          returnReasons: raw.returnReasons,
+          restockingFee: Number(raw.restockingFee),
+          refundMethod: raw.refundMethod,
+          returnPolicyText: raw.returnPolicyText,
+          replacementPolicyText: raw.replacementPolicyText,
+          preparedFoodPolicy: raw.preparedFoodPolicy,
+          allowCustomerChangedMind: raw.allowCustomerChangedMind,
+        }),
         store: {
           id: raw.store.id,
           name: raw.store.name,

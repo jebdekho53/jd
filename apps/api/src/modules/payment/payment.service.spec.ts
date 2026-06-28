@@ -13,11 +13,13 @@ import { BuyerPushNotificationService } from '../push/buyer-push-notification.se
 import { OrderFinancialsService } from '../finance/order-financials.service';
 import { OrderCacheService } from '../order/order-cache.service';
 import { DeliveryDispatchService } from '../logistics/delivery-dispatch.service';
+import { FoodPaymentService } from '../food/food-payment.service';
 
 const mockOrderFinancials = { recordOnlinePaymentConfirmed: jest.fn() };
 const mockOrderCache = { invalidateAll: jest.fn() };
 const mockBuyerPush = { notifyOrderPlaced: jest.fn().mockResolvedValue(undefined) };
 const mockDeliveryDispatch = { dispatchAfterOrderPlaced: jest.fn().mockResolvedValue(null) };
+const mockFoodPayment = {};
 
 const CHECKOUT_ID = 'chk1';
 const ORDER_ID = 'ord1';
@@ -107,6 +109,7 @@ describe('PaymentService', () => {
         { provide: OrderFinancialsService, useValue: mockOrderFinancials },
         { provide: OrderCacheService, useValue: mockOrderCache },
         { provide: DeliveryDispatchService, useValue: mockDeliveryDispatch },
+        { provide: FoodPaymentService, useValue: mockFoodPayment },
       ],
     }).compile();
 

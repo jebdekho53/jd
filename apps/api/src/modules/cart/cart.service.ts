@@ -18,6 +18,10 @@ import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 import { StorePromotionService } from '../promotion/store-promotion.service';
 import { MembershipBenefitService } from '../membership/membership-benefit.service';
 import type { PromoBreakdown } from '../promotion/promotion-pricing.service';
+import {
+  buildReturnPolicySummary,
+  type ReturnPolicySummary,
+} from '../../common/utils/product-return-policy.util';
 
 // ── Response types ─────────────────────────────────────────────────────────────
 
@@ -33,6 +37,7 @@ export interface CartItemView {
   product: { name: string; slug: string; imageUrls: string[]; isVeg: boolean | null };
   variant: { name: string; sku: string; weightGrams: number | null };
   availableQty: number;
+  returnPolicy?: ReturnPolicySummary;
 }
 
 export interface CartTotals {
@@ -375,6 +380,20 @@ export class CartService {
                 imageUrls: true,
                 isVeg: true,
                 categoryId: true,
+                isReturnable: true,
+                isRefundable: true,
+                isReplaceable: true,
+                returnWindowHours: true,
+                approvalMode: true,
+                proofRequired: true,
+                autoApproveBelowAmount: true,
+                returnReasons: true,
+                restockingFee: true,
+                refundMethod: true,
+                returnPolicyText: true,
+                replacementPolicyText: true,
+                preparedFoodPolicy: true,
+                allowCustomerChangedMind: true,
               },
             },
             variant: {
@@ -419,6 +438,24 @@ export class CartService {
         availableQty: item.variant.inventory
           ? Math.max(0, item.variant.inventory.availableQty)
           : 0,
+        returnPolicy: buildReturnPolicySummary({
+          isReturnable: item.product.isReturnable,
+          isRefundable: item.product.isRefundable,
+          isReplaceable: item.product.isReplaceable,
+          returnWindowHours: item.product.returnWindowHours,
+          approvalMode: item.product.approvalMode,
+          proofRequired: item.product.proofRequired,
+          autoApproveBelowAmount: item.product.autoApproveBelowAmount
+            ? Number(item.product.autoApproveBelowAmount)
+            : null,
+          returnReasons: item.product.returnReasons,
+          restockingFee: Number(item.product.restockingFee),
+          refundMethod: item.product.refundMethod,
+          returnPolicyText: item.product.returnPolicyText,
+          replacementPolicyText: item.product.replacementPolicyText,
+          preparedFoodPolicy: item.product.preparedFoodPolicy,
+          allowCustomerChangedMind: item.product.allowCustomerChangedMind,
+        }),
       };
     });
 

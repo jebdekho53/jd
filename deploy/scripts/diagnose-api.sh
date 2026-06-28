@@ -37,9 +37,51 @@ LOCAL_HEALTH=$(curl -sS -w "\nHTTP %{http_code}" "http://127.0.0.1:${API_PORT}/h
 echo "$LOCAL_HEALTH"
 
 echo ""
+echo "=== PM2 restart count (high restarts => crash loop / OOM) ==="
+pm2 jlist 2>/dev/null | node -e "
+const fs=require('fs');
+let s='';
+process.stdin.on('data',d=>s+=d);
+process.stdin.on('end',()=>{
+  try {
+    const apps=JSON.parse(s);
+    for (const a of apps) {
+      if (a.name==='jebdekho-api') {
+        console.log('restarts:', a.pm2_env?.restart_time ?? '?');
+        console.log('unstable_restarts:', a.pm2_env?.unstable_restarts ?? '?');
+        console.log('exit_code:', a.pm2_env?.exit_code ?? '?');
+        console.log('status:', a.pm2_env?.status ?? '?');
+      }
+    }
+  } catch { console.log('(could not parse pm2 jlist)'); }
+});
+" 2>/dev/null || true
+
+echo ""
+echo "=== curl http://127.0.0.1:${API_PORT}/health/uptime ==="
+curl -sS -w "\nHTTP %{http_code}\n" "http://127.0.0.1:${API_PORT}/health/uptime" 2>&1 || true
+
+echo ""
 echo "=== curl https://api.jebdekho.com/health (via nginx) ==="
 PUBLIC_HEALTH=$(curl -sS -w "\nHTTP %{http_code}" "https://api.jebdekho.com/health" 2>&1 || true)
 echo "$PUBLIC_HEALTH"
+
+echo ""
+echo "=== curl https://api.jebdekho.com/api/v1/buyer/categories (public) ==="
+curl -sS -w "\nHTTP %{http_code}\n" -H "Origin: https://jebdekho.com" \
+  "https://api.jebdekho.com/api/v1/buyer/categories" 2>&1 | tail -5
+
+echo ""
+echo "=== nginx error.log — upstream / 502 (last 40 matching lines) ==="
+if [[ -r /var/log/nginx/error.log ]]; then
+  grep -E 'upstream|502|connect\(\) failed|timed out' /var/log/nginx/error.log | tail -40 || echo "(no matching lines)"
+else
+  echo "(run as root to read /var/log/nginx/error.log)"
+fi
+
+echo ""
+echo "=== nginx -t ==="
+sudo nginx -t 2>&1 || nginx -t 2>&1 || echo "(nginx -t not available)"
 
 echo ""
 echo "=== PM2 logs (last 40 lines) ==="
@@ -88,5 +130,5 @@ echo "=== Suggested fixes ==="
 echo "1. pm2 logs jebdekho-api --lines 100   # read the actual crash reason"
 echo "2. Ensure API_PORT=3001 in .env.production"
 echo "3. Quote secrets: SHADOWFAX_WEBHOOK_SECRET=\"your-secret\""
-echo "4. pm2 delete deploy/ecosystem.config.js; pm2 start deploy/ecosystem.config.js"
+echo "4. pm2 reload jebdekho-api --update-env   # never pm2 delete during deploy"
 echo "5. curl http://127.0.0.1:3001/health  # must work before nginx/Shadowfax"

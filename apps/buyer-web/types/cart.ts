@@ -23,6 +23,7 @@ export interface CartItem {
   product: CartItemProduct;
   variant: CartItemVariant;
   availableQty: number;
+  returnPolicy?: import('@/types/return-policy').ReturnPolicySummary;
 }
 
 export interface CartPromoBreakdown {

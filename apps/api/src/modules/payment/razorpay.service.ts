@@ -133,4 +133,27 @@ export class RazorpayService implements OnModuleInit {
     const items = (result as { items?: Array<{ id: string; status: string }> }).items ?? [];
     return items;
   }
+
+  /**
+   * Issue a partial or full refund against a captured Razorpay payment.
+   * Amount is in INR rupees; converted to paise internally.
+   */
+  async createRefund(
+    razorpayPaymentId: string,
+    amountRupees: number,
+    notes?: Record<string, string>,
+  ): Promise<{ id: string; amount: number }> {
+    if (!this.client) {
+      throw new Error('Razorpay is not configured');
+    }
+    const amountPaise = Math.round(amountRupees * 100);
+    const refund = await this.client.payments.refund(razorpayPaymentId, {
+      amount: amountPaise,
+      notes,
+    });
+    return {
+      id: refund.id,
+      amount: Number(refund.amount ?? amountPaise),
+    };
+  }
 }

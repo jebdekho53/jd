@@ -29,6 +29,8 @@ const appDefaults = {
   max_restarts: 15,
   min_uptime: '10s',
   max_memory_restart: '512M',
+  kill_timeout: 8000,
+  listen_timeout: 30000,
   merge_logs: true,
   time: true,
   node_args: nodeEnvFile,

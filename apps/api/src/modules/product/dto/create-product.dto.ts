@@ -14,8 +14,16 @@ import {
   ArrayMaxSize,
   ValidateNested,
   Matches,
+  IsInt,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import {
+  ClaimApprovalMode,
+  ClaimProofRequirement,
+  ClaimRefundMethod,
+  PreparedFoodPolicy,
+  ReturnClaimReason,
+} from '@prisma/client';
 
 const SKU_REGEX = /^[A-Za-z0-9_-]{2,50}$/;
 
@@ -223,4 +231,81 @@ export class CreateProductDto {
   @IsOptional()
   @IsEnum(['GOODS', 'SERVICES', 'EXEMPT', 'NIL_RATED'])
   taxCategory?: 'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED';
+
+  // Return / refund / replacement policy (merchant-controlled)
+  @ApiProperty({ required: false, default: false })
+  @IsOptional()
+  @IsBoolean()
+  isReturnable?: boolean;
+
+  @ApiProperty({ required: false, default: false })
+  @IsOptional()
+  @IsBoolean()
+  isRefundable?: boolean;
+
+  @ApiProperty({ required: false, default: false })
+  @IsOptional()
+  @IsBoolean()
+  isReplaceable?: boolean;
+
+  @ApiProperty({ required: false, description: 'Return window in hours' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  returnWindowHours?: number;
+
+  @ApiProperty({ required: false, enum: ClaimApprovalMode })
+  @IsOptional()
+  @IsEnum(ClaimApprovalMode)
+  approvalMode?: ClaimApprovalMode;
+
+  @ApiProperty({ required: false, enum: ClaimProofRequirement })
+  @IsOptional()
+  @IsEnum(ClaimProofRequirement)
+  proofRequired?: ClaimProofRequirement;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  autoApproveBelowAmount?: number;
+
+  @ApiProperty({ required: false, enum: ReturnClaimReason, isArray: true })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(ReturnClaimReason, { each: true })
+  returnReasons?: ReturnClaimReason[];
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  restockingFee?: number;
+
+  @ApiProperty({ required: false, enum: ClaimRefundMethod })
+  @IsOptional()
+  @IsEnum(ClaimRefundMethod)
+  refundMethod?: ClaimRefundMethod;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @Length(0, 5000)
+  returnPolicyText?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @Length(0, 5000)
+  replacementPolicyText?: string;
+
+  @ApiProperty({ required: false, enum: PreparedFoodPolicy })
+  @IsOptional()
+  @IsEnum(PreparedFoodPolicy)
+  preparedFoodPolicy?: PreparedFoodPolicy;
+
+  @ApiProperty({ required: false, default: false })
+  @IsOptional()
+  @IsBoolean()
+  allowCustomerChangedMind?: boolean;
 }

@@ -20,6 +20,7 @@ import {
   UtensilsCrossed,
   ChefHat,
   BarChart3,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { BrandLockup } from '@/components/brand/brand-lockup';
@@ -37,6 +38,7 @@ const baseNav = [
   { href: '/inventory', label: 'Inventory', icon: Layers },
   { href: '/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/orders/live', label: 'Live Orders', icon: Monitor },
+  { href: '/claims', label: 'Returns & Claims', icon: RefreshCw },
   { href: '/reviews', label: 'Reviews', icon: Star },
   { href: '/promotions', label: 'Promotions', icon: Tag },
   { href: '/earnings', label: 'Earnings', icon: Wallet },

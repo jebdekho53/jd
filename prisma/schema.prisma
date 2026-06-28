@@ -748,6 +748,7 @@ model BuyerProfile {
   productReviews ProductReview[]
   wallet       BuyerWallet?
   membershipSubscriptions MembershipSubscription[]
+  orderClaims             OrderClaim[]
 
   @@map("buyer_profiles")
 }
@@ -1465,6 +1466,7 @@ model Store {
   menuOcrJobs            MenuOcrJob[]
   foodCarts              FoodCart[]
   addonGroups            RestaurantAddonGroup[]
+  orderClaims            OrderClaim[]
 
   @@unique([merchantProfileId, slug])
   @@index([cityId, isActive])
@@ -1730,6 +1732,23 @@ model Product {
   sponsoredProducts      SponsoredProduct[]
   productReviews         ProductReview[]
   aiProductAnalysis      AIProductAnalysis?
+  orderClaimItems        OrderClaimItem[]
+
+  // Merchant-controlled return / refund / replacement policy
+  isReturnable              Boolean               @default(false) @map("is_returnable")
+  isRefundable              Boolean               @default(false) @map("is_refundable")
+  isReplaceable             Boolean               @default(false) @map("is_replaceable")
+  returnWindowHours         Int?                  @map("return_window_hours")
+  approvalMode              ClaimApprovalMode     @default(MANUAL) @map("approval_mode")
+  proofRequired             ClaimProofRequirement @default(NONE) @map("proof_required")
+  autoApproveBelowAmount    Decimal?              @map("auto_approve_below_amount") @db.Decimal(10, 2)
+  returnReasons             ReturnClaimReason[]   @default([]) @map("return_reasons")
+  restockingFee             Decimal               @default(0) @map("restocking_fee") @db.Decimal(10, 2)
+  refundMethod              ClaimRefundMethod     @default(ORIGINAL_PAYMENT) @map("refund_method")
+  returnPolicyText          String?               @map("return_policy_text") @db.Text
+  replacementPolicyText     String?               @map("replacement_policy_text") @db.Text
+  preparedFoodPolicy          PreparedFoodPolicy?   @map("prepared_food_policy")
+  allowCustomerChangedMind    Boolean             @default(false) @map("allow_customer_changed_mind")
 
   @@unique([storeId, slug])
   @@index([storeId, isActive])
@@ -2000,6 +2019,7 @@ model Order {
   adConversions     AdConversion[]
   membershipUsages  MembershipUsage[]
   corporatePurchaseRequests PurchaseRequest[]
+  claims                  OrderClaim[]
 
   @@index([buyerProfileId, status])
   @@index([storeId, status])
@@ -2028,6 +2048,7 @@ model OrderItem {
   variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
   fulfillmentItems FulfillmentOrderItem[]
   productReviews ProductReview[]
+  claimItems     OrderClaimItem[]
 
   @@index([orderId])
   @@map("order_items")
@@ -7060,4 +7081,190 @@ model RestaurantMenuSearchIndex {
 
   @@index([storeId])
   @@map("restaurant_menu_search_index")
+}
+
+// =============================================================================
+// MERCHANT-CONTROLLED RETURNS, REFUNDS & REPLACEMENTS
+// =============================================================================
+
+enum ClaimApprovalMode {
+  AUTO
+  MANUAL
+}
+
+enum ClaimProofRequirement {
+  NONE
+  PHOTO
+  VIDEO
+  PHOTO_AND_VIDEO
+}
+
+enum ClaimRefundMethod {
+  ORIGINAL_PAYMENT
+  WALLET
+  BOTH
+}
+
+enum PreparedFoodPolicy {
+  NO_RETURN
+  REPLACEMENT_ONLY
+  REFUND_ONLY
+  MERCHANT_DECIDES
+}
+
+enum ReturnClaimReason {
+  WRONG_ITEM
+  DAMAGED
+  MISSING_ITEM
+  QUALITY_ISSUE
+  EXPIRED_PRODUCT
+  PACKAGING_DAMAGED
+  NOT_AS_DESCRIBED
+  CUSTOMER_CHANGED_MIND
+  OTHER
+}
+
+enum OrderClaimType {
+  RETURN
+  REFUND
+  REPLACEMENT
+}
+
+enum OrderClaimStatus {
+  PENDING
+  EVIDENCE_REQUESTED
+  APPROVED
+  REJECTED
+  REPLACEMENT_APPROVED
+  REPLACEMENT_SHIPPED
+  REFUND_PROCESSING
+  REFUND_PROCESSED
+  CLOSED
+}
+
+enum ClaimActorType {
+  BUYER
+  MERCHANT
+  ADMIN
+  SYSTEM
+}
+
+model OrderClaim {
+  id                 String            @id @default(cuid())
+  claimNumber        String            @unique @map("claim_number")
+  orderId            String            @map("order_id")
+  buyerProfileId     String            @map("buyer_profile_id")
+  storeId            String            @map("store_id")
+  claimType          OrderClaimType    @map("claim_type")
+  status             OrderClaimStatus  @default(PENDING)
+  reason             ReturnClaimReason
+  reasonNote         String?           @map("reason_note") @db.Text
+  requestedAmount    Decimal           @default(0) @map("requested_amount") @db.Decimal(10, 2)
+  approvedAmount     Decimal?          @map("approved_amount") @db.Decimal(10, 2)
+  restockingFee      Decimal           @default(0) @map("restocking_fee") @db.Decimal(10, 2)
+  idempotencyKey     String?           @map("idempotency_key")
+  merchantNote       String?           @map("merchant_note") @db.Text
+  adminNote          String?           @map("admin_note") @db.Text
+  replacementOrderId String?           @map("replacement_order_id")
+  returnPickupEnabled Boolean          @default(false) @map("return_pickup_enabled")
+  returnShipmentId   String?           @map("return_shipment_id")
+  resolvedAt         DateTime?         @map("resolved_at")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  order            Order              @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  buyerProfile     BuyerProfile       @relation(fields: [buyerProfileId], references: [id], onDelete: Restrict)
+  store            Store              @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  items            OrderClaimItem[]
+  evidence         ClaimEvidence[]
+  history          ClaimHistory[]
+  refund           ClaimRefund?
+  replacement      ClaimReplacement?
+
+  @@index([orderId])
+  @@index([storeId, status])
+  @@index([buyerProfileId, status])
+  @@index([status, createdAt(sort: Desc)])
+  @@unique([buyerProfileId, idempotencyKey])
+  @@map("order_claims")
+}
+
+model OrderClaimItem {
+  id               String  @id @default(cuid())
+  claimId          String  @map("claim_id")
+  orderItemId      String  @map("order_item_id")
+  productId        String  @map("product_id")
+  quantityClaimed  Int     @map("quantity_claimed")
+  quantityApproved Int?    @map("quantity_approved")
+  unitPrice        Decimal @map("unit_price") @db.Decimal(10, 2)
+  refundAmount     Decimal @default(0) @map("refund_amount") @db.Decimal(10, 2)
+
+  claim     OrderClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  orderItem OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([claimId])
+  @@index([orderItemId])
+  @@map("order_claim_items")
+}
+
+model ClaimEvidence {
+  id        String   @id @default(cuid())
+  claimId   String   @map("claim_id")
+  kind      String
+  url       String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  claim OrderClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([claimId])
+  @@map("claim_evidence")
+}
+
+model ClaimHistory {
+  id         String           @id @default(cuid())
+  claimId    String           @map("claim_id")
+  status     OrderClaimStatus
+  actorType  ClaimActorType     @map("actor_type")
+  actorId    String?            @map("actor_id")
+  note       String?            @db.Text
+  metadata   Json?
+  createdAt  DateTime           @default(now()) @map("created_at")
+
+  claim OrderClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([claimId, createdAt])
+  @@map("claim_history")
+}
+
+model ClaimRefund {
+  id                String        @id @default(cuid())
+  claimId           String        @unique @map("claim_id")
+  amount            Decimal       @db.Decimal(10, 2)
+  walletAmount      Decimal       @default(0) @map("wallet_amount") @db.Decimal(10, 2)
+  razorpayAmount    Decimal       @default(0) @map("razorpay_amount") @db.Decimal(10, 2)
+  razorpayRefundId  String?       @map("razorpay_refund_id")
+  walletTxnId       String?       @map("wallet_txn_id")
+  status            PaymentStatus @default(PENDING)
+  idempotencyKey    String        @unique @map("idempotency_key")
+  processedAt       DateTime?     @map("processed_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  claim OrderClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@map("claim_refunds")
+}
+
+model ClaimReplacement {
+  id                 String    @id @default(cuid())
+  claimId            String    @unique @map("claim_id")
+  replacementOrderId String    @map("replacement_order_id")
+  shipmentId         String?   @map("shipment_id")
+  status             String    @default("PENDING")
+  shippedAt          DateTime? @map("shipped_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  claim OrderClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@map("claim_replacements")
 }

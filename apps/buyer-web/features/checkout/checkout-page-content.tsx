@@ -8,6 +8,7 @@ import { AuthGuard } from '@/features/auth/components/auth-guard';
 import { AddressForm } from '@/features/checkout/components/address-form';
 import { PaymentMethodSelector } from '@/features/checkout/components/payment-method-selector';
 import { CheckoutSummary } from '@/features/checkout/components/checkout-summary';
+import { CheckoutReturnPolicyPanel } from '@/features/checkout/components/checkout-return-policy-panel';
 import { CouponPanel } from '@/features/checkout/components/coupon-panel';
 import { DeliverabilityPanel } from '@/features/checkout/components/deliverability-panel';
 import { WalletCheckoutPanel } from '@/features/checkout/components/wallet-checkout-panel';
@@ -302,6 +303,7 @@ export function CheckoutPageContent() {
                     pincode={deliveryAddress.pincode}
                   />
                   <CouponPanel cart={cart} />
+                  <CheckoutReturnPolicyPanel items={cart.items} />
                   <CheckoutSummary cart={cart} address={deliveryAddress} />
                 </div>
               )}

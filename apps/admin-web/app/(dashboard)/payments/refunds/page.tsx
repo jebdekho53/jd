@@ -1,16 +1,13 @@
 import type { Metadata } from 'next';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
-import { FeaturePlaceholder } from '@/components/feature-placeholder';
+import { AdminClaimsPageContent } from '@/features/claims/admin-claims-page-content';
 
-export const metadata: Metadata = { title: 'Refunds' };
+export const metadata: Metadata = { title: 'Returns & Claims' };
 
 export default function RefundsPage() {
   return (
-    <DashboardShell title="Refund Requests">
-      <FeaturePlaceholder
-        title="Refund queue"
-        description="Review and process merchant refund requests — Phase 2."
-      />
+    <DashboardShell title="Returns & Claims">
+      <AdminClaimsPageContent />
     </DashboardShell>
   );
 }

@@ -155,6 +155,22 @@ export class LedgerService implements OnModuleInit {
     });
   }
 
+  async recordClaimRefund(claimId: string, orderId: string, amount: number): Promise<void> {
+    if (amount <= 0) return;
+    await this.postJournal({
+      referenceType: LedgerReferenceType.REFUND,
+      referenceId: claimId,
+      orderId,
+      description: `Claim refund ${claimId}`,
+      idempotencyKey: `claim-refund-ledger:${claimId}`,
+      lines: [
+        { accountCode: LEDGER_ACCOUNT_CODES.REFUND_EXPENSE, debit: amount, credit: 0 },
+        { accountCode: LEDGER_ACCOUNT_CODES.PLATFORM_ESCROW, debit: 0, credit: amount },
+      ],
+      metadata: { claimId, orderId },
+    });
+  }
+
   async recordWalletCredit(walletTxnId: string, amount: number): Promise<void> {
     await this.postJournal({
       referenceType: LedgerReferenceType.WALLET_CREDIT,

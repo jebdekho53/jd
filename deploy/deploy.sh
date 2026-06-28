@@ -57,16 +57,22 @@ log "Building production apps..."
 chmod +x deploy/scripts/build-production.sh
 ./deploy/scripts/build-production.sh
 
-log "Restarting PM2 processes..."
+log "Restarting PM2 processes (graceful reload — avoid pm2 delete downtime)..."
 ln -sf .env.production .env
 chmod +x deploy/scripts/verify-production-env.sh
 ./deploy/scripts/verify-production-env.sh
-pm2 delete deploy/ecosystem.config.js 2>/dev/null || true
-pm2 start deploy/ecosystem.config.js
-pm2 save
+
+API_PORT_VAL=$(grep -E '^API_PORT=' .env.production | cut -d= -f2- | tr -d '"' | tr -d "'" | tr -d ' ' || echo 3001)
+
+if pm2 describe jebdekho-api >/dev/null 2>&1; then
+  log "Reloading API first (minimal buyer-facing downtime)..."
+  pm2 reload jebdekho-api --update-env
+else
+  log "First deploy — starting PM2 ecosystem..."
+  pm2 start deploy/ecosystem.config.js --only jebdekho-api
+fi
 
 log "Waiting for API to listen..."
-API_PORT_VAL=$(grep -E '^API_PORT=' .env.production | cut -d= -f2- | tr -d '"' | tr -d "'" | tr -d ' ' || echo 3001)
 API_HEALTH_OK=false
 for attempt in $(seq 1 30); do
   if curl -fsS "http://127.0.0.1:${API_PORT_VAL}/health" > /dev/null; then
@@ -76,6 +82,23 @@ for attempt in $(seq 1 30); do
   fi
   sleep 2
 done
+
+if [[ "$API_HEALTH_OK" == "true" ]] && pm2 describe jebdekho-api >/dev/null 2>&1; then
+  log "Reloading web portals..."
+  for portal in jebdekho-buyer-web jebdekho-merchant-web jebdekho-admin-web jebdekho-rider-web jebdekho-vendor-web jebdekho-franchise-web; do
+    if pm2 describe "$portal" >/dev/null 2>&1; then
+      pm2 reload "$portal" --update-env || log "WARN: reload failed for $portal"
+    else
+      pm2 start deploy/ecosystem.config.js --only "$portal" || log "WARN: start failed for $portal"
+    fi
+  done
+elif [[ "$API_HEALTH_OK" != "true" ]]; then
+  :
+else
+  pm2 start deploy/ecosystem.config.js
+fi
+
+pm2 save
 
 if [[ "$API_HEALTH_OK" != "true" ]]; then
   log "ERROR: API health check failed on port ${API_PORT_VAL}"
@@ -94,6 +117,14 @@ for port in 3000 3002 3003 3004 3005 3006; do
     log "WARN: Portal on port $port did not respond (may still be starting)"
   fi
 done
+
+PUBLIC_CATS_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -H "Origin: https://jebdekho.com" \
+  "https://api.jebdekho.com/api/v1/buyer/categories" 2>/dev/null || echo "000")
+PUBLIC_HEALTH_CODE=$(curl -sS -o /dev/null -w "%{http_code}" "https://api.jebdekho.com/health" 2>/dev/null || echo "000")
+log "Post-deploy public probes: categories=${PUBLIC_CATS_CODE} health=${PUBLIC_HEALTH_CODE}"
+if [[ "$PUBLIC_CATS_CODE" != "200" ]]; then
+  log "WARN: Public categories probe not 200 — check nginx upstream and pm2 logs"
+fi
 
 log "=== Deploy complete ==="
 log "New SHA: $(git rev-parse HEAD)"

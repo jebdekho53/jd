@@ -55,6 +55,19 @@ export interface Product {
   gstSlab?: string | null;
   taxCategory?: string | null;
   hsnCodeRef?: { id: string; code: string; description: string; defaultGstSlab: string } | null;
+  isReturnable?: boolean;
+  isRefundable?: boolean;
+  isReplaceable?: boolean;
+  returnWindowHours?: number | null;
+  approvalMode?: string;
+  proofRequired?: string;
+  autoApproveBelowAmount?: number | null;
+  returnReasons?: string[];
+  refundMethod?: string;
+  preparedFoodPolicy?: string | null;
+  allowCustomerChangedMind?: boolean;
+  returnPolicyText?: string | null;
+  replacementPolicyText?: string | null;
   createdAt: string;
   variants: ProductVariant[];
 }

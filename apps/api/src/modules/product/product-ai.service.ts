@@ -18,6 +18,7 @@ import { AiProductImageService } from './ai-product-image.service';
 import { OpenAiVisionClient } from './openai-vision.client';
 import { ConfirmAiProductDto } from './dto/product-ai.dto';
 import { CreateProductDto } from './dto/create-product.dto';
+import { suggestDefaultReturnPolicy } from '../../common/utils/product-return-policy.util';
 import {
   AI_LOW_CONFIDENCE_THRESHOLD,
   AI_NOT_CONFIGURED_CODE,
@@ -248,6 +249,13 @@ export class ProductAiService {
       hsnCodeId: dto.hsnCodeId,
       gstSlab: dto.gstSlab,
       taxCategory: dto.taxCategory,
+      ...(dto.confirmReturnPolicy
+        ? (suggestDefaultReturnPolicy({
+            productName: dto.name,
+            categorySlug: dto.categoryId,
+            isFood: Boolean(dto.fssaiLicense),
+          }) as Partial<CreateProductDto>)
+        : {}),
     };
 
     try {

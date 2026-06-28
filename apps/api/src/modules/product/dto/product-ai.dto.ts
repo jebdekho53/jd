@@ -118,6 +118,14 @@ export class ConfirmAiProductDto {
   @IsEnum(['GOODS', 'SERVICES', 'EXEMPT', 'NIL_RATED'])
   taxCategory?: 'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED';
 
+  @ApiPropertyOptional({
+    description: 'Apply AI-suggested return policy (merchant must opt in)',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  confirmReturnPolicy?: boolean;
+
   @ApiProperty({ description: 'Publish immediately (true) or save as draft (false)' })
   @IsBoolean()
   publish!: boolean;

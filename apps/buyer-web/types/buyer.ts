@@ -63,6 +63,8 @@ export interface BuyerVariant {
   availableQty: number;
 }
 
+import type { ReturnPolicySummary } from './return-policy';
+
 export interface BuyerProductMetadata {
   ingredients: string | null;
   shelfLife: string | null;
@@ -97,6 +99,7 @@ export interface BuyerProduct {
   variants: BuyerVariant[];
   metadata?: BuyerProductMetadata;
   reviewSummary?: BuyerProductReviewSummary;
+  returnPolicy?: ReturnPolicySummary;
 }
 
 export interface BuyerProductWithStore extends BuyerProduct {
