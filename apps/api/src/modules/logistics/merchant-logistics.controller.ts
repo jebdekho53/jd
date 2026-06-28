@@ -1,9 +1,12 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   Post,
   UseGuards,
@@ -16,7 +19,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types';
 import { PrismaService } from '../../database/prisma.service';
 import { DeliveryOrchestratorService } from './delivery-orchestrator.service';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { LogisticsProviderError } from './errors/logistics.errors';
 
 @ApiTags('merchant-logistics')
 @Controller('merchant/orders')
@@ -62,8 +65,21 @@ export class MerchantLogisticsController {
   @ApiOperation({ summary: 'Retry failed shipment creation' })
   async retryShipment(@CurrentUser() user: RequestUser, @Param('orderId') orderId: string) {
     await this.assertMerchantOrder(user.id, orderId);
-    const data = await this.orchestrator.retryShipment(orderId);
-    return { success: true, data };
+    try {
+      const data = await this.orchestrator.retryShipment(orderId);
+      return { success: true, data };
+    } catch (err) {
+      if (err instanceof LogisticsProviderError) {
+        throw new BadRequestException({
+          code: 'SHADOWFAX_CREATE_FAILED',
+          providerStatusCode: err.providerStatusCode ?? (err.code ? Number(err.code) || err.code : undefined),
+          providerMessage: err.providerMessage ?? err.message,
+          retryable: err.retryable,
+          message: err.message,
+        });
+      }
+      throw err;
+    }
   }
 
   private async assertMerchantOrder(userId: string, orderId: string) {

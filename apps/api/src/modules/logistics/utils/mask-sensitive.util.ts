@@ -7,6 +7,7 @@ const SENSITIVE_KEYS = new Set([
   'secret',
   'api_key',
   'webhook_secret',
+  'credits_key',
 ]);
 
 export function maskSensitivePayload<T>(value: T): T {

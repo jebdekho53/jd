@@ -41,6 +41,12 @@ echo "=== Shadowfax env ==="
 [[ "${ENABLE_SHADOWFAX:-true}" == "true" ]] && pass "ENABLE_SHADOWFAX=true" || fail "ENABLE_SHADOWFAX not true"
 [[ "${ENABLE_OWN_FLEET:-false}" == "false" ]] && pass "ENABLE_OWN_FLEET=false" || fail "ENABLE_OWN_FLEET should be false"
 [[ -n "${SHADOWFAX_API_URL:-}" ]] && pass "SHADOWFAX_API_URL set" || fail "SHADOWFAX_API_URL missing"
+if [[ "${SHADOWFAX_API_URL:-}" == */api/v3 ]]; then
+  fail "SHADOWFAX_API_URL should be host-only (no trailing /api/v3)"
+fi
+if [[ "${SHADOWFAX_API_URL:-}" == *flash-api* || "${SHADOWFAX_API_URL:-}" == *hlbackend* || "${SHADOWFAX_API_MODE:-}" == "flash" ]]; then
+  [[ -n "${SHADOWFAX_CREDITS_KEY:-}" ]] && pass "SHADOWFAX_CREDITS_KEY set (flash mode)" || fail "SHADOWFAX_CREDITS_KEY required for flash/hyperlocal"
+fi
 if [[ -n "${SHADOWFAX_PRODUCTION_TOKEN:-}" ]] || [[ -n "${SHADOWFAX_TEST_TOKEN:-}" ]]; then
   pass "Shadowfax token configured"
 else

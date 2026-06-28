@@ -8,6 +8,11 @@ LOG_DIR="${JD_LOG_DIR:-/var/log/jebdekho}"
 
 cd "$ROOT"
 
+echo "=== git deployment ==="
+git rev-parse HEAD 2>/dev/null || echo "(not a git repo)"
+git status --short 2>/dev/null | head -5 || true
+
+echo ""
 echo "=== jebdekho-api PM2 ==="
 pm2 describe jebdekho-api 2>/dev/null | grep -E 'status|restarts|uptime|script path|node args|error log|out log' || echo "PM2 process jebdekho-api not found"
 
@@ -59,7 +64,21 @@ process.stdin.on('end',()=>{
 
 echo ""
 echo "=== curl http://127.0.0.1:${API_PORT}/health/uptime ==="
-curl -sS -w "\nHTTP %{http_code}\n" "http://127.0.0.1:${API_PORT}/health/uptime" 2>&1 || true
+UPTIME_OUT=$(curl -sS -w "\nHTTP %{http_code}" "http://127.0.0.1:${API_PORT}/health/uptime" 2>&1 || true)
+echo "$UPTIME_OUT"
+if echo "$UPTIME_OUT" | grep -q "HTTP 404"; then
+  echo "WARN: /health/uptime missing — run: pnpm --filter @jebdekho/api build && pm2 reload jebdekho-api --update-env"
+fi
+
+if [[ -f "${ROOT}/apps/api/dist/health/health.controller.js" ]]; then
+  if grep -q "uptime" "${ROOT}/apps/api/dist/health/health.controller.js"; then
+    echo "dist: health/uptime route present in build"
+  else
+    echo "WARN: dist build is stale — missing uptime route in health.controller.js"
+  fi
+else
+  echo "WARN: apps/api/dist/health/health.controller.js missing — rebuild API"
+fi
 
 echo ""
 echo "=== curl https://api.jebdekho.com/health (via nginx) ==="
@@ -96,8 +115,10 @@ else
 fi
 
 echo ""
-echo "=== Boot test (capture startup error, 12s max) ==="
-if [[ ! -f "${ROOT}/apps/api/dist/main.js" ]]; then
+echo "=== Boot test (skipped when API already listening on :${API_PORT}) ==="
+if ss -tlnp 2>/dev/null | grep -q ":${API_PORT}" || netstat -tlnp 2>/dev/null | grep -q ":${API_PORT}"; then
+  echo "SKIP: port ${API_PORT} in use (PM2 likely running). Use pm2 reload + /health checks instead."
+elif [[ ! -f "${ROOT}/apps/api/dist/main.js" ]]; then
   echo "ERROR: apps/api/dist/main.js missing — run: pnpm --filter @jebdekho/api build"
 else
   set +e
@@ -105,7 +126,7 @@ else
   BOOT_EXIT=$?
   set -e
   if [[ "$BOOT_EXIT" == "124" ]]; then
-    echo "(boot test timed out — API likely started; check port ${API_PORT})"
+    echo "(boot test timed out — API likely started)"
   fi
 fi
 

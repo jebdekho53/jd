@@ -39,10 +39,29 @@ echo "DELIVERY_PROVIDER=${DELIVERY_PROVIDER:-shadowfax}"
 echo "ENABLE_SHADOWFAX=${ENABLE_SHADOWFAX:-true}"
 echo "ENABLE_OWN_FLEET=${ENABLE_OWN_FLEET:-false}"
 echo "SHADOWFAX_API_URL=${SHADOWFAX_API_URL:-(not set)}"
+echo "SHADOWFAX_API_MODE=${SHADOWFAX_API_MODE:-(auto from host)}"
+echo "SHADOWFAX_CREDITS_KEY=$(mask "${SHADOWFAX_CREDITS_KEY:-}")"
 echo "SHADOWFAX_PRODUCTION_TOKEN=$(mask "${SHADOWFAX_PRODUCTION_TOKEN:-}")"
 echo "SHADOWFAX_TEST_TOKEN=$(mask "${SHADOWFAX_TEST_TOKEN:-}")"
 echo "SHADOWFAX_WEBHOOK_SECRET=$(mask "${SHADOWFAX_WEBHOOK_SECRET:-}")"
 echo "WEBHOOK_PUSH_URL=$WEBHOOK_PUSH_URL"
+
+if [[ -n "${SHADOWFAX_API_URL:-}" ]]; then
+  echo ""
+  echo "=== Resolved Shadowfax API paths (host + path only) ==="
+  BASE="${SHADOWFAX_API_URL%/}"
+  BASE="${BASE%/api/v3}"
+  if [[ "${SHADOWFAX_API_URL}" == *flash-api* || "${SHADOWFAX_API_URL}" == *hlbackend* || "${SHADOWFAX_API_MODE:-}" == "flash" ]]; then
+    echo "mode: flash (hyperlocal)"
+    echo "create: $(node -e "try{console.log(new URL(process.argv[1]).host+'/order/create/')}catch(e){console.log('invalid-url')}" "$BASE")"
+  else
+    echo "mode: v3 (e-commerce)"
+    echo "create: $(node -e "try{console.log(new URL(process.argv[1]).host+'/api/v3/clients/shipments/')}catch(e){console.log('invalid-url')}" "$BASE")"
+  fi
+  if [[ "${SHADOWFAX_API_URL}" == */api/v3 ]]; then
+    echo "WARN: SHADOWFAX_API_URL should be host-only; /api/v3 is appended by the client"
+  fi
+fi
 echo ""
 
 echo "=== Health check (requires admin JWT in ADMIN_BEARER_TOKEN) ==="

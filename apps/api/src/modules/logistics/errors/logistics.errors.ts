@@ -1,15 +1,21 @@
 import { DeliveryProviderType } from '@prisma/client';
 
 export class LogisticsProviderError extends Error {
+  readonly providerStatusCode?: number;
+  readonly providerMessage?: string;
+
   constructor(
     message: string,
     readonly providerType: DeliveryProviderType,
     readonly code?: string,
     readonly retryable = false,
     readonly cause?: unknown,
+    opts?: { providerStatusCode?: number; providerMessage?: string },
   ) {
     super(message);
     this.name = 'LogisticsProviderError';
+    this.providerStatusCode = opts?.providerStatusCode;
+    this.providerMessage = opts?.providerMessage;
   }
 }
 

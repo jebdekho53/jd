@@ -49,9 +49,16 @@ export class ShadowfaxProvider implements ILogisticsProvider {
 
     const data = asRecord(raw.data ?? raw);
     const externalShipmentId =
-      asString(data.shipment_id) ?? asString(data.id) ?? asString(data.awb_number) ?? '';
+      asString(data.shipment_id) ??
+      asString(data.sfx_order_id) ??
+      asString(data.id) ??
+      asString(data.awb_number) ??
+      '';
     const trackingNumber =
-      asString(data.awb_number) ?? asString(data.tracking_id) ?? externalShipmentId;
+      asString(data.awb_number) ??
+      asString(data.tracking_id) ??
+      asString(data.sfx_order_id) ??
+      externalShipmentId;
     const providerStatus = asString(data.status) ?? 'new';
     const etaMins = asNumber(data.estimated_delivery_time) ?? asNumber(data.eta_minutes);
 

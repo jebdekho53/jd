@@ -132,6 +132,8 @@ export function getConfig(configService: ConfigService) {
       enableBorzo: configService.get<string>('ENABLE_BORZO', 'false') === 'true',
       shadowfax: {
         apiUrl: configService.get<string>('SHADOWFAX_API_URL', ''),
+        apiMode: configService.get<string>('SHADOWFAX_API_MODE', ''),
+        creditsKey: configService.get<string>('SHADOWFAX_CREDITS_KEY', ''),
         clientId: configService.get<string>('SHADOWFAX_CLIENT_ID', ''),
         clientSecret: configService.get<string>('SHADOWFAX_CLIENT_SECRET', ''),
         testToken: configService.get<string>('SHADOWFAX_TEST_TOKEN', ''),

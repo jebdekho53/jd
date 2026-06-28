@@ -105,6 +105,21 @@ if (shadowfaxEnabled && deliveryProvider === 'shadowfax') {
     console.error('ERROR: SHADOWFAX_PRODUCTION_TOKEN or SHADOWFAX_TEST_TOKEN required when Shadowfax is enabled');
     process.exit(1);
   }
+  const apiUrl = String(process.env.SHADOWFAX_API_URL || '').toLowerCase();
+  const apiMode = String(process.env.SHADOWFAX_API_MODE || '').toLowerCase();
+  const flashMode =
+    apiMode === 'flash' ||
+    apiMode === 'hyperlocal' ||
+    apiMode === 'hl' ||
+    apiUrl.includes('flash-api.shadowfax') ||
+    apiUrl.includes('hlbackend');
+  if (flashMode && !String(process.env.SHADOWFAX_CREDITS_KEY || '').trim()) {
+    console.error('ERROR: SHADOWFAX_CREDITS_KEY required for Shadowfax Flash/hyperlocal (SHADOWFAX_API_MODE=flash or flash-api/hlbackend URL)');
+    process.exit(1);
+  }
+  if (apiUrl.endsWith('/api/v3')) {
+    console.warn('WARN: SHADOWFAX_API_URL should be host-only — remove trailing /api/v3');
+  }
 } else if (deliveryProvider === 'shadowfax' && !shadowfaxEnabled) {
   console.warn('WARN: Shadowfax delivery disabled until SHADOWFAX_API_URL and tokens are configured');
 }
