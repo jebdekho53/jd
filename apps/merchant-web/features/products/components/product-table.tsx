@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { Edit2, Trash2, Eye } from 'lucide-react';
 import Link from 'next/link';
@@ -9,6 +9,8 @@ import { InventoryInlineEditor } from './inventory-inline-editor';
 import { useDeleteProductMutation, useToggleProductStatusMutation } from '@/hooks/use-products';
 import { useToast } from '@/design-system/primitives';
 import type { Product } from '@/types/product';
+import { useMemo } from 'react';
+import { getProductVisibilityGaps, pickStoreFssaiLicense, VISIBILITY_GAP_LABELS } from '../product-visibility.util';
 
 interface Props {
   storeId: string;
@@ -21,6 +23,7 @@ export function ProductTable({ storeId, products, isLoading, onEdit }: Props) {
   const { toast } = useToast();
   const deleteMutation = useDeleteProductMutation(storeId);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const storeFssai = useMemo(() => pickStoreFssaiLicense(products), [products]);
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
@@ -69,6 +72,7 @@ export function ProductTable({ storeId, products, isLoading, onEdit }: Props) {
           const stock = defaultVariant?.inventory?.availableQty ?? 0;
           const lowStock = defaultVariant?.inventory?.lowStockThreshold;
           const isLow = lowStock !== null && lowStock !== undefined && stock <= lowStock;
+          const visibilityGaps = getProductVisibilityGaps(p, undefined, storeFssai);
 
           return (
             <Tr key={p.id}>
@@ -114,9 +118,19 @@ export function ProductTable({ storeId, products, isLoading, onEdit }: Props) {
                 </div>
               </Td>
               <Td>
-                <Badge tone={p.isActive ? 'success' : 'neutral'}>
-                  {p.isActive ? 'Active' : 'Inactive'}
-                </Badge>
+                <div className="flex flex-wrap items-center gap-1">
+                  <Badge tone={p.isActive ? 'success' : 'neutral'}>
+                    {p.isActive ? 'Active' : 'Inactive'}
+                  </Badge>
+                  {visibilityGaps.length > 0 && (
+                    <Badge
+                      tone="warning"
+                      title={`Missing: ${visibilityGaps.map((g) => VISIBILITY_GAP_LABELS[g]).join(', ')}`}
+                    >
+                      Needs update
+                    </Badge>
+                  )}
+                </div>
               </Td>
               <Td>
                 <div className="flex items-center gap-1">

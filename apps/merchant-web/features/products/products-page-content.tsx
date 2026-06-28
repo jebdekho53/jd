@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Plus, Search, AlertTriangle } from 'lucide-react';
 import { Button, Card, Input } from '@/design-system/primitives';
 import { ProductTable } from './components/product-table';
@@ -18,6 +18,11 @@ import type { Product } from '@/types/product';
 import type { AiChargeReceipt } from '@/services/products/product-creation-api';
 import Link from 'next/link';
 import { cn } from '@/lib/cn';
+import {
+  countIncompleteProducts,
+  MERCHANT_PRODUCT_REQUIRED_HINT,
+  ProductVisibilityNotice,
+} from './components/product-visibility-notice';
 
 type ProductsTab = 'catalog' | 'ai-billing';
 
@@ -36,6 +41,9 @@ export function ProductsPageContent() {
   const { data, isLoading } = useProductsQuery(currentStore?.id ?? '', {
     search: debouncedSearch || undefined,
   });
+
+  const products = data?.data ?? [];
+  const incompleteCount = useMemo(() => countIncompleteProducts(products), [products]);
 
   const handleEdit = useCallback((p: Product) => {
     setEditProduct(p);
@@ -105,20 +113,28 @@ export function ProductsPageContent() {
 
       {activeTab === 'catalog' ? (
         <Card>
+          {incompleteCount > 0 && !debouncedSearch && (
+            <div className="border-b border-amber-100 px-4 py-3">
+              <ProductVisibilityNotice incompleteProductCount={incompleteCount} />
+            </div>
+          )}
           <div className="border-b border-slate-100 px-4 py-3">
-            <div className="relative max-w-xs">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <Input
-                className="pl-8"
-                placeholder="Search products…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-slate-500">{MERCHANT_PRODUCT_REQUIRED_HINT}</p>
+              <div className="relative max-w-xs w-full sm:w-auto">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <Input
+                  className="pl-8"
+                  placeholder="Search products…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
             </div>
           </div>
           <ProductTable
             storeId={currentStore.id}
-            products={data?.data ?? []}
+            products={products}
             isLoading={isLoading}
             onEdit={handleEdit}
           />

@@ -5,12 +5,21 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Modal, Button, Input, Textarea, Select } from '@/design-system/primitives';
-import { useCreateProductMutation, useUpdateProductMutation } from '@/hooks/use-products';
+import { useCreateProductMutation, useUpdateProductMutation, useProductsQuery } from '@/hooks/use-products';
 import { useApprovedCategoriesQuery } from '@/hooks/use-categories-governance';
 import { useToast } from '@/design-system/primitives';
 import { ImageUploadField } from '@/features/media/components/image-upload-field';
 import { HsnPicker, type HsnOption } from './hsn-picker';
 import type { Product } from '@/types/product';
+import {
+  getProductVisibilityGaps,
+  isBrokenProductImageUrl,
+  resolveFormCategory,
+  requiresFssaiForCategory,
+  requiresHsnForCategory,
+  pickStoreFssaiLicense,
+} from '../product-visibility.util';
+import { ProductVisibilityNotice } from './product-visibility-notice';
 
 const schema = z.object({
   name: z.string().min(2).max(200),
@@ -37,6 +46,12 @@ const schema = z.object({
 }).refine((d) => !d.mrp || d.basePrice <= d.mrp, {
   message: 'Price must be ≤ MRP',
   path: ['basePrice'],
+}).refine((d) => Boolean(d.parentCategoryId?.trim()), {
+  message: 'Category is required for buyers to find this product',
+  path: ['parentCategoryId'],
+}).refine((d) => !isBrokenProductImageUrl(d.imageUrl), {
+  message: 'Upload a new image — local or HTTP URLs are not visible to buyers',
+  path: ['imageUrl'],
 });
 
 type FormData = z.infer<typeof schema>;
@@ -69,9 +84,12 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
   const { toast } = useToast();
   const createMutation = useCreateProductMutation(storeId);
   const updateMutation = useUpdateProductMutation(storeId, editProduct?.id ?? '');
+  const { data: catalogProducts } = useProductsQuery(storeId, { limit: 100 });
   const { data: categories } = useApprovedCategoriesQuery(storeId);
   const [hsn, setHsn] = useState<HsnOption | null>(null);
   const [taxCategory, setTaxCategory] = useState<'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED'>('GOODS');
+  const [hsnError, setHsnError] = useState<string | null>(null);
+  const [fssaiError, setFssaiError] = useState<string | null>(null);
 
   const {
     register,
@@ -80,6 +98,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
     watch,
     reset,
     setValue,
+    getValues,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -94,6 +113,30 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
     if (!parentCategoryId) return [];
     return approvedParents.find((c) => c.id === parentCategoryId)?.children ?? [];
   }, [approvedParents, parentCategoryId]);
+
+  const selectedCategory = useMemo(
+    () => resolveFormCategory(parentCategoryId, subCategoryId, approvedParents),
+    [parentCategoryId, subCategoryId, approvedParents],
+  );
+
+  const needsHsn = requiresHsnForCategory(selectedCategory, taxCategory);
+  const needsFssai = requiresFssaiForCategory(selectedCategory);
+
+  const storeDefaultFssai = useMemo(
+    () => pickStoreFssaiLicense(catalogProducts?.data ?? []),
+    [catalogProducts?.data],
+  );
+
+  const visibilityGaps = useMemo(
+    () =>
+      editProduct
+        ? getProductVisibilityGaps(editProduct, taxCategory, storeDefaultFssai)
+        : [],
+    [editProduct, taxCategory, storeDefaultFssai],
+  );
+
+  const imageUrl = watch('imageUrl');
+  const imageBroken = Boolean(imageUrl && isBrokenProductImageUrl(imageUrl));
 
   useEffect(() => {
     if (!parentCategoryId) {
@@ -157,10 +200,33 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
     }
   }, [editProduct, reset, open, categories]);
 
+  useEffect(() => {
+    if (!open || !needsFssai || !storeDefaultFssai) return;
+    if (getValues('fssaiLicense')?.trim()) return;
+    setValue('fssaiLicense', storeDefaultFssai, { shouldDirty: false });
+  }, [open, needsFssai, storeDefaultFssai, setValue, getValues]);
+
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   const onSubmit = async (data: FormData) => {
     const categoryId = data.subCategoryId || data.parentCategoryId || undefined;
+    setHsnError(null);
+    setFssaiError(null);
+
+    if (needsHsn && !hsn) {
+      setHsnError('HSN code is required for this category');
+      toast('HSN code is required for food & grocery categories', 'error');
+      return;
+    }
+    if (needsFssai) {
+      const fssai = data.fssaiLicense?.trim() || storeDefaultFssai;
+      if (!fssai) {
+        setFssaiError('FSSAI license is required for this category');
+        toast('Enter your store FSSAI license once — it will apply to all food & grocery products', 'error');
+        return;
+      }
+    }
+
     if (data.subCategoryId && data.parentCategoryId) {
       const validChild = approvedSubcategories.some((c) => c.id === data.subCategoryId);
       if (!validChild) {
@@ -176,7 +242,9 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
     }
 
     try {
-      const { parentCategoryId: _p, subCategoryId: _s, imageUrl, taxInclusive, ...rest } = data;
+      const { parentCategoryId: _p, subCategoryId: _s, imageUrl, taxInclusive, fssaiLicense, ...rest } = data;
+      const resolvedFssai =
+        needsFssai ? (fssaiLicense?.trim() || storeDefaultFssai) : fssaiLicense?.trim() || undefined;
       const payload = {
         ...rest,
         sku: data.sku || undefined,
@@ -186,6 +254,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         hsnCodeId: hsn?.id,
         gstSlab: hsn?.defaultGstSlab,
         taxCategory,
+        ...(resolvedFssai ? { fssaiLicense: resolvedFssai } : {}),
       };
       if (editProduct) {
         await updateMutation.mutateAsync(payload);
@@ -216,14 +285,25 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
       }
     >
       <form id="product-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {(visibilityGaps.length > 0 || imageBroken) && (
+          <ProductVisibilityNotice
+            gaps={
+              imageBroken && !visibilityGaps.includes('image')
+                ? (['image', ...visibilityGaps] as typeof visibilityGaps)
+                : visibilityGaps
+            }
+          />
+        )}
+
         <ImageUploadField
           label="Product image"
           mode="square"
           purpose="product"
           required
-          value={watch('imageUrl')}
+          value={imageUrl}
           onChange={(url) => setValue('imageUrl', url, { shouldValidate: true })}
           error={errors.imageUrl?.message}
+          hint={imageBroken ? 'Re-upload required for buyer visibility' : undefined}
           allowRemove={false}
         />
         <Input label="Product name *" error={errors.name?.message} {...register('name')} />
@@ -233,7 +313,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
           <Input label="SKU" placeholder="e.g. AMUL-MILK" {...register('sku')} error={errors.sku?.message} />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Select label="Category" {...register('parentCategoryId')}>
+          <Select label="Category *" error={errors.parentCategoryId?.message} {...register('parentCategoryId')}>
             <option value="">Select category</option>
             {approvedParents.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
@@ -272,11 +352,26 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
           <Input label="Low stock alert" type="number" {...register('lowStockThreshold')} />
         </div>
 
-        <details className="rounded-lg border border-neutral-200 p-3">
+        <details
+          open={needsHsn || needsFssai}
+          className="rounded-lg border border-neutral-200 p-3"
+        >
           <summary className="cursor-pointer text-sm font-semibold text-neutral-800">
-            Tax & HSN (GST compliance)
+            Tax & HSN (GST compliance){needsHsn || needsFssai ? ' *' : ''}
           </summary>
           <div className="mt-3 space-y-3">
+            {(needsHsn || needsFssai) && (
+              <p className="text-xs text-amber-700">
+                {needsHsn && needsFssai && 'HSN and FSSAI are required for this category.'}
+                {needsHsn && !needsFssai && 'HSN is required for this category.'}
+                {needsFssai && !needsHsn && 'FSSAI is required for this category.'}
+                {needsFssai && storeDefaultFssai && (
+                  <span className="block mt-1">
+                    Using your store FSSAI from another product — change here only if this item needs a different license.
+                  </span>
+                )}
+              </p>
+            )}
             <Select
               label="Tax category"
               value={taxCategory}
@@ -287,7 +382,25 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
               <option value="EXEMPT">Exempt</option>
               <option value="NIL_RATED">Nil rated</option>
             </Select>
-            <HsnPicker value={hsn?.id} onChange={setHsn} />
+            <HsnPicker
+              value={hsn?.id}
+              required={needsHsn}
+              error={hsnError ?? undefined}
+              onChange={(next) => {
+                setHsn(next);
+                setHsnError(null);
+              }}
+            />
+            {needsFssai && (
+              <Input
+                label="FSSAI license *"
+                placeholder="14-digit FSSAI number"
+                error={fssaiError ?? undefined}
+                {...register('fssaiLicense', {
+                  onChange: () => setFssaiError(null),
+                })}
+              />
+            )}
           </div>
         </details>
 
@@ -303,13 +416,10 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
             </div>
             <Input label="Manufacturer name" {...register('manufacturerName')} />
             <Textarea label="Manufacturer address" {...register('manufacturerAddress')} />
-            <div className="grid grid-cols-2 gap-3">
-              <Input label="FSSAI license" {...register('fssaiLicense')} />
-              <label className="flex items-center gap-2 pt-6 text-sm">
-                <input type="checkbox" {...register('taxInclusive')} className="rounded" />
-                Price inclusive of tax
-              </label>
-            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" {...register('taxInclusive')} className="rounded" />
+              Price inclusive of tax
+            </label>
             <Textarea label="Storage instructions" {...register('storageInstructions')} />
             <Textarea label="Disclaimer" {...register('disclaimer')} />
           </div>

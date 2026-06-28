@@ -50,7 +50,7 @@ export class MerchantRestaurantController {
   }
 
   @Post('menu/categories')
-  @Permissions('products:create')
+  @Permissions('products:write')
   async createCategory(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -61,7 +61,7 @@ export class MerchantRestaurantController {
   }
 
   @Post('menu/items')
-  @Permissions('products:create')
+  @Permissions('products:write')
   async createItem(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -72,7 +72,7 @@ export class MerchantRestaurantController {
   }
 
   @Post('menu/addon-groups')
-  @Permissions('products:create')
+  @Permissions('products:write')
   async createAddonGroup(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -83,7 +83,7 @@ export class MerchantRestaurantController {
   }
 
   @Post('menu/items/:menuItemId/addon-groups/:groupId')
-  @Permissions('products:update')
+  @Permissions('products:write')
   async linkAddon(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -100,7 +100,7 @@ export class MerchantRestaurantController {
   }
 
   @Post('menu/combos')
-  @Permissions('products:create')
+  @Permissions('products:write')
   async createCombo(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -137,7 +137,7 @@ export class MerchantRestaurantController {
   }
 
   @Post('menu/ocr')
-  @Permissions('products:create')
+  @Permissions('products:write')
   async uploadMenuOcr(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -159,7 +159,7 @@ export class MerchantRestaurantController {
   }
 
   @Post('menu/ocr/:jobId/publish')
-  @Permissions('products:create')
+  @Permissions('products:write')
   async publishOcr(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,

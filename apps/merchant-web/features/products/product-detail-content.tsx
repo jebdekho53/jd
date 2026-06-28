@@ -10,6 +10,8 @@ import { ProductFormModal } from './components/product-form-modal';
 import { useProductQuery, useToggleProductStatusMutation } from '@/hooks/use-products';
 import { useStoreStore } from '@/store/store-store';
 import { useToast } from '@/design-system/primitives';
+import { getProductVisibilityGaps } from './product-visibility.util';
+import { ProductVisibilityNotice } from './components/product-visibility-notice';
 
 export function ProductDetailContent({ productId }: { productId: string }) {
   const { currentStore } = useStoreStore();
@@ -32,8 +34,16 @@ export function ProductDetailContent({ productId }: { productId: string }) {
   if (isLoading) return <div className="flex justify-center py-16"><Spinner size="lg" /></div>;
   if (!product) return <p className="text-red-600">Product not found.</p>;
 
+  const visibilityGaps = getProductVisibilityGaps(product);
+
   return (
     <>
+      {visibilityGaps.length > 0 && (
+        <div className="mb-4">
+          <ProductVisibilityNotice gaps={visibilityGaps} onEdit={() => setEditOpen(true)} />
+        </div>
+      )}
+
       <div className="mb-6 flex items-center gap-4">
         <Link href="/products">
           <Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4" /> Products</Button>
@@ -44,6 +54,9 @@ export function ProductDetailContent({ productId }: { productId: string }) {
             <Badge tone={product.isActive ? 'success' : 'neutral'}>
               {product.isActive ? 'Active' : 'Inactive'}
             </Badge>
+            {visibilityGaps.length > 0 && (
+              <Badge tone="warning">Needs update</Badge>
+            )}
           </div>
           {product.brand && <p className="text-sm text-slate-500">{product.brand}</p>}
         </div>

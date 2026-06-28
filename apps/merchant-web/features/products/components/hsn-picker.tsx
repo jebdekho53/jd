@@ -16,6 +16,7 @@ interface HsnPickerProps {
   value?: string;
   onChange: (hsn: HsnOption | null) => void;
   error?: string;
+  required?: boolean;
 }
 
 async function searchHsn(q: string): Promise<HsnOption[]> {
@@ -25,7 +26,7 @@ async function searchHsn(q: string): Promise<HsnOption[]> {
   return res.data;
 }
 
-export function HsnPicker({ value, onChange, error }: HsnPickerProps) {
+export function HsnPicker({ value, onChange, error, required }: HsnPickerProps) {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<HsnOption | null>(null);
 
@@ -50,7 +51,7 @@ export function HsnPicker({ value, onChange, error }: HsnPickerProps) {
   return (
     <div className="space-y-2">
       <Input
-        label="HSN code"
+        label={required ? 'HSN code *' : 'HSN code'}
         placeholder="Search by code or description"
         value={selected ? `${selected.code} — ${selected.description}` : query}
         onChange={(e) => {

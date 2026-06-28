@@ -24,6 +24,10 @@ import { UpdateProductStatusDto } from './dto/update-status.dto';
 import { StoreCategoryAccessService } from '../category-governance/store-category-access.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { InventoryCacheService } from '../inventory/inventory-cache.service';
+import {
+  isFssaiRequiredCategory,
+  isHsnRequiredCategory,
+} from '../../common/utils/product-compliance.util';
 import { ListProductsDto } from './dto/list-products.dto';
 
 type VariantWithInventory = ProductVariant & { inventory: Inventory | null };
@@ -69,7 +73,7 @@ export class ProductService {
       await this.validateProductCategory(storeId, dto.categoryId);
     }
 
-    await this.validateProductTaxCompliance(dto.categoryId, dto);
+    await this.validateProductTaxCompliance(storeId, dto.categoryId, dto);
 
     // Check product-level SKU uniqueness within store
     if (dto.sku) {
@@ -328,7 +332,7 @@ export class ProductService {
       await this.validateProductCategory(storeId, dto.categoryId);
     }
 
-    await this.validateProductTaxCompliance(dto.categoryId ?? product.categoryId, dto);
+    await this.validateProductTaxCompliance(storeId, dto.categoryId, dto, product);
 
     if (dto.imageUrls !== undefined && dto.imageUrls.length === 0) {
       throw new BadRequestException('At least one product image is required');
@@ -715,6 +719,7 @@ export class ProductService {
   // ---------------------------------------------------------------------------
 
   private async validateProductTaxCompliance(
+    storeId: string,
     categoryId: string | null | undefined,
     dto: {
       hsnCodeId?: string;
@@ -722,6 +727,7 @@ export class ProductService {
       taxCategory?: string;
       fssaiLicense?: string;
     },
+    existingProduct?: { fssaiLicense: string | null },
   ): Promise<void> {
     if (!categoryId) return;
     const category = await this.prisma.category.findUnique({
@@ -730,18 +736,45 @@ export class ProductService {
     });
     if (!category) return;
 
-    const regulated = /grocery|food|dairy|beverage|snack|packaged/i.test(
-      `${category.slug} ${category.name}`,
-    );
     const taxCat = dto.taxCategory ?? 'GOODS';
-    if (!regulated || taxCat === 'EXEMPT' || taxCat === 'NIL_RATED') return;
+    if (taxCat === 'EXEMPT' || taxCat === 'NIL_RATED') return;
 
-    if (!dto.hsnCodeId) {
+    const needsHsn = isHsnRequiredCategory(category);
+    const needsFssai = isFssaiRequiredCategory(category);
+
+    if (!needsHsn && !needsFssai) return;
+
+    if (needsHsn && !dto.hsnCodeId) {
       throw new BadRequestException('HSN code is required for this product category');
     }
-    if (regulated && !dto.fssaiLicense) {
-      throw new BadRequestException('FSSAI license is required for food & grocery products');
+
+    if (needsFssai) {
+      const fssai =
+        dto.fssaiLicense?.trim() ||
+        existingProduct?.fssaiLicense?.trim() ||
+        (await this.findStoreFssaiLicense(storeId));
+      if (!fssai) {
+        throw new BadRequestException('FSSAI license is required for this product category');
+      }
+      if (!dto.fssaiLicense?.trim()) {
+        dto.fssaiLicense = fssai;
+      }
     }
+  }
+
+  /** Reuse FSSAI from any product in the store (merchant enters once). */
+  async findStoreFssaiLicense(storeId: string): Promise<string | null> {
+    const row = await this.prisma.product.findFirst({
+      where: {
+        storeId,
+        deletedAt: null,
+        fssaiLicense: { not: null },
+        NOT: { fssaiLicense: '' },
+      },
+      orderBy: { updatedAt: 'desc' },
+      select: { fssaiLicense: true },
+    });
+    return row?.fssaiLicense?.trim() || null;
   }
 
   private async assertStoreOwnership(userId: string, storeId: string): Promise<void> {
