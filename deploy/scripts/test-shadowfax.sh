@@ -16,6 +16,8 @@ fi
 
 API_V1_URL="$(resolve_api_v1_url "${API_URL:-http://localhost:3001}")"
 API_ORIGIN="$(resolve_api_origin "${API_URL:-http://localhost:3001}")"
+API_PORT="$(grep -E '^API_PORT=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"' | tr -d "'" | tr -d ' ' || true)"
+API_PORT="${API_PORT:-3001}"
 WEBHOOK_PUSH_URL="${API_V1_URL}/webhooks/shadowfax"
 
 mask() {
@@ -54,14 +56,22 @@ else
 fi
 
 echo ""
-echo "=== Webhook simulation (local) ==="
+echo "=== Webhook simulation ==="
+WEBHOOK_TARGET="$WEBHOOK_PUSH_URL"
+if curl -sf "http://127.0.0.1:${API_PORT:-3001}/health" >/dev/null 2>&1; then
+  WEBHOOK_TARGET="http://127.0.0.1:${API_PORT:-3001}/api/v1/webhooks/shadowfax"
+  echo "(API reachable on localhost — testing $WEBHOOK_TARGET)"
+else
+  echo "WARN: API not on 127.0.0.1:${API_PORT:-3001} — testing public URL (502 likely if API is down)"
+  echo "Run: ./deploy/scripts/diagnose-api.sh"
+fi
 if [[ -n "${SHADOWFAX_WEBHOOK_SECRET:-}" ]]; then
   PAYLOAD='{"event_id":"test-'$(date +%s)'","status":"assigned","data":{"shipment_id":"TEST123","status":"assigned"}}'
   SIG=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$SHADOWFAX_WEBHOOK_SECRET" | awk '{print $2}')
-  echo "POST $WEBHOOK_PUSH_URL"
+  echo "POST $WEBHOOK_TARGET"
   echo "Payload: $PAYLOAD"
   echo "Signature: $SIG"
-  curl -sS -w "\nHTTP %{http_code}\n" -X POST "$WEBHOOK_PUSH_URL" \
+  curl -sS -w "\nHTTP %{http_code}\n" -X POST "$WEBHOOK_TARGET" \
     -H "Content-Type: application/json" \
     -H "x-shadowfax-signature: $SIG" \
     -H "Authorization: Token ${SHADOWFAX_WEBHOOK_SECRET}" \
