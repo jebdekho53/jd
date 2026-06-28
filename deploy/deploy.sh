@@ -65,16 +65,16 @@ pm2 delete deploy/ecosystem.config.js 2>/dev/null || true
 pm2 start deploy/ecosystem.config.js
 pm2 save
 
-log "Health checks..."
-API_PORT_VAL=$(grep -E '^API_PORT=' .env.production | cut -d= -f2- | tr -d '"' | tr -d "'" || echo 3001)
+log "Waiting for API to listen..."
+API_PORT_VAL=$(grep -E '^API_PORT=' .env.production | cut -d= -f2- | tr -d '"' | tr -d "'" | tr -d ' ' || echo 3001)
 API_HEALTH_OK=false
-for attempt in $(seq 1 24); do
+for attempt in $(seq 1 30); do
   if curl -fsS "http://127.0.0.1:${API_PORT_VAL}/health" > /dev/null; then
     API_HEALTH_OK=true
     log "API health OK (attempt $attempt)"
     break
   fi
-  sleep 5
+  sleep 2
 done
 
 if [[ "$API_HEALTH_OK" != "true" ]]; then

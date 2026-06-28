@@ -16,7 +16,7 @@ import { BuyerCrmController } from './buyer-crm.controller';
 import { MerchantCrmController } from './merchant-crm.controller';
 
 @Module({
-  imports: [forwardRef(() => SupportModule), AuthModule, forwardRef(() => PushModule)],
+  imports: [SupportModule, AuthModule, forwardRef(() => PushModule)],
   controllers: [AdminCrmController, BuyerCrmController, MerchantCrmController],
   providers: [
     SegmentService,

@@ -20,3 +20,9 @@ export const BUYER_PUSH_EVENTS = {
   SUPPORT_REPLY: 'buyer.push.support_reply',
   OFFER_AVAILABLE: 'buyer.push.offer_available',
 } as const;
+
+export interface BuyerPushSupportReplyEvent {
+  userId: string;
+  ticketId: string;
+  ticketNumber: string;
+}

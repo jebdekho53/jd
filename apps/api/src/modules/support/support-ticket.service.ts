@@ -18,7 +18,8 @@ import { TicketAssignmentService } from './ticket-assignment.service';
 import { SupportAutomationService } from './support-automation.service';
 import { MembershipBenefitService } from '../membership/membership-benefit.service';
 import { EmailNotificationService } from '../email/email-notification.service';
-import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BUYER_PUSH_EVENTS } from '../push/buyer-push.events';
 
 export interface CreateTicketInput {
   requesterUserId: string;
@@ -44,7 +45,7 @@ export class SupportTicketService {
     private readonly automation: SupportAutomationService,
     private readonly membershipBenefits: MembershipBenefitService,
     private readonly emailNotifications: EmailNotificationService,
-    private readonly buyerPush: BuyerPushNotificationService,
+    private readonly events: EventEmitter2,
   ) {}
 
   async createTicket(input: CreateTicketInput, ipAddress?: string) {
@@ -178,9 +179,11 @@ export class SupportTicketService {
     });
 
     if (isStaff && visibility === SupportMessageVisibility.PUBLIC) {
-      void this.buyerPush
-        .notifySupportReply(ticket.requesterUserId, ticketId, ticket.ticketNumber)
-        .catch(() => {});
+      this.events.emit(BUYER_PUSH_EVENTS.SUPPORT_REPLY, {
+        userId: ticket.requesterUserId,
+        ticketId,
+        ticketNumber: ticket.ticketNumber,
+      });
     }
 
     return message;
