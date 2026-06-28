@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CategoryService } from './category.service';
 import { ProductController } from './product.controller';
@@ -19,7 +19,13 @@ import { UploadModule } from '../upload/upload.module';
 import { PaymentModule } from '../payment/payment.module';
 
 @Module({
-  imports: [MerchantModule, CategoryGovernanceModule, InventoryModule, UploadModule, PaymentModule],
+  imports: [
+    MerchantModule,
+    CategoryGovernanceModule,
+    InventoryModule,
+    UploadModule,
+    forwardRef(() => PaymentModule),
+  ],
   controllers: [ProductController, ProductCsvController, ProductAiController, MerchantAiWalletController],
   providers: [
     ProductService,
@@ -32,6 +38,14 @@ import { PaymentModule } from '../payment/payment.module';
     AiProductImageService,
     OpenAiVisionClient,
   ],
-  exports: [ProductService, CategoryService, ProductCsvService, ProductAiService, ProductDuplicateService, MerchantAiWalletService],
+  exports: [
+    ProductService,
+    CategoryService,
+    ProductCsvService,
+    ProductAiService,
+    ProductDuplicateService,
+    MerchantAiWalletService,
+    OpenAiVisionClient,
+  ],
 })
 export class ProductModule {}

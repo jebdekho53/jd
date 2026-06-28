@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NotificationPreference } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
@@ -19,6 +19,7 @@ export class BuyerPushNotificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly webPush: WebPushService,
+    @Inject(forwardRef(() => NotificationOrchestratorService))
     private readonly notifications: NotificationOrchestratorService,
     configService: ConfigService,
   ) {

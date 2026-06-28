@@ -31,7 +31,7 @@ import { EmailModule } from '../email/email.module';
     LogisticsModule,
     OrderTimelineModule,
     MerchantModule,
-    ProductModule,
+    forwardRef(() => ProductModule),
     PushModule,
     EmailModule,
     forwardRef(() => PaymentModule),
