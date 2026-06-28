@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { SupportSlaService } from './support-sla.service';
 import { TicketAssignmentService } from './ticket-assignment.service';
 import { SupportTicketService } from './support-ticket.service';
@@ -14,7 +14,7 @@ import { RiderSupportController } from './rider-support.controller';
 import { AdminSupportController } from './admin-support.controller';
 
 @Module({
-  imports: [MembershipModule, PushModule],
+  imports: [MembershipModule, forwardRef(() => PushModule)],
   controllers: [
     BuyerSupportController,
     MerchantSupportController,

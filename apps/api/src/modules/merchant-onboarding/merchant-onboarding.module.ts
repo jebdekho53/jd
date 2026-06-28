@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MerchantModule } from '../merchant/merchant.module';
 import { StoreModule } from '../store/store.module';
 import { AdminModule } from '../admin/admin.module';
@@ -17,9 +17,9 @@ import { AdminMerchantApplicationController } from './admin-merchant-application
     MerchantModule,
     StoreModule,
     AdminModule,
-    CrmModule,
+    forwardRef(() => CrmModule),
     TrustSafetyModule,
-    SupportModule,
+    forwardRef(() => SupportModule),
     EmailModule,
   ],
   controllers: [MerchantOnboardingController, AdminMerchantApplicationController],
