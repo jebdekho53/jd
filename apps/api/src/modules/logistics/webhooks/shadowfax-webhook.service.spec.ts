@@ -28,4 +28,16 @@ describe('ShadowfaxWebhookService signature', () => {
     const body = Buffer.from('{"event_id":"e1"}');
     expect(() => svc.verifySignature(body, 'bad-signature')).toThrow();
   });
+
+  it('accepts Authorization Token header matching webhook secret', () => {
+    const svc = buildService();
+    expect(svc.matchesAuthorizationToken(`Token ${secret}`)).toBe(true);
+    expect(svc.matchesAuthorizationToken(`Bearer ${secret}`)).toBe(true);
+  });
+
+  it('verifyWebhookAuth accepts token when signature is absent', () => {
+    const svc = buildService();
+    const body = Buffer.from('{"event_id":"e1"}');
+    expect(() => svc.verifyWebhookAuth(body, undefined, `Token ${secret}`)).not.toThrow();
+  });
 });

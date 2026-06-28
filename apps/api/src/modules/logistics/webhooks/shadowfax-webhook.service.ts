@@ -51,8 +51,54 @@ export class ShadowfaxWebhookService {
     }
   }
 
-  async handlePayload(rawBody: Buffer, signature?: string): Promise<void> {
-    this.verifySignature(rawBody, signature);
+  /** Shadowfax dashboard "Token" auth — Authorization: Token|Bearer <SHADOWFAX_WEBHOOK_SECRET> */
+  matchesAuthorizationToken(authorization: string | undefined): boolean {
+    if (!this.webhookSecret || !authorization?.trim()) return false;
+    const token = authorization.replace(/^(Bearer|Token)\s+/i, '').trim();
+    if (!token) return false;
+    const a = Buffer.from(token);
+    const b = Buffer.from(this.webhookSecret);
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  }
+
+  verifyWebhookAuth(
+    rawBody: Buffer,
+    signature?: string,
+    authorization?: string,
+  ): void {
+    if (!this.webhookSecret) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new UnauthorizedException('Webhook secret not configured');
+      }
+      return;
+    }
+
+    if (signature) {
+      try {
+        this.verifySignature(rawBody, signature);
+        return;
+      } catch {
+        // Try token auth if signature does not match (Shadowfax may send only Token header).
+      }
+    }
+
+    if (this.matchesAuthorizationToken(authorization)) {
+      return;
+    }
+
+    if (!signature && !authorization?.trim()) {
+      throw new UnauthorizedException('Missing webhook authentication');
+    }
+    throw new UnauthorizedException('Invalid webhook authentication');
+  }
+
+  async handlePayload(
+    rawBody: Buffer,
+    signature?: string,
+    authorization?: string,
+  ): Promise<void> {
+    this.verifyWebhookAuth(rawBody, signature, authorization);
 
     let payload: Record<string, unknown>;
     try {

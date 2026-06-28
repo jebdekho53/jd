@@ -26,12 +26,13 @@ export class LogisticsWebhookController {
     @Req() req: RawBodyRequest<Request>,
     @Headers('x-shadowfax-signature') signature: string,
     @Headers('x-sfx-signature') altSignature: string,
+    @Headers('authorization') authorization: string,
   ) {
     const rawBody = req.rawBody;
     if (!rawBody) {
       throw new BadRequestException('Missing request body');
     }
-    await this.shadowfaxWebhook.handlePayload(rawBody, signature ?? altSignature);
+    await this.shadowfaxWebhook.handlePayload(rawBody, signature ?? altSignature, authorization);
     return { success: true };
   }
 }
