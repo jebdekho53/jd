@@ -72,10 +72,10 @@ export class DeliveryOrchestratorService {
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { status: true, paymentMethod: true, paymentStatus: true },
+      select: { status: true, paymentMethod: true, paymentStatus: true, orderVertical: true },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (!isDispatchEligibleOrderStatus(order.status)) {
+    if (!isDispatchEligibleOrderStatus(order.status, order.orderVertical)) {
       throw new BadRequestException(
         `Cannot dispatch shipment: order status ${order.status} is not eligible for dispatch`,
       );

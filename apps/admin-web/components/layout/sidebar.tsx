@@ -25,6 +25,7 @@ import {
   ImageIcon,
   Truck,
   Sparkles,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { BrandLockup } from '@/components/brand/brand-lockup';
@@ -35,6 +36,7 @@ const NAV = [
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/control-room', label: 'Control Room', icon: Radio },
   { href: '/stores', label: 'Stores', icon: Store },
+  { href: '/restaurant-ops', label: 'Restaurant Ops', icon: UtensilsCrossed },
   { href: '/merchant-applications', label: 'Applications', icon: Store },
   { href: '/reviews', label: 'Reviews', icon: Star },
   { href: '/promotions', label: 'Promotions', icon: Tag },

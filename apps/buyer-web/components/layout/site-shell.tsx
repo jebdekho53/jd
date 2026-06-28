@@ -16,10 +16,12 @@ import {
   Scale,
   Map,
   BadgePercent,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { Logo, LogoLink } from '@/components/brand/logo';
 import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
 import { useCartQuery, useCartItemCount } from '@/hooks/use-cart';
+import { useFoodCartQuery, useFoodCartItemCount } from '@/hooks/use-food-cart';
 import { useAuthStore } from '@/store/auth-store';
 import { useGuestCartStore } from '@/store/guest-cart-store';
 import { useEffectiveLocation } from '@/store/location-store';
@@ -38,6 +40,31 @@ function CartBadge({ className }: { className?: string }) {
     >
       {count > 9 ? '9+' : count}
     </span>
+  );
+}
+
+function FoodCartBadge({ className }: { className?: string }) {
+  const count = useFoodCartItemCount();
+  if (count === 0) return null;
+  return (
+    <span
+      className={cn(
+        'absolute flex h-4 min-w-4 items-center justify-center rounded-full bg-secondary px-1 text-[10px] font-bold text-white',
+        className,
+      )}
+    >
+      {count > 9 ? '9+' : count}
+    </span>
+  );
+}
+
+function isFoodRoute(pathname: string): boolean {
+  return (
+    pathname === '/food' ||
+    pathname.startsWith('/food/') ||
+    pathname.startsWith('/restaurant') ||
+    pathname.startsWith('/restaurants') ||
+    pathname.startsWith('/cuisine/')
   );
 }
 
@@ -89,8 +116,11 @@ export function SiteHeader() {
   const { label, isReady } = useEffectiveLocation();
   const [locationOpen, setLocationOpen] = useState(false);
   const { data: cart } = useCartQuery();
+  const { data: foodCart } = useFoodCartQuery();
   const cartTotal = cart?.totals.grandTotal ?? 0;
   const cartCount = cart?.itemCount ?? 0;
+  const foodCartCount = foodCart?.itemCount ?? 0;
+  const foodCartTotal = foodCart?.totals.grandTotal ?? 0;
 
   return (
     <>
@@ -134,9 +164,23 @@ export function SiteHeader() {
           </button>
 
           <Link
+            href="/food/cart"
+            className="relative flex items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2 transition hover:border-primary/30"
+            aria-label={`Food cart, ${foodCartCount} items`}
+          >
+            <UtensilsCrossed className="h-5 w-5 text-secondary" aria-hidden />
+            {foodCartCount > 0 && (
+              <span className="text-sm font-semibold text-jd-text-primary">
+                {formatCurrency(foodCartTotal)}
+              </span>
+            )}
+            <FoodCartBadge className="-right-1 -top-1" />
+          </Link>
+
+          <Link
             href="/cart"
             className="relative flex items-center gap-2 rounded-xl border border-border/60 bg-card px-3 py-2 transition hover:border-primary/30"
-            aria-label={`Cart, ${cartCount} items`}
+            aria-label={`Grocery cart, ${cartCount} items`}
           >
             <ShoppingCart className="h-5 w-5 text-primary" aria-hidden />
             {cartCount > 0 && (
@@ -160,11 +204,19 @@ export function SiteHeader() {
         <div className="space-y-2 py-3 md:hidden">
           <div className="flex items-center justify-between">
             <LogoLink size="sm" priority />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <Link
+                href="/food/cart"
+                className="relative rounded-lg p-2"
+                aria-label={`Food cart, ${foodCartCount} items`}
+              >
+                <UtensilsCrossed className="h-5 w-5 text-secondary" />
+                <FoodCartBadge className="-right-0.5 -top-0.5" />
+              </Link>
               <Link
                 href="/cart"
                 className="relative rounded-lg p-2"
-                aria-label={`Cart, ${cartCount} items`}
+                aria-label={`Grocery cart, ${cartCount} items`}
               >
                 <ShoppingCart className="h-5 w-5 text-primary" />
                 <CartBadge className="-right-0.5 -top-0.5" />
@@ -270,10 +322,39 @@ export function MobileBottomNav() {
 export function FloatingCartBar() {
   const pathname = usePathname();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const onFoodRoute = isFoodRoute(pathname);
   const { data: cart } = useCartQuery();
+  const { data: foodCart } = useFoodCartQuery();
   const guestItems = useGuestCartStore((s) => s.items);
   const guestCount = useGuestCartStore((s) => s.itemCount());
   const guestSubtotal = guestItems.reduce((sum, i) => sum + (i.unitPrice ?? 0) * i.quantity, 0);
+
+  if (onFoodRoute) {
+    const foodCount = foodCart?.itemCount ?? 0;
+    const foodTotal = foodCart?.totals.grandTotal ?? 0;
+    if (
+      foodCount === 0 ||
+      pathname === '/food/cart' ||
+      pathname === '/food/checkout'
+    ) {
+      return null;
+    }
+    return (
+      <Link
+        href="/food/cart"
+        className="fixed bottom-20 left-4 right-4 z-30 mx-auto flex max-w-lg items-center justify-between rounded-2xl bg-secondary px-4 py-3 text-white shadow-float transition hover:bg-primary md:bottom-6 md:left-auto md:right-6 md:max-w-xs btn-press"
+        aria-label={`View food cart, ${foodCount} items, ${formatCurrency(foodTotal)}`}
+      >
+        <div className="flex items-center gap-2">
+          <UtensilsCrossed className="h-5 w-5" aria-hidden />
+          <span className="text-sm font-semibold">
+            {foodCount} item{foodCount !== 1 ? 's' : ''} · {formatCurrency(foodTotal)}
+          </span>
+        </div>
+        <span className="rounded-lg bg-white/20 px-3 py-1 text-sm font-semibold">View cart</span>
+      </Link>
+    );
+  }
 
   const count = isAuthenticated ? (cart?.itemCount ?? 0) : guestCount;
   const total = isAuthenticated ? (cart?.totals.grandTotal ?? 0) : guestSubtotal;

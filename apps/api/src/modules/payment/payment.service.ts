@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
   UnauthorizedException,
+  forwardRef,
 } from '@nestjs/common';
 import {
   CheckoutStatus,
@@ -28,6 +30,7 @@ import { RazorpayService } from './razorpay.service';
 import { CreateRazorpayOrderDto } from './dto/create-razorpay-order.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { normalizePayerPhone } from '../checkout/dto/payer-contact.dto';
+import { FoodPaymentService } from '../food/food-payment.service';
 
 @Injectable()
 export class PaymentService {
@@ -45,6 +48,8 @@ export class PaymentService {
     private readonly orderFinancials: OrderFinancialsService,
     private readonly orderCache: OrderCacheService,
     private readonly deliveryDispatch: DeliveryDispatchService,
+    @Inject(forwardRef(() => FoodPaymentService))
+    private readonly foodPayment: FoodPaymentService,
   ) {}
 
   // ── Create Razorpay order for a reserved checkout ─────────────────────────
@@ -319,7 +324,12 @@ export class PaymentService {
     });
 
     if (!payment) {
-      this.logger.warn({ razorpayOrderId }, 'Webhook: payment not found');
+      const razorpayPaymentId = this.extractRazorpayPaymentId(payload);
+      if (razorpayOrderId && razorpayPaymentId) {
+        await this.foodPayment.finalizeFromWebhook(razorpayOrderId, razorpayPaymentId);
+      } else {
+        this.logger.warn({ razorpayOrderId }, 'Webhook: payment not found');
+      }
       return;
     }
 

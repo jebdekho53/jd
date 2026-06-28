@@ -17,6 +17,9 @@ import {
   Tag,
   Headphones,
   Users,
+  UtensilsCrossed,
+  ChefHat,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { BrandLockup } from '@/components/brand/brand-lockup';
@@ -25,7 +28,7 @@ import { useStoreStore } from '@/store/store-store';
 import { useLogoutMutation } from '@/hooks/use-auth';
 import { useStoresQuery } from '@/hooks/use-stores';
 
-const nav = [
+const baseNav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/stores', label: 'My Stores', icon: Store },
   { href: '/settings/delivery-coverage', label: 'Delivery Coverage', icon: Store },
@@ -49,6 +52,14 @@ const nav = [
   { href: '/seo', label: 'SEO', icon: Tag },
 ];
 
+function restaurantNav(storeId: string) {
+  return [
+    { href: `/stores/${storeId}/restaurant-dashboard`, label: 'Restaurant', icon: BarChart3 },
+    { href: `/stores/${storeId}/menu`, label: 'Menu', icon: UtensilsCrossed },
+    { href: `/stores/${storeId}/kitchen`, label: 'Kitchen', icon: ChefHat },
+  ];
+}
+
 export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { user } = useAuthStore();
@@ -57,6 +68,13 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const { data: storeData } = useStoresQuery();
 
   const stores = storeData?.data ?? [];
+  const nav = currentStore
+    ? [
+        ...baseNav.slice(0, 3),
+        ...restaurantNav(currentStore.id),
+        ...baseNav.slice(3),
+      ]
+    : baseNav;
 
   useEffect(() => {
     if (stores.length === 0) {

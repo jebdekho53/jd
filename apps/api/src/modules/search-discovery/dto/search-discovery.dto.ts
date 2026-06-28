@@ -21,7 +21,7 @@ export type SearchSort =
   | 'rating'
   | 'fastest_delivery';
 
-export type SearchTab = 'all' | 'products' | 'stores' | 'categories';
+export type SearchTab = 'all' | 'products' | 'stores' | 'categories' | 'menu_items' | 'restaurants';
 
 export class BuyerSearchDto {
   @ApiPropertyOptional()
@@ -81,9 +81,9 @@ export class BuyerSearchDto {
   @IsIn(['relevance', 'distance', 'price_low_high', 'price_high_low', 'rating', 'fastest_delivery'])
   sort?: SearchSort;
 
-  @ApiPropertyOptional({ enum: ['all', 'products', 'stores', 'categories'] })
+  @ApiPropertyOptional({ enum: ['all', 'products', 'stores', 'categories', 'menu_items', 'restaurants'] })
   @IsOptional()
-  @IsIn(['all', 'products', 'stores', 'categories'])
+  @IsIn(['all', 'products', 'stores', 'categories', 'menu_items', 'restaurants'])
   tab?: SearchTab;
 
   @ApiPropertyOptional()

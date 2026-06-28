@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowRight, MapPin } from 'lucide-react';
+import { ArrowRight, MapPin, UtensilsCrossed } from 'lucide-react';
 import { CategoryExplorer, CategoryRail } from '@/components/discovery/category-explorer';
 import { HeroCarousel } from '@/components/v2/hero-carousel';
 import { HorizontalCarousel } from '@/components/v2/horizontal-carousel';
@@ -11,7 +11,10 @@ import { MembershipBanner, ReferralBanner } from '@/components/merchandising/hom
 import { RecentlyViewedRail } from '@/components/merchandising/recently-viewed-rail';
 import { StoreGridSkeleton } from '@/components/common/skeletons';
 import { StoreCardItem } from '@/features/stores/store-card';
+import { RestaurantCard } from '@/features/food/restaurant-card';
+import { VerticalNav } from '@/features/home/vertical-nav';
 import { useCategories, useDiscoverStores } from '@/hooks/use-buyer-queries';
+import { useRestaurantsQuery } from '@/hooks/use-food-queries';
 import { useEffectiveLocation } from '@/store/location-store';
 import { TopDealsSection } from '@/features/promotions/top-deals-section';
 import {
@@ -77,6 +80,61 @@ function LocationGate() {
   );
 }
 
+function FoodSection({ lat, lng }: { lat: number; lng: number }) {
+  const params = useMemo(
+    () => ({ lat, lng, page: 1, limit: 8 }),
+    [lat, lng],
+  );
+  const { data: restaurants = [], isLoading } = useRestaurantsQuery(params, true);
+
+  if (!isLoading && restaurants.length === 0) return null;
+
+  return (
+    <section aria-labelledby="food-nearby">
+      <SectionHeader
+        title="Food near you"
+        subtitle="Restaurants & cloud kitchens"
+        href="/food"
+        linkLabel="Order food"
+      />
+      {isLoading ? (
+        <StoreGridSkeleton count={3} />
+      ) : (
+        <HorizontalCarousel label="Food near you" itemClassName="w-[260px] sm:w-[280px]">
+          {restaurants.map((r) => (
+            <RestaurantCard key={r.id} restaurant={r} variant="compact" />
+          ))}
+        </HorizontalCarousel>
+      )}
+    </section>
+  );
+}
+
+function GroceryQuickLink() {
+  return (
+    <section className="overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-cream-3 to-primary/5 p-6 md:p-8">
+      <div className="flex items-start gap-3">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
+          <UtensilsCrossed className="h-5 w-5" aria-hidden />
+        </div>
+        <div>
+          <p className="text-lg font-bold text-jd-text-primary md:text-xl">Craving restaurant food?</p>
+          <p className="mt-1 text-sm text-jd-text-muted">
+            Switch to Food for menus, combos and delivery from local restaurants.
+          </p>
+          <Link
+            href="/food"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-secondary btn-press"
+          >
+            Explore food
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function HomePageContent() {
   const { lat, lng, pincode } = useEffectiveLocation();
   const { data: categories = [] } = useCategories();
@@ -84,6 +142,7 @@ export function HomePageContent() {
 
   return (
     <div className="space-y-7 animate-fade-in md:space-y-10">
+      <VerticalNav className="-mx-1 px-1" />
       <HeroCarousel />
 
       {/* Quick categories — top priority on mobile */}
@@ -102,6 +161,7 @@ export function HomePageContent() {
       {hasLocation ? (
         <>
           <StoreSection title="Nearby stores" subtitle="Delivering to your location" sort="distance" href="/stores" lat={lat} lng={lng} pincode={pincode} />
+          <FoodSection lat={lat} lng={lng} />
           <TopDealsSection />
           <OffersNearYouSection />
           <StoreSection title="Popular stores" subtitle="Most loved in your area" sort="popular" href="/stores?sort=popular" lat={lat} lng={lng} pincode={pincode} />
@@ -115,6 +175,7 @@ export function HomePageContent() {
       ) : (
         <>
           <TopDealsSection />
+          <GroceryQuickLink />
           <LocationGate />
           <RecentlyViewedRail />
           <MembershipBanner />

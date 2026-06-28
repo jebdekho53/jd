@@ -29,19 +29,26 @@ export interface AiExtractedProduct {
   canPublishDirectly: boolean;
   imageQualityScore: number;
   confidence: number;
+  productType?: string;
+  cuisine?: string | null;
+  dietType?: string | null;
+  prepTimeMins?: number | null;
+  servingSize?: string | null;
 }
 
-const VISION_PROMPT = `You are a product catalog vision assistant for an Indian grocery and retail marketplace.
+const VISION_PROMPT = `You are a product catalog vision assistant for an Indian hyperlocal super-app marketplace (grocery, food, beauty, electronics, pet, flowers, supplements).
 
 The input image has been pre-processed for analysis: square 1:1 framing, white/clean background where possible, centered product, max 1200×1200. Evaluate THIS image as-is.
 
 Your job:
-1. Assess image quality (lighting, focus, framing, whether the product is clearly visible).
-2. Extract only information that is clearly readable from the package label or packaging.
-3. Return strict JSON only — no markdown, no commentary.
+1. Detect productType: PACKAGED_PRODUCT | FRESH_FOOD | RESTAURANT_FOOD | SUPPLEMENT | ELECTRONICS | BEAUTY | PET | FLOWERS | UNKNOWN
+2. For RESTAURANT_FOOD (prepared dish photos): extract dish name, cuisine, veg/non-veg, estimated prep time, serving size, short description. Do NOT hallucinate ingredients.
+3. Assess image quality and extract only clearly readable information.
+4. Return strict JSON only — no markdown, no commentary.
 
 Schema (use exactly these keys):
 {
+  "productType": "PACKAGED_PRODUCT",
   "name": "",
   "brand": "",
   "categoryName": "",
@@ -63,7 +70,11 @@ Schema (use exactly these keys):
   "labelReadable": null,
   "canPublishDirectly": true,
   "imageQualityScore": 0,
-  "confidence": 0
+  "confidence": 0,
+  "cuisine": null,
+  "dietType": null,
+  "prepTimeMins": null,
+  "servingSize": null
 }
 
 Critical rules — never violate:
@@ -90,7 +101,15 @@ Supplement / health nutrition detection:
 
 Scoring:
 - "imageQualityScore": 0.0–1.0 — overall photo quality for e-commerce (lighting, focus, product centered, clean background).
-- "confidence": 0.0–1.0 — confidence in extracted product data overall.`;
+- "confidence": 0.0–1.0 — confidence in extracted product data overall.
+
+RESTAURANT_FOOD rules:
+- productType RESTAURANT_FOOD for plated/prepared dishes (not packaged retail).
+- cuisine: Indian cuisine style if inferable from dish appearance (e.g. Biryani, South Indian).
+- dietType: VEG, NON_VEG, or EGG if clearly inferable; null if uncertain.
+- prepTimeMins: reasonable estimate 5–60 only for prepared dishes; null if uncertain.
+- servingSize: e.g. "1 plate", "2 pcs" if inferable.
+- NEVER list specific ingredients unless printed on packaging.`;
 
 @Injectable()
 export class OpenAiVisionClient {
@@ -151,6 +170,50 @@ export class OpenAiVisionClient {
     return this.parseExtractedJson(content);
   }
 
+  async analyzeWithCustomPrompt(imageUrl: string, prompt: string): Promise<Record<string, unknown>> {
+    this.assertConfigured();
+
+    const model = this.configService.get<string>('OPENAI_VISION_MODEL', 'gpt-4o-mini');
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY', '')!;
+
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model,
+        max_tokens: 4000,
+        temperature: 0.1,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: imageUrl, detail: 'high' } },
+            ],
+          },
+        ],
+        response_format: { type: 'json_object' },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 120_000,
+      },
+    );
+
+    const content = response.data?.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new BadRequestException('AI analysis returned empty response');
+    }
+
+    try {
+      return JSON.parse(content) as Record<string, unknown>;
+    } catch {
+      throw new BadRequestException('AI returned invalid JSON');
+    }
+  }
+
   parseExtractedJson(raw: string): AiExtractedProduct {
     let parsed: Record<string, unknown>;
     try {
@@ -199,6 +262,11 @@ export class OpenAiVisionClient {
       canPublishDirectly,
       imageQualityScore,
       confidence,
+      productType: this.nullableString(parsed.productType, 50) ?? 'UNKNOWN',
+      cuisine: this.nullableString(parsed.cuisine, 100),
+      dietType: this.nullableString(parsed.dietType, 20),
+      prepTimeMins: this.parseNullableNumber(parsed.prepTimeMins),
+      servingSize: this.nullableString(parsed.servingSize, 100),
     };
   }
 

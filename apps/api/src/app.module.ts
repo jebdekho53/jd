@@ -60,6 +60,7 @@ import { EmailModule } from './modules/email/email.module';
 import { MerchantOnboardingModule } from './modules/merchant-onboarding/merchant-onboarding.module';
 import { AdminAuthModule } from './modules/admin-auth/admin-auth.module';
 import { DeliveryCoverageModule } from './modules/delivery-coverage/delivery-coverage.module';
+import { FoodModule } from './modules/food/food.module';
 import { LogisticsModule } from './modules/logistics/logistics.module';
 import { GeocodingModule } from './modules/geocoding/geocoding.module';
 import { PushModule } from './modules/push/push.module';
@@ -163,6 +164,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     CorporateModule,
     SeoModule,
     DeliveryCoverageModule,
+    FoodModule,
   ],
   providers: [
     // Apply global throttle guard to every route

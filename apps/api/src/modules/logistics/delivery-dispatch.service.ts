@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { OrderVertical } from '@prisma/client';
+import { PrismaService } from '../../database/prisma.service';
 import { RiderAssignmentService } from '../rider-assignment/rider-assignment.service';
 import { DeliveryOrchestratorService } from './delivery-orchestrator.service';
 import { useOwnFleetDispatch } from './utils/logistics-config.util';
@@ -19,15 +21,25 @@ export class DeliveryDispatchService {
 
   constructor(
     private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
     private readonly riderAssignment: RiderAssignmentService,
     private readonly orchestrator: DeliveryOrchestratorService,
   ) {}
 
   /**
    * Called as soon as payment is confirmed (COD checkout or online payment success).
-   * Sends a rider/shipment request to Shadowfax or the configured logistics provider.
+   * Grocery: dispatches to Shadowfax when configured.
+   * Food: never dispatches here — food uses dispatchAfterReadyForPickup only.
    */
   async dispatchAfterOrderPlaced(orderId: string): Promise<DispatchResult> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { orderVertical: true },
+    });
+    if (order?.orderVertical === OrderVertical.FOOD) {
+      return null;
+    }
+
     if (useOwnFleetDispatch(this.config)) {
       // Own-fleet riders are assigned when the merchant marks READY_FOR_PICKUP.
       return null;

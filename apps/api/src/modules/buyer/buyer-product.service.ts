@@ -574,10 +574,29 @@ export class BuyerProductService {
     });
   }
 
-  /** Cross-store price comparison for a single product anchor */
+  /** Cross-store price comparison for a single product anchor (grocery catalog only) */
   async compareProduct(productId: string, dto: CompareProductDto) {
+    const menuItem = await this.prisma.restaurantMenuItem.findUnique({
+      where: { id: productId },
+      select: { id: true },
+    });
+    if (menuItem) {
+      throw new BadRequestException('Compare is only available for grocery products, not menu items');
+    }
+
     const anchor = await this.getProductById(productId);
     if (!anchor) return null;
+
+    const storeTypes = await this.prisma.storeBusinessType.findMany({
+      where: { storeId: anchor.store.id, status: 'APPROVED' },
+      select: { businessType: true },
+    });
+    const hasGroceryCatalog = storeTypes.some(
+      (t) => t.businessType === 'GROCERY' || t.businessType === 'FRUITS_VEGETABLES',
+    );
+    if (!hasGroceryCatalog && storeTypes.length > 0) {
+      throw new BadRequestException('Compare is only available for grocery products');
+    }
 
     const { products } = await this.searchProducts({
       q: anchor.name,

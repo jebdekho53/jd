@@ -43,8 +43,10 @@ const STEPS = [
 ] as const;
 
 const BUSINESS_TYPES = [
-  'GROCERY', 'RESTAURANT', 'PHARMACY', 'ELECTRONICS', 'FASHION',
-  'PET_STORE', 'BEAUTY', 'HEALTH_NUTRITION', 'BAKERY', 'STATIONERY', 'OTHER',
+  'GROCERY', 'RESTAURANT', 'CLOUD_KITCHEN', 'CAFE', 'BAKERY', 'SWEETS',
+  'FRUITS_VEGETABLES', 'MEAT_FISH', 'PHARMACY', 'ELECTRONICS', 'FASHION',
+  'PET_STORE', 'BEAUTY', 'HEALTH_NUTRITION', 'HOME_KITCHEN', 'BABY_STORE',
+  'SUPPLEMENTS', 'FLOWERS', 'LOCAL_STORE', 'STATIONERY', 'OTHER',
 ];
 
 const DOC_TYPES = [
@@ -80,7 +82,7 @@ export function MerchantSignupContent() {
   const [form, setForm] = useState({
     ownerName: '',
     businessName: '',
-    businessType: 'GROCERY',
+    businessTypes: ['GROCERY'] as string[],
     gstNumber: '',
     gstValid: null as boolean | null,
     panNumber: '',
@@ -110,11 +112,17 @@ export function MerchantSignupContent() {
   const { data: cities = [] } = useCitiesQuery();
 
   const hydrateFromApplication = (app: MerchantApplication) => {
+    const types =
+      app.businessTypes?.length
+        ? app.businessTypes
+        : app.businessType
+          ? [app.businessType]
+          : ['GROCERY'];
     setForm((f) => ({
       ...f,
       ownerName: app.ownerName ?? f.ownerName,
       businessName: app.businessName ?? f.businessName,
-      businessType: app.businessType ?? f.businessType,
+      businessTypes: types,
       gstNumber: app.gstNumber ?? f.gstNumber,
       gstValid: app.gstVerified ?? f.gstValid,
       panNumber: app.panNumber ?? f.panNumber,
@@ -182,6 +190,10 @@ export function MerchantSignupContent() {
       toast('Business name is required', 'error');
       return;
     }
+    if (form.businessTypes.length === 0) {
+      toast('Select at least one business type', 'error');
+      return;
+    }
     const phoneForSave = needsPhone
       ? normalizeIndianPhone(contactPhone)
       : normalizeIndianPhone(verifiedPhone);
@@ -197,7 +209,8 @@ export function MerchantSignupContent() {
       });
       await saveStep('BUSINESS_DETAILS', {
         businessName: form.businessName.trim(),
-        businessType: form.businessType,
+        businessType: form.businessTypes[0],
+        businessTypes: form.businessTypes,
       });
       setVerifiedPhone(phoneForSave);
       setNeedsPhone(false);
@@ -239,7 +252,8 @@ export function MerchantSignupContent() {
     try {
       await saveStep('BUSINESS_DETAILS', {
         businessName: form.businessName.trim(),
-        businessType: form.businessType,
+        businessType: form.businessTypes[0],
+        businessTypes: form.businessTypes,
         gstNumber: form.gstNumber || undefined,
         panNumber: form.panNumber.trim().toUpperCase(),
       });
@@ -473,15 +487,37 @@ export function MerchantSignupContent() {
                   value={form.businessName}
                   onChange={(e) => setForm({ ...form, businessName: e.target.value })}
                 />
-                <Select
-                  label="Business type"
-                  value={form.businessType}
-                  onChange={(e) => setForm({ ...form, businessType: e.target.value })}
-                >
-                  {BUSINESS_TYPES.map((t) => (
-                    <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
-                  ))}
-                </Select>
+                <div>
+                  <p className="mb-2 text-sm font-medium text-slate-700">Business types</p>
+                  <p className="mb-3 text-xs text-slate-500">Select all that apply — primary type is used for legacy flows.</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {BUSINESS_TYPES.map((t) => {
+                      const checked = form.businessTypes.includes(t);
+                      return (
+                        <label
+                          key={t}
+                          className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
+                            checked ? 'border-brand-400 bg-brand-50' : 'border-slate-200'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setForm((f) => {
+                                const next = checked
+                                  ? f.businessTypes.filter((c) => c !== t)
+                                  : [...f.businessTypes, t];
+                                return { ...f, businessTypes: next.length ? next : [t] };
+                              })
+                            }
+                          />
+                          {t.replace(/_/g, ' ')}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
                 <NavButtons saving={saving} onBack={() => setStep(0)} onNext={nextFromBusiness} />
               </div>
             )}
@@ -720,6 +756,7 @@ export function MerchantSignupContent() {
                 <dl className="divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm">
                   <ReviewRow label="Owner" value={form.ownerName} />
                   <ReviewRow label="Business" value={form.businessName} />
+                  <ReviewRow label="Business types" value={form.businessTypes.map((t) => t.replace(/_/g, ' ')).join(', ')} />
                   <ReviewRow label="Store" value={form.storeName} />
                   <ReviewRow label="City" value={cities.find((c) => c.id === form.cityId)?.name ?? '—'} />
                   <ReviewRow label="Categories" value={form.preferredCategories.join(', ') || '—'} />

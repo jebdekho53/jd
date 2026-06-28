@@ -114,14 +114,124 @@ enum MerchantApplicationStatus {
 enum MerchantBusinessType {
   GROCERY
   RESTAURANT
-  PHARMACY
-  ELECTRONICS
-  FASHION
-  PET_STORE
-  BEAUTY
-  HEALTH_NUTRITION
+  CLOUD_KITCHEN
+  CAFE
   BAKERY
+  SWEETS
+  FRUITS_VEGETABLES
+  MEAT_FISH
+  BEAUTY
+  PET_STORE
+  HOME_KITCHEN
+  ELECTRONICS
+  BABY_STORE
+  SUPPLEMENTS
+  FLOWERS
+  LOCAL_STORE
+  PHARMACY
+  FASHION
+  HEALTH_NUTRITION
   STATIONERY
+  OTHER
+}
+
+/// Canonical vertical for hyperlocal super-app (store + discovery).
+enum VerticalBusinessType {
+  GROCERY
+  RESTAURANT
+  CLOUD_KITCHEN
+  CAFE
+  BAKERY
+  SWEETS
+  FRUITS_VEGETABLES
+  MEAT_FISH
+  BEAUTY
+  PET_STORE
+  HOME_KITCHEN
+  ELECTRONICS
+  BABY_STORE
+  SUPPLEMENTS
+  FLOWERS
+  LOCAL_STORE
+}
+
+enum StoreBusinessTypeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum OrderVertical {
+  GROCERY
+  FOOD
+}
+
+enum DietType {
+  VEG
+  NON_VEG
+  EGG
+}
+
+enum SpiceLevel {
+  MILD
+  MEDIUM
+  HOT
+  EXTRA_HOT
+}
+
+enum AddonSelectionType {
+  SINGLE
+  MULTIPLE
+}
+
+enum MenuItemAvailability {
+  AVAILABLE
+  OUT_OF_STOCK
+  HIDDEN
+}
+
+enum FoodKitchenStatus {
+  NEW
+  PREPARING
+  READY
+  COMPLETED
+}
+
+enum AIProductType {
+  PACKAGED_PRODUCT
+  FRESH_FOOD
+  RESTAURANT_FOOD
+  SUPPLEMENT
+  ELECTRONICS
+  BEAUTY
+  PET
+  FLOWERS
+  UNKNOWN
+}
+
+enum MenuOcrStatus {
+  UPLOADED
+  PROCESSING
+  DRAFT_READY
+  FAILED
+  PUBLISHED
+}
+
+enum MenuCategorySlug {
+  PIZZA
+  BURGER
+  ROLLS
+  CHINESE
+  BIRYANI
+  SOUTH_INDIAN
+  NORTH_INDIAN
+  DESSERTS
+  BEVERAGES
+  COFFEE
+  FAST_FOOD
+  HEALTHY
+  STREET_FOOD
   OTHER
 }
 
@@ -629,8 +739,10 @@ model BuyerProfile {
   user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   addresses    Address[]
   carts        Cart[]
+  foodCarts    FoodCart[]
   orders       Order[]
   checkouts    Checkout[]
+  foodCheckouts FoodCheckout[]
   wishlistItems WishlistItem[]
   reviews      Review[]
   productReviews ProductReview[]
@@ -735,6 +847,7 @@ model MerchantApplication {
   kyc             MerchantKyc?
   bankAccount     MerchantBankAccount?
   steps           MerchantOnboardingStep[]
+  businessTypes   MerchantApplicationBusinessType[]
 
   @@index([userId])
   @@index([status, createdAt])
@@ -1344,6 +1457,14 @@ model Store {
   aiProductAnalyses      AIProductAnalysis[]
   aiCreditTransactions   MerchantAiCreditTransaction[]
   aiWalletTransactions   MerchantAiWalletTransaction[]
+  businessTypes          StoreBusinessType[]
+  restaurantProfile      RestaurantProfile?
+  menuCategories         RestaurantMenuCategory[]
+  menuItems              RestaurantMenuItem[]
+  menuCombos             RestaurantCombo[]
+  menuOcrJobs            MenuOcrJob[]
+  foodCarts              FoodCart[]
+  addonGroups            RestaurantAddonGroup[]
 
   @@unique([merchantProfileId, slug])
   @@index([cityId, isActive])
@@ -1835,6 +1956,13 @@ model Order {
   deliveryLng     Float       @map("delivery_lng")
   isSplitFulfillment Boolean  @default(false) @map("is_split_fulfillment")
   buyerNote       String?     @map("buyer_note")
+  orderVertical   OrderVertical @default(GROCERY) @map("order_vertical")
+  packagingFee    Decimal     @default(0) @map("packaging_fee") @db.Decimal(10, 2)
+  tipAmount       Decimal     @default(0) @map("tip_amount") @db.Decimal(10, 2)
+  scheduledDeliveryAt DateTime? @map("scheduled_delivery_at")
+  specialInstructions String? @map("special_instructions") @db.Text
+  restaurantNote  String?     @map("restaurant_note") @db.Text
+  kitchenStatus   FoodKitchenStatus? @map("kitchen_status")
   cancelReason    String?     @map("cancel_reason")
   idempotencyKey  String?     @unique @map("idempotency_key")
   paidAt          DateTime?   @map("paid_at")
@@ -1847,6 +1975,7 @@ model Order {
   store         Store                @relation(fields: [storeId], references: [id], onDelete: Restrict)
   coupon        Coupon?              @relation(fields: [couponId], references: [id], onDelete: SetNull)
   items         OrderItem[]
+  foodItems     FoodOrderItem[]
   statusHistory OrderStatusHistory[]
   payment       Payment?
   delivery      Delivery?
@@ -1902,6 +2031,27 @@ model OrderItem {
 
   @@index([orderId])
   @@map("order_items")
+}
+
+model FoodOrderItem {
+  id                  String  @id @default(cuid())
+  orderId             String  @map("order_id")
+  menuItemId          String  @map("menu_item_id")
+  variantId           String? @map("variant_id")
+  itemName            String  @map("item_name")
+  variantName         String? @map("variant_name")
+  quantity            Int
+  unitPrice           Decimal @map("unit_price") @db.Decimal(10, 2)
+  discount            Decimal @default(0) @db.Decimal(10, 2)
+  tax                 Decimal @default(0) @db.Decimal(10, 2)
+  totalPrice          Decimal @map("total_price") @db.Decimal(10, 2)
+  specialInstructions String? @map("special_instructions") @db.Text
+  addonsSnapshot      Json?   @map("addons_snapshot")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("food_order_items")
 }
 
 model OrderStatusHistory {
@@ -2095,6 +2245,7 @@ model Coupon {
   orders   Order[]
   usages   CouponUsage[]
   carts    Cart[]
+  foodCarts FoodCart[]
 
   @@index([storeId, isActive])
   @@index([categoryId])
@@ -6449,6 +6600,7 @@ model AIProductAnalysis {
   thumbnailImageUrl String?                 @map("thumbnail_image_url") @db.Text
   aiAnalysisImageUrl String?                @map("ai_analysis_image_url") @db.Text
   extractedJson     Json?                   @map("extracted_json")
+  detectedProductType AIProductType?        @map("detected_product_type")
   confidence        Float?
   status            AIProductAnalysisStatus @default(PROCESSING)
   errorMessage      String?                 @map("error_message") @db.Text
@@ -6532,4 +6684,380 @@ model MerchantAiWalletTransaction {
   @@index([analysisId])
   @@index([razorpayOrderId])
   @@map("merchant_ai_wallet_transactions")
+}
+
+// =============================================================================
+// HYPERLOCAL SUPER APP — VERTICALS, RESTAURANT MENU, FOOD CART
+// =============================================================================
+
+model MerchantApplicationBusinessType {
+  id            String               @id @default(cuid())
+  applicationId String               @map("application_id")
+  businessType  VerticalBusinessType @map("business_type")
+  status        StoreBusinessTypeStatus @default(PENDING)
+  reviewedBy    String?              @map("reviewed_by")
+  reviewedAt    DateTime?            @map("reviewed_at")
+  rejectionReason String?            @map("rejection_reason") @db.Text
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+
+  application MerchantApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, businessType])
+  @@index([applicationId, status])
+  @@map("merchant_application_business_types")
+}
+
+model StoreBusinessType {
+  id            String                  @id @default(cuid())
+  storeId       String                  @map("store_id")
+  businessType  VerticalBusinessType    @map("business_type")
+  status        StoreBusinessTypeStatus @default(PENDING)
+  reviewedBy    String?                 @map("reviewed_by")
+  reviewedAt    DateTime?               @map("reviewed_at")
+  rejectionReason String?               @map("rejection_reason") @db.Text
+  isPrimary     Boolean                 @default(false) @map("is_primary")
+  createdAt     DateTime                @default(now()) @map("created_at")
+  updatedAt     DateTime                @updatedAt @map("updated_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, businessType])
+  @@index([storeId, status])
+  @@index([businessType, status])
+  @@map("store_business_types")
+}
+
+model Cuisine {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  imageUrl    String?  @map("image_url") @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  storeCuisines StoreCuisine[]
+
+  @@index([isActive, sortOrder])
+  @@map("cuisines")
+}
+
+model StoreCuisine {
+  id        String @id @default(cuid())
+  storeId   String @map("store_id")
+  cuisineId String @map("cuisine_id")
+
+  store   RestaurantProfile @relation(fields: [storeId], references: [storeId], onDelete: Cascade)
+  cuisine Cuisine           @relation(fields: [cuisineId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, cuisineId])
+  @@map("store_cuisines")
+}
+
+model RestaurantProfile {
+  id                String   @id @default(cuid())
+  storeId           String   @unique @map("store_id")
+  avgPrepTimeMins   Int      @default(25) @map("avg_prep_time_mins")
+  packagingFee      Decimal  @default(0) @map("packaging_fee") @db.Decimal(10, 2)
+  minOrderAmount    Decimal  @default(0) @map("min_order_amount") @db.Decimal(10, 2)
+  acceptsScheduled  Boolean  @default(true) @map("accepts_scheduled")
+  isCloudKitchen    Boolean  @default(false) @map("is_cloud_kitchen")
+  costForTwo        Decimal? @map("cost_for_two") @db.Decimal(10, 2)
+  acceptanceRate    Float    @default(100) @map("acceptance_rate")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  store    Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  cuisines StoreCuisine[]
+
+  @@map("restaurant_profiles")
+}
+
+model RestaurantMenuCategory {
+  id          String           @id @default(cuid())
+  storeId     String           @map("store_id")
+  name        String
+  slug        String
+  categorySlug MenuCategorySlug? @map("category_slug")
+  description String?          @db.Text
+  imageUrl    String?          @map("image_url") @db.Text
+  sortOrder   Int              @default(0) @map("sort_order")
+  isActive    Boolean          @default(true) @map("is_active")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  store Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  items RestaurantMenuItem[]
+
+  @@unique([storeId, slug])
+  @@index([storeId, isActive, sortOrder])
+  @@map("restaurant_menu_categories")
+}
+
+model RestaurantMenuItem {
+  id              String               @id @default(cuid())
+  storeId         String               @map("store_id")
+  categoryId      String               @map("category_id")
+  name            String
+  slug            String
+  description     String?              @db.Text
+  imageUrls       Json                 @default("[]") @map("image_urls")
+  basePrice       Decimal              @map("base_price") @db.Decimal(10, 2)
+  mrp             Decimal?             @db.Decimal(10, 2)
+  dietType        DietType             @default(VEG) @map("diet_type")
+  spiceLevel      SpiceLevel?          @map("spice_level")
+  prepTimeMins    Int                  @default(15) @map("prep_time_mins")
+  servingSize     String?              @map("serving_size")
+  cuisineName     String?              @map("cuisine_name")
+  availability    MenuItemAvailability @default(AVAILABLE)
+  allowsSpecialInstructions Boolean    @default(true) @map("allows_special_instructions")
+  isCombo         Boolean              @default(false) @map("is_combo")
+  sortOrder       Int                  @default(0) @map("sort_order")
+  ratingAvg       Float                @default(0) @map("rating_avg")
+  ratingCount     Int                  @default(0) @map("rating_count")
+  orderCount      Int                  @default(0) @map("order_count")
+  isActive        Boolean              @default(true) @map("is_active")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  store         Store                    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category      RestaurantMenuCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  variants      RestaurantMenuItemVariant[]
+  addonGroups   RestaurantMenuItemAddonGroup[]
+  comboItems    RestaurantComboItem[]
+  foodCartItems FoodCartItem[]
+
+  @@unique([storeId, slug])
+  @@index([storeId, categoryId, isActive])
+  @@index([storeId, availability])
+  @@map("restaurant_menu_items")
+}
+
+model RestaurantMenuItemVariant {
+  id          String               @id @default(cuid())
+  menuItemId  String               @map("menu_item_id")
+  name        String
+  price       Decimal              @db.Decimal(10, 2)
+  isDefault   Boolean              @default(false) @map("is_default")
+  availability MenuItemAvailability @default(AVAILABLE)
+  sortOrder   Int                  @default(0) @map("sort_order")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+
+  menuItem      RestaurantMenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  foodCartItems FoodCartItem[]
+
+  @@index([menuItemId, sortOrder])
+  @@map("restaurant_menu_item_variants")
+}
+
+model RestaurantAddonGroup {
+  id            String             @id @default(cuid())
+  storeId       String             @map("store_id")
+  name          String
+  selectionType AddonSelectionType @map("selection_type")
+  isRequired    Boolean            @default(false) @map("is_required")
+  minSelections Int                @default(0) @map("min_selections")
+  maxSelections Int                @default(1) @map("max_selections")
+  sortOrder     Int                @default(0) @map("sort_order")
+  isActive      Boolean            @default(true) @map("is_active")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  store     Store                          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  addons    RestaurantAddon[]
+  menuLinks RestaurantMenuItemAddonGroup[]
+
+  @@index([storeId, isActive])
+  @@map("restaurant_addon_groups")
+}
+
+model RestaurantAddon {
+  id           String               @id @default(cuid())
+  groupId      String               @map("group_id")
+  name         String
+  price        Decimal              @default(0) @db.Decimal(10, 2)
+  dietType     DietType?            @map("diet_type")
+  availability MenuItemAvailability @default(AVAILABLE)
+  sortOrder    Int                  @default(0) @map("sort_order")
+  isActive     Boolean              @default(true) @map("is_active")
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+
+  group            RestaurantAddonGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  foodCartItemAddons FoodCartItemAddon[]
+
+  @@index([groupId, sortOrder])
+  @@map("restaurant_addons")
+}
+
+model RestaurantMenuItemAddonGroup {
+  id         String @id @default(cuid())
+  menuItemId String @map("menu_item_id")
+  groupId    String @map("group_id")
+  sortOrder  Int    @default(0) @map("sort_order")
+
+  menuItem RestaurantMenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  group    RestaurantAddonGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, groupId])
+  @@map("restaurant_menu_item_addon_groups")
+}
+
+model RestaurantCombo {
+  id          String   @id @default(cuid())
+  storeId     String   @map("store_id")
+  name        String
+  slug        String
+  description String?  @db.Text
+  imageUrl    String?  @map("image_url") @db.Text
+  comboPrice  Decimal  @map("combo_price") @db.Decimal(10, 2)
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  store Store                 @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  items RestaurantComboItem[]
+
+  @@unique([storeId, slug])
+  @@index([storeId, isActive])
+  @@map("restaurant_combos")
+}
+
+model RestaurantComboItem {
+  id         String @id @default(cuid())
+  comboId    String @map("combo_id")
+  menuItemId String @map("menu_item_id")
+  quantity   Int    @default(1)
+  sortOrder  Int    @default(0) @map("sort_order")
+
+  combo    RestaurantCombo    @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  menuItem RestaurantMenuItem @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+
+  @@unique([comboId, menuItemId])
+  @@map("restaurant_combo_items")
+}
+
+model FoodCart {
+  id             String   @id @default(cuid())
+  buyerProfileId String   @map("buyer_profile_id")
+  storeId        String   @map("store_id")
+  appliedCouponId String? @map("applied_coupon_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  buyerProfile BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
+  store        Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  appliedCoupon Coupon?     @relation(fields: [appliedCouponId], references: [id], onDelete: SetNull)
+  items        FoodCartItem[]
+
+  @@unique([buyerProfileId, storeId])
+  @@index([buyerProfileId])
+  @@map("food_carts")
+}
+
+model FoodCartItem {
+  id                  String   @id @default(cuid())
+  foodCartId          String   @map("food_cart_id")
+  menuItemId          String   @map("menu_item_id")
+  variantId           String?  @map("variant_id")
+  comboId             String?  @map("combo_id")
+  quantity            Int      @default(1)
+  unitPrice           Decimal  @map("unit_price") @db.Decimal(10, 2)
+  specialInstructions String?  @map("special_instructions") @db.Text
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  foodCart FoodCart                   @relation(fields: [foodCartId], references: [id], onDelete: Cascade)
+  menuItem RestaurantMenuItem         @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  variant  RestaurantMenuItemVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  addons   FoodCartItemAddon[]
+
+  @@index([foodCartId])
+  @@map("food_cart_items")
+}
+
+model FoodCartItemAddon {
+  id           String  @id @default(cuid())
+  cartItemId   String  @map("cart_item_id")
+  addonId      String  @map("addon_id")
+  addonGroupId String  @map("addon_group_id")
+  price        Decimal @db.Decimal(10, 2)
+
+  cartItem FoodCartItem    @relation(fields: [cartItemId], references: [id], onDelete: Cascade)
+  addon    RestaurantAddon @relation(fields: [addonId], references: [id], onDelete: Cascade)
+
+  @@index([cartItemId])
+  @@map("food_cart_item_addons")
+}
+
+model FoodCheckout {
+  id              String        @id @default(cuid())
+  buyerProfileId  String        @map("buyer_profile_id")
+  storeId         String        @map("store_id")
+  status          String        @default("PENDING")
+  subtotal        Decimal       @db.Decimal(10, 2)
+  packagingFee    Decimal       @default(0) @map("packaging_fee") @db.Decimal(10, 2)
+  deliveryFee     Decimal       @default(0) @map("delivery_fee") @db.Decimal(10, 2)
+  taxAmount       Decimal       @default(0) @map("tax_amount") @db.Decimal(10, 2)
+  discountAmount  Decimal       @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  tipAmount       Decimal       @default(0) @map("tip_amount") @db.Decimal(10, 2)
+  totalAmount     Decimal       @map("total_amount") @db.Decimal(10, 2)
+  deliveryAddress Json          @map("delivery_address")
+  deliveryLat     Float         @map("delivery_lat")
+  deliveryLng     Float         @map("delivery_lng")
+  scheduledDeliveryAt DateTime? @map("scheduled_delivery_at")
+  specialInstructions String?   @map("special_instructions") @db.Text
+  restaurantNote  String?       @map("restaurant_note") @db.Text
+  paymentMethod   PaymentMethod @map("payment_method")
+  couponId        String?       @map("coupon_id")
+  orderId         String?       @unique @map("order_id")
+  idempotencyKey  String?       @unique @map("idempotency_key")
+  razorpayOrderId String?       @unique @map("razorpay_order_id")
+  cartSnapshot    Json?         @map("cart_snapshot")
+  expiresAt       DateTime      @map("expires_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  buyerProfile BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Cascade)
+
+  @@index([buyerProfileId, status])
+  @@map("food_checkouts")
+}
+
+model MenuOcrJob {
+  id            String        @id @default(cuid())
+  storeId       String        @map("store_id")
+  imageUrl      String        @map("image_url") @db.Text
+  status        MenuOcrStatus @default(UPLOADED)
+  extractedJson Json?         @map("extracted_json")
+  draftMenuJson Json?         @map("draft_menu_json")
+  errorMessage  String?       @map("error_message") @db.Text
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, status])
+  @@map("menu_ocr_jobs")
+}
+
+model RestaurantMenuSearchIndex {
+  id          String   @id @default(cuid())
+  storeId     String   @map("store_id")
+  menuItemId  String   @unique @map("menu_item_id")
+  name        String
+  description String?  @db.Text
+  cuisineName String?  @map("cuisine_name")
+  categoryName String? @map("category_name")
+  dietType    DietType @map("diet_type")
+  searchVector Unsupported("tsvector")? @map("search_vector")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([storeId])
+  @@map("restaurant_menu_search_index")
 }

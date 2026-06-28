@@ -77,11 +77,24 @@ export class SearchDiscoveryService {
       const offerStoreIds = await this.activeOfferStoreIds();
       const maxDistance = dto.lat != null ? SEARCH_DISCOVERY_RADIUS_KM : 50;
 
-      const [productRows, storeRows, categoryRows, brandRows] = await Promise.all([
-        tab === 'stores' || tab === 'categories' ? [] : this.fetchProductCandidates(dto),
-        tab === 'products' || tab === 'categories' ? [] : this.fetchStoreCandidates(dto),
-        tab === 'products' || tab === 'stores' ? [] : this.fetchCategoryCandidates(dto),
-        tab === 'stores' || tab === 'categories' ? [] : this.fetchBrandCandidates(dto),
+      const [productRows, storeRows, categoryRows, brandRows, menuItemRows, restaurantRows] =
+        await Promise.all([
+        tab === 'stores' || tab === 'categories' || tab === 'menu_items' || tab === 'restaurants'
+          ? []
+          : this.fetchProductCandidates(dto),
+        tab === 'products' || tab === 'categories' || tab === 'menu_items' ? [] : this.fetchStoreCandidates(dto),
+        tab === 'products' || tab === 'stores' || tab === 'menu_items' || tab === 'restaurants'
+          ? []
+          : this.fetchCategoryCandidates(dto),
+        tab === 'stores' || tab === 'categories' || tab === 'menu_items' || tab === 'restaurants'
+          ? []
+          : this.fetchBrandCandidates(dto),
+        tab === 'products' || tab === 'stores' || tab === 'categories' || tab === 'restaurants'
+          ? []
+          : this.fetchMenuItemCandidates(dto),
+        tab === 'products' || tab === 'stores' || tab === 'categories' || tab === 'menu_items'
+          ? []
+          : this.fetchRestaurantCandidates(dto),
       ]);
 
       const maxQty = Math.max(1, ...productRows.map((p) => p.totalQty));
@@ -187,6 +200,8 @@ export class SearchDiscoveryService {
         categories,
         subcategories,
         brands,
+        menuItems: menuItemRows.slice(0, limit),
+        restaurants: restaurantRows.slice(0, limit),
         meta: {
           page,
           limit,
@@ -695,6 +710,103 @@ export class SearchDiscoveryService {
     return rows.filter((r) => r.brand).map((r) => ({ name: r.brand! }));
   }
 
+  private async fetchMenuItemCandidates(dto: BuyerSearchDto) {
+    if (!dto.q || dto.q.trim().length < 2) return [];
+    const q = dto.q.trim();
+    try {
+      const rows = await this.prisma.$queryRaw<
+        {
+          menu_item_id: string;
+          name: string;
+          store_id: string;
+          base_price: number;
+          diet_type: string;
+        }[]
+      >`
+        SELECT m.id as menu_item_id, m.name, m.store_id, m.base_price, m.diet_type::text
+        FROM restaurant_menu_items m
+        INNER JOIN stores s ON s.id = m.store_id
+        WHERE m.is_active = true
+          AND m.availability = 'AVAILABLE'
+          AND s.status = 'APPROVED'
+          AND s.is_active = true
+          AND s.deleted_at IS NULL
+          AND (
+            m.name ILIKE ${'%' + q + '%'}
+            OR m.description ILIKE ${'%' + q + '%'}
+            OR m.cuisine_name ILIKE ${'%' + q + '%'}
+          )
+        ORDER BY m.order_count DESC, m.rating_avg DESC
+        LIMIT 20
+      `;
+
+      const storeIds = [...new Set(rows.map((r) => r.store_id))];
+      const stores = await this.prisma.store.findMany({
+        where: { id: { in: storeIds }, ...STORE_VISIBLE_WHERE },
+        include: STORE_DISCOVERY_INCLUDE,
+      });
+      const storeMap = new Map(stores.map((s) => [s.id, s]));
+
+      return rows
+        .filter((r) => {
+          const store = storeMap.get(r.store_id);
+          if (!store) return false;
+          if (dto.lat == null || dto.lng == null) return true;
+          return canDeliverToBuyer(toDeliverableStoreShape(store), {
+            lat: dto.lat,
+            lng: dto.lng,
+            pincode: dto.pincode,
+            discoveryRadiusKm: DEFAULT_BUYER_DISCOVERY_RADIUS_KM,
+          }).eligible;
+        })
+        .map((r) => ({
+          id: r.menu_item_id,
+          name: r.name,
+          basePrice: Number(r.base_price),
+          dietType: r.diet_type,
+          store: storeMap.get(r.store_id),
+          type: 'menu_item' as const,
+        }));
+    } catch {
+      return [];
+    }
+  }
+
+  private async fetchRestaurantCandidates(dto: BuyerSearchDto) {
+    if (!dto.q || dto.q.trim().length < 2) return [];
+    const q = dto.q.trim();
+    const stores = await this.prisma.store.findMany({
+      where: {
+        ...STORE_VISIBLE_WHERE,
+        businessTypes: {
+          some: {
+            businessType: { in: ['RESTAURANT', 'CLOUD_KITCHEN', 'CAFE', 'BAKERY'] },
+            status: 'APPROVED',
+          },
+        },
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { description: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      include: STORE_DISCOVERY_INCLUDE,
+      take: 30,
+      orderBy: [{ ratingAvg: 'desc' }, { ratingCount: 'desc' }],
+    });
+
+    const eligible = stores.filter((s) => {
+      if (dto.lat == null || dto.lng == null) return true;
+      return canDeliverToBuyer(toDeliverableStoreShape(s), {
+        lat: dto.lat,
+        lng: dto.lng,
+        pincode: dto.pincode,
+        discoveryRadiusKm: DEFAULT_BUYER_DISCOVERY_RADIUS_KM,
+      }).eligible;
+    });
+
+    return eligible.slice(0, 15).map((s) => ({ ...s, type: 'restaurant' as const }));
+  }
+
   private async activeOfferStoreIds(): Promise<Set<string>> {
     const now = new Date();
     const promos = await this.prisma.storePromotion.findMany({
@@ -755,6 +867,8 @@ export class SearchDiscoveryService {
       categories: [],
       subcategories: [],
       brands: [],
+      menuItems: [],
+      restaurants: [],
       meta: { page, limit, totalProducts: 0, totalPages: 0, sort: 'relevance', tab: 'all' },
     };
   }

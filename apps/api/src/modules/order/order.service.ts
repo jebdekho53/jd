@@ -8,8 +8,10 @@ import {
 } from '@nestjs/common';
 import {
   DomainEventType,
+  FoodKitchenStatus,
   OrderActorType,
   OrderStatus,
+  OrderVertical,
   PaymentMethod,
   PaymentStatus,
   Prisma,
@@ -20,6 +22,7 @@ import { DomainEventsService } from '../domain-events/domain-events.service';
 import { OrderCacheService } from './order-cache.service';
 import { OrderStatusHistoryService } from './order-status-history.service';
 import { buildMerchantListWhere } from './merchant-order-visibility.util';
+import { merchantForwardMap } from './merchant-forward.util';
 import { BUYER_STATUS_GROUPS } from './order-status-groups';
 import {
   PIPELINE_COLUMN_STATUSES,
@@ -776,7 +779,7 @@ export class OrderService implements OnModuleInit {
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, status: true, orderNumber: true, storeId: true },
+      select: { id: true, status: true, orderNumber: true, storeId: true, orderVertical: true },
     });
     if (!order) throw new NotFoundException('Order not found');
 
@@ -784,7 +787,8 @@ export class OrderService implements OnModuleInit {
       throw new BadRequestException(`Order is in a terminal state: ${order.status}`);
     }
 
-    const expectedNext = MERCHANT_FORWARD[order.status];
+    const forwardMap = merchantForwardMap(order.orderVertical);
+    const expectedNext = forwardMap[order.status];
     if (!expectedNext || expectedNext !== targetStatus) {
       throw new BadRequestException(
         `Invalid transition: ${order.status} → ${targetStatus}. ` +
@@ -799,6 +803,16 @@ export class OrderService implements OnModuleInit {
       actorId: userId,
       note,
     });
+
+    if (order.orderVertical === OrderVertical.FOOD) {
+      const kitchenStatus = this.foodKitchenStatusForOrderStatus(targetStatus);
+      if (kitchenStatus) {
+        await this.prisma.order.update({
+          where: { id: orderId },
+          data: { kitchenStatus },
+        });
+      }
+    }
 
     const auditActions: Record<OrderStatus, string> = {
       [OrderStatus.MERCHANT_ACCEPTED]: 'ORDER_CONFIRMED',
@@ -1039,6 +1053,22 @@ export class OrderService implements OnModuleInit {
       select: { id: true },
     });
     if (!exists) throw new ForbiddenException('Order does not belong to your store');
+  }
+
+  private foodKitchenStatusForOrderStatus(status: OrderStatus): FoodKitchenStatus | null {
+    switch (status) {
+      case OrderStatus.MERCHANT_ACCEPTED:
+        return FoodKitchenStatus.NEW;
+      case OrderStatus.PREPARING:
+        return FoodKitchenStatus.PREPARING;
+      case OrderStatus.READY_FOR_PICKUP:
+        return FoodKitchenStatus.READY;
+      case OrderStatus.DELIVERED:
+      case OrderStatus.COMPLETED:
+        return FoodKitchenStatus.COMPLETED;
+      default:
+        return null;
+    }
   }
 }
 

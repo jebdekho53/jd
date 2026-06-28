@@ -9,6 +9,7 @@ import {
   KycStatus,
   MarketingEventType,
   MerchantApplicationStatus,
+  MerchantBusinessType,
   MerchantDocumentType,
   MerchantKycStatus,
   MerchantOnboardingStepKey,
@@ -17,6 +18,7 @@ import {
   StoreDocumentType,
   StoreStatus,
   SupportActorType,
+  VerticalBusinessType,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -145,6 +147,10 @@ export class MerchantOnboardingService {
     }
     if (dto.businessName) data.businessName = dto.businessName;
     if (dto.businessType) data.businessType = dto.businessType;
+    if (dto.businessTypes?.length) {
+      await this.syncApplicationBusinessTypes(app.id, dto.businessTypes);
+      if (!dto.businessType) data.businessType = dto.businessTypes[0];
+    }
     if (dto.gstNumber) {
       const gst = normalizeGstin(dto.gstNumber);
       data.gstNumber = gst;
@@ -742,6 +748,7 @@ export class MerchantOnboardingService {
       kyc: true,
       bankAccount: true,
       steps: { orderBy: { stepKey: 'asc' as const } },
+      businessTypes: true,
       store: { select: { id: true, name: true, status: true } },
       merchantProfile: {
         select: { id: true, businessName: true, kycStatus: true, isBlacklisted: true },
@@ -818,6 +825,55 @@ export class MerchantOnboardingService {
     }
   }
 
+  private async syncApplicationBusinessTypes(
+    applicationId: string,
+    types: MerchantBusinessType[],
+  ) {
+    const verticals = types
+      .map((t) => this.toVerticalBusinessType(t))
+      .filter((v): v is VerticalBusinessType => v != null);
+
+    if (verticals.length === 0) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.merchantApplicationBusinessType.findMany({
+        where: { applicationId },
+      });
+      const existingSet = new Set(existing.map((e) => e.businessType));
+      for (const type of verticals) {
+        if (!existingSet.has(type)) {
+          await tx.merchantApplicationBusinessType.create({
+            data: { applicationId, businessType: type },
+          });
+        }
+      }
+    });
+  }
+
+  private toVerticalBusinessType(type: MerchantBusinessType): VerticalBusinessType | null {
+    const map: Partial<Record<MerchantBusinessType, VerticalBusinessType>> = {
+      GROCERY: VerticalBusinessType.GROCERY,
+      RESTAURANT: VerticalBusinessType.RESTAURANT,
+      CLOUD_KITCHEN: VerticalBusinessType.CLOUD_KITCHEN,
+      CAFE: VerticalBusinessType.CAFE,
+      BAKERY: VerticalBusinessType.BAKERY,
+      SWEETS: VerticalBusinessType.SWEETS,
+      FRUITS_VEGETABLES: VerticalBusinessType.FRUITS_VEGETABLES,
+      MEAT_FISH: VerticalBusinessType.MEAT_FISH,
+      BEAUTY: VerticalBusinessType.BEAUTY,
+      PET_STORE: VerticalBusinessType.PET_STORE,
+      HOME_KITCHEN: VerticalBusinessType.HOME_KITCHEN,
+      ELECTRONICS: VerticalBusinessType.ELECTRONICS,
+      BABY_STORE: VerticalBusinessType.BABY_STORE,
+      SUPPLEMENTS: VerticalBusinessType.SUPPLEMENTS,
+      HEALTH_NUTRITION: VerticalBusinessType.SUPPLEMENTS,
+      FLOWERS: VerticalBusinessType.FLOWERS,
+      LOCAL_STORE: VerticalBusinessType.LOCAL_STORE,
+      OTHER: VerticalBusinessType.LOCAL_STORE,
+    };
+    return map[type] ?? null;
+  }
+
   private formatApplication(
     app: Prisma.MerchantApplicationGetPayload<{ include: ReturnType<MerchantOnboardingService['applicationInclude']> }>,
   ) {
@@ -829,6 +885,7 @@ export class MerchantOnboardingService {
       ownerPhone: app.ownerPhone,
       businessName: app.businessName,
       businessType: app.businessType,
+      businessTypes: app.businessTypes?.map((b) => b.businessType) ?? (app.businessType ? [app.businessType] : []),
       gstNumber: app.gstNumber,
       gstVerified: app.gstVerified,
       panNumber: app.panNumber,

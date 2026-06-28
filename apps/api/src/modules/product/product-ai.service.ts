@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { AIProductAnalysisStatus, MerchantAiWalletTransactionStatus, MerchantAiWalletTransactionType } from '@prisma/client';
+import { AIProductAnalysisStatus, AIProductType, MerchantAiWalletTransactionStatus, MerchantAiWalletTransactionType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { MerchantService } from '../merchant/merchant.service';
@@ -93,6 +93,7 @@ export class ProductAiService {
     try {
       const extracted = await this.visionClient.analyzeProductImage(images.aiAnalysisUrl);
       const categoryMatch = await this.matchCategory(storeId, userId, extracted);
+      const detectedProductType = this.mapProductType(extracted.productType, extracted.isSupplement);
 
       const updated = await this.prisma.aIProductAnalysis.update({
         where: { id: analysis.id },
@@ -103,6 +104,7 @@ export class ProductAiService {
             categoryMatch,
           },
           confidence: extracted.confidence,
+          detectedProductType,
         },
       });
 
@@ -189,6 +191,15 @@ export class ProductAiService {
     if (dto.publish && confidence < AI_LOW_CONFIDENCE_THRESHOLD) {
       throw new BadRequestException(
         'Low confidence result. Please verify and save as draft only.',
+      );
+    }
+
+    const isRestaurantFood =
+      analysis.detectedProductType === AIProductType.RESTAURANT_FOOD ||
+      extracted.productType === 'RESTAURANT_FOOD';
+    if (isRestaurantFood) {
+      throw new BadRequestException(
+        'Restaurant dish photos cannot be published as grocery catalog products. Use menu management or menu OCR to add draft menu items.',
       );
     }
 
@@ -528,6 +539,7 @@ export class ProductAiService {
       chargeAmountPaise: number;
       chargedAt: Date | null;
       createdAt: Date;
+      detectedProductType?: AIProductType | null;
     },
     categoryMatch?: unknown,
   ) {
@@ -557,7 +569,10 @@ export class ProductAiService {
       createdAt: analysis.createdAt,
       lowConfidence: (analysis.confidence ?? 0) < AI_LOW_CONFIDENCE_THRESHOLD,
       publishBlocked:
-        (analysis.confidence ?? 0) < AI_LOW_CONFIDENCE_THRESHOLD || supplementBlocked,
+        (analysis.confidence ?? 0) < AI_LOW_CONFIDENCE_THRESHOLD ||
+        supplementBlocked ||
+        fields.productType === 'RESTAURANT_FOOD' ||
+        analysis.detectedProductType === AIProductType.RESTAURANT_FOOD,
       supplementBlocked,
       supplementWarning: supplementBlocked
         ? 'Supplement label is not clear. Please upload a clearer front-label image or save as draft.'
@@ -567,6 +582,23 @@ export class ProductAiService {
       labelReadable: fields.labelReadable ?? null,
       canPublishDirectly: fields.canPublishDirectly !== false && !supplementBlocked,
       imageQualityScore: fields.imageQualityScore ?? null,
+      detectedProductType: analysis.detectedProductType,
+      productType: fields.productType ?? analysis.detectedProductType,
     };
+  }
+
+  private mapProductType(productType?: string, isSupplement?: boolean): AIProductType {
+    if (isSupplement) return AIProductType.SUPPLEMENT;
+    const map: Record<string, AIProductType> = {
+      PACKAGED_PRODUCT: AIProductType.PACKAGED_PRODUCT,
+      FRESH_FOOD: AIProductType.FRESH_FOOD,
+      RESTAURANT_FOOD: AIProductType.RESTAURANT_FOOD,
+      SUPPLEMENT: AIProductType.SUPPLEMENT,
+      ELECTRONICS: AIProductType.ELECTRONICS,
+      BEAUTY: AIProductType.BEAUTY,
+      PET: AIProductType.PET,
+      FLOWERS: AIProductType.FLOWERS,
+    };
+    return map[productType ?? ''] ?? AIProductType.UNKNOWN;
   }
 }

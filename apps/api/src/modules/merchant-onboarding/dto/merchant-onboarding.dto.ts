@@ -19,6 +19,7 @@ import {
   MerchantBusinessType,
   MerchantDocumentType,
   MerchantOnboardingStepKey,
+  VerticalBusinessType,
 } from '@prisma/client';
 import { PHONE_E164_REGEX } from '../../../common/constants';
 
@@ -59,6 +60,12 @@ export class UpdateOnboardingStepDto {
   @IsOptional()
   @IsEnum(MerchantBusinessType)
   businessType?: MerchantBusinessType;
+
+  @ApiPropertyOptional({ type: [String], description: 'Multiple business verticals (super-app)' })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(MerchantBusinessType, { each: true })
+  businessTypes?: MerchantBusinessType[];
 
   @ApiPropertyOptional()
   @IsOptional()

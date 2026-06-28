@@ -15,6 +15,7 @@ export interface MerchantApplication {
   ownerPhone?: string | null;
   businessName?: string | null;
   businessType?: string | null;
+  businessTypes?: string[] | null;
   gstNumber?: string | null;
   gstVerified?: boolean;
   panNumber?: string | null;

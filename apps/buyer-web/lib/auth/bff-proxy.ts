@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { backendFetch } from '@/lib/auth/backend-fetch';
 import { fetchWithAuth } from '@/lib/auth/session';
 import { errorResponse } from '@/lib/auth/session';
 import type { ApiResponse } from '@/types/buyer';
+
+/** GET proxy for public buyer endpoints (no auth required). */
+export async function proxyPublicGet<T>(path: string, searchParams?: URLSearchParams) {
+  try {
+    const fullPath = searchParams?.size ? `${path}?${searchParams.toString()}` : path;
+    const { data } = await backendFetch<ApiResponse<T>>(fullPath);
+    return NextResponse.json({
+      success: true,
+      data: data.data,
+      ...(data.meta ? { meta: data.meta } : {}),
+    });
+  } catch (err) {
+    return errorResponse(err);
+  }
+}
 
 /** GET proxy: reads cookies, calls backend, forwards JSON response */
 export async function proxyGet<T>(path: string, searchParams?: URLSearchParams) {
