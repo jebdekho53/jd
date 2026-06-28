@@ -41,6 +41,18 @@ fi
 sed -i '/^MSG91_AUTH_KEY=$/d;/^MSG91_TEMPLATE_ID=$/d;/^MSG91_DLT_TE_ID=$/d' "$ENV_FILE"
 sed -i '/^RAZORPAY_KEY_SECRET=$/d;/^RAZORPAY_WEBHOOK_SECRET=$/d;/^RAZORPAY_KEY_ID=$/d' "$ENV_FILE"
 
+# Disable Shadowfax until API URL is configured (pre-launch safe; API defaults ENABLE_SHADOWFAX=true)
+if ! grep -qE '^SHADOWFAX_API_URL=.+' "$ENV_FILE"; then
+  if ! grep -qE '^ENABLE_SHADOWFAX=false$' "$ENV_FILE"; then
+    echo "WARN: SHADOWFAX_API_URL not set — disabling Shadowfax until configured"
+    if grep -qE '^ENABLE_SHADOWFAX=' "$ENV_FILE"; then
+      sed -i 's/^ENABLE_SHADOWFAX=.*/ENABLE_SHADOWFAX=false/' "$ENV_FILE"
+    else
+      echo 'ENABLE_SHADOWFAX=false' >> "$ENV_FILE"
+    fi
+  fi
+fi
+
 node --env-file="$ENV_FILE" <<'NODE'
 const required = ['DATABASE_URL', 'REDIS_URL', 'JWT_PRIVATE_KEY', 'JWT_PUBLIC_KEY', 'CORS_ORIGINS'];
 for (const key of required) {
@@ -70,18 +82,17 @@ if (!gmapsKey.trim()) {
   console.warn('WARN: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is missing — buyer/merchant maps will use directory fallback');
 }
 
-// Shadowfax when primary provider
+// Shadowfax — required only when explicitly enabled with credentials
+const shadowfaxEnabled = (process.env.ENABLE_SHADOWFAX || 'false') === 'true';
 const deliveryProvider = (process.env.DELIVERY_PROVIDER || 'shadowfax').toLowerCase();
-if (deliveryProvider === 'shadowfax') {
+if (shadowfaxEnabled && deliveryProvider === 'shadowfax') {
   const shadowfaxVars = [
-    ['ENABLE_SHADOWFAX', process.env.ENABLE_SHADOWFAX || 'true'],
-    ['ENABLE_OWN_FLEET', process.env.ENABLE_OWN_FLEET || 'false'],
     ['SHADOWFAX_API_URL', process.env.SHADOWFAX_API_URL || ''],
     ['SHADOWFAX_WEBHOOK_SECRET', process.env.SHADOWFAX_WEBHOOK_SECRET || ''],
   ];
   for (const [key, val] of shadowfaxVars) {
     if (!String(val).trim()) {
-      console.error(`ERROR: ${key} is required when DELIVERY_PROVIDER=shadowfax`);
+      console.error(`ERROR: ${key} is required when ENABLE_SHADOWFAX=true and DELIVERY_PROVIDER=shadowfax`);
       process.exit(1);
     }
   }
@@ -91,9 +102,11 @@ if (deliveryProvider === 'shadowfax') {
   }
   const token = process.env.SHADOWFAX_PRODUCTION_TOKEN || process.env.SHADOWFAX_TEST_TOKEN || '';
   if (!token.trim()) {
-    console.error('ERROR: SHADOWFAX_PRODUCTION_TOKEN or SHADOWFAX_TEST_TOKEN required for shadowfax');
+    console.error('ERROR: SHADOWFAX_PRODUCTION_TOKEN or SHADOWFAX_TEST_TOKEN required when Shadowfax is enabled');
     process.exit(1);
   }
+} else if (deliveryProvider === 'shadowfax' && !shadowfaxEnabled) {
+  console.warn('WARN: Shadowfax delivery disabled until SHADOWFAX_API_URL and tokens are configured');
 }
 NODE
 
