@@ -9,6 +9,9 @@ import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { OrderStatusHistoryService } from '../order/order-status-history.service';
 import { RiderAssignmentCacheService } from './rider-assignment-cache.service';
+import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+
+const mockBuyerPush = { notifyRiderAssigned: jest.fn().mockResolvedValue(undefined) };
 
 const ORDER_ID = 'ord1';
 const RIDER_ID = 'rp1';
@@ -22,6 +25,7 @@ const mockPrisma = {
   delivery: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), count: jest.fn(), aggregate: jest.fn() },
   deliveryAssignment: { create: jest.fn(), updateMany: jest.fn(), findMany: jest.fn(), update: jest.fn() },
   store: { findUnique: jest.fn() },
+  fulfillmentOrder: { findFirst: jest.fn().mockResolvedValue(null) },
 };
 
 const mockAudit = { log: jest.fn() };
@@ -59,6 +63,7 @@ describe('RiderAssignmentService', () => {
         { provide: OrderStatusHistoryService, useValue: mockStatusHistory },
         { provide: RiderAssignmentCacheService, useValue: mockCache },
         { provide: EventEmitter2, useValue: mockEvents },
+        { provide: BuyerPushNotificationService, useValue: mockBuyerPush },
         { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();

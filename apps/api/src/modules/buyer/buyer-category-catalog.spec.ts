@@ -1,4 +1,3 @@
-import { MerchantCategoryStatus } from '@prisma/client';
 import {
   fetchStoresForCategory,
   resolveCategoryGrantScope,
@@ -10,8 +9,6 @@ const STORE_ID = 'store-1';
 
 function makePrisma(overrides: {
   categoryLookup?: Record<string, { id: string; parentId: string | null } | null>;
-  storeCategoryGrants?: Array<{ storeId: string; subcategoryId: string }>;
-  legacyGrants?: Array<{ merchantProfileId: string; categoryId: string }>;
   productCounts?: Array<{ storeId: string; productCount: number }>;
 } = {}) {
   const {
@@ -19,8 +16,6 @@ function makePrisma(overrides: {
       [DAIRY_ID]: { id: DAIRY_ID, parentId: GROCERY_ID },
       [GROCERY_ID]: { id: GROCERY_ID, parentId: null },
     },
-    storeCategoryGrants = [{ storeId: STORE_ID, subcategoryId: DAIRY_ID }],
-    legacyGrants = [],
     productCounts = [{ storeId: STORE_ID, productCount: 1 }],
   } = overrides;
 
@@ -31,31 +26,6 @@ function makePrisma(overrides: {
         return Promise.resolve(row ?? null);
       }),
       findMany: jest.fn(() => Promise.resolve([])),
-    },
-    storeCategory: {
-      findMany: jest.fn(({ where }: { where: { subcategoryId?: { in: string[] }; categoryId?: string } }) => {
-        if (where.subcategoryId?.in) {
-          return Promise.resolve(
-            storeCategoryGrants.filter((g) => where.subcategoryId!.in.includes(g.subcategoryId)),
-          );
-        }
-        if (where.categoryId) {
-          return Promise.resolve(storeCategoryGrants);
-        }
-        return Promise.resolve([]);
-      }),
-    },
-    merchantCategory: {
-      findMany: jest.fn(() => Promise.resolve(legacyGrants)),
-    },
-    store: {
-      findMany: jest.fn(() =>
-        Promise.resolve(
-          legacyGrants.length
-            ? [{ id: STORE_ID, merchantProfileId: 'mp-1' }]
-            : [],
-        ),
-      ),
     },
     product: {
       groupBy: jest.fn(() =>
@@ -96,38 +66,36 @@ describe('buyer-category-catalog', () => {
       const prisma = makePrisma();
       const result = await fetchStoresForCategory(prisma, DAIRY_ID);
       expect(result).toEqual([{ storeId: STORE_ID, productCount: 1 }]);
-      expect(prisma.storeCategory.findMany).toHaveBeenCalledWith(
+      expect(prisma.product.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { subcategoryId: { in: [DAIRY_ID] } },
+          by: ['storeId'],
+          where: expect.objectContaining({
+            categoryId: { in: [DAIRY_ID] },
+          }),
         }),
       );
     });
 
-    it('returns empty when no grants and no legacy approvals', async () => {
-      const prisma = makePrisma({ storeCategoryGrants: [], productCounts: [] });
+    it('returns empty when no in-stock products in category', async () => {
+      const prisma = makePrisma({ productCounts: [] });
       const result = await fetchStoresForCategory(prisma, DAIRY_ID);
       expect(result).toEqual([]);
     });
 
-    it('falls back to legacy merchant category grants', async () => {
+    it('aggregates product counts per store for parent category scope', async () => {
       const prisma = makePrisma({
-        storeCategoryGrants: [],
-        legacyGrants: [
-          { merchantProfileId: 'mp-1', categoryId: DAIRY_ID },
-        ],
         productCounts: [{ storeId: STORE_ID, productCount: 2 }],
       });
-
       (prisma.category.findMany as jest.Mock).mockResolvedValue([
-        { id: DAIRY_ID, parentId: GROCERY_ID },
+        { id: DAIRY_ID },
       ]);
 
-      const result = await fetchStoresForCategory(prisma, DAIRY_ID);
+      const result = await fetchStoresForCategory(prisma, GROCERY_ID);
       expect(result).toEqual([{ storeId: STORE_ID, productCount: 2 }]);
-      expect(prisma.merchantCategory.findMany).toHaveBeenCalledWith(
+      expect(prisma.product.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            status: MerchantCategoryStatus.APPROVED,
+            categoryId: { in: expect.arrayContaining([DAIRY_ID, GROCERY_ID]) },
           }),
         }),
       );

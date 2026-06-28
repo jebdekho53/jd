@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,6 +9,7 @@ import { useCreateProductMutation, useUpdateProductMutation } from '@/hooks/use-
 import { useApprovedCategoriesQuery } from '@/hooks/use-categories-governance';
 import { useToast } from '@/design-system/primitives';
 import { ImageUploadField } from '@/features/media/components/image-upload-field';
+import { HsnPicker, type HsnOption } from './hsn-picker';
 import type { Product } from '@/types/product';
 
 const schema = z.object({
@@ -24,6 +25,15 @@ const schema = z.object({
   quantity: z.coerce.number().min(0).optional(),
   lowStockThreshold: z.coerce.number().min(0).optional(),
   imageUrl: z.string().url('Product image is required'),
+  ingredients: z.string().max(5000).optional(),
+  shelfLife: z.string().max(200).optional(),
+  countryOfOrigin: z.string().max(100).optional(),
+  manufacturerName: z.string().max(200).optional(),
+  manufacturerAddress: z.string().max(1000).optional(),
+  fssaiLicense: z.string().max(50).optional(),
+  storageInstructions: z.string().max(2000).optional(),
+  disclaimer: z.string().max(2000).optional(),
+  taxInclusive: z.boolean().optional(),
 }).refine((d) => !d.mrp || d.basePrice <= d.mrp, {
   message: 'Price must be ≤ MRP',
   path: ['basePrice'],
@@ -60,6 +70,8 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
   const createMutation = useCreateProductMutation(storeId);
   const updateMutation = useUpdateProductMutation(storeId, editProduct?.id ?? '');
   const { data: categories } = useApprovedCategoriesQuery(storeId);
+  const [hsn, setHsn] = useState<HsnOption | null>(null);
+  const [taxCategory, setTaxCategory] = useState<'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED'>('GOODS');
 
   const {
     register,
@@ -112,7 +124,27 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         quantity: editProduct.variants[0]?.inventory?.availableQty ?? 0,
         lowStockThreshold: editProduct.variants[0]?.inventory?.lowStockThreshold ?? undefined,
         imageUrl: editProduct.imageUrls[0] ?? '',
+        ingredients: editProduct.ingredients ?? '',
+        shelfLife: editProduct.shelfLife ?? '',
+        countryOfOrigin: editProduct.countryOfOrigin ?? '',
+        manufacturerName: editProduct.manufacturerName ?? '',
+        manufacturerAddress: editProduct.manufacturerAddress ?? '',
+        fssaiLicense: editProduct.fssaiLicense ?? '',
+        storageInstructions: editProduct.storageInstructions ?? '',
+        disclaimer: editProduct.disclaimer ?? '',
+        taxInclusive: editProduct.taxInclusive ?? false,
       });
+      if (editProduct.hsnCodeRef) {
+        setHsn({
+          id: editProduct.hsnCodeRef.id,
+          code: editProduct.hsnCodeRef.code,
+          description: editProduct.hsnCodeRef.description,
+          defaultGstSlab: editProduct.hsnCodeRef.defaultGstSlab,
+        });
+      } else {
+        setHsn(null);
+      }
+      setTaxCategory((editProduct.taxCategory as typeof taxCategory) ?? 'GOODS');
     } else {
       reset({
         quantity: 10,
@@ -120,6 +152,8 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         unit: 'piece',
         imageUrl: '',
       });
+      setHsn(null);
+      setTaxCategory('GOODS');
     }
   }, [editProduct, reset, open, categories]);
 
@@ -142,12 +176,16 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
     }
 
     try {
-      const { parentCategoryId: _p, subCategoryId: _s, imageUrl, ...rest } = data;
+      const { parentCategoryId: _p, subCategoryId: _s, imageUrl, taxInclusive, ...rest } = data;
       const payload = {
         ...rest,
         sku: data.sku || undefined,
         categoryId,
         imageUrls: [imageUrl],
+        taxInclusive: taxInclusive ?? false,
+        hsnCodeId: hsn?.id,
+        gstSlab: hsn?.defaultGstSlab,
+        taxCategory,
       };
       if (editProduct) {
         await updateMutation.mutateAsync(payload);
@@ -233,6 +271,49 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
           <Input label="Opening stock" type="number" {...register('quantity')} />
           <Input label="Low stock alert" type="number" {...register('lowStockThreshold')} />
         </div>
+
+        <details className="rounded-lg border border-neutral-200 p-3">
+          <summary className="cursor-pointer text-sm font-semibold text-neutral-800">
+            Tax & HSN (GST compliance)
+          </summary>
+          <div className="mt-3 space-y-3">
+            <Select
+              label="Tax category"
+              value={taxCategory}
+              onChange={(e) => setTaxCategory(e.target.value as typeof taxCategory)}
+            >
+              <option value="GOODS">Goods</option>
+              <option value="SERVICES">Services</option>
+              <option value="EXEMPT">Exempt</option>
+              <option value="NIL_RATED">Nil rated</option>
+            </Select>
+            <HsnPicker value={hsn?.id} onChange={setHsn} />
+          </div>
+        </details>
+
+        <details className="rounded-lg border border-neutral-200 p-3">
+          <summary className="cursor-pointer text-sm font-semibold text-neutral-800">
+            Compliance & product details (optional)
+          </summary>
+          <div className="mt-3 space-y-3">
+            <Textarea label="Ingredients" {...register('ingredients')} />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Shelf life" placeholder="e.g. 6 months" {...register('shelfLife')} />
+              <Input label="Country of origin" {...register('countryOfOrigin')} />
+            </div>
+            <Input label="Manufacturer name" {...register('manufacturerName')} />
+            <Textarea label="Manufacturer address" {...register('manufacturerAddress')} />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="FSSAI license" {...register('fssaiLicense')} />
+              <label className="flex items-center gap-2 pt-6 text-sm">
+                <input type="checkbox" {...register('taxInclusive')} className="rounded" />
+                Price inclusive of tax
+              </label>
+            </div>
+            <Textarea label="Storage instructions" {...register('storageInstructions')} />
+            <Textarea label="Disclaimer" {...register('disclaimer')} />
+          </div>
+        </details>
       </form>
     </Modal>
   );

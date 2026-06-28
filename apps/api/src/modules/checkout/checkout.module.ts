@@ -13,9 +13,10 @@ import { TrustSafetyModule } from '../trust-safety/trust-safety.module';
 import { FulfillmentNetworkModule } from '../fulfillment-network/fulfillment-network.module';
 import { CorporateModule } from '../corporate/corporate.module';
 import { LocationDirectoryModule } from '../location-directory/location-directory.module';
+import { PushModule } from '../push/push.module';
 
 @Module({
-  imports: [CartModule, InventoryModule, PromotionModule, GeospatialModule, WalletLoyaltyModule, FinanceModule, TrustSafetyModule, FulfillmentNetworkModule, CorporateModule, LocationDirectoryModule],
+  imports: [CartModule, InventoryModule, PromotionModule, GeospatialModule, WalletLoyaltyModule, FinanceModule, TrustSafetyModule, FulfillmentNetworkModule, CorporateModule, LocationDirectoryModule, PushModule],
   controllers: [CheckoutController],
   providers: [CheckoutService, ReservationService],
   exports: [CheckoutService, ReservationService],

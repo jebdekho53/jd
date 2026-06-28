@@ -11,6 +11,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { CartCacheService } from './cart-cache.service';
+import { StorePromotionService } from '../promotion/store-promotion.service';
+import { MembershipBenefitService } from '../membership/membership-benefit.service';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -71,6 +73,13 @@ const mockPrisma = {
 };
 const mockAudit = { log: jest.fn().mockResolvedValue(undefined) };
 const mockEvents = { emit: jest.fn().mockResolvedValue('e-1') };
+const mockPromotions = {
+  applyPromoToCart: jest.fn().mockResolvedValue(undefined),
+  recalculateCartTotals: jest.fn(),
+};
+const mockMembership = {
+  applyBenefitsToCart: jest.fn().mockResolvedValue(undefined),
+};
 const mockCartCache = {
   get: jest.fn().mockResolvedValue(null),
   set: jest.fn().mockResolvedValue(undefined),
@@ -90,6 +99,8 @@ describe('CartService', () => {
         { provide: AuditService, useValue: mockAudit },
         { provide: DomainEventsService, useValue: mockEvents },
         { provide: CartCacheService, useValue: mockCartCache },
+        { provide: StorePromotionService, useValue: mockPromotions },
+        { provide: MembershipBenefitService, useValue: mockMembership },
       ],
     }).compile();
     service = module.get<CartService>(CartService);

@@ -13,9 +13,10 @@ import { WalletLoyaltyModule } from '../wallet-loyalty/wallet-loyalty.module';
 import { FinanceModule } from '../finance/finance.module';
 import { ComplianceModule } from '../compliance/compliance.module';
 import { TrustSafetyModule } from '../trust-safety/trust-safety.module';
+import { PushModule } from '../push/push.module';
 
 @Module({
-  imports: [RiderAssignmentModule, DeliveryTrackingModule, SettlementModule, FinanceModule, ComplianceModule, TrustSafetyModule, CheckoutModule, OrderTimelineModule, WalletLoyaltyModule],
+  imports: [RiderAssignmentModule, DeliveryTrackingModule, SettlementModule, FinanceModule, ComplianceModule, TrustSafetyModule, CheckoutModule, OrderTimelineModule, WalletLoyaltyModule, PushModule],
   controllers: [RiderController, AdminRiderController],
   providers: [DeliveryService, RiderLocationService],
   exports: [DeliveryService, RiderAssignmentModule],

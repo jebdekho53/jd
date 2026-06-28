@@ -127,5 +127,9 @@ export interface AdminSystemHealthDashboard {
   backgroundJobs: string;
   cronStatus: string;
   sms: string;
+  whatsapp?: string;
+  email?: string;
+  googleMaps?: string;
+  shadowfax?: string;
   pushNotifications: string;
 }

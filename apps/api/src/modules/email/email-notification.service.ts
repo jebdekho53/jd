@@ -10,6 +10,7 @@ export class EmailNotificationService {
   private readonly logger = new Logger(EmailNotificationService.name);
   private readonly buyerSiteUrl: string;
   private readonly adminSiteUrl: string;
+  private readonly merchantSiteUrl: string;
 
   constructor(
     private readonly email: EmailService,
@@ -19,6 +20,7 @@ export class EmailNotificationService {
   ) {
     this.buyerSiteUrl = configService.get<string>('BUYER_SITE_URL', 'https://jebdekho.com');
     this.adminSiteUrl = configService.get<string>('ADMIN_URL', 'https://admin.jebdekho.com');
+    this.merchantSiteUrl = configService.get<string>('MERCHANT_URL', 'https://merchant.jebdekho.com');
   }
 
   async sendOtpEmail(to: string, code: string, expiresInSeconds: number): Promise<void> {
@@ -215,6 +217,38 @@ export class EmailNotificationService {
       ...tpl,
       templateCode: EMAIL_TEMPLATE.ADMIN_NEW_DEVICE,
       metadata: { ipAddress },
+    });
+  }
+
+  async sendMerchantStoreApproved(merchantUserId: string, storeName: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: merchantUserId },
+      select: { email: true },
+    });
+    if (!user?.email) return;
+    const dashboardUrl = `${this.merchantSiteUrl.replace(/\/$/, '')}/stores`;
+    const tpl = this.templates.merchantApproved(storeName, dashboardUrl);
+    await this.safeSend({
+      to: user.email,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.MERCHANT_APPROVED,
+      metadata: { storeName },
+    });
+  }
+
+  async sendMerchantStoreRejected(merchantUserId: string, storeName: string, reason: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: merchantUserId },
+      select: { email: true },
+    });
+    if (!user?.email) return;
+    const dashboardUrl = `${this.merchantSiteUrl.replace(/\/$/, '')}/signup`;
+    const tpl = this.templates.merchantRejected(storeName, reason, dashboardUrl);
+    await this.safeSend({
+      to: user.email,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.MERCHANT_REJECTED,
+      metadata: { storeName, reason },
     });
   }
 

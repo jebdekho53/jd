@@ -237,6 +237,30 @@ export class EmailTemplateService {
     return { subject, html: this.layout(subject, body, 'New admin login detected'), text };
   }
 
+  merchantApproved(storeName: string, dashboardUrl: string): { subject: string; html: string; text: string } {
+    const subject = 'Your JebDekho store is approved!';
+    const body = `
+      <p>Great news — <strong>${this.escape(storeName)}</strong> is now live on JebDekho.</p>
+      <p>Customers can discover your store, place orders, and track deliveries.</p>
+      <a class="btn" href="${this.escape(dashboardUrl)}">Open Merchant Dashboard</a>
+      <p class="muted">Complete your catalog and delivery coverage to maximize orders.</p>
+      <p>Team JebDekho</p>`;
+    const text = `Your store ${storeName} is approved. Dashboard: ${dashboardUrl}`;
+    return { subject, html: this.layout(subject, body, `${storeName} is live`), text };
+  }
+
+  merchantRejected(storeName: string, reason: string, dashboardUrl: string): { subject: string; html: string; text: string } {
+    const subject = 'JebDekho store application update';
+    const body = `
+      <p>We reviewed <strong>${this.escape(storeName)}</strong> and could not approve it at this time.</p>
+      <p><strong>Reason:</strong> ${this.escape(reason)}</p>
+      <p>You can update your application and resubmit from the merchant dashboard.</p>
+      <a class="btn" href="${this.escape(dashboardUrl)}">Review Application</a>
+      <p>Team JebDekho</p>`;
+    const text = `Store ${storeName} was not approved. Reason: ${reason}. Dashboard: ${dashboardUrl}`;
+    return { subject, html: this.layout(subject, body, 'Store application update'), text };
+  }
+
   private escape(value: string): string {
     return value
       .replace(/&/g, '&amp;')

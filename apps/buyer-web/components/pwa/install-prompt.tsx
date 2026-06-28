@@ -1,80 +1,33 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Download, Share, X } from 'lucide-react';
 import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
-import { PWA_INSTALL_DISMISS_KEY } from '@/lib/pwa/constants';
+import { usePwaInstall } from '@/hooks/use-pwa-install';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+interface InstallPromptProps {
+  blockedByUpdate?: boolean;
 }
 
-function isIos(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
-}
+export function InstallPrompt({ blockedByUpdate = false }: InstallPromptProps) {
+  const {
+    showAndroidPrompt,
+    showIosHint,
+    isDesktop,
+    install,
+    dismissLater,
+    dismissNever,
+  } = usePwaInstall(blockedByUpdate);
 
-function isStandalone(): boolean {
-  if (typeof window === 'undefined') return false;
+  if (!showAndroidPrompt && !showIosHint) return null;
+
   return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
-
-export function InstallPrompt() {
-  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
-  const [visible, setVisible] = useState(false);
-  const [iosHint, setIosHint] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
-
-  useEffect(() => {
-    if (isStandalone()) return;
-    if (localStorage.getItem(PWA_INSTALL_DISMISS_KEY) === '1') return;
-
-    setIsDesktop(window.matchMedia('(min-width: 768px)').matches);
-
-    if (isIos()) {
-      const t = window.setTimeout(() => setIosHint(true), 4000);
-      return () => window.clearTimeout(t);
-    }
-
-    const onBip = (e: Event) => {
-      e.preventDefault();
-      setDeferred(e as BeforeInstallPromptEvent);
-      setVisible(true);
-    };
-
-    window.addEventListener('beforeinstallprompt', onBip);
-    return () => window.removeEventListener('beforeinstallprompt', onBip);
-  }, []);
-
-  const dismiss = (never = false) => {
-    if (never) localStorage.setItem(PWA_INSTALL_DISMISS_KEY, '1');
-    setVisible(false);
-    setIosHint(false);
-  };
-
-  const install = async () => {
-    if (!deferred) return;
-    await deferred.prompt();
-    const { outcome } = await deferred.userChoice;
-    if (outcome === 'accepted') dismiss(true);
-    else dismiss(false);
-    setDeferred(null);
-  };
-
-  if (!visible && !iosHint) return null;
-
-  const card = (
     <div
       className={cn(
         'fixed z-[100] overflow-hidden rounded-2xl border border-primary/20 bg-card shadow-2xl',
-        isDesktop && !iosHint
+        isDesktop && !showIosHint
           ? 'right-4 top-4 w-[min(100%,22rem)]'
           : 'inset-x-0 bottom-0 rounded-b-none border-b-0 md:inset-x-auto md:right-4 md:bottom-4 md:w-[min(100%,22rem)] md:rounded-2xl md:border-b',
       )}
@@ -88,14 +41,19 @@ export function InstallPrompt() {
             <p className="font-bold">Install {BRAND_NAME}</p>
             <p className="text-xs text-white/90">{BRAND_TAGLINE}</p>
           </div>
-          <button type="button" onClick={() => dismiss(false)} className="rounded-lg p-1 hover:bg-white/10" aria-label="Close">
+          <button
+            type="button"
+            onClick={dismissLater}
+            className="rounded-lg p-1 hover:bg-white/10"
+            aria-label="Close"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
       </div>
 
       <div className="space-y-3 p-4">
-        {iosHint ? (
+        {showIosHint ? (
           <div className="space-y-2 text-sm text-jd-text-secondary">
             <p className="font-medium text-jd-text-primary">Add to Home Screen</p>
             <p className="flex items-center gap-2">
@@ -116,22 +74,24 @@ export function InstallPrompt() {
         )}
 
         <div className="flex flex-wrap gap-2">
-          {!iosHint && (
+          {showAndroidPrompt && (
             <Button type="button" className="flex-1 gap-2" onClick={() => void install()}>
               <Download className="h-4 w-4" />
               Install App
             </Button>
           )}
-          <Button type="button" variant="outline" className="flex-1" onClick={() => dismiss(false)}>
+          <Button type="button" variant="outline" className="flex-1" onClick={dismissLater}>
             Later
           </Button>
-          <button type="button" className="w-full text-center text-xs text-jd-text-muted underline" onClick={() => dismiss(true)}>
+          <button
+            type="button"
+            className="w-full text-center text-xs text-jd-text-muted underline"
+            onClick={dismissNever}
+          >
             Never show again
           </button>
         </div>
       </div>
     </div>
   );
-
-  return card;
 }

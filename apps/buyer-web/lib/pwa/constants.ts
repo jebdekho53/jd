@@ -1,8 +1,9 @@
 export const PWA_THEME_COLOR = '#16a34a';
 export const PWA_BACKGROUND_COLOR = '#ffffff';
-export const PWA_INSTALL_DISMISS_KEY = 'jebdekho-pwa-install-dismissed';
 export const PWA_CACHED_CATEGORIES_KEY = 'jebdekho-cached-categories';
 export const PWA_RECENT_STORES_KEY = 'jebdekho-recent-stores';
+
+export { PWA_STORAGE_KEYS, PWA_INSTALL_DISMISS_KEY_LEGACY as PWA_INSTALL_DISMISS_KEY } from './storage-keys';
 
 export const PRIVATE_DOCUMENT_PREFIXES = [
   '/checkout',
@@ -32,6 +33,7 @@ export const PRIVATE_API_PREFIXES = [
   '/api/buyer/referrals',
   '/api/buyer/support',
   '/api/buyer/crm',
+  '/api/buyer/notifications',
   '/api/buyer/profile',
   '/api/corporate',
   '/api/buyer/offers/recommended',

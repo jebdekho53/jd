@@ -5,13 +5,17 @@ import { flushSyncQueue } from '@/lib/pwa/background-sync/queue';
 import { registerServiceWorker } from '@/lib/pwa/register-sw';
 import { CategoryCacheEffect } from '@/components/pwa/category-cache-effect';
 import { InstallPrompt } from '@/components/pwa/install-prompt';
-import { UpdateToast } from '@/components/pwa/update-toast';
+import { UpdateAvailableToast } from '@/components/pwa/update-available-toast';
+import { PushAfterInstallPrompt } from '@/components/pwa/push-after-install-prompt';
+import { useServiceWorkerUpdate } from '@/hooks/use-service-worker-update';
 
 async function flushQueues() {
   await flushSyncQueue({});
 }
 
 export function PwaProvider({ children }: { children: React.ReactNode }) {
+  const { updateAvailable, applyUpdate, dismissUpdate } = useServiceWorkerUpdate();
+
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') return;
 
@@ -35,8 +39,13 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     <>
       {children}
       <CategoryCacheEffect />
-      <InstallPrompt />
-      <UpdateToast />
+      <InstallPrompt blockedByUpdate={updateAvailable} />
+      <UpdateAvailableToast
+        updateAvailable={updateAvailable}
+        onApply={applyUpdate}
+        onDismiss={dismissUpdate}
+      />
+      <PushAfterInstallPrompt />
     </>
   );
 }

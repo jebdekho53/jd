@@ -8,6 +8,7 @@ import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 
 const PENDING_STORE = {
   id: 's-1',
@@ -24,7 +25,7 @@ const mockPrisma = {
     count: jest.fn(),
     update: jest.fn(),
   },
-  merchantProfile: { update: jest.fn() },
+  merchantProfile: { update: jest.fn(), findUnique: jest.fn().mockResolvedValue({ userId: 'u-1' }) },
   storeDocumentRequest: { create: jest.fn() },
   $transaction: jest.fn(),
 };
@@ -35,6 +36,10 @@ const mockBuyerCache = { invalidateStoreCache: jest.fn() };
 const mockBlocklist = {
   assertNotBlocked: jest.fn(),
   blockMerchantIdentifiers: jest.fn(),
+};
+const mockEmail = {
+  sendMerchantStoreApproved: jest.fn(),
+  sendMerchantStoreRejected: jest.fn(),
 };
 
 describe('AdminStoreService', () => {
@@ -50,6 +55,7 @@ describe('AdminStoreService', () => {
         { provide: DomainEventsService, useValue: mockDomainEvents },
         { provide: BuyerCacheService, useValue: mockBuyerCache },
         { provide: VerificationBlocklistService, useValue: mockBlocklist },
+        { provide: EmailNotificationService, useValue: mockEmail },
       ],
     }).compile();
     service = module.get<AdminStoreService>(AdminStoreService);

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { StaticPageLayout } from '@/components/common/static-page-layout';
+import { GeoCityContent } from '@/features/seo/geo-city-content';
 import { fetchSeoPage, seoPageMetadata } from '@/lib/seo/seo-pages';
 
 interface Props {
@@ -32,6 +33,7 @@ export default async function CityPage({ params }: Props) {
       <p className="text-sm text-jd-text-muted">
         Discover local stores and get fast hyperlocal delivery with JebDekho.
       </p>
+      <GeoCityContent citySlug={city} featuredAnswer={data?.featuredAnswer?.answer} />
       <Link href={`/search?q=grocery&city=${city}`} className="mt-4 inline-block font-medium text-primary hover:underline">
         Browse stores in this city →
       </Link>

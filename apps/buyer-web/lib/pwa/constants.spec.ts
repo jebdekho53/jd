@@ -27,6 +27,7 @@ describe('PWA private cache rules', () => {
       '/api/buyer/orders/1',
       '/api/buyer/payments/verify',
       '/api/corporate/wallet',
+      '/api/buyer/notifications/push/status',
       '/api/buyer/offers/recommended',
     ];
 
@@ -42,6 +43,8 @@ describe('PWA private cache rules', () => {
         '/api/buyer/addresses',
         '/api/buyer/support',
         '/api/corporate',
+        '/api/buyer/notifications',
+        '/api/buyer/offers/recommended',
       ]),
     );
   });

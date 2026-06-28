@@ -7,13 +7,14 @@ import { KnowledgeBaseService } from './knowledge-base.service';
 import { CustomerTimelineService } from './customer-timeline.service';
 import { SupportAnalyticsService } from './support-analytics.service';
 import { MembershipModule } from '../membership/membership.module';
+import { PushModule } from '../push/push.module';
 import { BuyerSupportController } from './buyer-support.controller';
 import { MerchantSupportController } from './merchant-support.controller';
 import { RiderSupportController } from './rider-support.controller';
 import { AdminSupportController } from './admin-support.controller';
 
 @Module({
-  imports: [MembershipModule],
+  imports: [MembershipModule, PushModule],
   controllers: [
     BuyerSupportController,
     MerchantSupportController,

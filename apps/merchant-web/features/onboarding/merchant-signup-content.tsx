@@ -10,6 +10,7 @@ import { MarketingShell } from '@/features/marketing/components/marketing-shell'
 import { MerchantOtpFlow } from '@/features/auth/components/merchant-otp-flow';
 import { useCitiesQuery } from '@/hooks/use-geo';
 import { MerchantAddressPicker } from '@/components/google-maps/merchant-address-picker';
+import { computeWizardProgress } from '@/lib/onboarding/progress';
 import type { LocationSelection } from '@/features/locations/components/location-search-input';
 import {
   updateOnboardingStep,
@@ -31,10 +32,12 @@ import type { MerchantApplication } from '@/services/onboarding/onboarding-api';
 
 const STEPS = [
   'Verify',
-  'Personal',
   'Business',
   'Store',
-  'Documents',
+  'Location',
+  'Delivery',
+  'Categories',
+  'GST/PAN',
   'Bank',
   'Review',
 ] as const;
@@ -95,6 +98,7 @@ export function MerchantSignupContent() {
     longitude: 77.209,
     deliveryRadiusKm: 5,
     deliveryCoverageInput: '',
+    preferredCategories: [] as string[],
     storeLogoUrl: '',
     storeBannerUrl: '',
     accountHolderName: '',
@@ -169,9 +173,13 @@ export function MerchantSignupContent() {
     }
   };
 
-  const nextFromPersonal = async () => {
+  const nextFromBusiness = async () => {
     if (!form.ownerName.trim()) {
       toast('Owner name is required', 'error');
+      return;
+    }
+    if (!form.businessName.trim()) {
+      toast('Business name is required', 'error');
       return;
     }
     const phoneForSave = needsPhone
@@ -187,6 +195,10 @@ export function MerchantSignupContent() {
         ownerEmail: verifiedEmail || undefined,
         ownerPhone: phoneForSave,
       });
+      await saveStep('BUSINESS_DETAILS', {
+        businessName: form.businessName.trim(),
+        businessType: form.businessType,
+      });
       setVerifiedPhone(phoneForSave);
       setNeedsPhone(false);
       setStep(2);
@@ -195,22 +207,46 @@ export function MerchantSignupContent() {
     }
   };
 
-  const nextFromBusiness = async () => {
-    if (!form.businessName.trim()) {
-      toast('Business name is required', 'error');
+  const nextFromStoreBasics = () => {
+    if (!form.storeName.trim() || !form.storeLogoUrl || !form.storeBannerUrl) {
+      toast('Store name, logo, and banner are required', 'error');
       return;
     }
+    setStep(3);
+  };
+
+  const nextFromLocation = () => {
+    if (!form.storeAddress.trim() || !form.locationPincodeId) {
+      toast('Store address and map location are required', 'error');
+      return;
+    }
+    setStep(4);
+  };
+
+  const nextFromCategories = () => {
+    if (form.preferredCategories.length === 0) {
+      toast('Select at least one category you plan to sell', 'error');
+      return;
+    }
+    setStep(6);
+  };
+
+  const nextFromKyc = async () => {
     if (!form.panNumber.trim()) {
       toast('PAN number is required', 'error');
       return;
     }
-    await saveStep('BUSINESS_DETAILS', {
-      businessName: form.businessName.trim(),
-      businessType: form.businessType,
-      gstNumber: form.gstNumber || undefined,
-      panNumber: form.panNumber.trim().toUpperCase(),
-    });
-    setStep(3);
+    try {
+      await saveStep('BUSINESS_DETAILS', {
+        businessName: form.businessName.trim(),
+        businessType: form.businessType,
+        gstNumber: form.gstNumber || undefined,
+        panNumber: form.panNumber.trim().toUpperCase(),
+      });
+      setStep(7);
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   };
 
   const checkGst = async () => {
@@ -220,7 +256,7 @@ export function MerchantSignupContent() {
     toast(res.message, res.valid ? 'success' : 'error');
   };
 
-  const nextFromStore = async () => {
+  const saveStoreDetails = async () => {
     if (
       !form.storeName.trim() ||
       !form.storeAddress.trim() ||
@@ -230,37 +266,45 @@ export function MerchantSignupContent() {
       !form.storeLogoUrl ||
       !form.storeBannerUrl
     ) {
-      toast('Store name, address, locality, city, pincode, logo, and banner are required', 'error');
+      toast('Complete store, location, and delivery fields before continuing', 'error');
       return;
     }
     const city = cities.find((c) => c.id === form.cityId);
-    await saveStep('STORE_DETAILS', {
-      storeName: form.storeName.trim(),
-      storeAddress: form.storeAddress.trim(),
-      locality: form.locality,
-      state: form.state,
-      city: city?.name ?? form.city,
-      cityId: form.cityId,
-      pincode: form.pincode.trim(),
-      locationPincodeId: form.locationPincodeId,
-      locationAreaId: form.locationAreaId || undefined,
-      locationCityId: form.locationCityId || undefined,
-      latitude: form.latitude,
-      longitude: form.longitude,
-      deliveryRadiusKm: form.deliveryRadiusKm,
-      deliveryCoveragePincodes: [
-        ...new Set([
-          form.pincode.trim(),
-          ...form.deliveryCoverageInput
-            .split(/[\s,]+/)
-            .map((p) => p.trim())
-            .filter((p) => /^\d{6}$/.test(p)),
-        ]),
-      ],
-      storeLogoUrl: form.storeLogoUrl,
-      storeBannerUrl: form.storeBannerUrl,
-    });
-    setStep(4);
+    setSaving(true);
+    try {
+      await updateOnboardingStep({
+        stepKey: 'STORE_DETAILS',
+        storeName: form.storeName.trim(),
+        storeAddress: form.storeAddress.trim(),
+        locality: form.locality,
+        state: form.state,
+        city: city?.name ?? form.city,
+        cityId: form.cityId,
+        pincode: form.pincode.trim(),
+        locationPincodeId: form.locationPincodeId,
+        locationAreaId: form.locationAreaId || undefined,
+        locationCityId: form.locationCityId || undefined,
+        latitude: form.latitude,
+        longitude: form.longitude,
+        deliveryRadiusKm: form.deliveryRadiusKm,
+        deliveryCoveragePincodes: [
+          ...new Set([
+            form.pincode.trim(),
+            ...form.deliveryCoverageInput
+              .split(/[\s,]+/)
+              .map((p) => p.trim())
+              .filter((p) => /^\d{6}$/.test(p)),
+          ]),
+        ],
+        storeLogoUrl: form.storeLogoUrl,
+        storeBannerUrl: form.storeBannerUrl,
+      });
+      setStep(5);
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleLocationSelect = (selection: LocationSelection) => {
@@ -310,7 +354,7 @@ export function MerchantSignupContent() {
       ifsc: form.ifsc.trim().toUpperCase(),
       upiId: form.upiId.trim() || undefined,
     });
-    setStep(6);
+    setStep(8);
   };
 
   const handleSubmit = async () => {
@@ -354,6 +398,9 @@ export function MerchantSignupContent() {
             </div>
           ))}
         </div>
+        <p className="mt-2 text-center text-xs text-slate-500">
+          {computeWizardProgress(step)}% complete — draft saves when you continue each step
+        </p>
 
         <AnimatePresence mode="wait">
           <motion.div
@@ -381,7 +428,7 @@ export function MerchantSignupContent() {
 
             {step === 1 && (
               <div className="space-y-4">
-                <StepHeader title="Personal details" subtitle="Tell us about the store owner" />
+                <StepHeader title="Business details" subtitle="Owner and legal entity" />
                 <div className="rounded-xl border border-brand-100 bg-brand-50/50 px-4 py-3 text-sm text-slate-700">
                   {verifiedEmail && (
                     <p>
@@ -419,20 +466,6 @@ export function MerchantSignupContent() {
                   value={form.ownerName}
                   onChange={(e) => setForm({ ...form, ownerName: e.target.value })}
                 />
-                <div className="flex gap-3">
-                  <Button variant="secondary" onClick={() => setStep(0)}>
-                    <ChevronLeft className="mr-1 h-4 w-4" /> Back
-                  </Button>
-                  <Button className="flex-1" loading={saving} onClick={nextFromPersonal}>
-                    Continue
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {step === 2 && (
-              <div className="space-y-4">
-                <StepHeader title="Business details" subtitle="Legal entity information" />
                 <Input
                   label="Business / legal name"
                   value={form.businessName}
@@ -447,40 +480,45 @@ export function MerchantSignupContent() {
                     <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
                   ))}
                 </Select>
-                <div className="flex gap-2">
-                  <Input
-                    label="GSTIN (optional)"
-                    placeholder="15-character GST"
-                    value={form.gstNumber}
-                    onChange={(e) => setForm({ ...form, gstNumber: e.target.value.toUpperCase() })}
-                    className="flex-1"
-                  />
-                  <Button variant="secondary" className="mt-6" onClick={checkGst}>
-                    Validate
-                  </Button>
-                </div>
-                {form.gstValid !== null && (
-                  <p className={form.gstValid ? 'text-sm text-brand-600' : 'text-sm text-red-600'}>
-                    {form.gstValid ? 'GST verified' : 'GST could not be verified'}
-                  </p>
-                )}
-                <Input
-                  label="PAN number"
-                  value={form.panNumber}
-                  onChange={(e) => setForm({ ...form, panNumber: e.target.value.toUpperCase() })}
-                />
-                <NavButtons saving={saving} onBack={() => setStep(1)} onNext={nextFromBusiness} />
+                <NavButtons saving={saving} onBack={() => setStep(0)} onNext={nextFromBusiness} />
               </div>
             )}
 
-            {step === 3 && (
+            {step === 2 && (
               <div className="space-y-4">
-                <StepHeader title="Store details" subtitle="Where customers will order from" />
+                <StepHeader title="Store details" subtitle="Brand and storefront" />
                 <Input
                   label="Store display name"
                   value={form.storeName}
                   onChange={(e) => setForm({ ...form, storeName: e.target.value })}
                 />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ImageUploadField
+                    label="Store logo"
+                    mode="square"
+                    purpose="store-logo"
+                    required
+                    value={form.storeLogoUrl}
+                    onChange={(url) => setForm((f) => ({ ...f, storeLogoUrl: url }))}
+                    allowRemove={false}
+                  />
+                  <ImageUploadField
+                    label="Store banner"
+                    mode="banner"
+                    purpose="store-banner"
+                    required
+                    value={form.storeBannerUrl}
+                    onChange={(url) => setForm((f) => ({ ...f, storeBannerUrl: url }))}
+                    allowRemove={false}
+                  />
+                </div>
+                <NavButtons saving={false} onBack={() => setStep(1)} onNext={nextFromStoreBasics} />
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-4">
+                <StepHeader title="Store location" subtitle="Pin on Google Maps" />
                 <Input
                   label="Store address"
                   value={form.storeAddress}
@@ -524,6 +562,13 @@ export function MerchantSignupContent() {
                     </p>
                   </div>
                 )}
+                <NavButtons saving={false} onBack={() => setStep(2)} onNext={nextFromLocation} />
+              </div>
+            )}
+
+            {step === 4 && (
+              <div className="space-y-4">
+                <StepHeader title="Delivery coverage" subtitle="Pincodes you can serve" />
                 <Select
                   label="Operational city"
                   value={form.cityId}
@@ -553,33 +598,70 @@ export function MerchantSignupContent() {
                     onChange={(e) => setForm({ ...form, deliveryCoverageInput: e.target.value })}
                   />
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <ImageUploadField
-                    label="Store logo"
-                    mode="square"
-                    purpose="store-logo"
-                    required
-                    value={form.storeLogoUrl}
-                    onChange={(url) => setForm((f) => ({ ...f, storeLogoUrl: url }))}
-                    allowRemove={false}
-                  />
-                  <ImageUploadField
-                    label="Store banner"
-                    mode="banner"
-                    purpose="store-banner"
-                    required
-                    value={form.storeBannerUrl}
-                    onChange={(url) => setForm((f) => ({ ...f, storeBannerUrl: url }))}
-                    allowRemove={false}
-                  />
-                </div>
-                <NavButtons saving={saving} onBack={() => setStep(2)} onNext={nextFromStore} />
+                <NavButtons saving={saving} onBack={() => setStep(3)} onNext={saveStoreDetails} />
               </div>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
               <div className="space-y-4">
-                <StepHeader title="Documents" subtitle="Upload clear photos or PDFs" />
+                <StepHeader title="Categories" subtitle="What you plan to sell (approval after go-live)" />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {BUSINESS_TYPES.map((t) => {
+                    const checked = form.preferredCategories.includes(t);
+                    return (
+                      <label
+                        key={t}
+                        className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
+                          checked ? 'border-brand-400 bg-brand-50' : 'border-slate-200'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setForm((f) => ({
+                              ...f,
+                              preferredCategories: checked
+                                ? f.preferredCategories.filter((c) => c !== t)
+                                : [...f.preferredCategories, t],
+                            }))
+                          }
+                        />
+                        {t.replace(/_/g, ' ')}
+                      </label>
+                    );
+                  })}
+                </div>
+                <NavButtons saving={false} onBack={() => setStep(4)} onNext={nextFromCategories} />
+              </div>
+            )}
+
+            {step === 6 && (
+              <div className="space-y-4">
+                <StepHeader title="GST & PAN" subtitle="Tax identity and documents" />
+                <div className="flex gap-2">
+                  <Input
+                    label="GSTIN (optional)"
+                    placeholder="15-character GST"
+                    value={form.gstNumber}
+                    onChange={(e) => setForm({ ...form, gstNumber: e.target.value.toUpperCase() })}
+                    className="flex-1"
+                  />
+                  <Button variant="secondary" className="mt-6" onClick={checkGst}>
+                    Validate
+                  </Button>
+                </div>
+                {form.gstValid !== null && (
+                  <p className={form.gstValid ? 'text-sm text-brand-600' : 'text-sm text-red-600'}>
+                    {form.gstValid ? 'GST verified' : 'GST could not be verified'}
+                  </p>
+                )}
+                <Input
+                  label="PAN number"
+                  value={form.panNumber}
+                  onChange={(e) => setForm({ ...form, panNumber: e.target.value.toUpperCase() })}
+                />
+                <p className="text-sm font-medium text-slate-700">Upload documents</p>
                 {DOC_TYPES.map((d) => (
                   <label
                     key={d.type}
@@ -599,11 +681,11 @@ export function MerchantSignupContent() {
                     </span>
                   </label>
                 ))}
-                <NavButtons saving={false} onBack={() => setStep(3)} onNext={() => setStep(5)} nextLabel="Continue" />
+                <NavButtons saving={saving} onBack={() => setStep(5)} onNext={nextFromKyc} />
               </div>
             )}
 
-            {step === 5 && (
+            {step === 7 && (
               <div className="space-y-4">
                 <StepHeader title="Bank details" subtitle="For settlements and payouts" />
                 <Input
@@ -626,11 +708,11 @@ export function MerchantSignupContent() {
                   value={form.upiId}
                   onChange={(e) => setForm({ ...form, upiId: e.target.value })}
                 />
-                <NavButtons saving={saving} onBack={() => setStep(4)} onNext={nextFromBank} />
+                <NavButtons saving={saving} onBack={() => setStep(6)} onNext={nextFromBank} />
               </div>
             )}
 
-            {step === 6 && (
+            {step === 8 && (
               <div className="space-y-4">
                 <StepHeader title="Review & submit" subtitle="Confirm before sending for approval" />
                 <dl className="divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm">
@@ -638,6 +720,7 @@ export function MerchantSignupContent() {
                   <ReviewRow label="Business" value={form.businessName} />
                   <ReviewRow label="Store" value={form.storeName} />
                   <ReviewRow label="City" value={cities.find((c) => c.id === form.cityId)?.name ?? '—'} />
+                  <ReviewRow label="Categories" value={form.preferredCategories.join(', ') || '—'} />
                   <ReviewRow label="Documents" value={`${uploadedDocs.size} uploaded`} />
                 </dl>
                 {(form.storeLogoUrl || form.storeBannerUrl) && (
@@ -659,7 +742,7 @@ export function MerchantSignupContent() {
                   </div>
                 )}
                 <div className="flex gap-3">
-                  <Button variant="secondary" onClick={() => setStep(5)}>
+                  <Button variant="secondary" onClick={() => setStep(7)}>
                     <ChevronLeft className="mr-1 h-4 w-4" /> Back
                   </Button>
                   <Button className="flex-1" loading={saving} onClick={handleSubmit}>

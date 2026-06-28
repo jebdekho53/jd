@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { Button, Input } from '@/design-system/primitives';
 import { useToast } from '@/design-system/primitives';
 import { AuthShell } from '@/features/auth/components/auth-shell';
-import { AuthTabs } from '@/features/auth/components/auth-tabs';
+import { AuthTabs, MobileOtpComingSoonBanner } from '@/features/auth/components/auth-tabs';
 import { OtpInput } from '@/features/auth/components/otp-input';
 import { PhoneInput } from '@/features/auth/components/phone-input';
 import {
@@ -18,6 +18,7 @@ import {
   SessionError,
 } from '@/hooks/use-auth';
 import { isValidIndianPhone, normalizeIndianPhone } from '@/lib/phone';
+import { isPhoneOtpEnabled } from '@jebdekho/web-config';
 
 type ForgotTab = 'email' | 'mobile';
 type MobileStep = 'phone' | 'reset';
@@ -53,8 +54,11 @@ export function ForgotPasswordPageContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const tokenFromUrl = searchParams.get('token');
+  const phoneOtpEnabled = isPhoneOtpEnabled();
 
-  const [tab, setTab] = useState<ForgotTab>(tokenFromUrl ? 'email' : 'mobile');
+  const [tab, setTab] = useState<ForgotTab>(
+    tokenFromUrl ? 'email' : phoneOtpEnabled ? 'mobile' : 'email',
+  );
   const [mobileStep, setMobileStep] = useState<MobileStep>(tokenFromUrl ? 'reset' : 'phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -151,7 +155,12 @@ export function ForgotPasswordPageContent() {
         <AuthTabs
           tabs={[
             { id: 'email', label: 'Email' },
-            { id: 'mobile', label: 'Mobile' },
+            {
+              id: 'mobile',
+              label: 'Mobile',
+              disabled: !phoneOtpEnabled,
+              badge: phoneOtpEnabled ? undefined : 'Coming Soon',
+            },
           ]}
           active={tab}
           onChange={(next) => {
@@ -160,6 +169,10 @@ export function ForgotPasswordPageContent() {
             setEmailSent(false);
           }}
         />
+      )}
+
+      {!phoneOtpEnabled && tab === 'mobile' && !tokenFromUrl && (
+        <MobileOtpComingSoonBanner className="mb-5" />
       )}
 
       {tab === 'email' && !tokenFromUrl && !emailSent && (
@@ -183,7 +196,7 @@ export function ForgotPasswordPageContent() {
         </div>
       )}
 
-      {tab === 'mobile' && mobileStep === 'phone' && !tokenFromUrl && (
+      {tab === 'mobile' && phoneOtpEnabled && mobileStep === 'phone' && !tokenFromUrl && (
         <form onSubmit={onMobilePhoneSubmit} className="space-y-5">
           <PhoneInput
             value={mobilePhoneForm.watch('phone')}

@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { CheckoutStatus, PaymentMethod, StoreStatus } from '@prisma/client';
+import { CheckoutStatus, PaymentMethod, PaymentStatus, OrderStatus, StoreStatus } from '@prisma/client';
 import { CheckoutService } from './checkout.service';
 import { PrismaService } from '../../database/prisma.service';
 import { CartService } from '../cart/cart.service';
@@ -8,6 +8,20 @@ import { ReservationService } from './reservation.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { LocationDirectoryService } from '../location-directory/location-directory.service';
+import { OrderCacheService } from '../order/order-cache.service';
+import { StorePromotionService } from '../promotion/store-promotion.service';
+import { GeospatialService } from '../geospatial/geospatial.service';
+import { WalletLoyaltyCheckoutService } from '../wallet-loyalty/wallet-loyalty-checkout.service';
+import { ReferralService } from '../wallet-loyalty/referral.service';
+import { WalletService } from '../wallet-loyalty/wallet.service';
+import { OrderFinancialsService } from '../finance/order-financials.service';
+import { TrustSafetyHookService } from '../trust-safety/trust-safety-hook.service';
+import { SmartFulfillmentService } from '../fulfillment-network/smart-fulfillment.service';
+import { CorporateWalletService } from '../corporate/corporate-wallet.service';
+import { ApprovalService } from '../corporate/approval.service';
+import { EmailNotificationService } from '../email/email-notification.service';
+import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+import { checkoutServiceMocks } from '../../test/nest-mock-providers';
 
 const CHECKOUT_ID = 'chk_test_001';
 const ORDER_ID = 'ord_test_001';
@@ -65,6 +79,7 @@ const mockReservation = {
   reserveInventory: jest.fn(),
   consumeReservations: jest.fn(),
   releaseReservations: jest.fn(),
+  linkReservationsToOrder: jest.fn(),
 };
 const mockAudit = { log: jest.fn() };
 const mockDomainEvents = { emit: jest.fn() };
@@ -76,6 +91,9 @@ const mockLocations = {
     locationPincodeId: 'pin_1',
   }),
 };
+
+const { orderCache, promotions, geospatial, walletCheckout, referral, wallet, orderFinancials, trustSafety, smartFulfillment, corporateWallet, corporateApproval, emailNotifications, buyerPush } =
+  checkoutServiceMocks;
 
 describe('CheckoutService', () => {
   let service: CheckoutService;
@@ -90,11 +108,39 @@ describe('CheckoutService', () => {
         { provide: AuditService, useValue: mockAudit },
         { provide: DomainEventsService, useValue: mockDomainEvents },
         { provide: LocationDirectoryService, useValue: mockLocations },
+        { provide: OrderCacheService, useValue: orderCache },
+        { provide: StorePromotionService, useValue: promotions },
+        { provide: GeospatialService, useValue: geospatial },
+        { provide: WalletLoyaltyCheckoutService, useValue: walletCheckout },
+        { provide: ReferralService, useValue: referral },
+        { provide: WalletService, useValue: wallet },
+        { provide: OrderFinancialsService, useValue: orderFinancials },
+        { provide: TrustSafetyHookService, useValue: trustSafety },
+        { provide: SmartFulfillmentService, useValue: smartFulfillment },
+        { provide: CorporateWalletService, useValue: corporateWallet },
+        { provide: ApprovalService, useValue: corporateApproval },
+        { provide: EmailNotificationService, useValue: emailNotifications },
+        { provide: BuyerPushNotificationService, useValue: buyerPush },
       ],
     }).compile();
 
     service = module.get<CheckoutService>(CheckoutService);
     jest.clearAllMocks();
+    geospatial.validateCheckoutLocation.mockResolvedValue(undefined);
+    walletCheckout.computeCheckoutPayment.mockResolvedValue({
+      walletAmountUsed: 0,
+      rewardPointsUsed: 0,
+      pointsDiscount: 0,
+      amountDue: 220,
+      razorpayAmount: 220,
+      resolvedPaymentMethod: PaymentMethod.RAZORPAY,
+      initialOrderStatus: OrderStatus.PAYMENT_PENDING,
+      initialPaymentStatus: PaymentStatus.PENDING,
+    });
+    wallet.getOrCreateWallet.mockResolvedValue({ id: 'w1', balance: 0, rewardPoints: 0, referredById: null });
+    orderFinancials.freezeOnOrderCreate.mockResolvedValue(undefined);
+    emailNotifications.sendOrderConfirmation.mockResolvedValue(undefined);
+    buyerPush.notifyOrderPlaced.mockResolvedValue(undefined);
   });
 
   describe('initiateCheckout', () => {
@@ -232,6 +278,11 @@ describe('CheckoutService', () => {
   });
 
   describe('validateCartForCheckout (private — tested via initiateCheckout)', () => {
+    beforeEach(() => {
+      mockCartService.getCart.mockResolvedValue(mockCart);
+      mockPrisma.buyerProfile.findUnique.mockResolvedValue({ id: BUYER_PROFILE_ID });
+    });
+
     it('throws BadRequestException when store is inactive', async () => {
       mockPrisma.store.findFirst.mockResolvedValue(null);
       await expect(
@@ -259,7 +310,7 @@ describe('CheckoutService', () => {
       mockPrisma.productVariant.findFirst.mockResolvedValue({
         id: 'v1',
         isActive: true,
-        inventory: { quantity: 1, reserved: 1 }, // available = 0
+        inventory: { availableQty: 0, reservedQty: 0 },
       });
       await expect(
         service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress }),
@@ -271,19 +322,15 @@ describe('CheckoutService', () => {
         id: STORE_ID,
         status: StoreStatus.APPROVED,
         isActive: true,
-        latitude: 19.076,
-        longitude: 72.877,
-        storeServiceAreas: [
-          {
-            serviceArea: { centerLat: 19.08, centerLng: 72.88, radiusKm: 2 },
-          },
-        ],
       });
       mockPrisma.productVariant.findFirst.mockResolvedValue({
         id: 'v1',
         isActive: true,
-        inventory: { quantity: 10, reserved: 0 },
+        inventory: { availableQty: 10, reservedQty: 0 },
       });
+      geospatial.validateCheckoutLocation.mockRejectedValue(
+        new BadRequestException('Store does not deliver to your location.'),
+      );
 
       await expect(
         service.initiateCheckout(USER_ID, { deliveryAddress: mockDeliveryAddress }),

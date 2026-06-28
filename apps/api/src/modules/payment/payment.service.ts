@@ -20,6 +20,9 @@ import { DomainEventsService } from '../domain-events/domain-events.service';
 import { ReservationService } from '../checkout/reservation.service';
 import { OrderStatusHistoryService } from '../order/order-status-history.service';
 import { EmailNotificationService } from '../email/email-notification.service';
+import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+import { OrderFinancialsService } from '../finance/order-financials.service';
+import { OrderCacheService } from '../order/order-cache.service';
 import { RazorpayService } from './razorpay.service';
 import { CreateRazorpayOrderDto } from './dto/create-razorpay-order.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
@@ -36,6 +39,9 @@ export class PaymentService {
     private readonly domainEvents: DomainEventsService,
     private readonly statusHistory: OrderStatusHistoryService,
     private readonly emailNotifications: EmailNotificationService,
+    private readonly buyerPush: BuyerPushNotificationService,
+    private readonly orderFinancials: OrderFinancialsService,
+    private readonly orderCache: OrderCacheService,
   ) {}
 
   // ── Create Razorpay order for a reserved checkout ─────────────────────────
@@ -158,8 +164,20 @@ export class PaymentService {
     });
     if (!payment) throw new NotFoundException('Payment record not found');
 
+    if (payment.razorpayOrderId && payment.razorpayOrderId !== dto.razorpayOrderId) {
+      this.logger.warn(
+        { userId, expected: payment.razorpayOrderId, received: dto.razorpayOrderId },
+        'Razorpay order ID mismatch',
+      );
+      throw new UnauthorizedException('Payment order ID mismatch');
+    }
+
     // Replay: payment already paid
     if (payment.status === PaymentStatus.PAID) {
+      await this.prisma.checkout.updateMany({
+        where: { id: checkout.id, status: { not: CheckoutStatus.COMPLETED } },
+        data: { status: CheckoutStatus.COMPLETED },
+      });
       return { success: true, orderId: checkout.order.id, message: 'Payment already processed' };
     }
 
@@ -238,6 +256,12 @@ export class PaymentService {
     void this.emailNotifications.sendOrderConfirmation(checkout.order!.id).catch((err) => {
       this.logger.error({ err, orderId: checkout.order!.id }, 'Order confirmation email failed');
     });
+    void this.buyerPush.notifyOrderPlaced(checkout.order!.id).catch(() => {});
+
+    void this.orderFinancials.recordOnlinePaymentConfirmed(checkout.order.id).catch((err) => {
+      this.logger.warn(`Ledger payment confirm failed: ${(err as Error).message}`);
+    });
+    void this.orderCache.invalidateAll(checkout.order.id);
 
     return { success: true, orderId: checkout.order.id, orderNumber: checkout.order.orderNumber };
   }
@@ -331,6 +355,14 @@ export class PaymentService {
       { orderId: payment.order.id, razorpayOrderId, source: 'webhook' },
       { userId: payment.order.buyerProfileId, ipAddress: null },
     );
+
+    void this.orderFinancials.recordOnlinePaymentConfirmed(payment.order.id).catch((err) => {
+      this.logger.warn(`Ledger payment confirm failed: ${(err as Error).message}`);
+    });
+    void this.orderCache.invalidateAll(payment.order.id);
+    void this.emailNotifications.sendOrderConfirmation(payment.order.id).catch((err) => {
+      this.logger.error({ err, orderId: payment.order.id }, 'Order confirmation email failed (webhook)');
+    });
   }
 
   private async handlePaymentFailed(
@@ -380,6 +412,8 @@ export class PaymentService {
       { orderId: payment.order.id, failureReason, source: 'webhook' },
       { userId: payment.order.buyerProfileId, ipAddress: null },
     );
+
+    void this.orderCache.invalidateAll(payment.order.id);
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

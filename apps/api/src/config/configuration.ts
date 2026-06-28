@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { envBool } from './env-bool.util';
 
 /**
  * Typed helper — use instead of raw configService.get<T>('KEY') to centralise
@@ -64,6 +65,14 @@ export function getConfig(configService: ConfigService) {
         '+919876543214',
       ),
       demoOtp: configService.get<string>('DEV_DEMO_OTP', '123456'),
+    },
+
+    auth: {
+      emailEnabled: envBool(configService, 'AUTH_EMAIL_ENABLED', true),
+      phoneOtpEnabled: envBool(configService, 'AUTH_PHONE_OTP_ENABLED', false),
+      smsEnabled: envBool(configService, 'AUTH_SMS_ENABLED', false),
+      whatsappEnabled: envBool(configService, 'AUTH_WHATSAPP_ENABLED', false),
+      msg91Enabled: envBool(configService, 'MSG91_ENABLED', false),
     },
 
     sms: {
@@ -132,6 +141,12 @@ export function getConfig(configService: ConfigService) {
     },
 
     buyerSiteUrl: configService.get<string>('BUYER_SITE_URL', 'https://jebdekho.com'),
+
+    webPush: {
+      publicKey: configService.get<string>('WEB_PUSH_PUBLIC_KEY', ''),
+      privateKey: configService.get<string>('WEB_PUSH_PRIVATE_KEY', ''),
+      subject: configService.get<string>('WEB_PUSH_SUBJECT', 'mailto:support@jebdekho.com'),
+    },
 
     smtp: (() => {
       const host = configService.get<string>('SMTP_HOST', '');

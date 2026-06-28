@@ -12,6 +12,7 @@ import { useOrderDetailQuery } from '@/hooks/use-orders';
 import { RiderDeliveryPanel } from '@/features/orders/components/rider-delivery-panel';
 import { OrderStatusBadge } from '@/features/orders/components/order-status-badge';
 import { Skeleton } from '@/design-system/primitives';
+import { PushEnableBanner } from '@/components/pwa/push-enable-banner';
 
 interface OrderTrackContentProps {
   orderId: string;
@@ -45,6 +46,8 @@ export function OrderTrackContent({ orderId }: OrderTrackContentProps) {
               )}
             </div>
           </div>
+
+          <PushEnableBanner />
 
           {loading ? (
             <Skeleton className="h-80 w-full" />

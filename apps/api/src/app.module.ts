@@ -62,6 +62,7 @@ import { AdminAuthModule } from './modules/admin-auth/admin-auth.module';
 import { DeliveryCoverageModule } from './modules/delivery-coverage/delivery-coverage.module';
 import { LogisticsModule } from './modules/logistics/logistics.module';
 import { GeocodingModule } from './modules/geocoding/geocoding.module';
+import { PushModule } from './modules/push/push.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
@@ -150,6 +151,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     TrustSafetyModule,
     SupportModule,
     CrmModule,
+    PushModule,
     MerchantGrowthModule,
     FulfillmentNetworkModule,
     ProcurementModule,

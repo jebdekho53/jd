@@ -69,6 +69,8 @@ export class ProductService {
       await this.validateProductCategory(storeId, dto.categoryId);
     }
 
+    await this.validateProductTaxCompliance(dto.categoryId, dto);
+
     // Check product-level SKU uniqueness within store
     if (dto.sku) {
       await this.assertSkuUnique(storeId, dto.sku);
@@ -107,6 +109,18 @@ export class ProductService {
           isVeg: dto.isVeg,
           sortOrder: dto.sortOrder ?? 0,
           isActive: true,
+          ingredients: dto.ingredients,
+          shelfLife: dto.shelfLife,
+          countryOfOrigin: dto.countryOfOrigin,
+          manufacturerName: dto.manufacturerName,
+          manufacturerAddress: dto.manufacturerAddress,
+          fssaiLicense: dto.fssaiLicense,
+          storageInstructions: dto.storageInstructions,
+          disclaimer: dto.disclaimer,
+          taxInclusive: dto.taxInclusive ?? false,
+          hsnCodeId: dto.hsnCodeId,
+          gstSlab: dto.gstSlab,
+          taxCategory: dto.taxCategory,
         },
       });
 
@@ -314,6 +328,8 @@ export class ProductService {
       await this.validateProductCategory(storeId, dto.categoryId);
     }
 
+    await this.validateProductTaxCompliance(dto.categoryId ?? product.categoryId, dto);
+
     if (dto.imageUrls !== undefined && dto.imageUrls.length === 0) {
       throw new BadRequestException('At least one product image is required');
     }
@@ -341,6 +357,18 @@ export class ProductService {
           ...(dto.tags !== undefined && { tags: dto.tags }),
           ...(dto.isVeg !== undefined && { isVeg: dto.isVeg }),
           ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+          ...(dto.ingredients !== undefined && { ingredients: dto.ingredients }),
+          ...(dto.shelfLife !== undefined && { shelfLife: dto.shelfLife }),
+          ...(dto.countryOfOrigin !== undefined && { countryOfOrigin: dto.countryOfOrigin }),
+          ...(dto.manufacturerName !== undefined && { manufacturerName: dto.manufacturerName }),
+          ...(dto.manufacturerAddress !== undefined && { manufacturerAddress: dto.manufacturerAddress }),
+          ...(dto.fssaiLicense !== undefined && { fssaiLicense: dto.fssaiLicense }),
+          ...(dto.storageInstructions !== undefined && { storageInstructions: dto.storageInstructions }),
+          ...(dto.disclaimer !== undefined && { disclaimer: dto.disclaimer }),
+          ...(dto.taxInclusive !== undefined && { taxInclusive: dto.taxInclusive }),
+          ...(dto.hsnCodeId !== undefined && { hsnCodeId: dto.hsnCodeId }),
+          ...(dto.gstSlab !== undefined && { gstSlab: dto.gstSlab }),
+          ...(dto.taxCategory !== undefined && { taxCategory: dto.taxCategory }),
         },
       });
 
@@ -415,6 +443,8 @@ export class ProductService {
         { userId, ipAddress: ipAddress ?? null },
       ),
     ]);
+
+    void this.inventoryCache.invalidateForStores([storeId]);
 
     return this.fetchProductWithRelations(productId);
   }
@@ -637,6 +667,8 @@ export class ProductService {
       metadata: { storeId, isActive: dto.isActive } as Prisma.InputJsonValue,
     });
 
+    void this.inventoryCache.invalidateForStores([storeId]);
+
     return updated[0];
   }
 
@@ -666,6 +698,7 @@ export class ProductService {
           orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
         },
         category: { select: { id: true, name: true, slug: true } },
+        hsnCodeRef: { select: { id: true, code: true, description: true, defaultGstSlab: true } },
       },
     });
 
@@ -680,6 +713,36 @@ export class ProductService {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  private async validateProductTaxCompliance(
+    categoryId: string | null | undefined,
+    dto: {
+      hsnCodeId?: string;
+      gstSlab?: string;
+      taxCategory?: string;
+      fssaiLicense?: string;
+    },
+  ): Promise<void> {
+    if (!categoryId) return;
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+      select: { slug: true, name: true },
+    });
+    if (!category) return;
+
+    const regulated = /grocery|food|dairy|beverage|snack|packaged/i.test(
+      `${category.slug} ${category.name}`,
+    );
+    const taxCat = dto.taxCategory ?? 'GOODS';
+    if (!regulated || taxCat === 'EXEMPT' || taxCat === 'NIL_RATED') return;
+
+    if (!dto.hsnCodeId) {
+      throw new BadRequestException('HSN code is required for this product category');
+    }
+    if (regulated && !dto.fssaiLicense) {
+      throw new BadRequestException('FSSAI license is required for food & grocery products');
+    }
+  }
 
   private async assertStoreOwnership(userId: string, storeId: string): Promise<void> {
     const profile = await this.merchantService.requireMerchantProfile(userId);

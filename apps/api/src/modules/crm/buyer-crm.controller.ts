@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { Body, Controller, Get, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -55,5 +55,22 @@ export class BuyerCrmController {
   @Get('notifications')
   async notificationHistory(@CurrentUser() user: RequestUser, @Query('page') page = 1) {
     return { success: true, data: await this.notifications.listDeliveries(user.id, Number(page)) };
+  }
+
+  @Get('inbox')
+  async inbox(@CurrentUser() user: RequestUser, @Query('page') page = 1) {
+    return { success: true, data: await this.notifications.listInApp(user.id, Number(page)) };
+  }
+
+  @Patch('inbox/:id/read')
+  async markRead(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    await this.notifications.markInAppRead(user.id, id);
+    return { success: true };
+  }
+
+  @Patch('inbox/read-all')
+  async markAllRead(@CurrentUser() user: RequestUser) {
+    await this.notifications.markAllInAppRead(user.id);
+    return { success: true };
   }
 }

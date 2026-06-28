@@ -151,6 +151,71 @@ describe('ProductService', () => {
         }),
       ).rejects.toThrow(ForbiddenException);
     });
+
+    it('persists HSN and GST fields on create', async () => {
+      mockMerchant.requireMerchantProfile.mockResolvedValue(MERCHANT_PROFILE);
+      mockPrisma.store.findFirst.mockResolvedValue(STORE);
+      mockPrisma.product.findFirst.mockResolvedValue(null);
+      mockPrisma.category.findUnique.mockResolvedValue({
+        id: 'c-elec',
+        slug: 'electronics',
+        name: 'Electronics',
+        storeId: null,
+        scope: 'GLOBAL',
+      });
+      mockCategoryAccess.assertProductCategoryAllowed.mockResolvedValue(undefined);
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma));
+      mockPrisma.product.create.mockResolvedValue({ ...PRODUCT, id: 'p-new' });
+      mockPrisma.productVariant.create.mockResolvedValue(VARIANT);
+      mockPrisma.inventory.create.mockResolvedValue(INVENTORY);
+      mockPrisma.productSearchIndex.upsert.mockResolvedValue({});
+      mockPrisma.product.findUnique.mockResolvedValue({ ...PRODUCT, variants: [{ ...VARIANT, inventory: INVENTORY }] });
+      mockAudit.log.mockResolvedValue(undefined);
+      mockEvents.emit.mockResolvedValue('e-1');
+
+      await service.createProduct('u-1', 's-1', {
+        name: 'Gadget',
+        basePrice: 499,
+        imageUrls: [SAMPLE_IMAGE],
+        categoryId: 'c-elec',
+        hsnCodeId: 'hsn-8517',
+        gstSlab: 'EIGHTEEN',
+        taxCategory: 'GOODS',
+      });
+
+      expect(mockPrisma.product.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            hsnCodeId: 'hsn-8517',
+            gstSlab: 'EIGHTEEN',
+            taxCategory: 'GOODS',
+          }),
+        }),
+      );
+    });
+
+    it('requires HSN for regulated grocery categories', async () => {
+      mockMerchant.requireMerchantProfile.mockResolvedValue(MERCHANT_PROFILE);
+      mockPrisma.store.findFirst.mockResolvedValue(STORE);
+      mockPrisma.product.findFirst.mockResolvedValue(null);
+      mockPrisma.category.findUnique.mockResolvedValue({
+        id: 'c-dairy',
+        slug: 'dairy',
+        name: 'Dairy',
+        storeId: null,
+        scope: 'GLOBAL',
+      });
+      mockCategoryAccess.assertProductCategoryAllowed.mockResolvedValue(undefined);
+
+      await expect(
+        service.createProduct('u-1', 's-1', {
+          name: 'Milk',
+          basePrice: 49,
+          imageUrls: [SAMPLE_IMAGE],
+          categoryId: 'c-dairy',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
 
   // ── updateInventory ───────────────────────────────────────────────────────

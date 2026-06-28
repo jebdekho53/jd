@@ -1,10 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { DomainEventType, Prisma, ReservationStatus } from '@prisma/client';
+import {
+  CheckoutStatus,
+  DomainEventType,
+  OrderActorType,
+  OrderStatus,
+  PaymentStatus,
+  Prisma,
+  ReservationStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { OrderCacheService } from '../order/order-cache.service';
+import { OrderStatusHistoryService } from '../order/order-status-history.service';
 
 export const RESERVATION_TTL_MINUTES = 15;
 
@@ -23,6 +33,8 @@ export class ReservationService {
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
     private readonly inventory: InventoryService,
+    private readonly statusHistory: OrderStatusHistoryService,
+    private readonly orderCache: OrderCacheService,
   ) {}
 
   async reserveInventory(
@@ -108,10 +120,13 @@ export class ReservationService {
           some: { status: ReservationStatus.ACTIVE, expiresAt: { lte: now } },
         },
       },
-      select: { id: true, buyerProfileId: true },
+      select: { id: true, buyerProfileId: true, orderId: true },
     });
 
-    if (expiredCheckouts.length === 0) return;
+    if (expiredCheckouts.length === 0) {
+      await this.cancelStalePaymentPendingOrders();
+      return;
+    }
 
     this.logger.warn({ count: expiredCheckouts.length }, 'Releasing expired inventory reservations');
 
@@ -131,10 +146,62 @@ export class ReservationService {
           resourceId: checkout.id,
           metadata: { buyerProfileId: checkout.buyerProfileId } as Prisma.InputJsonValue,
         });
+
+        if (checkout.orderId) {
+          await this.cancelExpiredPendingOrder(checkout.orderId);
+        }
       } catch (err) {
         this.logger.error(
           { checkoutId: checkout.id, error: (err as Error).message },
           'Failed to release expired reservation',
+        );
+      }
+    }
+
+    await this.cancelStalePaymentPendingOrders();
+  }
+
+  private async cancelExpiredPendingOrder(orderId: string): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true },
+    });
+    if (!order || order.status !== OrderStatus.PAYMENT_PENDING) return;
+
+    await this.statusHistory.transition({
+      orderId: order.id,
+      toStatus: OrderStatus.PAYMENT_FAILED,
+      actorType: OrderActorType.SYSTEM,
+      note: 'Checkout expired — payment not completed',
+      extraOrderData: { paymentStatus: PaymentStatus.FAILED },
+      skipIfAlreadyStatus: true,
+    });
+
+    await this.prisma.payment.updateMany({
+      where: { orderId: order.id, status: PaymentStatus.PENDING },
+      data: { status: PaymentStatus.FAILED, failureReason: 'Checkout expired' },
+    });
+
+    void this.orderCache.invalidateAll(order.id);
+  }
+
+  private async cancelStalePaymentPendingOrders(): Promise<void> {
+    const stale = await this.prisma.order.findMany({
+      where: {
+        status: OrderStatus.PAYMENT_PENDING,
+        checkout: { status: CheckoutStatus.EXPIRED },
+      },
+      select: { id: true },
+      take: 50,
+    });
+
+    for (const order of stale) {
+      try {
+        await this.cancelExpiredPendingOrder(order.id);
+      } catch (err) {
+        this.logger.error(
+          { orderId: order.id, error: (err as Error).message },
+          'Failed to cancel stale pending order',
         );
       }
     }

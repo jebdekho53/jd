@@ -31,6 +31,7 @@ import { EmailNotificationService } from '../email/email-notification.service';
 import { InvoiceEngineService } from '../compliance/invoice-engine.service';
 import { TdsTcsService } from '../compliance/tds-tcs.service';
 import { TrustSafetyHookService } from '../trust-safety/trust-safety-hook.service';
+import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 
 // ── State machine ────────────────────────────────────────────────────────────
 //
@@ -89,6 +90,7 @@ export class DeliveryService {
     private readonly tdsTcs: TdsTcsService,
     private readonly trustSafety: TrustSafetyHookService,
     private readonly emailNotifications: EmailNotificationService,
+    private readonly buyerPush: BuyerPushNotificationService,
   ) {}
 
   // ── Get delivery for a rider ───────────────────────────────────────────────
@@ -368,6 +370,10 @@ export class DeliveryService {
       );
     }
 
+    if (toStatus === DeliveryStatus.PICKED_UP) {
+      void this.buyerPush.notifyOutForDelivery(delivery.orderId).catch(() => {});
+    }
+
     if (toStatus === DeliveryStatus.DELIVERED) {
       void this.settlement.createLedgerForDeliveredOrder(delivery.orderId, actorId).catch((err) => {
         this.logger.error({ err, orderId: delivery.orderId }, 'Settlement creation failed');
@@ -390,6 +396,7 @@ export class DeliveryService {
       void this.emailNotifications.sendOrderDelivered(delivery.orderId).catch((err) => {
         this.logger.error({ err, orderId: delivery.orderId }, 'Order delivered email failed');
       });
+      void this.buyerPush.notifyDelivered(delivery.orderId).catch(() => {});
     }
 
     const orderMeta = await this.prisma.order.findUnique({

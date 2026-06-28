@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { StoreStatus } from '@prisma/client';
 import { BuyerProductService } from './buyer-product.service';
 import { PrismaService } from '../../database/prisma.service';
@@ -22,6 +23,16 @@ const PRODUCT = {
   unit: 'piece',
   isVeg: true,
   tags: ['dairy'],
+  taxInclusive: false,
+  ingredients: 'Milk',
+  shelfLife: '2 days',
+  countryOfOrigin: 'India',
+  manufacturerName: 'Amul',
+  manufacturerAddress: null,
+  fssaiLicense: '123',
+  storageInstructions: 'Keep refrigerated',
+  disclaimer: null,
+  hsnCodeRef: { code: '0401' },
   category: { id: 'c-1', name: 'Dairy', slug: 'dairy' },
   variants: [
     {
@@ -41,7 +52,11 @@ const PRODUCT = {
     latitude: 28.61,
     longitude: 77.21,
     ratingAvg: 4.5,
+    ratingCount: 10,
     avgPrepTimeMins: 15,
+    storeType: 'RETAIL_STORE',
+    deliveryFee: { toNumber: () => 25 },
+    minOrderAmount: { toNumber: () => 99 },
   },
 };
 
@@ -55,13 +70,27 @@ const mockPrisma = {
     findMany: jest.fn().mockResolvedValue([]),
     findFirst: jest.fn(),
   },
-  store: { findFirst: jest.fn() },
+  store: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
   merchantCategory: { findMany: jest.fn() },
   storeCategory: { findMany: jest.fn(), findFirst: jest.fn() },
   storePromotion: { findMany: jest.fn().mockResolvedValue([]) },
+  coupon: { findMany: jest.fn().mockResolvedValue([]) },
+  offer: { findMany: jest.fn().mockResolvedValue([]) },
+  platformSetting: { findUnique: jest.fn().mockResolvedValue(null) },
+  membershipSubscription: { findFirst: jest.fn().mockResolvedValue(null) },
+  buyerProfile: { findUnique: jest.fn().mockResolvedValue(null) },
+  order: { count: jest.fn().mockResolvedValue(0) },
+  offerUsage: { count: jest.fn().mockResolvedValue(0) },
+  productReview: {
+    aggregate: jest.fn().mockResolvedValue({ _avg: { rating: 4.2 }, _count: { id: 3 } }),
+  },
   $transaction: jest.fn().mockImplementation(async (arr: unknown[]) =>
     Promise.all(arr.map((p) => (p instanceof Promise ? p : Promise.resolve(p)))),
   ),
+};
+
+const mockConfig = {
+  get: jest.fn().mockReturnValue('shadowfax'),
 };
 
 describe('BuyerProductService', () => {
@@ -73,6 +102,7 @@ describe('BuyerProductService', () => {
         BuyerProductService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: BuyerCacheService, useValue: mockCache },
+        { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();
     service = module.get<BuyerProductService>(BuyerProductService);
@@ -137,6 +167,9 @@ describe('BuyerProductService', () => {
       expect(product).not.toBeNull();
       expect(product!.name).toBe('Amul Milk');
       expect(product!.store.slug).toBe('test-store');
+      expect(product!.metadata?.fssaiLicense).toBe('123');
+      expect(product!.reviewSummary?.ratingCount).toBe(3);
+      expect(product!.store.deliveryPartner).toBe('Shadowfax');
     });
 
     it('filters by store slug when provided', async () => {
@@ -196,6 +229,46 @@ describe('BuyerProductService', () => {
       await service.searchProducts({ q: 'milk', storeId: 's-2' });
       const whereArg = mockPrisma.product.findMany.mock.calls[0][0].where;
       expect(whereArg.storeId).toBe('s-2');
+    });
+  });
+
+  describe('getProductOffers', () => {
+    it('returns public offers without user context', async () => {
+      const offers = await service.getProductOffers('p-1');
+      expect(offers).not.toBeNull();
+      expect(offers!.productId).toBe('p-1');
+      expect(offers!.rewardPoints).toBeNull();
+      expect(offers!.personalizedOffers).toEqual([]);
+    });
+
+    it('includes user-aware fields when userId is provided', async () => {
+      mockPrisma.buyerProfile.findUnique.mockResolvedValueOnce({
+        id: 'bp-1',
+        wallet: { rewardPoints: 120, balance: 50 },
+      });
+      mockPrisma.membershipSubscription.findFirst.mockResolvedValueOnce({
+        plan: { benefits: [{ type: 'FREE_DELIVERY' }] },
+      });
+      mockPrisma.order.count.mockResolvedValueOnce(0);
+      mockPrisma.offer.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            id: 'o-1',
+            name: 'Welcome',
+            description: '10% off',
+            kind: 'PERCENT',
+            perUserLimit: 1,
+          },
+        ]);
+      mockPrisma.offerUsage.count.mockResolvedValueOnce(0);
+
+      const offers = await service.getProductOffers('p-1', 'u-1');
+      expect(offers!.rewardPoints).toBe(120);
+      expect(offers!.firstOrderEligible).toBe(true);
+      expect(offers!.walletCashbackEligible).toBe(true);
+      expect(offers!.plusBenefits).toContain('FREE_DELIVERY');
+      expect(offers!.personalizedOffers).toHaveLength(1);
     });
   });
 

@@ -17,6 +17,7 @@ import { RevokeRejectionDto } from './dto/revoke-rejection.dto';
 import { StoreService } from '../store/store.service';
 import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 
 const APPROVABLE_STATUSES: StoreStatus[] = [
   StoreStatus.PENDING_REVIEW,
@@ -74,6 +75,7 @@ export class AdminStoreService {
     private readonly domainEvents: DomainEventsService,
     private readonly buyerCache: BuyerCacheService,
     private readonly blocklist: VerificationBlocklistService,
+    private readonly emailNotifications: EmailNotificationService,
   ) {}
 
   async listStoreApprovals(
@@ -207,6 +209,14 @@ export class AdminStoreService {
     ]);
 
     await this.buyerCache.invalidateStoreCache(store.slug);
+
+    const merchant = await this.prisma.merchantProfile.findUnique({
+      where: { id: store.merchantProfileId },
+      select: { userId: true },
+    });
+    if (merchant) {
+      void this.emailNotifications.sendMerchantStoreApproved(merchant.userId, store.name);
+    }
 
     this.logger.log(
       { adminUserId, storeId, slug: store.slug },
@@ -453,6 +463,18 @@ export class AdminStoreService {
     ]);
 
     await this.buyerCache.invalidateStoreCache(store.slug);
+
+    const rejectedMerchant = await this.prisma.merchantProfile.findUnique({
+      where: { id: store.merchantProfileId },
+      select: { userId: true },
+    });
+    if (rejectedMerchant) {
+      void this.emailNotifications.sendMerchantStoreRejected(
+        rejectedMerchant.userId,
+        store.name,
+        dto.reason,
+      );
+    }
 
     this.logger.log({ adminUserId, storeId, rejectionType: dto.rejectionType }, 'Store rejected');
     return updated;

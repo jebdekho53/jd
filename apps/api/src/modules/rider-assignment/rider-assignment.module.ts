@@ -7,9 +7,11 @@ import { RiderAssignmentController } from './rider-assignment.controller';
 import { RiderAssignmentGateway } from './rider-assignment.gateway';
 import { RiderAssignmentScheduler } from './rider-assignment.scheduler';
 import { RiderAssignmentCacheService } from './rider-assignment-cache.service';
+import { PushModule } from '../push/push.module';
+import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 
 @Module({
-  imports: [OrderTimelineModule, AuditModule, DomainEventsModule],
+  imports: [OrderTimelineModule, AuditModule, DomainEventsModule, PushModule],
   controllers: [RiderAssignmentController],
   providers: [
     RiderAssignmentService,

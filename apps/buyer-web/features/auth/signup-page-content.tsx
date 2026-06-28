@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { Button, Input } from '@/design-system/primitives';
 import { useToast } from '@/design-system/primitives';
 import { AuthShell } from '@/features/auth/components/auth-shell';
-import { AuthTabs } from '@/features/auth/components/auth-tabs';
+import { AuthTabs, MobileOtpComingSoonBanner } from '@/features/auth/components/auth-tabs';
 import { AuthSwitchLink } from '@/features/auth/components/auth-switch-link';
 import { SocialLogin } from '@/features/auth/components/social-login';
 import { OtpInput } from '@/features/auth/components/otp-input';
@@ -23,6 +23,7 @@ import {
   SessionError,
 } from '@/hooks/use-auth';
 import { isValidIndianPhone, normalizeIndianPhone } from '@/lib/phone';
+import { isPhoneOtpEnabled } from '@jebdekho/web-config';
 
 type SignupTab = 'mobile' | 'email';
 type MobileStep = 'details' | 'otp';
@@ -56,8 +57,9 @@ export function SignupPageContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const phoneOtpEnabled = isPhoneOtpEnabled();
 
-  const [tab, setTab] = useState<SignupTab>('mobile');
+  const [tab, setTab] = useState<SignupTab>(phoneOtpEnabled ? 'mobile' : 'email');
   const [mobileStep, setMobileStep] = useState<MobileStep>('details');
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
@@ -161,7 +163,12 @@ export function SignupPageContent() {
     >
       <AuthTabs
         tabs={[
-          { id: 'mobile', label: 'Mobile Signup' },
+          {
+            id: 'mobile',
+            label: 'Mobile Signup',
+            disabled: !phoneOtpEnabled,
+            badge: phoneOtpEnabled ? undefined : 'Coming Soon',
+          },
           { id: 'email', label: 'Email Signup' },
         ]}
         active={tab}
@@ -173,7 +180,9 @@ export function SignupPageContent() {
         }}
       />
 
-      {tab === 'mobile' && mobileStep === 'details' && (
+      {!phoneOtpEnabled && tab === 'mobile' && <MobileOtpComingSoonBanner className="mb-5" />}
+
+      {tab === 'mobile' && phoneOtpEnabled && mobileStep === 'details' && (
         <form onSubmit={onMobileDetailsSubmit} className="space-y-5">
           <Input
             label="Name"
@@ -198,7 +207,7 @@ export function SignupPageContent() {
         </form>
       )}
 
-      {tab === 'mobile' && mobileStep === 'otp' && (
+      {tab === 'mobile' && phoneOtpEnabled && mobileStep === 'otp' && (
         <div className="space-y-5">
           <div className="text-center">
             <p className="text-sm text-jd-text-muted">

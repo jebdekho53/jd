@@ -24,6 +24,7 @@ import {
   MapPin,
   ImageIcon,
   Truck,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { BrandLockup } from '@/components/brand/brand-lockup';
@@ -41,6 +42,7 @@ const NAV = [
   { href: '/rewards', label: 'Rewards & Wallet', icon: Tag },
   { href: '/catalog', label: 'Catalog', icon: FolderTree },
   { href: '/catalog/image-coverage', label: 'Image Coverage', icon: ImageIcon },
+  { href: '/ai-product-usage', label: 'AI Product Usage', icon: Sparkles },
   { href: '/category-requests', label: 'Category Requests', icon: Tags },
   { href: '/inventory', label: 'Inventory', icon: Shield },
   { href: '/orders', label: 'Orders', icon: ShoppingBag },

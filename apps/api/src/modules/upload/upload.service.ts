@@ -38,6 +38,18 @@ const PURPOSE_SPECS: Record<UploadImagePurpose, PurposeSpec> = {
     aspectRatio: 1,
     aspectTolerance: 0.02,
   },
+  [UploadImagePurpose.REVIEW]: {
+    minWidth: 256,
+    minHeight: 256,
+    aspectRatio: 1,
+    aspectTolerance: 0.05,
+  },
+  [UploadImagePurpose.AI_PRODUCT]: {
+    minWidth: 128,
+    minHeight: 128,
+    aspectRatio: 1,
+    aspectTolerance: 10,
+  },
 };
 
 @Injectable()

@@ -279,6 +279,8 @@ export function AdminDashboardContent() {
               <HealthPill label="WebSocket" status={health.data.websocket} href="/monitoring" />
               <HealthPill label="Cron" status={health.data.cronStatus} href="/monitoring" />
               <HealthPill label="SMS" status={health.data.sms} href="/monitoring" />
+              <HealthPill label="WhatsApp" status={health.data.whatsapp ?? 'coming_soon'} href="/monitoring" />
+              <HealthPill label="Email" status={health.data.email ?? 'unknown'} href="/monitoring" />
               <HealthPill label="Push" status={health.data.pushNotifications} href="/monitoring" />
               <HealthPill label="Background jobs" status={health.data.backgroundJobs} href="/monitoring" />
             </div>

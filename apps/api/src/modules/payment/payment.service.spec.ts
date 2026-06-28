@@ -9,6 +9,13 @@ import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { OrderStatusHistoryService } from '../order/order-status-history.service';
 import { EmailNotificationService } from '../email/email-notification.service';
+import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+import { OrderFinancialsService } from '../finance/order-financials.service';
+import { OrderCacheService } from '../order/order-cache.service';
+
+const mockOrderFinancials = { recordOnlinePaymentConfirmed: jest.fn() };
+const mockOrderCache = { invalidateAll: jest.fn() };
+const mockBuyerPush = { notifyOrderPlaced: jest.fn().mockResolvedValue(undefined) };
 
 const CHECKOUT_ID = 'chk1';
 const ORDER_ID = 'ord1';
@@ -56,7 +63,7 @@ const mockReservation = {
 const mockAudit = { log: jest.fn() };
 const mockDomainEvents = { emit: jest.fn() };
 const mockStatusHistory = { transition: jest.fn() };
-const mockEmailNotifications = { sendOrderConfirmation: jest.fn() };
+const mockEmailNotifications = { sendOrderConfirmation: jest.fn().mockResolvedValue(undefined) };
 
 const buildCheckout = (overrides = {}) => ({
   id: CHECKOUT_ID,
@@ -90,11 +97,17 @@ describe('PaymentService', () => {
         { provide: DomainEventsService, useValue: mockDomainEvents },
         { provide: OrderStatusHistoryService, useValue: mockStatusHistory },
         { provide: EmailNotificationService, useValue: mockEmailNotifications },
+        { provide: BuyerPushNotificationService, useValue: mockBuyerPush },
+        { provide: OrderFinancialsService, useValue: mockOrderFinancials },
+        { provide: OrderCacheService, useValue: mockOrderCache },
       ],
     }).compile();
 
     service = module.get<PaymentService>(PaymentService);
     jest.clearAllMocks();
+    mockBuyerPush.notifyOrderPlaced.mockResolvedValue(undefined);
+    mockEmailNotifications.sendOrderConfirmation.mockResolvedValue(undefined);
+    mockOrderFinancials.recordOnlinePaymentConfirmed.mockResolvedValue(undefined);
   });
 
   describe('createRazorpayOrder', () => {
@@ -187,6 +200,7 @@ describe('PaymentService', () => {
         id: PAYMENT_ID,
         orderId: ORDER_ID,
         status: PaymentStatus.PENDING,
+        razorpayOrderId: RZP_ORDER_ID,
       });
       mockPrisma.$transaction.mockImplementation(async (cb: Function) => {
         if (typeof cb === 'function') return cb(mockPrisma);
@@ -203,6 +217,26 @@ describe('PaymentService', () => {
       await expect(service.verifyPayment(USER_ID, validDto)).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+
+    it('throws UnauthorizedException when razorpay order id mismatches', async () => {
+      mockPrisma.payment.findUnique.mockResolvedValue({
+        id: PAYMENT_ID,
+        orderId: ORDER_ID,
+        status: PaymentStatus.PENDING,
+        razorpayOrderId: 'order_other',
+      });
+      await expect(service.verifyPayment(USER_ID, validDto)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('verifies payment and posts ledger once', async () => {
+      mockStatusHistory.transition.mockResolvedValue(undefined);
+      const result = await service.verifyPayment(USER_ID, validDto);
+      expect(result.success).toBe(true);
+      expect(mockOrderFinancials.recordOnlinePaymentConfirmed).toHaveBeenCalledWith(ORDER_ID);
+      expect(mockOrderCache.invalidateAll).toHaveBeenCalledWith(ORDER_ID);
     });
 
     it('returns idempotent response when payment is already PAID', async () => {

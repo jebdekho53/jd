@@ -9,8 +9,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { DomainEventType, OtpPurpose, Prisma, RoleName, UserStatus } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
 import { secureRandomInt } from '../../common/utils/secure-random.util';
+import { getConfig } from '../../config/configuration';
+import { MOBILE_OTP_DISABLED_MESSAGE } from './auth.constants';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { REDIS_KEYS, REDIS_TTL } from '../../redis/redis.constants';
@@ -60,6 +63,7 @@ export interface VerifyOtpResponse extends TokenPair {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly cfg: ReturnType<typeof getConfig>;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -75,7 +79,22 @@ export class AuthService {
     private readonly blocklist: VerificationBlocklistService,
     private readonly trustSafety: TrustSafetyHookService,
     private readonly emailNotifications: EmailNotificationService,
-  ) {}
+    configService: ConfigService,
+  ) {
+    this.cfg = getConfig(configService);
+  }
+
+  private assertEmailAuthEnabled(): void {
+    if (!this.cfg.auth.emailEnabled) {
+      throw new ServiceUnavailableException('Email authentication is temporarily unavailable.');
+    }
+  }
+
+  private assertPhoneOtpEnabled(): void {
+    if (!this.cfg.auth.phoneOtpEnabled) {
+      throw new ServiceUnavailableException(MOBILE_OTP_DISABLED_MESSAGE);
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Request OTP
@@ -90,6 +109,12 @@ export class AuthService {
 
     if (!dto.phone && !dto.email?.trim()) {
       throw new BadRequestException('Phone or email is required');
+    }
+
+    if (viaEmail) {
+      this.assertEmailAuthEnabled();
+    } else {
+      this.assertPhoneOtpEnabled();
     }
 
     let phone: string;
@@ -130,7 +155,10 @@ export class AuthService {
     const purpose =
       user.phoneVerified ? OtpPurpose.LOGIN : OtpPurpose.REGISTRATION;
 
-    const { expiresIn, code } = await this.otpService.requestOtp(phone, purpose, user.id);
+    const skipSms = viaEmail || !this.cfg.auth.smsEnabled || !this.cfg.auth.phoneOtpEnabled;
+    const { expiresIn, code } = await this.otpService.requestOtp(phone, purpose, user.id, {
+      skipSms,
+    });
 
     const emailRecipient = viaEmail
       ? dto.email!.trim().toLowerCase()
@@ -154,7 +182,7 @@ export class AuthService {
 
     return {
       message: viaEmail
-        ? 'OTP sent to your registered mobile number'
+        ? 'OTP sent to your email'
         : 'OTP sent successfully',
       expiresIn,
       phone: viaEmail ? phone : undefined,
@@ -276,6 +304,7 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<VerifyOtpResponse> {
+    this.assertEmailAuthEnabled();
     const email = dto.email.trim().toLowerCase();
     await this.blocklist.assertNotBlocked({ email });
 
@@ -347,6 +376,7 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<VerifyOtpResponse> {
+    this.assertEmailAuthEnabled();
     const email = dto.email.trim().toLowerCase();
     await this.blocklist.assertNotBlocked({ email });
 
@@ -388,6 +418,7 @@ export class AuthService {
 
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string; expiresIn?: number; phone?: string }> {
     if (dto.email) {
+      this.assertEmailAuthEnabled();
       const email = dto.email.trim().toLowerCase();
       await this.blocklist.assertNotBlocked({ email });
 
@@ -420,6 +451,7 @@ export class AuthService {
     }
 
     if (dto.phone) {
+      this.assertPhoneOtpEnabled();
       const phone = dto.phone;
       await this.blocklist.assertNotBlocked({ phone });
 
@@ -454,6 +486,7 @@ export class AuthService {
       }
       await this.redis.del(REDIS_KEYS.passwordReset(tokenHash));
     } else if (dto.phone && dto.code) {
+      this.assertPhoneOtpEnabled();
       await this.otpService.verifyOtp(dto.phone, dto.code, OtpPurpose.PASSWORD_RESET);
       const user = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
       if (!user) {

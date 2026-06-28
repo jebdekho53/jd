@@ -8,6 +8,8 @@ import type { VerifyOtpResult } from '@/types/auth';
 import { useToast } from '@/design-system/primitives';
 import { cn } from '@/lib/cn';
 import { DEMO_MERCHANT_ACCOUNTS, DEMO_OTP, IS_DEV } from '@/lib/demo-auth';
+import { isPhoneOtpEnabled } from '@jebdekho/web-config';
+import { MobileOtpComingSoonBanner } from '@/features/auth/components/auth-tabs';
 
 type Step = 'identifier' | 'otp';
 type LoginMode = 'phone' | 'email';
@@ -36,9 +38,10 @@ export function MerchantOtpFlow({
   const { toast } = useToast();
   const requestOtp = useRequestOtpMutation();
   const verifyOtp = useVerifyOtpMutation();
+  const phoneOtpEnabled = isPhoneOtpEnabled();
 
   const [step, setStep] = useState<Step>('identifier');
-  const [mode, setMode] = useState<LoginMode>('phone');
+  const [mode, setMode] = useState<LoginMode>(phoneOtpEnabled ? 'phone' : 'email');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [resolvedPhone, setResolvedPhone] = useState('');
@@ -57,6 +60,7 @@ export function MerchantOtpFlow({
   const handleRequestOtp = async () => {
     try {
       if (mode === 'phone') {
+        if (!phoneOtpEnabled) return;
         const formatted = formatPhone(phone);
         const result = await requestOtp.mutateAsync({ phone: formatted });
         setResolvedPhone(formatted);
@@ -67,7 +71,7 @@ export function MerchantOtpFlow({
         const normalizedEmail = email.trim().toLowerCase();
         const result = await requestOtp.mutateAsync({ email: normalizedEmail });
         if (!result.phone) {
-          toast('No account with this email. Use Mobile for a new merchant account.', 'error');
+          toast('No account with this email. Sign up to create a merchant account.', 'error');
           return;
         }
         setResolvedPhone(result.phone);
@@ -120,24 +124,40 @@ export function MerchantOtpFlow({
       {step === 'identifier' ? (
         <>
           <div className="flex rounded-xl bg-slate-100 p-1">
-            {(['phone', 'email'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                className={cn(
-                  'flex-1 rounded-lg py-2 text-sm font-semibold transition',
-                  mode === m
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700',
-                )}
-              >
-                {m === 'phone' ? 'Mobile' : 'Email'}
-              </button>
-            ))}
+            {(['phone', 'email'] as const).map((m) => {
+              const isPhone = m === 'phone';
+              const disabled = isPhone && !phoneOtpEnabled;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    if (!disabled) setMode(m);
+                  }}
+                  className={cn(
+                    'relative flex flex-1 items-center justify-center gap-1 rounded-lg py-2 text-sm font-semibold transition',
+                    mode === m && !disabled
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : disabled
+                        ? 'cursor-not-allowed text-slate-400'
+                        : 'text-slate-500 hover:text-slate-700',
+                  )}
+                >
+                  {isPhone ? 'Mobile' : 'Email'}
+                  {disabled ? (
+                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800">
+                      Soon
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
 
-          {mode === 'phone' ? (
+          {mode === 'phone' && !phoneOtpEnabled ? (
+            <MobileOtpComingSoonBanner />
+          ) : mode === 'phone' ? (
             <div className="flex gap-2">
               <span className="flex h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-600">
                 +91
@@ -163,18 +183,22 @@ export function MerchantOtpFlow({
             />
           )}
 
-          <Button
-            fullWidth
-            loading={requestOtp.isPending}
-            disabled={!canSubmitIdentifier}
-            onClick={handleRequestOtp}
-          >
-            Send OTP
-          </Button>
+          {(mode === 'email' || phoneOtpEnabled) && (
+            <Button
+              fullWidth
+              loading={requestOtp.isPending}
+              disabled={!canSubmitIdentifier || (mode === 'phone' && !phoneOtpEnabled)}
+              onClick={handleRequestOtp}
+            >
+              Send OTP
+            </Button>
+          )}
         </>
       ) : (
         <>
-          <p className="text-center text-sm text-slate-500">OTP sent to {otpDestination}</p>
+          <p className="text-center text-sm text-slate-500">
+            OTP sent to {mode === 'email' ? email.trim().toLowerCase() || otpDestination : otpDestination}
+          </p>
           <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-4">
             <OtpInput value={otp} onChange={setOtp} disabled={verifyOtp.isPending} />
             {IS_DEV && (

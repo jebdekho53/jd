@@ -484,6 +484,7 @@ model User {
   adminLoginAudits AdminLoginAudit[]
   notifications   Notification[]
   reviews         Review[]
+  productReviews  ProductReview[]
   auditLogs       AuditLog[]
   riskProfile     RiskProfile?
   riskEvents      RiskEvent[]
@@ -508,6 +509,7 @@ model User {
   adImpressions         AdImpression[]
   adClicks              AdClick[]
   merchantApplications  MerchantApplication[]
+  pushSubscriptions     PushSubscription[]
 
   @@index([status])
   @@index([createdAt])
@@ -631,6 +633,7 @@ model BuyerProfile {
   checkouts    Checkout[]
   wishlistItems WishlistItem[]
   reviews      Review[]
+  productReviews ProductReview[]
   wallet       BuyerWallet?
   membershipSubscriptions MembershipSubscription[]
 
@@ -675,6 +678,8 @@ model MerchantProfile {
   procurementWishlists ProcurementWishlist[]
   adCampaigns          AdCampaign[]
   merchantApplication  MerchantApplication?
+  aiProductAnalyses    AIProductAnalysis[]
+  aiCreditTransactions MerchantAiCreditTransaction[]
 
   @@index([kycStatus])
   @@index([isBlacklisted])
@@ -1334,6 +1339,8 @@ model Store {
   seoPages               SeoPage[]
   seoKeywords            SeoKeyword[]
   merchantApplication    MerchantApplication?
+  aiProductAnalyses      AIProductAnalysis[]
+  aiCreditTransactions   MerchantAiCreditTransaction[]
 
   @@unique([merchantProfileId, slug])
   @@index([cityId, isActive])
@@ -1568,6 +1575,14 @@ model Product {
   gstSlab     GstSlab?  @map("gst_slab")
   taxCategory ProductTaxCategory @default(GOODS) @map("tax_category")
   taxInclusive Boolean  @default(false) @map("tax_inclusive")
+  ingredients          String?   @db.Text
+  shelfLife            String?   @map("shelf_life")
+  countryOfOrigin      String?   @map("country_of_origin")
+  manufacturerName     String?   @map("manufacturer_name")
+  manufacturerAddress  String?   @map("manufacturer_address") @db.Text
+  fssaiLicense         String?   @map("fssai_license")
+  storageInstructions  String?   @map("storage_instructions") @db.Text
+  disclaimer           String?   @db.Text
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
@@ -1589,6 +1604,8 @@ model Product {
   inventoryForecasts    InventoryForecast[]
   pricingRecommendations PricingRecommendation[]
   sponsoredProducts      SponsoredProduct[]
+  productReviews         ProductReview[]
+  aiProductAnalysis      AIProductAnalysis?
 
   @@unique([storeId, slug])
   @@index([storeId, isActive])
@@ -1833,6 +1850,7 @@ model Order {
   couponUsage   CouponUsage?
   promotionUsage PromotionUsage?
   review        Review?
+  productReviews ProductReview[]
   checkout      Checkout?
   settlementLedger SettlementLedger?
   inventoryReservations InventoryReservation[]
@@ -1877,6 +1895,7 @@ model OrderItem {
   product Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
   variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
   fulfillmentItems FulfillmentOrderItem[]
+  productReviews ProductReview[]
 
   @@index([orderId])
   @@map("order_items")
@@ -2191,6 +2210,33 @@ model Review {
   @@index([productId])
   @@index([status])
   @@map("reviews")
+}
+
+model ProductReview {
+  id               String       @id @default(cuid())
+  productId        String       @map("product_id")
+  userId           String       @map("user_id")
+  buyerProfileId   String       @map("buyer_profile_id")
+  orderId          String       @map("order_id")
+  orderItemId      String?      @map("order_item_id")
+  rating           Int
+  comment          String?      @db.Text
+  images           String[]     @default([])
+  verifiedPurchase Boolean      @default(true) @map("verified_purchase")
+  status           ReviewStatus @default(VISIBLE)
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  buyerProfile BuyerProfile @relation(fields: [buyerProfileId], references: [id], onDelete: Restrict)
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderItem    OrderItem?   @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, productId])
+  @@index([productId, status])
+  @@index([productId, createdAt(sort: Desc)])
+  @@map("product_reviews")
 }
 
 // =============================================================================
@@ -4312,6 +4358,32 @@ model NotificationPreference {
   @@map("notification_preferences")
 }
 
+enum PushDeviceType {
+  ANDROID
+  IOS
+  DESKTOP
+  UNKNOWN
+}
+
+model PushSubscription {
+  id         String         @id @default(cuid())
+  userId     String         @map("user_id")
+  endpoint   String         @unique
+  p256dh     String
+  auth       String
+  userAgent  String?        @map("user_agent")
+  deviceType PushDeviceType @default(UNKNOWN) @map("device_type")
+  isActive   Boolean        @default(true) @map("is_active")
+  lastSeenAt DateTime       @default(now()) @map("last_seen_at")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@map("push_subscriptions")
+}
+
 model PushCampaign {
   id            String                  @id @default(cuid())
   name          String
@@ -6323,4 +6395,77 @@ model ProviderHealth {
 
   @@index([providerType, lastCheckedAt(sort: Desc)])
   @@map("provider_health")
+}
+
+// =============================================================================
+// MERCHANT AI PRODUCT CREATION
+// =============================================================================
+
+enum AIProductAnalysisStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+  CONFIRMED
+  CANCELLED
+}
+
+enum MerchantAiCreditTransactionType {
+  DEBIT
+  REFUND
+  ADJUSTMENT
+}
+
+enum MerchantAiCreditTransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+model AIProductAnalysis {
+  id                String                  @id @default(cuid())
+  merchantProfileId String                  @map("merchant_profile_id")
+  storeId           String                  @map("store_id")
+  uploadedImageUrl  String                  @map("uploaded_image_url") @db.Text
+  extractedJson     Json?                   @map("extracted_json")
+  confidence        Float?
+  status            AIProductAnalysisStatus @default(PROCESSING)
+  errorMessage      String?                 @map("error_message") @db.Text
+  createdProductId  String?                 @unique @map("created_product_id")
+  chargeAmountPaise Int                     @default(150) @map("charge_amount_paise")
+  chargedAt         DateTime?               @map("charged_at")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+
+  merchantProfile MerchantProfile @relation(fields: [merchantProfileId], references: [id], onDelete: Cascade)
+  store           Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdProduct  Product?        @relation(fields: [createdProductId], references: [id], onDelete: SetNull)
+  creditTransactions MerchantAiCreditTransaction[]
+
+  @@index([merchantProfileId, createdAt(sort: Desc)])
+  @@index([storeId, status])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("ai_product_analyses")
+}
+
+model MerchantAiCreditTransaction {
+  id                String                            @id @default(cuid())
+  merchantProfileId String                            @map("merchant_profile_id")
+  storeId           String                            @map("store_id")
+  analysisId        String?                           @map("analysis_id")
+  amountPaise       Int                               @map("amount_paise")
+  type              MerchantAiCreditTransactionType
+  status            MerchantAiCreditTransactionStatus @default(PENDING)
+  reason            String?                           @db.Text
+  idempotencyKey    String                            @unique @map("idempotency_key")
+  createdAt         DateTime                          @default(now()) @map("created_at")
+
+  merchantProfile MerchantProfile    @relation(fields: [merchantProfileId], references: [id], onDelete: Cascade)
+  store           Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  analysis        AIProductAnalysis? @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+
+  @@index([merchantProfileId, createdAt(sort: Desc)])
+  @@index([storeId, type])
+  @@index([analysisId])
+  @@map("merchant_ai_credit_transactions")
 }

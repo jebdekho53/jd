@@ -34,6 +34,7 @@ import {
   unassignedOrderWhere,
   type ScoredRider,
 } from './rider-assignment.util';
+import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 
 export const RIDER_ASSIGNMENT_EVENTS = {
   ASSIGNED: 'order.assigned',
@@ -54,6 +55,7 @@ export class RiderAssignmentService {
     private readonly statusHistory: OrderStatusHistoryService,
     private readonly cache: RiderAssignmentCacheService,
     private readonly events: EventEmitter2,
+    private readonly buyerPush: BuyerPushNotificationService,
     config: ConfigService,
   ) {
     this.autoAcceptSeconds = config.get<number>(
@@ -874,6 +876,9 @@ export class RiderAssignmentService {
     ]);
 
     await this.cache.invalidateAssignmentCaches(input.orderId);
+    if (!input.isReassignment) {
+      void this.buyerPush.notifyRiderAssigned(input.orderId).catch(() => {});
+    }
     this.emitWs(input.event, {
       orderId: input.orderId,
       deliveryId: input.deliveryId,

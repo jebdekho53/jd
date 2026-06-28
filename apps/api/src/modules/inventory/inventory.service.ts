@@ -79,6 +79,9 @@ export class InventoryService {
         });
       }
     });
+
+    const variantIds = items.map((i) => i.variantId);
+    await this.afterInventoryChange(variantIds);
   }
 
   async linkReservationsToOrder(checkoutId: string, orderId: string): Promise<void> {
@@ -358,13 +361,17 @@ export class InventoryService {
         sold_qty: number;
         threshold: number;
         status: InventoryStatus;
+        fssai_license: string | null;
+        country_of_origin: string | null;
+        shelf_life: string | null;
       }>
     >`
       SELECT p.id AS product_id, p.name AS product_name,
              s.id AS store_id, s.name AS store_name,
              v.id AS variant_id, v.sku,
              i.quantity AS available_qty, i.reserved AS reserved_qty,
-             i.sold_qty, i.low_stock_threshold AS threshold, i.status
+             i.sold_qty, i.low_stock_threshold AS threshold, i.status,
+             p.fssai_license, p.country_of_origin, p.shelf_life
       FROM inventory i
       JOIN product_variants v ON v.id = i.variant_id
       JOIN products p ON p.id = v.product_id AND p.deleted_at IS NULL
@@ -390,6 +397,9 @@ export class InventoryService {
         lowStockThreshold: r.threshold,
         status: r.status,
         stockLevel: buyerStockLevel(r.available_qty),
+        fssaiLicense: r.fssai_license,
+        countryOfOrigin: r.country_of_origin,
+        shelfLife: r.shelf_life,
       })),
       page,
       limit,

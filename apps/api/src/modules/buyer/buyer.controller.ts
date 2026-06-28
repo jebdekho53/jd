@@ -5,6 +5,7 @@ import {
   NotFoundException,
   Param,
   Query,
+  Req,
 } from '@nestjs/common';
 import {
   ApiOperation,
@@ -12,12 +13,15 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { JwtService } from '@nestjs/jwt';
+import { Request } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
 import { BuyerStoreService } from './buyer-store.service';
 import { BuyerProductService } from './buyer-product.service';
 import { DiscoverStoresDto } from './dto/discover-stores.dto';
 import { StoreProductsDto } from './dto/store-products.dto';
 import { SearchProductsDto } from './dto/search-products.dto';
+import { CompareProductDto } from './dto/compare-product.dto';
 
 @ApiTags('buyer')
 @Public()
@@ -28,7 +32,19 @@ export class BuyerController {
   constructor(
     private readonly storeService: BuyerStoreService,
     private readonly productService: BuyerProductService,
+    private readonly jwtService: JwtService,
   ) {}
+
+  private optionalUserId(req: Request): string | undefined {
+    const header = req.headers.authorization;
+    if (!header?.startsWith('Bearer ')) return undefined;
+    try {
+      const payload = this.jwtService.verify<{ sub: string }>(header.slice(7));
+      return payload.sub;
+    } catch {
+      return undefined;
+    }
+  }
 
   // ── Store Discovery ─────────────────────────────────────────────────────
 
@@ -96,6 +112,24 @@ export class BuyerController {
 
   // ── Product Search ──────────────────────────────────────────────────────
 
+  @Get('compare/:productId')
+  @ApiParam({ name: 'productId', description: 'Anchor product ID to compare across stores' })
+  @ApiOperation({
+    summary: 'Compare prices for the same product across nearby stores',
+    description:
+      'Finds matching products by name and unit near the buyer. Returns stores sorted by final payable price.',
+  })
+  async compareProduct(
+    @Param('productId') productId: string,
+    @Query() dto: CompareProductDto,
+  ) {
+    const data = await this.productService.compareProduct(productId, dto);
+    if (!data) {
+      throw new NotFoundException('No comparable offers found for this product');
+    }
+    return { success: true, data };
+  }
+
   @Get('products/search')
   @ApiOperation({
     summary: 'Search products by name, brand, description or tags',
@@ -135,6 +169,22 @@ export class BuyerController {
     @Query('store') storeSlug?: string,
   ) {
     const data = await this.productService.getProductById(id, storeSlug);
+    if (!data) {
+      throw new NotFoundException('Product not found');
+    }
+    return { success: true, data };
+  }
+
+  @Get('products/:id/offers')
+  @ApiParam({ name: 'id', description: 'Product ID' })
+  @ApiOperation({
+    summary: 'PDP offers bundle for a product',
+    description:
+      'Returns store promotions, coupons, campaign offers, wallet cashback, Plus benefits, and free-delivery eligibility.',
+  })
+  async getProductOffers(@Param('id') id: string, @Req() req: Request) {
+    const userId = this.optionalUserId(req);
+    const data = await this.productService.getProductOffers(id, userId);
     if (!data) {
       throw new NotFoundException('Product not found');
     }

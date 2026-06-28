@@ -26,6 +26,20 @@ export class HealthController {
     return { status: 'ok', timestamp: new Date().toISOString() };
   }
 
+  /** Database connectivity probe */
+  @Get('db')
+  @HealthCheck()
+  database(): Promise<HealthCheckResult> {
+    return this.health.check([() => this.checkPostgres()]);
+  }
+
+  /** Redis connectivity probe */
+  @Get('redis')
+  @HealthCheck()
+  redisHealth(): Promise<HealthCheckResult> {
+    return this.health.check([() => this.checkRedis()]);
+  }
+
   /** Readiness probe — checks all critical dependencies */
   @Get('ready')
   @HealthCheck()

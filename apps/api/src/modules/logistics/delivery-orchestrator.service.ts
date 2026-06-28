@@ -26,6 +26,7 @@ import { LOGISTICS_EVENTS, LOGISTICS_RETRY_MAX } from './logistics.constants';
 import { LogisticsProviderError } from './errors/logistics.errors';
 import { normalizedToDeliveryStatus } from './mappers/shadowfax-status.mapper';
 import { maskSensitivePayload } from './utils/mask-sensitive.util';
+import { isDispatchPaymentCleared } from '../order/merchant-order-visibility.util';
 
 const PROVIDER_NAMES: Record<DeliveryProviderType, string> = {
   [DeliveryProviderType.SHADOWFAX]: 'Shadowfax',
@@ -59,13 +60,27 @@ export class DeliveryOrchestratorService {
       where: { orderId },
       select: { id: true, externalShipmentId: true, trackingNumber: true, deliveryId: true, estimatedEtaMins: true },
     });
-    if (existing?.externalShipmentId) {
+    if (existing?.externalShipmentId?.trim()) {
       return {
         shipmentId: existing.id,
         deliveryId: existing.deliveryId!,
         trackingNumber: existing.trackingNumber ?? existing.externalShipmentId,
         estimatedEtaMins: existing.estimatedEtaMins,
       };
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true, paymentMethod: true, paymentStatus: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.status !== OrderStatus.READY_FOR_PICKUP) {
+      throw new BadRequestException(
+        `Cannot dispatch shipment: order must be READY_FOR_PICKUP (current: ${order.status})`,
+      );
+    }
+    if (!isDispatchPaymentCleared(order.paymentMethod, order.paymentStatus)) {
+      throw new BadRequestException('Cannot dispatch shipment: payment not confirmed');
     }
 
     const providerType = this.registry.primaryType;
@@ -103,8 +118,9 @@ export class DeliveryOrchestratorService {
         },
       });
 
-      const shipment = await this.prisma.providerShipment.create({
-        data: {
+      const shipment = await this.prisma.providerShipment.upsert({
+        where: { orderId },
+        create: {
           orderId,
           deliveryId: delivery.id,
           providerId: providerRecord.id,
@@ -121,6 +137,25 @@ export class DeliveryOrchestratorService {
           vehicleType: result.vehicleType,
           labelUrl: result.labelUrl,
           rawResponse: maskSensitivePayload(result.rawResponse ?? {}) as Prisma.InputJsonValue,
+        },
+        update: {
+          deliveryId: delivery.id,
+          providerId: providerRecord.id,
+          providerType,
+          externalShipmentId: result.externalShipmentId,
+          trackingNumber: result.trackingNumber,
+          normalizedStatus: result.normalizedStatus,
+          providerStatus: result.providerStatus,
+          estimatedEtaMins: result.estimatedEtaMins,
+          estimatedArrivalAt: result.estimatedArrivalAt,
+          deliveryCost: result.deliveryCost != null ? new Prisma.Decimal(result.deliveryCost) : null,
+          driverName: result.driverName,
+          driverPhone: result.driverPhone,
+          vehicleType: result.vehicleType,
+          labelUrl: result.labelUrl,
+          rawResponse: maskSensitivePayload(result.rawResponse ?? {}) as Prisma.InputJsonValue,
+          lastError: null,
+          retryCount: 0,
         },
       });
 
@@ -199,7 +234,7 @@ export class DeliveryOrchestratorService {
     estimatedEtaMins: number | null;
   }> {
     const shipment = await this.prisma.providerShipment.findUnique({ where: { orderId } });
-    if (shipment?.externalShipmentId) {
+    if (shipment?.externalShipmentId?.trim()) {
       throw new BadRequestException('Shipment already exists — cancel before retrying');
     }
     if (shipment) {

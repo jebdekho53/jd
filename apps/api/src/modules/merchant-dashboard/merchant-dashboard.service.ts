@@ -155,11 +155,7 @@ export class MerchantDashboardService {
       return {
         todayOrders,
         todayRevenue,
-        pendingOrders: countByStatus([
-          OrderStatus.PAID,
-          OrderStatus.CREATED,
-          OrderStatus.PAYMENT_PENDING,
-        ]),
+        pendingOrders: countByStatus([OrderStatus.PAID, OrderStatus.MERCHANT_ACCEPTED]),
         preparingOrders: countByStatus([OrderStatus.PREPARING]),
         packingOrders: countByStatus([OrderStatus.PACKING]),
         readyForPickup: countByStatus([OrderStatus.READY_FOR_PICKUP]),

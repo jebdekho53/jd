@@ -6,9 +6,15 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { OrderCacheService } from './order-cache.service';
-import { RiderAssignmentService } from '../rider-assignment/rider-assignment.service';
-import { ReservationService } from '../checkout/reservation.service';
 import { OrderStatusHistoryService } from './order-status-history.service';
+import { DeliveryDispatchService } from '../logistics/delivery-dispatch.service';
+import { ReservationService } from '../checkout/reservation.service';
+import { RewardService } from '../wallet-loyalty/reward.service';
+import { LedgerService } from '../finance/ledger.service';
+import { CreditNoteService } from '../compliance/credit-note.service';
+import { EmailNotificationService } from '../email/email-notification.service';
+import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+import { orderServiceMocks } from '../../test/nest-mock-providers';
 
 const USER_ID = 'user1';
 const ORDER_ID = 'ord1';
@@ -66,7 +72,7 @@ const mockPrisma = {
 const mockAudit = { log: jest.fn() };
 const mockDomainEvents = { emit: jest.fn() };
 const mockCache = { getDetail: jest.fn(), setDetail: jest.fn(), invalidate: jest.fn(), invalidateAll: jest.fn() };
-const mockRiderAssignment = { autoAssign: jest.fn() };
+const { deliveryDispatch, rewards, ledger, creditNotes, emailNotifications, buyerPush } = orderServiceMocks;
 const mockReservation = { releaseOrderReservations: jest.fn() };
 const mockStatusHistory = { transition: jest.fn(), appendEntry: jest.fn(), recordInitial: jest.fn() };
 
@@ -81,9 +87,14 @@ describe('OrderService', () => {
         { provide: AuditService, useValue: mockAudit },
         { provide: DomainEventsService, useValue: mockDomainEvents },
         { provide: OrderCacheService, useValue: mockCache },
-        { provide: RiderAssignmentService, useValue: mockRiderAssignment },
-        { provide: ReservationService, useValue: mockReservation },
         { provide: OrderStatusHistoryService, useValue: mockStatusHistory },
+        { provide: DeliveryDispatchService, useValue: deliveryDispatch },
+        { provide: ReservationService, useValue: mockReservation },
+        { provide: RewardService, useValue: rewards },
+        { provide: LedgerService, useValue: ledger },
+        { provide: CreditNoteService, useValue: creditNotes },
+        { provide: EmailNotificationService, useValue: emailNotifications },
+        { provide: BuyerPushNotificationService, useValue: buyerPush },
       ],
     }).compile();
 
@@ -209,7 +220,7 @@ describe('OrderService', () => {
       mockDomainEvents.emit.mockResolvedValue(undefined);
       mockCache.invalidateAll.mockResolvedValue(undefined);
       mockStatusHistory.transition.mockResolvedValue(true);
-      mockRiderAssignment.autoAssign.mockResolvedValue(null);
+      deliveryDispatch.dispatchAfterReadyForPickup.mockResolvedValue(null);
     });
 
     it('PAID → MERCHANT_ACCEPTED (confirm)', async () => {
@@ -260,11 +271,12 @@ describe('OrderService', () => {
       expect(result.status).toBe(OrderStatus.PACKING);
     });
 
-    it('PACKING → READY_FOR_PICKUP triggers auto-assign', async () => {
+    it('PACKING → READY_FOR_PICKUP triggers dispatch', async () => {
       mockPrisma.order.findUnique.mockResolvedValue(
         buildOrder(OrderStatus.PACKING, { storeId: STORE_ID }),
       );
-      mockRiderAssignment.autoAssign.mockResolvedValue({
+      deliveryDispatch.dispatchAfterReadyForPickup.mockResolvedValue({
+        mode: 'own_fleet',
         deliveryId: 'del1',
         riderProfileId: 'rp1',
       });
@@ -275,7 +287,7 @@ describe('OrderService', () => {
 
       expect(result.status).toBe(OrderStatus.READY_FOR_PICKUP);
       await new Promise((r) => setTimeout(r, 10));
-      expect(mockRiderAssignment.autoAssign).toHaveBeenCalledWith(ORDER_ID);
+      expect(deliveryDispatch.dispatchAfterReadyForPickup).toHaveBeenCalledWith(ORDER_ID);
     });
 
     it('PACKING → READY_FOR_PICKUP', async () => {

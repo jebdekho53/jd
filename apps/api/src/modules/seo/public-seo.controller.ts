@@ -62,6 +62,13 @@ export class PublicSeoController {
     return this.sitemap.getXml(SitemapType.FAQ);
   }
 
+  @Get('sitemap-brands.xml')
+  @Header('Content-Type', 'application/xml')
+  async sitemapBrands(@Req() req: Request) {
+    void this.trackCrawler(req, '/sitemap-brands.xml');
+    return this.sitemap.getBrandsXml();
+  }
+
   @Get('robots.txt')
   @Header('Content-Type', 'text/plain')
   robots(@Req() req: Request) {

@@ -4,7 +4,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Eye, Heart, Scale, Star } from 'lucide-react';
+import { ComparePricesModal } from '@/components/compare/compare-prices-modal';
 import { AddToCartButton } from '@/features/cart/components/add-to-cart-button';
+import { useDeliveryLocation } from '@/hooks/use-delivery-location';
 import { useRecentlyViewed } from '@/hooks/use-recently-viewed';
 import { useWishlist } from '@/hooks/use-wishlist';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -62,6 +64,8 @@ export function ProductCard({
 }: ProductCardProps) {
   const { addItem } = useRecentlyViewed();
   const { isWishlisted, toggle } = useWishlist();
+  const { lat, lng, pincode } = useDeliveryLocation();
+  const [compareOpen, setCompareOpen] = useState(false);
   const wishlisted = isWishlisted(product.id);
   const { price, mrp } = getDisplayPrice(product);
   const hasDiscount = mrp !== null && mrp > price;
@@ -81,8 +85,6 @@ export function ProductCard({
     const qs = params.toString();
     return `/products/${product.id}${qs ? `?${qs}` : ''}`;
   })();
-  const compareHref = `/compare?q=${encodeURIComponent(product.name)}`;
-
   const handleView = () => {
     if (trackView) addItem(product, store ? { name: store.name, slug: store.slug } : undefined);
   };
@@ -201,13 +203,14 @@ export function ProductCard({
           )}
 
           <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
-            <Link
-              href={compareHref}
+            <button
+              type="button"
+              onClick={() => setCompareOpen(true)}
               className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-primary/30 py-1.5 text-[10px] font-semibold text-primary transition hover:bg-primary/5 btn-press"
             >
               <Scale className="h-3 w-3" aria-hidden />
               Compare
-            </Link>
+            </button>
             {defaultVariant && resolvedStoreId && (
               <div className="flex-1">
                 <AddToCartButton
@@ -224,6 +227,15 @@ export function ProductCard({
           </div>
         </div>
       </div>
+
+      <ComparePricesModal
+        productId={product.id}
+        open={compareOpen}
+        onClose={() => setCompareOpen(false)}
+        lat={lat}
+        lng={lng}
+        pincode={pincode}
+      />
     </article>
   );
 }

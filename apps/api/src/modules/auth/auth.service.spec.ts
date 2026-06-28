@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { UserStatus } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
@@ -15,6 +16,8 @@ import { WalletService } from '../wallet-loyalty/wallet.service';
 import { EmailNotificationService } from '../email/email-notification.service';
 import { RedisService } from '../../redis/redis.service';
 import { PrismaService } from '../../database/prisma.service';
+import { createAuthConfigMock } from '../../test/auth-config.mock';
+import { MOBILE_OTP_DISABLED_MESSAGE } from './auth.constants';
 
 const mockPrismaService = {
   user: {
@@ -24,7 +27,7 @@ const mockPrismaService = {
   },
   role: { findUniqueOrThrow: jest.fn() },
   userRole: { upsert: jest.fn() },
-  buyerProfile: { create: jest.fn() },
+  buyerProfile: { create: jest.fn(), findUniqueOrThrow: jest.fn() },
   notificationPreference: { upsert: jest.fn() },
   $transaction: jest.fn(),
 };
@@ -85,7 +88,7 @@ const mockTrustSafety = {
 describe('AuthService', () => {
   let service: AuthService;
 
-  beforeEach(async () => {
+  async function createService(configOverrides: Record<string, string> = {}) {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -102,10 +105,15 @@ describe('AuthService', () => {
         { provide: VerificationBlocklistService, useValue: mockBlocklist },
         { provide: TrustSafetyHookService, useValue: mockTrustSafety },
         { provide: EmailNotificationService, useValue: mockEmailNotifications },
+        { provide: ConfigService, useValue: createAuthConfigMock(configOverrides) },
       ],
     }).compile();
 
-    service = module.get<AuthService>(AuthService);
+    return module.get<AuthService>(AuthService);
+  }
+
+  beforeEach(async () => {
+    service = await createService();
     jest.clearAllMocks();
     mockBlocklist.assertNotBlocked.mockResolvedValue(undefined);
     mockBlocklist.assertUserNotBlacklisted.mockResolvedValue(undefined);
@@ -117,6 +125,18 @@ describe('AuthService', () => {
   });
 
   describe('requestOtp', () => {
+    it('rejects phone OTP when AUTH_PHONE_OTP_ENABLED=false', async () => {
+      service = await createService({ AUTH_PHONE_OTP_ENABLED: 'false' });
+
+      await expect(service.requestOtp({ phone: '+919876543210' }, '127.0.0.1')).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+      await expect(service.requestOtp({ phone: '+919876543210' }, '127.0.0.1')).rejects.toThrow(
+        MOBILE_OTP_DISABLED_MESSAGE,
+      );
+      expect(mockOtpService.requestOtp).not.toHaveBeenCalled();
+    });
+
     it('creates a new user when phone does not exist', async () => {
       mockBlocklist.assertUserNotBlacklisted.mockResolvedValue(undefined);
       mockPrismaService.user.findUnique.mockResolvedValue(null);
@@ -197,6 +217,18 @@ describe('AuthService', () => {
   });
 
   describe('signup', () => {
+    it('rejects signup when AUTH_EMAIL_ENABLED=false', async () => {
+      service = await createService({ AUTH_EMAIL_ENABLED: 'false' });
+
+      await expect(
+        service.signup({
+          name: 'Test User',
+          email: 'test@example.com',
+          password: 'password123',
+        }),
+      ).rejects.toThrow(ServiceUnavailableException);
+    });
+
     it('rejects duplicate email', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({ id: 'existing' });
 
@@ -211,6 +243,14 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
+    it('rejects login when AUTH_EMAIL_ENABLED=false', async () => {
+      service = await createService({ AUTH_EMAIL_ENABLED: 'false' });
+
+      await expect(
+        service.login({ email: 'test@example.com', password: 'secret' }),
+      ).rejects.toThrow(ServiceUnavailableException);
+    });
+
     it('rejects invalid credentials', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: 'user-1',
@@ -227,6 +267,15 @@ describe('AuthService', () => {
   });
 
   describe('forgotPassword', () => {
+    it('rejects mobile reset when phone OTP is disabled', async () => {
+      service = await createService({ AUTH_PHONE_OTP_ENABLED: 'false' });
+
+      await expect(service.forgotPassword({ phone: '+919876543210' })).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+      expect(mockOtpService.requestOtp).not.toHaveBeenCalled();
+    });
+
     it('requires email or phone', async () => {
       await expect(service.forgotPassword({})).rejects.toThrow(BadRequestException);
     });

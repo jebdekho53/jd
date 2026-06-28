@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { Button, Input } from '@/design-system/primitives';
 import { useToast } from '@/design-system/primitives';
 import { AuthShell } from '@/features/auth/components/auth-shell';
-import { AuthTabs } from '@/features/auth/components/auth-tabs';
+import { AuthTabs, MobileOtpComingSoonBanner } from '@/features/auth/components/auth-tabs';
 import { AuthSwitchLink } from '@/features/auth/components/auth-switch-link';
 import { SocialLogin } from '@/features/auth/components/social-login';
 import { OtpInput } from '@/features/auth/components/otp-input';
@@ -26,6 +26,7 @@ import {
 import { isValidIndianPhone, normalizeIndianPhone } from '@/lib/phone';
 import { DEMO_OTP, DEMO_PHONE_DIGITS, DEMO_PHONE_E164, IS_DEV } from '@/lib/demo-auth';
 import { safeReturnUrl } from '@jebdekho/web-config';
+import { isPhoneOtpEnabled } from '@jebdekho/web-config';
 
 type LoginTab = 'mobile' | 'email';
 type MobileStep = 'phone' | 'otp';
@@ -51,8 +52,9 @@ export function LoginPageContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const returnUrl = safeReturnUrl(searchParams.get('returnUrl'));
+  const phoneOtpEnabled = isPhoneOtpEnabled();
 
-  const [tab, setTab] = useState<LoginTab>('mobile');
+  const [tab, setTab] = useState<LoginTab>(phoneOtpEnabled ? 'mobile' : 'email');
   const [mobileStep, setMobileStep] = useState<MobileStep>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -150,7 +152,12 @@ export function LoginPageContent() {
     >
       <AuthTabs
         tabs={[
-          { id: 'mobile', label: 'Mobile Number' },
+          {
+            id: 'mobile',
+            label: 'Mobile Number',
+            disabled: !phoneOtpEnabled,
+            badge: phoneOtpEnabled ? undefined : 'Coming Soon',
+          },
           { id: 'email', label: 'Email' },
         ]}
         active={tab}
@@ -162,7 +169,9 @@ export function LoginPageContent() {
         }}
       />
 
-      {tab === 'mobile' && mobileStep === 'phone' && (
+      {!phoneOtpEnabled && tab === 'mobile' && <MobileOtpComingSoonBanner className="mb-5" />}
+
+      {tab === 'mobile' && phoneOtpEnabled && mobileStep === 'phone' && (
         <form onSubmit={onPhoneSubmit} className="space-y-5">
           {IS_DEV && (
             <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4 text-center">
@@ -195,7 +204,7 @@ export function LoginPageContent() {
         </form>
       )}
 
-      {tab === 'mobile' && mobileStep === 'otp' && (
+      {tab === 'mobile' && phoneOtpEnabled && mobileStep === 'otp' && (
         <div className="space-y-5">
           <div className="text-center">
             <p className="text-sm text-jd-text-muted">

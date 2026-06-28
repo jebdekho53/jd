@@ -26,6 +26,19 @@ export class SitemapService {
     ]);
   }
 
+  async getBrandsXml(): Promise<string> {
+    const brands = await this.prisma.seoPage.findMany({
+      where: { pageType: 'BRAND', indexable: true },
+      select: { path: true, updatedAt: true },
+      take: 5000,
+    });
+    const urls = brands.map((b) => ({
+      loc: absoluteUrl(b.path, this.siteUrl),
+      lastmod: b.updatedAt.toISOString(),
+    }));
+    return this.wrapUrlset(urls);
+  }
+
   async getXml(type: SitemapType): Promise<string> {
     const row = await this.prisma.sitemapIndex.findUnique({ where: { sitemapType: type } });
     if (row?.xmlContent) return row.xmlContent;
@@ -56,7 +69,7 @@ export class SitemapService {
   }
 
   private async buildIndexXml() {
-    const children = ['products', 'stores', 'categories', 'cities', 'faq'];
+    const children = ['products', 'stores', 'categories', 'cities', 'faq', 'brands'];
     const urls = children.map((c) => ({
       loc: absoluteUrl(`/sitemap-${c}.xml`, this.siteUrl),
       lastmod: new Date().toISOString(),

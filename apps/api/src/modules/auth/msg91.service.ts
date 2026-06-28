@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { getConfig } from '../../config/configuration';
+import { SMS_WHATSAPP_DISABLED_LOG } from './auth.constants';
 
 @Injectable()
 export class Msg91Service {
@@ -17,6 +18,11 @@ export class Msg91Service {
    * Falls back to console logging when SMS_PROVIDER=console (dev/test).
    */
   async sendOtp(phone: string, otp: string): Promise<void> {
+    if (!this.cfg.auth.smsEnabled) {
+      this.logger.log({ phone }, SMS_WHATSAPP_DISABLED_LOG);
+      return;
+    }
+
     if (this.cfg.sms.provider === 'console') {
       this.logger.log(
         { phone, otp },
@@ -25,7 +31,61 @@ export class Msg91Service {
       return;
     }
 
+    if (!this.cfg.auth.msg91Enabled) {
+      this.logger.log({ phone }, SMS_WHATSAPP_DISABLED_LOG);
+      return;
+    }
+
     await this.sendViaMSG91(phone, otp);
+  }
+
+  /** Transactional SMS (order updates, alerts). Uses MSG91 flow API in production. */
+  async sendTransactional(phone: string, message: string): Promise<void> {
+    if (!this.cfg.auth.smsEnabled) {
+      this.logger.log({ phone, message }, SMS_WHATSAPP_DISABLED_LOG);
+      return;
+    }
+
+    if (this.cfg.sms.provider === 'console') {
+      this.logger.log({ phone, message }, 'SMS (console mode)');
+      return;
+    }
+
+    if (!this.cfg.auth.msg91Enabled) {
+      this.logger.log({ phone, message }, SMS_WHATSAPP_DISABLED_LOG);
+      return;
+    }
+
+    const mobile = phone.startsWith('+') ? phone.slice(1) : phone;
+    const { authKey, senderId } = this.cfg.sms.msg91;
+
+    try {
+      const response = await axios.post(
+        'https://control.msg91.com/api/v5/flow/',
+        {
+          template_id: this.cfg.sms.msg91.templateId,
+          short_url: '0',
+          recipients: [{ mobiles: mobile, var: message }],
+        },
+        {
+          headers: {
+            authkey: authKey,
+            'Content-Type': 'application/json',
+            accept: 'application/json',
+          },
+          timeout: 8000,
+        },
+      );
+
+      if (response.data?.type === 'error') {
+        throw new Error(`MSG91 flow error: ${JSON.stringify(response.data)}`);
+      }
+
+      this.logger.log({ mobile }, 'Transactional SMS queued via MSG91');
+    } catch (err) {
+      this.logger.error({ err, mobile }, 'Failed to send transactional SMS');
+      throw new Error('Failed to send SMS notification');
+    }
   }
 
   private async sendViaMSG91(phone: string, otp: string): Promise<void> {

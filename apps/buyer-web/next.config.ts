@@ -1,10 +1,27 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import withSerwistInit from '@serwist/next';
 import type { NextConfig } from 'next';
 
 const revision =
   spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf-8' }).stdout.trim() || randomUUID();
+
+function resolveAppVersion(): string {
+  if (process.env.NEXT_PUBLIC_APP_VERSION) return process.env.NEXT_PUBLIC_APP_VERSION;
+  try {
+    const pkg = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf-8')) as {
+      version?: string;
+    };
+    if (pkg.version) return pkg.version;
+  } catch {
+    /* use git revision */
+  }
+  return revision.slice(0, 7);
+}
+
+const appVersion = resolveAppVersion();
 
 const withSerwist = withSerwistInit({
   swSrc: 'app/sw.ts',
@@ -22,6 +39,9 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_VERSION: appVersion,
+  },
   transpilePackages: ['@jebdekho/order-timeline', '@jebdekho/web-config'],
   images: {
     remotePatterns: [

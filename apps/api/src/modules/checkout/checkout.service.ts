@@ -38,6 +38,7 @@ import { CorporateWalletService } from '../corporate/corporate-wallet.service';
 import { ApprovalService } from '../corporate/approval.service';
 import { PurchaseRequestStatus } from '@prisma/client';
 import { EmailNotificationService } from '../email/email-notification.service';
+import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 import { LocationDirectoryService } from '../location-directory/location-directory.service';
 
 const CHECKOUT_TTL_MINUTES = 15;
@@ -72,6 +73,7 @@ export class CheckoutService {
     private readonly corporateApproval: ApprovalService,
     private readonly emailNotifications: EmailNotificationService,
     private readonly locations: LocationDirectoryService,
+    private readonly buyerPush: BuyerPushNotificationService,
   ) {}
 
   // ── Initiate checkout (Razorpay / online payment) ──────────────────────────
@@ -402,6 +404,9 @@ export class CheckoutService {
     void this.emailNotifications.sendOrderConfirmation(order.id).catch((err) => {
       this.logger.error({ err, orderId: order.id }, 'Order confirmation email failed');
     });
+    void this.buyerPush.notifyOrderPlaced(order.id).catch(() => {});
+
+    void this.orderCache.invalidateAll(order.id);
 
     return { orderId: order.id, orderNumber: order.orderNumber, status: order.status };
   }

@@ -22,6 +22,7 @@ import {
 import { Button } from '@/design-system';
 import { VerificationDocumentsPanel } from './components/verification-documents-panel';
 import { StoreModerationActions } from './components/store-moderation-actions';
+import { StoreApprovalChecklist } from './components/store-approval-checklist';
 
 const DEFAULT_DOC_TYPES: StoreDocumentType[] = ['GST_CERTIFICATE', 'PAN_CARD', 'FSSAI_LICENSE'];
 
@@ -253,6 +254,8 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
           <p className="mt-3 text-sm text-red-700">Blacklist reason: {mp.blacklistReason}</p>
         )}
       </div>
+
+      {showReviewActions && <StoreApprovalChecklist store={store} />}
 
       {/* Merchant compliance */}
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

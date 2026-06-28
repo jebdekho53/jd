@@ -19,7 +19,8 @@ import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { OrderCacheService } from './order-cache.service';
 import { OrderStatusHistoryService } from './order-status-history.service';
-import { BUYER_STATUS_GROUPS, MERCHANT_STATUS_GROUPS } from './order-status-groups';
+import { buildMerchantListWhere } from './merchant-order-visibility.util';
+import { BUYER_STATUS_GROUPS } from './order-status-groups';
 import {
   PIPELINE_COLUMN_STATUSES,
   resolvePipelineColumn,
@@ -35,6 +36,7 @@ import { RewardService } from '../wallet-loyalty/reward.service';
 import { LedgerService } from '../finance/ledger.service';
 import { CreditNoteService } from '../compliance/credit-note.service';
 import { EmailNotificationService } from '../email/email-notification.service';
+import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 import { ListOrdersDto, ListMerchantOrdersDto, ListAdminOrdersDto } from './dto/list-orders.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import {
@@ -241,6 +243,7 @@ export class OrderService implements OnModuleInit {
     private readonly ledger: LedgerService,
     private readonly creditNotes: CreditNoteService,
     private readonly emailNotifications: EmailNotificationService,
+    private readonly buyerPush: BuyerPushNotificationService,
   ) {}
 
   // ── Buyer: list orders ────────────────────────────────────────────────────
@@ -467,17 +470,18 @@ export class OrderService implements OnModuleInit {
       : storeIds;
 
     const group = merchantStatusGroup;
-    const columnStatuses = pipelineColumn
-      ? PIPELINE_COLUMN_STATUSES[pipelineColumn as MerchantPipelineColumn]
-      : undefined;
 
     const dayFilter = merchantOrderDayFilter({ today, yesterday });
 
+    const visibilityWhere = buildMerchantListWhere({
+      status,
+      merchantStatusGroup: group,
+      pipelineColumn: pipelineColumn as MerchantPipelineColumn | undefined,
+    });
+
     const where: Prisma.OrderWhereInput = {
       storeId: { in: targetStoreIds },
-      ...(status && { status }),
-      ...(group && !status && !columnStatuses && { status: { in: [...MERCHANT_STATUS_GROUPS[group]] } }),
-      ...(columnStatuses && !status && { status: { in: [...columnStatuses] } }),
+      ...visibilityWhere,
       ...(paymentMethod && { paymentMethod }),
       ...(dayFilter ?? {}),
       ...(dateFrom || dateTo
@@ -830,10 +834,15 @@ export class OrderService implements OnModuleInit {
       );
     }
 
+    if (targetStatus === OrderStatus.MERCHANT_ACCEPTED) {
+      void this.buyerPush.notifyOrderAccepted(orderId).catch(() => {});
+    }
+
     void this.cache.invalidateAll(orderId);
     this.logger.log({ userId, orderId, from: order.status, to: targetStatus }, 'Order status advanced');
 
     if (targetStatus === OrderStatus.READY_FOR_PICKUP) {
+      void this.buyerPush.notifyReadyForPickup(orderId).catch(() => {});
       void this.deliveryDispatch.dispatchAfterReadyForPickup(orderId).then((result) => {
         if (result?.mode === 'own_fleet') {
           void this.cache.invalidateAll(orderId);

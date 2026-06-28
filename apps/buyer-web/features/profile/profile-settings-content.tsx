@@ -127,6 +127,18 @@ export function ProfileSettingsContent() {
             }}
           />
         </section>
+
+        <section aria-labelledby="about-heading">
+          <h2 id="about-heading" className="mb-3 text-xs font-semibold uppercase tracking-wider text-jd-text-muted">
+            About
+          </h2>
+          <p className="text-sm text-jd-text-secondary">
+            App version{' '}
+            <span className="font-mono text-jd-text-primary">
+              {process.env.NEXT_PUBLIC_APP_VERSION ?? '0.1.0'}
+            </span>
+          </p>
+        </section>
       </div>
     </ProfileShell>
   );

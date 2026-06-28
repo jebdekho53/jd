@@ -62,6 +62,7 @@ import { PasswordService } from './password.service';
     PermissionsGuard,
     TokenService,
     AuthService,
+    Msg91Service,
   ],
 })
 export class AuthModule {}

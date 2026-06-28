@@ -86,6 +86,12 @@ export function HealthPill({
     status === 'configured' ||
     status === 'running' ||
     status === 'active';
+  const muted =
+    status === 'disabled' ||
+    status === 'coming_soon' ||
+    status === 'console' ||
+    status === 'not_configured' ||
+    status === 'unavailable';
   const pill = (
     <div
       className={cn(
@@ -97,10 +103,14 @@ export function HealthPill({
       <span
         className={cn(
           'rounded-full px-2 py-0.5 text-xs font-semibold',
-          up ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800',
+          up
+            ? 'bg-emerald-100 text-emerald-800'
+            : muted
+              ? 'bg-amber-100 text-amber-800'
+              : 'bg-red-100 text-red-800',
         )}
       >
-        {status}
+        {status === 'coming_soon' ? 'Coming Soon' : status}
       </span>
     </div>
   );

@@ -30,6 +30,10 @@ export function MonitoringContent() {
               <HealthPill label="WebSocket" status={health.data.websocket} href="/fleet/live" />
               <HealthPill label="Cron" status={health.data.cronStatus} href="/monitoring" />
               <HealthPill label="SMS" status={health.data.sms} href="/monitoring" />
+              <HealthPill label="WhatsApp" status={health.data.whatsapp ?? 'coming_soon'} href="/monitoring" />
+              <HealthPill label="Email" status={health.data.email ?? 'unknown'} href="/monitoring" />
+              <HealthPill label="Google Maps" status={health.data.googleMaps ?? 'unknown'} href="/monitoring" />
+              <HealthPill label="Shadowfax" status={health.data.shadowfax ?? 'unknown'} href="/logistics" />
               <HealthPill label="Background jobs" status={health.data.backgroundJobs} href="/monitoring" />
             </div>
           )}

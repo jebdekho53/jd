@@ -9,8 +9,9 @@ import {
   Serwist,
   StaleWhileRevalidate,
 } from 'serwist';
-import { CACHE_LIMITS } from '../lib/pwa/cache-config';
+import { CACHE_LIMITS, runtimeCacheName } from '../lib/pwa/cache-config';
 import { isPrivateApiPath, isPublicBrowsePath } from '../lib/pwa/constants';
+import { shouldDeletePwaCache } from '../lib/pwa/cache-cleanup';
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -19,6 +20,10 @@ declare global {
 }
 
 declare const self: ServiceWorkerGlobalScope;
+
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.1.0';
+const CACHE_PREFIX = `jebdekho-${APP_VERSION}`;
+const cacheName = (suffix: string) => runtimeCacheName(suffix, APP_VERSION);
 
 const sameOrigin = ({ url }: { url: URL }) => url.origin === self.location.origin;
 
@@ -30,7 +35,7 @@ const runtimeCaching = [
       request.destination === 'document' &&
       isPublicBrowsePath(url.pathname),
     handler: new StaleWhileRevalidate({
-      cacheName: 'pages',
+      cacheName: cacheName('pages'),
       plugins: [
         new CacheableResponsePlugin({ statuses: [0, 200] }),
         new ExpirationPlugin({
@@ -46,7 +51,7 @@ const runtimeCaching = [
       request.method === 'GET' &&
       url.pathname.startsWith('/search'),
     handler: new NetworkFirst({
-      cacheName: 'search-pages',
+      cacheName: cacheName('search-pages'),
       networkTimeoutSeconds: 8,
       plugins: [
         new CacheableResponsePlugin({ statuses: [0, 200] }),
@@ -64,7 +69,7 @@ const runtimeCaching = [
       url.pathname.startsWith('/api/buyer/') &&
       !isPrivateApiPath(url.pathname),
     handler: new NetworkFirst({
-      cacheName: 'api-get',
+      cacheName: cacheName('api-get'),
       networkTimeoutSeconds: 10,
       plugins: [
         new CacheableResponsePlugin({ statuses: [0, 200] }),
@@ -79,7 +84,7 @@ const runtimeCaching = [
     matcher: ({ request }: { request: Request }) =>
       request.method === 'GET' && request.destination === 'image',
     handler: new StaleWhileRevalidate({
-      cacheName: 'images',
+      cacheName: cacheName('images'),
       plugins: [
         new CacheableResponsePlugin({ statuses: [0, 200] }),
         new ExpirationPlugin({
@@ -94,7 +99,7 @@ const runtimeCaching = [
       request.method === 'GET' &&
       (request.destination === 'font' || /\.(?:woff2?|ttf|otf)$/i.test(request.url)),
     handler: new CacheFirst({
-      cacheName: 'fonts',
+      cacheName: cacheName('fonts'),
       plugins: [
         new CacheableResponsePlugin({ statuses: [0, 200] }),
         new ExpirationPlugin({
@@ -110,7 +115,7 @@ const runtimeCaching = [
       request.method === 'GET' &&
       /\.(?:js|css)$/i.test(url.pathname),
     handler: new CacheFirst({
-      cacheName: 'static-assets',
+      cacheName: cacheName('static-assets'),
       plugins: [
         new CacheableResponsePlugin({ statuses: [0, 200] }),
         new ExpirationPlugin({
@@ -127,7 +132,7 @@ const runtimeCaching = [
       (url.pathname === '/manifest.webmanifest' ||
         url.pathname.endsWith('manifest.json')),
     handler: new CacheFirst({
-      cacheName: 'manifest',
+      cacheName: cacheName('manifest'),
       plugins: [new CacheableResponsePlugin({ statuses: [0, 200] })],
     }),
   },
@@ -154,15 +159,70 @@ const serwist = new Serwist({
 
 serwist.addEventListeners();
 
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys
+          .filter((key) => shouldDeletePwaCache(key, CACHE_PREFIX, false))
+          .map((key) => caches.delete(key)),
+      ),
+    ),
+  );
+});
+
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') {
     void self.skipWaiting();
   }
 });
 
+self.addEventListener('push', (event) => {
+  event.waitUntil(
+    (async () => {
+      const fallback = {
+        title: 'JebDekho',
+        body: 'You have a new update.',
+        icon: '/pwa/icons/icon-192.png',
+        badge: '/pwa/icons/icon-72.png',
+        data: { url: '/' },
+      };
+
+      let payload: {
+        title?: string;
+        body?: string;
+        icon?: string;
+        badge?: string;
+        image?: string;
+        tag?: string;
+        data?: { url?: string };
+      } = fallback;
+      try {
+        payload = event.data?.json() ?? fallback;
+      } catch {
+        payload = fallback;
+      }
+
+      const options: NotificationOptions = {
+        body: payload.body ?? fallback.body,
+        icon: payload.icon ?? fallback.icon,
+        badge: payload.badge ?? fallback.badge,
+        tag: payload.tag,
+        data: payload.data ?? fallback.data,
+      };
+      if (payload.image) {
+        (options as NotificationOptions & { image?: string }).image = payload.image;
+      }
+
+      await self.registration.showNotification(payload.title ?? fallback.title, options);
+    })(),
+  );
+});
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data?.url as string | undefined) ?? '/';
+  const rawUrl = (event.notification.data?.url as string | undefined) ?? '/';
+  const url = rawUrl.startsWith('http') ? rawUrl : new URL(rawUrl, self.location.origin).pathname;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {

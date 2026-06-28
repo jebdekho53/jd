@@ -52,6 +52,13 @@ export const validationSchema = Joi.object({
   DEV_DEMO_RIDER_PHONE: Joi.string().empty('').default('+919876543214'),
   DEV_DEMO_OTP: Joi.string().length(6).pattern(/^\d+$/).empty('').default('123456'),
 
+  // Authentication feature flags (email-only until MSG91/DLT approval)
+  AUTH_EMAIL_ENABLED: Joi.string().valid('true', 'false', '1', '0').default('true'),
+  AUTH_PHONE_OTP_ENABLED: Joi.string().valid('true', 'false', '1', '0').default('false'),
+  AUTH_SMS_ENABLED: Joi.string().valid('true', 'false', '1', '0').default('false'),
+  AUTH_WHATSAPP_ENABLED: Joi.string().valid('true', 'false', '1', '0').default('false'),
+  MSG91_ENABLED: Joi.string().valid('true', 'false', '1', '0').default('false'),
+
   // SMS Provider
   SMS_PROVIDER: Joi.string().valid('msg91', 'console').default('console'),
   MSG91_AUTH_KEY: Joi.string().empty('').when('SMS_PROVIDER', {
@@ -148,4 +155,14 @@ export const validationSchema = Joi.object({
   SHADOWFAX_TEST_TOKEN: Joi.string().empty('').optional(),
   SHADOWFAX_PRODUCTION_TOKEN: Joi.string().empty('').optional(),
   SHADOWFAX_WEBHOOK_SECRET: Joi.string().empty('').optional(),
+
+  WEB_PUSH_PUBLIC_KEY: Joi.string().empty('').optional(),
+  WEB_PUSH_PRIVATE_KEY: Joi.string().empty('').optional(),
+  WEB_PUSH_SUBJECT: Joi.string().default('mailto:support@jebdekho.com'),
+
+  AI_PRODUCT_ANALYSIS_PRICE_PAISE: Joi.number().integer().min(1).default(150),
+  AI_PRODUCT_ANALYSIS_DAILY_LIMIT: Joi.number().integer().min(1).default(20),
+  OPENAI_API_KEY: Joi.string().empty('').optional(),
+  OPENAI_VISION_MODEL: Joi.string().default('gpt-4o-mini'),
+  PRODUCT_CSV_PLACEHOLDER_IMAGE_URL: Joi.string().uri().empty('').optional(),
 });

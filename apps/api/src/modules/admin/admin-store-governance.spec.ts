@@ -9,6 +9,7 @@ import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 import { MerchantService } from '../merchant/merchant.service';
 import { MERCHANT_BLOCKED_MESSAGE } from '../../common/constants/rejection.constants';
 
@@ -74,6 +75,7 @@ describe('Store governance', () => {
         { provide: DomainEventsService, useValue: mockDomainEvents },
         { provide: BuyerCacheService, useValue: mockBuyerCache },
         { provide: VerificationBlocklistService, useValue: mockBlocklist },
+        { provide: EmailNotificationService, useValue: { sendMerchantStoreApproved: jest.fn(), sendMerchantStoreRejected: jest.fn() } },
       ],
     }).compile();
 

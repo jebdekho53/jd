@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PaymentMethod, Prisma } from '@prisma/client';
+import { PaymentMethod, PaymentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { FinanceCommissionService } from './finance-commission.service';
 import { LedgerService } from './ledger.service';
@@ -100,14 +100,47 @@ export class OrderFinancialsService {
     const isCod =
       input.paymentMethod === PaymentMethod.COD ||
       input.paymentMethod === PaymentMethod.WALLET_COD;
+    const deferOnlineLedger =
+      input.paymentMethod === PaymentMethod.RAZORPAY ||
+      input.paymentMethod === PaymentMethod.WALLET_RAZORPAY;
     const paidAmount = gross + deliveryFee - input.discountAmount + taxAmount;
 
-    void this.ledger.recordOrderPayment(input.orderId, paidAmount, isCod).catch((err) => {
-      this.logger.warn(`Ledger order payment failed: ${(err as Error).message}`);
-    });
+    if (!deferOnlineLedger) {
+      void this.ledger.recordOrderPayment(input.orderId, paidAmount, isCod).catch((err) => {
+        this.logger.warn(`Ledger order payment failed: ${(err as Error).message}`);
+      });
+    }
     void this.ledger.recordTaxAccrual(input.orderId, taxAmount, gross).catch(() => {});
 
     this.logger.debug({ orderId: input.orderId, commission: resolution }, 'Order financials frozen');
+  }
+
+  /** Post ledger entry when online Razorpay payment is verified (idempotent). */
+  async recordOnlinePaymentConfirmed(orderId: string): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        paymentMethod: true,
+        paymentStatus: true,
+        totalAmount: true,
+        deliveryFee: true,
+        discountAmount: true,
+        taxAmount: true,
+      },
+    });
+    if (!order || order.paymentStatus !== PaymentStatus.PAID) return;
+
+    const method = order.paymentMethod;
+    if (method !== PaymentMethod.RAZORPAY && method !== PaymentMethod.WALLET_RAZORPAY) return;
+
+    const snap = await this.prisma.orderFinancialSnapshot.findUnique({ where: { orderId } });
+    const gross = snap ? decimalToNumber(snap.subtotal) : decimalToNumber(order.totalAmount);
+    const deliveryFee = snap ? decimalToNumber(snap.deliveryFee) : decimalToNumber(order.deliveryFee);
+    const discount = snap ? decimalToNumber(snap.discountAmount) : decimalToNumber(order.discountAmount);
+    const tax = snap ? decimalToNumber(snap.taxAmount) : decimalToNumber(order.taxAmount);
+    const paidAmount = gross + deliveryFee - discount + tax;
+
+    await this.ledger.recordOrderPayment(orderId, paidAmount, false);
   }
 
   async getOrderFinancials(orderId: string) {

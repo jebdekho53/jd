@@ -6,6 +6,7 @@ import { ProfileListSkeleton } from '@/features/profile/components/profile-skele
 import { ProfileErrorState } from '@/features/profile/components/profile-error';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchCrmPreferences, updateCrmPreferences } from '@/services/crm/crm-api';
+import { PushNotificationSettings } from '@/components/pwa/push-notification-settings';
 
 const CHANNEL_PREFS = [
   { key: 'pushEnabled' as const, label: 'Push notifications', description: 'Alerts on your device' },
@@ -55,6 +56,11 @@ export function ProfileNotificationsContent() {
 
   return (
     <ProfileShell title="Notifications" subtitle="Control channels and alert types">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-jd-text-muted">Device push</h2>
+      <div className="mb-6">
+        <PushNotificationSettings />
+      </div>
+
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-jd-text-muted">Channels</h2>
       <div className="mb-6 space-y-3">
         {CHANNEL_PREFS.map((cat) => (

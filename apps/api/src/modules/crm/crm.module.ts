@@ -1,5 +1,7 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { SupportModule } from '../support/support.module';
+import { PushModule } from '../push/push.module';
 import { SegmentService } from './segment.service';
 import { Customer360Service } from './customer-360.service';
 import { NotificationOrchestratorService } from './notification-orchestrator.service';
@@ -14,7 +16,7 @@ import { BuyerCrmController } from './buyer-crm.controller';
 import { MerchantCrmController } from './merchant-crm.controller';
 
 @Module({
-  imports: [SupportModule],
+  imports: [SupportModule, AuthModule, forwardRef(() => PushModule)],
   controllers: [AdminCrmController, BuyerCrmController, MerchantCrmController],
   providers: [
     SegmentService,

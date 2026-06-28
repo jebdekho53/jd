@@ -6,6 +6,8 @@ import type {
   CategoryItem,
   DiscoverStoresParams,
   PaginatedResponse,
+  ProductOffersBundle,
+  ProductReview,
   SearchProductsParams,
   StoreCard,
   StoreCardWithCount,
@@ -37,6 +39,10 @@ export const buyerKeys = {
     [...buyerKeys.all, 'category-stores', categoryId, params] as const,
   searchGrouped: (params: SearchProductsParams) => [...buyerKeys.all, 'search-grouped', params] as const,
   product: (id: string, storeSlug?: string) => [...buyerKeys.all, 'product', id, storeSlug ?? ''] as const,
+  productReviews: (id: string) => [...buyerKeys.all, 'product-reviews', id] as const,
+  productOffers: (id: string) => [...buyerKeys.all, 'product-offers', id] as const,
+  compare: (id: string, lat?: number, lng?: number, pincode?: string) =>
+    [...buyerKeys.all, 'compare', id, lat, lng, pincode] as const,
   unifiedSearch: (params: SearchProductsParams & { tab?: string }) =>
     [...buyerKeys.all, 'unified-search', params] as const,
   searchSuggestions: (q: string, lat?: number, lng?: number) =>
@@ -87,6 +93,77 @@ export async function getProductById(
     store: storeSlug,
   });
   return res.data;
+}
+
+export interface CompareStoreRow {
+  storeId: string;
+  storeName: string;
+  storeSlug: string;
+  productId: string;
+  variantId: string;
+  price: number;
+  offerPrice: number;
+  mrp: number | null;
+  discount: number;
+  discountPercent: number;
+  deliveryFee: number;
+  minimumOrder: number;
+  distanceKm: number | null;
+  etaMins: number | null;
+  rating: number | null;
+  stock: number;
+  finalPayableAmount: number;
+  serviceable: boolean;
+  cheapest: boolean;
+  deliveryPartner: string;
+}
+
+export interface CompareProductResult {
+  productId: string;
+  name: string;
+  unit: string;
+  imageUrl: string | null;
+  bestPrice: number;
+  savings: number;
+  savingsPercent: number;
+  stores: CompareStoreRow[];
+}
+
+export async function compareProduct(
+  productId: string,
+  params?: { lat?: number; lng?: number; pincode?: string },
+): Promise<CompareProductResult | null> {
+  try {
+    const res = await apiGetClient<ApiResponse<CompareProductResult>>(
+      `/buyer/compare/${productId}`,
+      params,
+    );
+    return res.data;
+  } catch {
+    return null;
+  }
+}
+
+export async function getProductReviews(
+  productId: string,
+  page = 1,
+): Promise<{ reviews: ProductReview[]; aggregate: { ratingAvg: number; ratingCount: number } }> {
+  const res = await apiGetClient<
+    ApiResponse<ProductReview[]> & {
+      meta?: { aggregate: { ratingAvg: number; ratingCount: number } };
+    }
+  >(`/buyer/products/${productId}/reviews`, { page, limit: 10 });
+  return {
+    reviews: res.data,
+    aggregate: res.meta?.aggregate ?? { ratingAvg: 0, ratingCount: 0 },
+  };
+}
+
+export async function getProductOffers(productId: string): Promise<ProductOffersBundle> {
+  const res = await fetch(`/api/buyer/products/${productId}/offers`, { credentials: 'include' });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message ?? 'Failed to load offers');
+  return json.data as ProductOffersBundle;
 }
 
 export async function searchProducts(

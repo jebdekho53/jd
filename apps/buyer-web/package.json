@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@jebdekho/google-maps": "workspace:*",
+    "@jebdekho/image-utils": "workspace:*",
     "@hookform/resolvers": "^3.9.1",
     "@jebdekho/order-timeline": "workspace:*",
     "@jebdekho/web-config": "workspace:*",
@@ -53,7 +54,8 @@
     "preset": "ts-jest",
     "testEnvironment": "node",
     "roots": [
-      "<rootDir>/lib"
+      "<rootDir>/lib",
+      "<rootDir>/hooks"
     ],
     "testRegex": ".*\\.spec\\.ts$",
     "moduleNameMapper": {

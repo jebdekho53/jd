@@ -63,6 +63,24 @@ export interface BuyerVariant {
   availableQty: number;
 }
 
+export interface BuyerProductMetadata {
+  ingredients: string | null;
+  shelfLife: string | null;
+  countryOfOrigin: string | null;
+  manufacturerName: string | null;
+  manufacturerAddress: string | null;
+  fssaiLicense: string | null;
+  hsnCode: string | null;
+  taxInclusive: boolean;
+  storageInstructions: string | null;
+  disclaimer: string | null;
+}
+
+export interface BuyerProductReviewSummary {
+  ratingAvg: number;
+  ratingCount: number;
+}
+
 export interface BuyerProduct {
   id: string;
   name: string;
@@ -77,10 +95,62 @@ export interface BuyerProduct {
   tags: string[];
   category: { id: string; name: string; slug: string } | null;
   variants: BuyerVariant[];
+  metadata?: BuyerProductMetadata;
+  reviewSummary?: BuyerProductReviewSummary;
 }
 
 export interface BuyerProductWithStore extends BuyerProduct {
-  store: { id: string; name: string; slug: string };
+  store: {
+    id: string;
+    name: string;
+    slug: string;
+    ratingAvg?: number;
+    ratingCount?: number;
+    avgPrepTimeMins?: number;
+    distanceKm?: number | null;
+    deliveryFee?: number;
+    minOrderAmount?: number;
+    deliveryPartner?: string;
+  };
+}
+
+export interface ProductReview {
+  id: string;
+  productId: string;
+  rating: number;
+  comment: string | null;
+  images: string[];
+  verifiedPurchase: boolean;
+  buyer: { id: string; name: string } | null;
+  order: { id: string; orderNumber: string } | null;
+  createdAt: string;
+}
+
+export interface ProductOffersBundle {
+  productId: string;
+  storePromotions: {
+    id: string;
+    name: string;
+    description: string | null;
+    offerType: string;
+    badge: string;
+  }[];
+  campaignOffers: {
+    id: string;
+    name: string;
+    description: string | null;
+    kind: string;
+    campaignName: string;
+    minOrderAmount: number;
+  }[];
+  coupons: { id: string; code: string; name: string; minOrderAmount: number }[];
+  walletCashbackPercent: number | null;
+  walletCashbackEligible?: boolean;
+  rewardPoints?: number | null;
+  firstOrderEligible?: boolean;
+  plusBenefits: string[];
+  personalizedOffers?: { id: string; name: string; description: string | null; kind: string }[];
+  freeDeliveryEligible: boolean;
 }
 
 export interface CategoryItem {

@@ -10,7 +10,7 @@ import { UploadImageDto } from './dto/upload-image.dto';
 @ApiTags(Tags.MERCHANTS)
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('MERCHANT', 'ADMIN', 'SUPER_ADMIN')
+@Roles('BUYER', 'MERCHANT', 'ADMIN', 'SUPER_ADMIN')
 @Controller('uploads')
 export class UploadController {
   constructor(private readonly uploads: UploadService) {}

@@ -42,6 +42,19 @@ export interface Product {
   tags: string[];
   isActive: boolean;
   sortOrder: number;
+  ingredients?: string | null;
+  shelfLife?: string | null;
+  countryOfOrigin?: string | null;
+  manufacturerName?: string | null;
+  manufacturerAddress?: string | null;
+  fssaiLicense?: string | null;
+  storageInstructions?: string | null;
+  disclaimer?: string | null;
+  taxInclusive?: boolean;
+  hsnCodeId?: string | null;
+  gstSlab?: string | null;
+  taxCategory?: string | null;
+  hsnCodeRef?: { id: string; code: string; description: string; defaultGstSlab: string } | null;
   createdAt: string;
   variants: ProductVariant[];
 }
@@ -61,6 +74,18 @@ export interface CreateProductPayload {
   tags?: string[];
   quantity?: number;
   lowStockThreshold?: number;
+  ingredients?: string;
+  shelfLife?: string;
+  countryOfOrigin?: string;
+  manufacturerName?: string;
+  manufacturerAddress?: string;
+  fssaiLicense?: string;
+  storageInstructions?: string;
+  disclaimer?: string;
+  taxInclusive?: boolean;
+  hsnCodeId?: string;
+  gstSlab?: string;
+  taxCategory?: 'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED';
 }
 
 export interface UpdateProductPayload extends Partial<CreateProductPayload> {

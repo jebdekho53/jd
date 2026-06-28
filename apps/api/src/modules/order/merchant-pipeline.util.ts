@@ -20,7 +20,7 @@ const CANCELLED = new Set<OrderStatus>([
 ]);
 
 export const PIPELINE_COLUMN_STATUSES: Record<MerchantPipelineColumn, OrderStatus[]> = {
-  NEW: [OrderStatus.CREATED, OrderStatus.PAYMENT_PENDING, OrderStatus.PAID],
+  NEW: [OrderStatus.PAID, OrderStatus.MERCHANT_ACCEPTED],
   ACCEPTED: [OrderStatus.MERCHANT_ACCEPTED],
   PREPARING: [OrderStatus.PREPARING],
   PACKING: [OrderStatus.PACKING],

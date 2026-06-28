@@ -11,8 +11,10 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { getConfig } from './config/configuration';
+import { initSentry } from './monitoring/sentry';
 
 async function bootstrap(): Promise<void> {
+  initSentry();
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
     bodyParser: false,

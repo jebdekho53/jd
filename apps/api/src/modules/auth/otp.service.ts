@@ -38,6 +38,7 @@ export class OtpService {
     phone: string,
     purpose: OtpPurpose,
     userId?: string,
+    options?: { skipSms?: boolean },
   ): Promise<{ expiresIn: number; code: string }> {
     if (!isDemoPhone(phone, this.cfg)) {
       await this.enforceRateLimit(phone);
@@ -73,7 +74,11 @@ export class OtpService {
       },
     });
 
-    await this.msg91.sendOtp(phone, code);
+    if (!options?.skipSms) {
+      await this.msg91.sendOtp(phone, code);
+    } else {
+      this.logger.debug({ phone, purpose }, 'OTP SMS dispatch skipped');
+    }
 
     this.logger.debug({ phone, purpose }, 'OTP dispatched');
 

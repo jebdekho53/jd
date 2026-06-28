@@ -4,10 +4,17 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { OrderStatusHistoryService } from '../order/order-status-history.service';
+import { OrderCacheService } from '../order/order-cache.service';
 
 const mockPrisma = {
   checkout: { findMany: jest.fn(), update: jest.fn(), findUnique: jest.fn() },
+  order: { findUnique: jest.fn(), findMany: jest.fn() },
+  payment: { updateMany: jest.fn() },
 };
+
+const mockStatusHistory = { transition: jest.fn() };
+const mockOrderCache = { invalidateAll: jest.fn() };
 
 const mockInventory = {
   reserveForCheckout: jest.fn(),
@@ -31,6 +38,8 @@ describe('ReservationService', () => {
         { provide: AuditService, useValue: mockAudit },
         { provide: DomainEventsService, useValue: mockDomainEvents },
         { provide: InventoryService, useValue: mockInventory },
+        { provide: OrderStatusHistoryService, useValue: mockStatusHistory },
+        { provide: OrderCacheService, useValue: mockOrderCache },
       ],
     }).compile();
 

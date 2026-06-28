@@ -1,7 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { GstSlab } from '@prisma/client';
 import {
   IsArray,
   IsBoolean,
+  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
@@ -161,4 +163,64 @@ export class CreateProductDto {
   @ValidateNested({ each: true })
   @Type(() => CreateVariantDto)
   variants?: CreateVariantDto[];
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  ingredients?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  shelfLife?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  countryOfOrigin?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  manufacturerName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  manufacturerAddress?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  fssaiLicense?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  storageInstructions?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  disclaimer?: string;
+
+  @ApiProperty({ required: false, default: false })
+  @IsOptional()
+  @IsBoolean()
+  taxInclusive?: boolean;
+
+  @ApiProperty({ required: false, description: 'HSN code reference ID' })
+  @IsOptional()
+  @IsString()
+  hsnCodeId?: string;
+
+  @ApiProperty({ required: false, enum: GstSlab })
+  @IsOptional()
+  @IsEnum(GstSlab)
+  gstSlab?: GstSlab;
+
+  @ApiProperty({ required: false, enum: ['GOODS', 'SERVICES', 'EXEMPT', 'NIL_RATED'] })
+  @IsOptional()
+  @IsEnum(['GOODS', 'SERVICES', 'EXEMPT', 'NIL_RATED'])
+  taxCategory?: 'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED';
 }

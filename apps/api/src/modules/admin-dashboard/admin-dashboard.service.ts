@@ -613,8 +613,25 @@ export class AdminDashboardService {
       websocket: 'unavailable',
       backgroundJobs: 'running',
       cronStatus: 'active',
-      sms: process.env.MSG91_AUTH_KEY ? 'configured' : 'console',
-      pushNotifications: 'configured',
+      sms:
+        process.env.AUTH_SMS_ENABLED === 'true' && process.env.MSG91_ENABLED === 'true'
+          ? process.env.MSG91_AUTH_KEY
+            ? 'configured'
+            : 'console'
+          : 'disabled',
+      whatsapp:
+        process.env.AUTH_WHATSAPP_ENABLED === 'true' && process.env.MSG91_ENABLED === 'true'
+          ? process.env.MSG91_AUTH_KEY
+            ? 'configured'
+            : 'console'
+          : 'coming_soon',
+      email: process.env.SMTP_HOST ? 'configured' : 'console',
+      googleMaps: process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? 'configured' : 'missing',
+      shadowfax:
+        process.env.ENABLE_SHADOWFAX === 'true' && process.env.SHADOWFAX_API_URL
+          ? 'configured'
+          : 'disabled',
+      pushNotifications: process.env.FCM_SERVER_KEY ? 'configured' : 'not_configured',
     };
   }
 }

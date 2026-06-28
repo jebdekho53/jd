@@ -22,6 +22,8 @@ export const EMAIL_TEMPLATE = {
   ADMIN_PASSWORD_RESET: 'admin_password_reset',
   ADMIN_SECURITY_ALERT: 'admin_security_alert',
   ADMIN_NEW_DEVICE: 'admin_new_device',
+  MERCHANT_APPROVED: 'merchant_approved',
+  MERCHANT_REJECTED: 'merchant_rejected',
 } as const;
 
 export type EmailTemplateCode = (typeof EMAIL_TEMPLATE)[keyof typeof EMAIL_TEMPLATE];

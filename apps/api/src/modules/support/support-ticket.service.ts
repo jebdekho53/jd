@@ -18,6 +18,7 @@ import { TicketAssignmentService } from './ticket-assignment.service';
 import { SupportAutomationService } from './support-automation.service';
 import { MembershipBenefitService } from '../membership/membership-benefit.service';
 import { EmailNotificationService } from '../email/email-notification.service';
+import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 
 export interface CreateTicketInput {
   requesterUserId: string;
@@ -43,6 +44,7 @@ export class SupportTicketService {
     private readonly automation: SupportAutomationService,
     private readonly membershipBenefits: MembershipBenefitService,
     private readonly emailNotifications: EmailNotificationService,
+    private readonly buyerPush: BuyerPushNotificationService,
   ) {}
 
   async createTicket(input: CreateTicketInput, ipAddress?: string) {
@@ -174,6 +176,12 @@ export class SupportTicketService {
       resourceType: 'support_ticket',
       resourceId: ticketId,
     });
+
+    if (isStaff && visibility === SupportMessageVisibility.PUBLIC) {
+      void this.buyerPush
+        .notifySupportReply(ticket.requesterUserId, ticketId, ticket.ticketNumber)
+        .catch(() => {});
+    }
 
     return message;
   }

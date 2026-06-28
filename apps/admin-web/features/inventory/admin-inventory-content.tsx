@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { adminFetch } from '@/services/api/admin-client';
 
 interface InventoryRow {
+  productId: string;
   productName: string;
   storeName: string;
   sku: string;
@@ -12,6 +13,9 @@ interface InventoryRow {
   soldQty: number;
   stockLevel: string;
   status: string;
+  fssaiLicense?: string | null;
+  countryOfOrigin?: string | null;
+  shelfLife?: string | null;
 }
 
 export function AdminInventoryContent() {
@@ -41,6 +45,7 @@ export function AdminInventoryContent() {
                 <th className="px-4 py-3">Available</th>
                 <th className="px-4 py-3">Reserved</th>
                 <th className="px-4 py-3">Sold</th>
+                <th className="px-4 py-3">Compliance</th>
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
@@ -48,11 +53,28 @@ export function AdminInventoryContent() {
               {(data ?? []).map((row, i) => (
                 <tr key={`${row.sku}-${i}`} className="border-t border-slate-100">
                   <td className="px-4 py-2">{row.storeName}</td>
-                  <td className="px-4 py-2 font-medium">{row.productName}</td>
+                  <td className="px-4 py-2 font-medium">
+                    <a href={`/products/${row.productId}`} className="text-emerald-700 hover:underline">
+                      {row.productName}
+                    </a>
+                  </td>
                   <td className="px-4 py-2 font-mono text-xs">{row.sku}</td>
                   <td className="px-4 py-2">{row.availableQty}</td>
                   <td className="px-4 py-2">{row.reservedQty}</td>
                   <td className="px-4 py-2">{row.soldQty}</td>
+                  <td className="px-4 py-2 text-xs text-slate-600">
+                    {row.fssaiLicense || row.countryOfOrigin || row.shelfLife ? (
+                      <span>
+                        {row.fssaiLicense && <>FSSAI {row.fssaiLicense}</>}
+                        {row.countryOfOrigin && (
+                          <span className="block">Origin: {row.countryOfOrigin}</span>
+                        )}
+                        {row.shelfLife && <span className="block">Shelf: {row.shelfLife}</span>}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td className="px-4 py-2">{row.stockLevel}</td>
                 </tr>
               ))}

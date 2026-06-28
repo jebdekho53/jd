@@ -6,6 +6,8 @@ export enum UploadImagePurpose {
   STORE_LOGO = 'store-logo',
   STORE_BANNER = 'store-banner',
   CATEGORY = 'category',
+  REVIEW = 'review',
+  AI_PRODUCT = 'ai-product',
 }
 
 export class UploadImageDto {
