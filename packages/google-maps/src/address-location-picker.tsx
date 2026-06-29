@@ -7,6 +7,7 @@ import { GoogleMapPicker } from './google-map-picker';
 import { OsmMapPicker } from './osm-map-picker';
 import { useGoogleMaps } from './google-maps-context';
 import type { ParsedGoogleAddress } from './parse-address';
+import { normalizeIndianPincode } from './parse-address';
 import { DEFAULT_MAP_CENTER } from './constants';
 
 export interface AddressLocationValue {
@@ -51,6 +52,28 @@ function fromParsed(address: ParsedGoogleAddress): AddressLocationValue {
   };
 }
 
+function mergeGeocodeResults(
+  primary: ParsedGoogleAddress,
+  secondary: ParsedGoogleAddress,
+): ParsedGoogleAddress {
+  const pincode =
+    normalizeIndianPincode(primary.pincode, primary.formattedAddress) ||
+    normalizeIndianPincode(secondary.pincode, secondary.formattedAddress);
+  return {
+    ...primary,
+    pincode,
+    city: primary.city || secondary.city,
+    state: primary.state || secondary.state,
+    locality: primary.locality || secondary.locality,
+    line1: primary.line1 || secondary.line1,
+    formattedAddress: primary.formattedAddress || secondary.formattedAddress,
+  };
+}
+
+function hasValidPincode(address: ParsedGoogleAddress): boolean {
+  return /^\d{6}$/.test(normalizeIndianPincode(address.pincode, address.formattedAddress));
+}
+
 export function AddressLocationPicker({
   value,
   onChange,
@@ -89,14 +112,38 @@ export function AddressLocationPicker({
       setGeocoding(true);
       setGeocodeError(null);
       try {
+        let clientResult: ParsedGoogleAddress | null = null;
         if (isConfigured) {
           const { reverseGeocodeClient } = await import('./reverse-geocode-client');
-          const clientResult = await reverseGeocodeClient(lat, lng);
-          if (clientResult) return clientResult;
+          clientResult = await reverseGeocodeClient(lat, lng);
+          if (clientResult && hasValidPincode(clientResult)) {
+            return {
+              ...clientResult,
+              pincode: normalizeIndianPincode(
+                clientResult.pincode,
+                clientResult.formattedAddress,
+              ),
+            };
+          }
         }
         if (onReverseGeocode) {
-          return await onReverseGeocode(lat, lng);
+          const serverResult = await onReverseGeocode(lat, lng);
+          if (serverResult && clientResult) {
+            const merged = mergeGeocodeResults(clientResult, serverResult);
+            if (hasValidPincode(merged)) return merged;
+          }
+          if (serverResult && hasValidPincode(serverResult)) {
+            return {
+              ...serverResult,
+              pincode: normalizeIndianPincode(
+                serverResult.pincode,
+                serverResult.formattedAddress,
+              ),
+            };
+          }
+          if (serverResult) return serverResult;
         }
+        if (clientResult) return clientResult;
         return null;
       } catch (err) {
         setGeocodeError(err instanceof Error ? err.message : 'Reverse geocoding failed');
@@ -111,16 +158,22 @@ export function AddressLocationPicker({
   const handleMapMove = useCallback(
     async (coords: { lat: number; lng: number }) => {
       const parsed = await reverse(coords.lat, coords.lng);
-      if (parsed) applyParsed(parsed);
-      else
-        onChange({
-          locality: value.locality ?? '',
-          city: value.city ?? '',
-          state: value.state ?? '',
-          pincode: value.pincode ?? '',
-          lat: coords.lat,
-          lng: coords.lng,
-        });
+      if (parsed) {
+        applyParsed(parsed);
+        if (!hasValidPincode(parsed)) {
+          setGeocodeError('Could not detect pincode for this pin. Search your area on the map or enter pincode below.');
+        }
+        return;
+      }
+      onChange({
+        locality: value.locality ?? '',
+        city: value.city ?? '',
+        state: value.state ?? '',
+        pincode: value.pincode ?? '',
+        lat: coords.lat,
+        lng: coords.lng,
+      });
+      setGeocodeError('Could not resolve address for this location. Try search or enter pincode manually.');
     },
     [applyParsed, onChange, reverse, value],
   );
@@ -190,13 +243,13 @@ export function AddressLocationPicker({
         {locationButton}
         {mapPicker}
         {combinedError ? <p className="text-sm text-red-600">{combinedError}</p> : null}
-        {value.locality && value.pincode && (
+        {value.locality && (
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
             <p>
               {value.locality}
               {value.city ? ` · ${value.city}` : ''}
               {value.state ? ` · ${value.state}` : ''}
-              {value.pincode ? ` · PIN ${value.pincode}` : ''}
+              {value.pincode ? ` · PIN ${value.pincode}` : ' · Pincode pending'}
             </p>
           </div>
         )}
@@ -219,13 +272,13 @@ export function AddressLocationPicker({
 
       {fallback}
 
-      {value.locality && value.pincode && (
+      {value.locality && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
           <p>
             {value.locality}
             {value.city ? ` · ${value.city}` : ''}
             {value.state ? ` · ${value.state}` : ''}
-            {value.pincode ? ` · PIN ${value.pincode}` : ''}
+            {value.pincode ? ` · PIN ${value.pincode}` : ' · Pincode pending'}
           </p>
         </div>
       )}

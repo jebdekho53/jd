@@ -429,12 +429,13 @@ export function MerchantSignupContent() {
   };
 
   const syncLocationForm = (selection: LocationSelectionInput) => {
+    const pincode = selection.pincode.replace(/\D/g, '').slice(0, 6);
     setForm((f) => ({
       ...f,
       locality: selection.locality,
       city: selection.city,
       state: selection.state,
-      pincode: selection.pincode,
+      pincode,
       latitude: selection.lat,
       longitude: selection.lng,
       locationPincodeId: selection.locationPincodeId ?? '',
@@ -792,14 +793,52 @@ export function MerchantSignupContent() {
                 {form.locality && !resolvingLocation && (
                   <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
                     <p>
-                      {form.locality} · {form.city}, {form.state} · {form.pincode}
+                      {form.locality} · {form.city}, {form.state}
+                      {form.pincode ? ` · ${form.pincode}` : ''}
                     </p>
-                    {form.expansionArea && (
+                    {!/^\d{6}$/.test(form.pincode) && (
                       <p className="mt-1 text-xs text-amber-700">
-                        Expansion area — delivery subject to approval after signup
+                        Pincode not detected from map — enter it below or search your area.
                       </p>
                     )}
                   </div>
+                )}
+                {form.locality && !/^\d{6}$/.test(form.pincode) && (
+                  <Input
+                    label="Pincode"
+                    placeholder="6-digit pincode"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={form.pincode}
+                    onChange={(e) => {
+                      const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setForm((f) => ({ ...f, pincode: pin }));
+                    }}
+                    onBlur={() => {
+                      if (
+                        /^\d{6}$/.test(form.pincode) &&
+                        form.city.trim() &&
+                        form.state.trim()
+                      ) {
+                        applyLocationSelection({
+                          locality: form.locality,
+                          city: form.city,
+                          state: form.state,
+                          pincode: form.pincode,
+                          lat: form.latitude,
+                          lng: form.longitude,
+                          locationPincodeId: form.locationPincodeId || undefined,
+                          locationAreaId: form.locationAreaId || undefined,
+                          locationCityId: form.locationCityId || undefined,
+                        });
+                      }
+                    }}
+                  />
+                )}
+                {form.locality && /^\d{6}$/.test(form.pincode) && form.expansionArea && !resolvingLocation && (
+                  <p className="text-xs text-amber-700">
+                    Expansion area — delivery subject to approval after signup
+                  </p>
                 )}
                 <NavButtons
                   saving={resolvingLocation}

@@ -4,6 +4,7 @@ interface GoogleGeocodeResponse {
   status?: string;
   results?: Array<{
     formatted_address?: string;
+    types?: string[];
     address_components?: Array<{
       long_name: string;
       short_name: string;
@@ -16,19 +17,29 @@ interface GoogleGeocodeResponse {
 function component(
   components: NonNullable<GoogleGeocodeResponse['results']>[number]['address_components'],
   type: string,
+  short = false,
 ): string {
   if (!components) return '';
   const match = components.find((c) => c.types.includes(type));
-  return match?.long_name ?? '';
+  if (!match) return '';
+  return short ? match.short_name : match.long_name;
 }
 
-export function parseGeocoderResponse(
-  data: GoogleGeocodeResponse,
+function normalizeIndianPincode(raw: string, formattedAddress?: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (/^\d{6}$/.test(digits)) return digits;
+  if (formattedAddress) {
+    const match = formattedAddress.match(/\b(\d{6})\b/);
+    if (match) return match[1];
+  }
+  return '';
+}
+
+function parseSingleResult(
+  result: NonNullable<GoogleGeocodeResponse['results']>[number],
   fallbackLat: number,
   fallbackLng: number,
 ): GeocodedAddress | null {
-  if (data.status !== 'OK' || !data.results?.[0]) return null;
-  const result = data.results[0];
   const components = result.address_components ?? [];
   const lat = result.geometry?.location?.lat ?? fallbackLat;
   const lng = result.geometry?.location?.lng ?? fallbackLng;
@@ -42,7 +53,10 @@ export function parseGeocoderResponse(
   const locality = component(components, 'locality') || component(components, 'administrative_area_level_2');
   const city = component(components, 'locality') || component(components, 'administrative_area_level_2') || locality;
   const state = component(components, 'administrative_area_level_1');
-  const pincode = component(components, 'postal_code');
+  const pincode = normalizeIndianPincode(
+    component(components, 'postal_code', true) || component(components, 'postal_code'),
+    result.formatted_address,
+  );
   const line1 = [streetNumber, route].filter(Boolean).join(' ').trim() || sublocality || locality;
 
   return {
@@ -56,4 +70,28 @@ export function parseGeocoderResponse(
     lat,
     lng,
   };
+}
+
+export function parseGeocoderResponse(
+  data: GoogleGeocodeResponse,
+  fallbackLat: number,
+  fallbackLng: number,
+): GeocodedAddress | null {
+  if (data.status !== 'OK' || !data.results?.length) return null;
+
+  const postalTyped = data.results.find((r) => r.types?.includes('postal_code'));
+  if (postalTyped) {
+    const parsed = parseSingleResult(postalTyped, fallbackLat, fallbackLng);
+    if (parsed?.pincode) return parsed;
+  }
+
+  let fallback: GeocodedAddress | null = null;
+  for (const result of data.results) {
+    const parsed = parseSingleResult(result, fallbackLat, fallbackLng);
+    if (!parsed) continue;
+    if (!fallback) fallback = parsed;
+    if (parsed.pincode) return parsed;
+  }
+
+  return fallback;
 }

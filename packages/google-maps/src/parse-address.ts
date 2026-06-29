@@ -13,6 +13,17 @@ export interface ParsedGoogleAddress {
 
 type AddressComponent = google.maps.GeocoderAddressComponent;
 
+/** Normalize Indian pincode from component text or formatted address (e.g. "201 206" → "201206"). */
+export function normalizeIndianPincode(raw: string, formattedAddress?: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (/^\d{6}$/.test(digits)) return digits;
+  if (formattedAddress) {
+    const match = formattedAddress.match(/\b(\d{6})\b/);
+    if (match) return match[1];
+  }
+  return '';
+}
+
 function component(components: AddressComponent[], type: string, short = false): string {
   const match = components.find((c) => c.types.includes(type));
   if (!match) return '';
@@ -39,7 +50,10 @@ export function parseAddressComponents(
     component(components, 'administrative_area_level_2') ||
     locality;
   const state = component(components, 'administrative_area_level_1');
-  const pincode = component(components, 'postal_code');
+  const pincode = normalizeIndianPincode(
+    component(components, 'postal_code', true) || component(components, 'postal_code'),
+    formattedAddress,
+  );
 
   const line1 = [streetNumber, route].filter(Boolean).join(' ').trim() || sublocality || locality;
   const line2 = sublocality && line1 !== sublocality ? sublocality : undefined;
@@ -80,4 +94,25 @@ export function parseGeocoderResult(result: google.maps.GeocoderResult): ParsedG
     location.lng(),
     result.formatted_address,
   );
+}
+
+/** Pick the best result from reverse geocode — scan all for a 6-digit pincode. */
+export function parseGeocoderResults(results: google.maps.GeocoderResult[]): ParsedGoogleAddress | null {
+  if (!results.length) return null;
+
+  const postalTyped = results.find((r) => r.types?.includes('postal_code'));
+  if (postalTyped) {
+    const parsed = parseGeocoderResult(postalTyped);
+    if (parsed?.pincode) return parsed;
+  }
+
+  let fallback: ParsedGoogleAddress | null = null;
+  for (const result of results) {
+    const parsed = parseGeocoderResult(result);
+    if (!parsed) continue;
+    if (!fallback) fallback = parsed;
+    if (parsed.pincode) return parsed;
+  }
+
+  return fallback;
 }
