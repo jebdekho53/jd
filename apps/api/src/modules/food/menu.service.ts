@@ -21,6 +21,7 @@ import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { CreateAddonGroupDto } from './dto/create-addon-group.dto';
 import { CreateComboDto } from './dto/create-combo.dto';
 import { mapPlatformSlugToMenuCategorySlug } from './utils/menu-category-slug.util';
+import { storeHasFssaiOnFile } from '../../common/utils/store-fssai.util';
 
 @Injectable()
 export class MenuService {
@@ -76,19 +77,10 @@ export class MenuService {
   }
 
   private async assertStoreFssai(storeId: string): Promise<void> {
-    const row = await this.prisma.product.findFirst({
-      where: {
-        storeId,
-        deletedAt: null,
-        fssaiLicense: { not: null },
-        NOT: { fssaiLicense: '' },
-      },
-      orderBy: { updatedAt: 'desc' },
-      select: { fssaiLicense: true },
-    });
-    if (!row?.fssaiLicense?.trim()) {
+    const hasFssai = await storeHasFssaiOnFile(this.prisma, storeId);
+    if (!hasFssai) {
       throw new BadRequestException(
-        'FSSAI license is required before adding menu items — add it on a product first or enter it when creating food products',
+        'FSSAI license is required before adding menu items. Upload your FSSAI certificate in Store settings or add the license number on a product.',
       );
     }
   }

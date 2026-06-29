@@ -30,6 +30,10 @@ const mockPrisma = {
   category: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn() },
   merchantCategory: { findMany: jest.fn(), findFirst: jest.fn() },
   restaurantMenuCategory: { findFirst: jest.fn(), create: jest.fn() },
+  restaurantMenuItem: { create: jest.fn(), findUnique: jest.fn() },
+  storeVerificationDocument: { findFirst: jest.fn() },
+  product: { findFirst: jest.fn() },
+  $executeRaw: jest.fn(),
 };
 
 const mockMerchant = { requireMerchantProfile: jest.fn() };
@@ -245,6 +249,58 @@ describe('Menu category approval gate', () => {
         platformCategoryId: 'sub-pizza',
       }),
     ).rejects.toThrow(ConflictException);
+  });
+
+  it('creates menu item when FSSAI certificate was uploaded at registration', async () => {
+    mockPrisma.product.findFirst.mockResolvedValue(null);
+    mockPrisma.storeVerificationDocument.findFirst.mockResolvedValue({ id: 'fssai-doc' });
+    mockPrisma.restaurantMenuCategory.findFirst.mockResolvedValue({
+      id: 'cat-1',
+      storeId: 'store-food',
+      platformCategoryId: 'sub-pizza',
+    });
+    mockCategoryAccess.assertMenuSubcategoryApproved.mockResolvedValue({
+      parentId: 'parent-food',
+      subcategoryId: 'sub-pizza',
+      slug: 'pizza',
+      name: 'Pizza',
+    });
+    mockPrisma.restaurantMenuItem.create.mockResolvedValue({
+      id: 'item-1',
+      name: 'Margherita',
+      variants: [],
+    });
+    mockPrisma.restaurantMenuItem.findUnique.mockResolvedValue({
+      id: 'item-1',
+      name: 'Margherita',
+      storeId: 'store-food',
+      description: null,
+      cuisineName: null,
+      dietType: 'VEG',
+      category: { name: 'Pizza' },
+    });
+
+    const result = await menuService.createMenuItem('mp-1', 'store-food', {
+      categoryId: 'cat-1',
+      name: 'Margherita',
+      basePrice: 199,
+    } as never);
+
+    expect(result.id).toBe('item-1');
+    expect(mockPrisma.restaurantMenuItem.create).toHaveBeenCalled();
+  });
+
+  it('blocks menu item when FSSAI is missing', async () => {
+    mockPrisma.product.findFirst.mockResolvedValue(null);
+    mockPrisma.storeVerificationDocument.findFirst.mockResolvedValue(null);
+
+    await expect(
+      menuService.createMenuItem('mp-1', 'store-food', {
+        categoryId: 'cat-1',
+        name: 'Margherita',
+        basePrice: 199,
+      } as never),
+    ).rejects.toThrow(BadRequestException);
   });
 });
 
