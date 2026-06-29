@@ -11,7 +11,6 @@ import { MerchantEmailAuth } from '@/features/auth/components/merchant-email-aut
 import { useCitiesQuery } from '@/hooks/use-geo';
 import { MerchantAddressPicker } from '@/components/google-maps/merchant-address-picker';
 import { computeWizardProgress } from '@/lib/onboarding/progress';
-import type { LocationSelection } from '@/features/locations/components/location-search-input';
 import {
   updateOnboardingStep,
   uploadOnboardingDocument,
@@ -19,6 +18,7 @@ import {
   validateGst,
   submitApplication,
   fetchApplication,
+  resolveStoreLocation,
 } from '@/services/onboarding/onboarding-api';
 import type { VerifyOtpResult } from '@/types/auth';
 import {
@@ -84,6 +84,7 @@ export function MerchantSignupContent() {
   const [needsPhone, setNeedsPhone] = useState(false);
   const [contactPhone, setContactPhone] = useState('');
   const [saving, setSaving] = useState(false);
+  const [resolvingLocation, setResolvingLocation] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState<Set<string>>(new Set());
 
   const [form, setForm] = useState({
@@ -103,6 +104,8 @@ export function MerchantSignupContent() {
     locationPincodeId: '',
     locationAreaId: '',
     locationCityId: '',
+    operationalCityName: '',
+    expansionArea: false,
     latitude: 28.6139,
     longitude: 77.209,
     deliveryRadiusKm: 5,
@@ -278,8 +281,28 @@ export function MerchantSignupContent() {
   };
 
   const nextFromLocation = () => {
-    if (!form.storeAddress.trim() || !form.locationPincodeId) {
-      toast('Store address and map location are required', 'error');
+    if (resolvingLocation) {
+      toast('Resolving location…', 'info');
+      return;
+    }
+    if (!form.storeAddress.trim()) {
+      toast('Store address is required', 'error');
+      return;
+    }
+    if (!/^\d{6}$/.test(form.pincode.trim())) {
+      toast('Select a location on the map to get a valid pincode', 'error');
+      return;
+    }
+    if (!form.city.trim() || !form.state.trim()) {
+      toast('Complete location using search, GPS, or map pin', 'error');
+      return;
+    }
+    if (form.latitude == null || form.longitude == null) {
+      toast('Pin your store on the map or use GPS', 'error');
+      return;
+    }
+    if (!form.cityId) {
+      toast('Location is still resolving — pick the pin again', 'error');
       return;
     }
     setStep(4);
@@ -325,7 +348,9 @@ export function MerchantSignupContent() {
       !form.storeAddress.trim() ||
       !form.cityId ||
       !form.pincode.trim() ||
-      !form.locationPincodeId ||
+      !/^\d{6}$/.test(form.pincode.trim()) ||
+      form.latitude == null ||
+      form.longitude == null ||
       !form.storeLogoUrl ||
       !form.storeBannerUrl
     ) {
@@ -341,10 +366,10 @@ export function MerchantSignupContent() {
         storeAddress: form.storeAddress.trim(),
         locality: form.locality,
         state: form.state,
-        city: city?.name ?? form.city,
+        city: city?.name ?? (form.operationalCityName || form.city),
         cityId: form.cityId,
         pincode: form.pincode.trim(),
-        locationPincodeId: form.locationPincodeId,
+        locationPincodeId: form.locationPincodeId || undefined,
         locationAreaId: form.locationAreaId || undefined,
         locationCityId: form.locationCityId || undefined,
         latitude: form.latitude,
@@ -370,21 +395,67 @@ export function MerchantSignupContent() {
     }
   };
 
-  const handleLocationSelect = (selection: LocationSelection) => {
-    const ncrCity = cities.find((c) => c.slug === 'delhi-ncr') ?? cities[0];
+  const applyLocationSelection = async (selection: {
+    locality: string;
+    city: string;
+    state: string;
+    pincode: string;
+    lat: number;
+    lng: number;
+    locationPincodeId?: string;
+    locationAreaId?: string;
+    locationCityId?: string;
+  }) => {
     setForm((f) => ({
       ...f,
-      locality: selection.label,
+      locality: selection.locality,
       city: selection.city,
       state: selection.state,
       pincode: selection.pincode,
-      latitude: selection.latitude,
-      longitude: selection.longitude,
+      latitude: selection.lat,
+      longitude: selection.lng,
       locationPincodeId: selection.locationPincodeId ?? '',
       locationAreaId: selection.locationAreaId ?? '',
       locationCityId: selection.locationCityId ?? '',
-      cityId: ncrCity?.id ?? f.cityId,
     }));
+    setResolvingLocation(true);
+    try {
+      const resolved = await resolveStoreLocation({
+        locality: selection.locality,
+        city: selection.city,
+        state: selection.state,
+        pincode: selection.pincode,
+        latitude: selection.lat,
+        longitude: selection.lng,
+        locationCityId: selection.locationCityId,
+        locationAreaId: selection.locationAreaId,
+      });
+      setForm((f) => ({
+        ...f,
+        locality: resolved.locality || selection.locality,
+        city: resolved.city,
+        state: resolved.state,
+        pincode: resolved.pincode,
+        latitude: resolved.latitude,
+        longitude: resolved.longitude,
+        cityId: resolved.cityId,
+        operationalCityName: resolved.operationalCityName,
+        expansionArea: resolved.expansionArea,
+        locationPincodeId: resolved.locationPincodeId ?? '',
+        locationAreaId: resolved.locationAreaId ?? '',
+        locationCityId: resolved.locationCityId ?? '',
+      }));
+      if (resolved.expansionArea) {
+        toast(
+          'Location saved. Our team will review delivery in this area after you submit.',
+          'info',
+        );
+      }
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setResolvingLocation(false);
+    }
   };
 
   const handleFile = async (documentType: string, file: File) => {
@@ -636,51 +707,78 @@ export function MerchantSignupContent() {
                     lng: form.longitude,
                   }}
                   onChange={(selection) => {
-                    const ncrCity = cities.find((c) => c.slug === 'delhi-ncr') ?? cities[0];
-                    setForm((f) => ({
-                      ...f,
+                    void applyLocationSelection({
                       locality: selection.locality,
                       city: selection.city,
                       state: selection.state,
                       pincode: selection.pincode,
-                      latitude: selection.lat,
-                      longitude: selection.lng,
-                      locationPincodeId: selection.locationPincodeId ?? '',
-                      locationAreaId: selection.locationAreaId ?? '',
-                      locationCityId: selection.locationCityId ?? '',
-                      cityId: ncrCity?.id ?? f.cityId,
-                    }));
+                      lat: selection.lat,
+                      lng: selection.lng,
+                      locationPincodeId: selection.locationPincodeId,
+                      locationAreaId: selection.locationAreaId,
+                      locationCityId: selection.locationCityId,
+                    });
                   }}
                   onLine1Suggestion={(line1) => setForm((f) => ({ ...f, storeAddress: line1 }))}
-                  onMasterSelect={handleLocationSelect}
                 />
                 <p className="text-xs text-slate-500">
                   Allow location access when prompted, or drag the pin to your exact storefront.
                 </p>
-                {form.locality && (
+                {resolvingLocation && (
+                  <p className="flex items-center gap-2 text-xs text-brand-700">
+                    <Spinner className="h-3 w-3" />
+                    Resolving location…
+                  </p>
+                )}
+                {form.locality && !resolvingLocation && (
                   <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
                     <p>
                       {form.locality} · {form.city}, {form.state} · {form.pincode}
                     </p>
+                    {form.expansionArea && (
+                      <p className="mt-1 text-xs text-amber-700">
+                        Expansion area — delivery subject to approval after signup
+                      </p>
+                    )}
                   </div>
                 )}
-                <NavButtons saving={false} onBack={() => setStep(2)} onNext={nextFromLocation} />
+                <NavButtons
+                  saving={resolvingLocation}
+                  onBack={() => setStep(2)}
+                  onNext={nextFromLocation}
+                />
               </div>
             )}
 
             {!booting && step === 4 && (
               <div className="space-y-4">
                 <StepHeader title="Delivery coverage" subtitle="Pincodes you can serve" />
-                <Select
-                  label="Operational city"
-                  value={form.cityId}
-                  onChange={(e) => setForm({ ...form, cityId: e.target.value })}
-                >
-                  <option value="">Select city</option>
-                  {cities.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </Select>
+                {form.cityId ? (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <p className="text-sm font-medium text-slate-800">Operational city</p>
+                    <p className="text-sm text-slate-600">
+                      {form.operationalCityName ||
+                        cities.find((c) => c.id === form.cityId)?.name ||
+                        form.city}
+                    </p>
+                    {form.expansionArea && (
+                      <p className="mt-1 text-xs text-amber-700">
+                        New service area — our team will review before go-live
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <Select
+                    label="Operational city"
+                    value={form.cityId}
+                    onChange={(e) => setForm({ ...form, cityId: e.target.value })}
+                  >
+                    <option value="">Select city</option>
+                    {cities.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </Select>
+                )}
                 <Input
                   label="Delivery radius (km)"
                   type="number"

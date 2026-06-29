@@ -23,6 +23,51 @@ import {
 } from '@prisma/client';
 import { PHONE_E164_REGEX } from '../../../common/constants';
 
+export class ResolveStoreLocationDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locality?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(6, 6)
+  pincode?: string;
+
+  @ApiProperty()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude: number;
+
+  @ApiProperty()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locationCityId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  locationAreaId?: string;
+}
+
 export class UpdateOnboardingStepDto {
   @ApiProperty({ enum: MerchantOnboardingStepKey })
   @IsEnum(MerchantOnboardingStepKey)

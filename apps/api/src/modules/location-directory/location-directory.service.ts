@@ -34,6 +34,20 @@ const PINCODE_INCLUDE = {
   area: { select: { id: true, name: true, slug: true } },
 } satisfies Prisma.LocationPincodeInclude;
 
+export interface ResolvedPincodeLocation {
+  inMasterDirectory: boolean;
+  pincode: string;
+  latitude: number;
+  longitude: number;
+  city: string;
+  state: string;
+  locality?: string;
+  locationPincodeId?: string;
+  locationAreaId?: string;
+  locationCityId?: string;
+  operationalCityId?: string;
+}
+
 @Injectable()
 export class LocationDirectoryService {
   constructor(private readonly prisma: PrismaService) {}
@@ -153,9 +167,81 @@ export class LocationDirectoryService {
           slug: area.slug,
         });
       }
+
+      const postOffices = await this.prisma.locationPincode.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            { postOffice: { contains: q, mode: 'insensitive' } },
+            { city: { name: { contains: q, mode: 'insensitive' } } },
+          ],
+          ...(params.cityId && { cityId: params.cityId }),
+          ...(params.districtId && { districtId: params.districtId }),
+        },
+        include: PINCODE_INCLUDE,
+        take: limit,
+      });
+      for (const pin of postOffices) {
+        push(this.serializePincode(pin));
+      }
     }
 
     return results.slice(0, limit);
+  }
+
+  /** Resolve pincode against master directory without throwing for unknown pincodes. */
+  async tryResolvePincode(params: {
+    pincode: string;
+    locationCityId?: string;
+    locationAreaId?: string;
+  }): Promise<ResolvedPincodeLocation> {
+    if (!/^\d{6}$/.test(params.pincode)) {
+      throw new BadRequestException('Invalid pincode format');
+    }
+
+    const rows = await this.prisma.locationPincode.findMany({
+      where: { pincode: params.pincode, isActive: true },
+      include: PINCODE_INCLUDE,
+    });
+
+    if (!rows.length) {
+      return {
+        inMasterDirectory: false,
+        pincode: params.pincode,
+        latitude: 0,
+        longitude: 0,
+        city: '',
+        state: '',
+      };
+    }
+
+    if (params.locationCityId && !rows.some((r) => r.cityId === params.locationCityId)) {
+      throw new BadRequestException('Pincode does not belong to selected city');
+    }
+    if (params.locationAreaId && !rows.some((r) => r.areaId === params.locationAreaId)) {
+      throw new BadRequestException('Pincode does not belong to selected area');
+    }
+
+    const row = rows[0];
+    const serialized = this.serializePincode(row);
+    const locationCity = await this.prisma.locationCity.findUnique({
+      where: { id: row.cityId },
+      select: { operationalCityId: true },
+    });
+
+    return {
+      inMasterDirectory: true,
+      pincode: row.pincode,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      city: serialized.city,
+      state: serialized.state,
+      locality: serialized.area ?? serialized.postOffice ?? serialized.city,
+      locationPincodeId: row.id,
+      locationAreaId: row.areaId ?? undefined,
+      locationCityId: row.cityId,
+      operationalCityId: locationCity?.operationalCityId ?? undefined,
+    };
   }
 
   async getByPincode(pincode: string) {

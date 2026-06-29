@@ -27,6 +27,8 @@ interface MerchantAddressPickerProps {
   onMasterSelect?: (selection: LocationSelection) => void;
   masterValue?: string;
   masterPincode?: string;
+  directorySearchLabel?: string;
+  showDirectoryFallback?: boolean;
 }
 
 export function MerchantAddressPicker({
@@ -39,6 +41,8 @@ export function MerchantAddressPicker({
   onMasterSelect,
   masterValue,
   masterPincode,
+  directorySearchLabel = "Can't find on map? Search directory",
+  showDirectoryFallback = true,
 }: MerchantAddressPickerProps) {
   return (
     <AddressLocationPicker
@@ -55,26 +59,30 @@ export function MerchantAddressPicker({
         return requestBrowserLocation();
       }}
       fallback={
-        onMasterSelect ? (
-          <LocationSearchInput
-            value={masterValue}
-            pincode={masterPincode}
-            onSelect={(s) => {
-              onMasterSelect(s);
-              onChange({
-                locality: s.label,
-                city: s.city,
-                state: s.state,
-                pincode: s.pincode,
-                lat: s.latitude,
-                lng: s.longitude,
-                locationPincodeId: s.locationPincodeId,
-                locationAreaId: s.locationAreaId,
-                locationCityId: s.locationCityId,
-              });
-            }}
-            error={error}
-          />
+        showDirectoryFallback ? (
+          <div className="space-y-2 border-t border-slate-100 pt-4">
+            <p className="text-xs font-medium text-slate-500">{directorySearchLabel}</p>
+            <LocationSearchInput
+              label="Directory search"
+              value={masterValue}
+              pincode={masterPincode}
+              onSelect={(s) => {
+                onMasterSelect?.(s);
+                onChange({
+                  locality: s.label,
+                  city: s.city,
+                  state: s.state,
+                  pincode: s.pincode,
+                  lat: s.latitude,
+                  lng: s.longitude,
+                  locationPincodeId: s.locationPincodeId,
+                  locationAreaId: s.locationAreaId,
+                  locationCityId: s.locationCityId,
+                });
+              }}
+              error={error}
+            />
+          </div>
         ) : null
       }
     />

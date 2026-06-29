@@ -6,6 +6,9 @@ import { CrmModule } from '../crm/crm.module';
 import { TrustSafetyModule } from '../trust-safety/trust-safety.module';
 import { SupportModule } from '../support/support.module';
 import { EmailModule } from '../email/email.module';
+import { GeoModule } from '../geo/geo.module';
+import { GeocodingModule } from '../geocoding/geocoding.module';
+import { LocationDirectoryModule } from '../location-directory/location-directory.module';
 import { PasswordService } from '../auth/password.service';
 import { MerchantOnboardingService } from './merchant-onboarding.service';
 import { MerchantApplicationRiskService } from './merchant-application-risk.service';
@@ -21,6 +24,9 @@ import { AdminMerchantApplicationController } from './admin-merchant-application
     TrustSafetyModule,
     SupportModule,
     EmailModule,
+    GeoModule,
+    GeocodingModule,
+    LocationDirectoryModule,
   ],
   controllers: [MerchantOnboardingController, AdminMerchantApplicationController],
   providers: [

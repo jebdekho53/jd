@@ -53,6 +53,51 @@ export async function fetchApplication(): Promise<MerchantApplication> {
   return res.data;
 }
 
+export async function resolveStoreLocation(body: {
+  locality?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  latitude: number;
+  longitude: number;
+  locationCityId?: string;
+  locationAreaId?: string;
+}): Promise<{
+  pincode: string;
+  city: string;
+  state: string;
+  locality?: string;
+  latitude: number;
+  longitude: number;
+  cityId: string;
+  operationalCityName: string;
+  locationPincodeId?: string;
+  locationAreaId?: string;
+  locationCityId?: string;
+  inMasterDirectory: boolean;
+  expansionArea: boolean;
+}> {
+  const res = await merchantFetch<{ data: {
+    pincode: string;
+    city: string;
+    state: string;
+    locality?: string;
+    latitude: number;
+    longitude: number;
+    cityId: string;
+    operationalCityName: string;
+    locationPincodeId?: string;
+    locationAreaId?: string;
+    locationCityId?: string;
+    inMasterDirectory: boolean;
+    expansionArea: boolean;
+  } }>(
+    '/api/merchant/onboarding/application/resolve-location',
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+  return res.data;
+}
+
 export async function updateOnboardingStep(
   body: Record<string, unknown>,
 ): Promise<MerchantApplication> {

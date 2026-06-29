@@ -210,6 +210,8 @@ export function AddressLocationPicker({
 
       {mapPicker}
 
+      {fallback}
+
       {value.locality && value.pincode && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
           <p>

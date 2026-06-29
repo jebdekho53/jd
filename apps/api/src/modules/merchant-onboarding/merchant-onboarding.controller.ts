@@ -18,6 +18,7 @@ import { ApiTags as Tags } from '../../common/constants';
 import { MerchantOnboardingService } from './merchant-onboarding.service';
 import {
   FranchiseLeadDto,
+  ResolveStoreLocationDto,
   SaveBankAccountDto,
   UpdateOnboardingStepDto,
   UploadMerchantDocumentDto,
@@ -42,6 +43,15 @@ export class MerchantOnboardingController {
   @Get('application')
   async getApplication(@CurrentUser() user: RequestUser) {
     const data = await this.onboarding.getOrCreateApplication(user.id);
+    return { success: true, data };
+  }
+
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
+  @Post('application/resolve-location')
+  @HttpCode(HttpStatus.OK)
+  async resolveLocation(@CurrentUser() user: RequestUser, @Body() dto: ResolveStoreLocationDto) {
+    const data = await this.onboarding.resolveStoreLocation(user.id, dto);
     return { success: true, data };
   }
 

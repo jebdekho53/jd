@@ -62,11 +62,17 @@ const mockBlocklist = {
   assertMerchantProfileNotBlacklisted: jest.fn(),
 };
 const mockLocations = {
-  validatePincode: jest.fn().mockResolvedValue({
+  tryResolvePincode: jest.fn().mockResolvedValue({
+    inMasterDirectory: true,
     pincode: '110001',
-    cityId: 'city-1',
-    locationCityId: null,
+    latitude: 28.5,
+    longitude: 77.2,
+    city: 'New Delhi',
+    state: 'Delhi',
+    locationPincodeId: 'lp-1',
     locationAreaId: null,
+    locationCityId: null,
+    operationalCityId: 'city-1',
   }),
 };
 

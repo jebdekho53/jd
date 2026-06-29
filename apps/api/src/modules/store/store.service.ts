@@ -97,11 +97,27 @@ export class StoreService {
       throw new BadRequestException(`City not found: ${dto.cityId}`);
     }
 
-    const validatedLocation = await this.locations.validatePincode({
+    const mld = await this.locations.tryResolvePincode({
       pincode: dto.pincode,
       locationCityId: dto.locationCityId,
       locationAreaId: dto.locationAreaId,
     });
+
+    const locationPincodeId = mld.inMasterDirectory
+      ? dto.locationPincodeId ?? mld.locationPincodeId
+      : dto.locationPincodeId;
+    const locationAreaId = mld.inMasterDirectory
+      ? dto.locationAreaId ?? mld.locationAreaId
+      : dto.locationAreaId;
+    const locationCityId = mld.inMasterDirectory
+      ? dto.locationCityId ?? mld.locationCityId
+      : dto.locationCityId;
+    const latitude = dto.latitude ?? (mld.inMasterDirectory ? mld.latitude : undefined);
+    const longitude = dto.longitude ?? (mld.inMasterDirectory ? mld.longitude : undefined);
+
+    if (latitude == null || longitude == null) {
+      throw new BadRequestException('Store latitude and longitude are required');
+    }
 
     const slug = await this.generateUniqueSlug(profile.id, dto.name);
 
@@ -118,11 +134,11 @@ export class StoreService {
           line1: dto.line1,
           line2: dto.line2,
           pincode: dto.pincode,
-          latitude: dto.latitude ?? validatedLocation.latitude,
-          longitude: dto.longitude ?? validatedLocation.longitude,
-          locationPincodeId: dto.locationPincodeId ?? validatedLocation.locationPincodeId,
-          locationAreaId: dto.locationAreaId ?? validatedLocation.locationAreaId,
-          locationCityId: dto.locationCityId ?? validatedLocation.locationCityId,
+          latitude,
+          longitude,
+          locationPincodeId: locationPincodeId ?? null,
+          locationAreaId: locationAreaId ?? null,
+          locationCityId: locationCityId ?? null,
           logoUrl: dto.logoUrl,
           bannerUrl: dto.bannerUrl,
           minOrderAmount: dto.minOrderAmount ?? 0,

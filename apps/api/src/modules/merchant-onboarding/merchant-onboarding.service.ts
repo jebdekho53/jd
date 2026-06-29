@@ -38,12 +38,16 @@ import {
   RejectApplicationDto,
   RequestApplicationChangesDto,
   RequestApplicationDocumentsDto,
+  ResolveStoreLocationDto,
   SaveBankAccountDto,
   ScheduleCallDto,
   UpdateOnboardingStepDto,
   UploadMerchantDocumentDto,
 } from './dto/merchant-onboarding.dto';
 import { CreateStoreDto } from '../store/dto/create-store.dto';
+import { LocationDirectoryService } from '../location-directory/location-directory.service';
+import { GeoService } from '../geo/geo.service';
+import { GeocodingCacheService } from '../geocoding/geocoding-cache.service';
 
 const DOC_TO_STORE: Partial<Record<MerchantDocumentType, StoreDocumentType>> = {
   GST_CERTIFICATE: StoreDocumentType.GST_CERTIFICATE,
@@ -83,6 +87,9 @@ export class MerchantOnboardingService {
     private readonly supportTickets: SupportTicketService,
     private readonly emailNotifications: EmailNotificationService,
     private readonly passwordService: PasswordService,
+    private readonly locations: LocationDirectoryService,
+    private readonly geo: GeoService,
+    private readonly geocoding: GeocodingCacheService,
   ) {}
 
   async getPublicStats() {
@@ -132,6 +139,119 @@ export class MerchantOnboardingService {
 
     await this.riskEngine.getOrCreateProfile(userId);
     return this.formatApplication(app);
+  }
+
+  async resolveStoreLocation(userId: string, dto: ResolveStoreLocationDto) {
+    const app = await this.getOrCreateApplication(userId);
+
+    let pincode = dto.pincode?.trim() ?? '';
+    let city = dto.city?.trim() ?? '';
+    let state = dto.state?.trim() ?? '';
+    let locality = dto.locality?.trim() ?? '';
+    const latitude = dto.latitude;
+    const longitude = dto.longitude;
+
+    if ((!pincode || !city || !state) && this.geocoding.isConfigured()) {
+      const geocoded = await this.geocoding.reverseGeocode(latitude, longitude);
+      if (geocoded) {
+        pincode = pincode || geocoded.pincode;
+        city = city || geocoded.city;
+        state = state || geocoded.state;
+        locality = locality || geocoded.locality || geocoded.line1;
+      }
+    }
+
+    if (!pincode || !/^\d{6}$/.test(pincode)) {
+      throw new BadRequestException('A valid 6-digit pincode is required. Pin your store on the map or use GPS.');
+    }
+    if (!city || !state) {
+      throw new BadRequestException('City and state are required. Try search, GPS, or drag the map pin.');
+    }
+
+    const mld = await this.locations.tryResolvePincode({
+      pincode,
+      locationCityId: dto.locationCityId,
+      locationAreaId: dto.locationAreaId,
+    });
+
+    let cityId: string;
+    let locationPincodeId: string | undefined;
+    let locationAreaId: string | undefined;
+    let locationCityId: string | undefined;
+    const expansionArea = !mld.inMasterDirectory;
+
+    if (mld.inMasterDirectory) {
+      locationPincodeId = mld.locationPincodeId;
+      locationAreaId = mld.locationAreaId;
+      locationCityId = mld.locationCityId;
+      if (mld.operationalCityId) {
+        cityId = mld.operationalCityId;
+      } else {
+        const opCity = await this.geo.findOrCreateOperationalCity({
+          name: mld.city,
+          state: mld.state,
+          latitude: latitude ?? mld.latitude,
+          longitude: longitude ?? mld.longitude,
+        });
+        cityId = opCity.id;
+      }
+      if (!locality) locality = mld.locality ?? city;
+    } else {
+      const opCity = await this.geo.findOrCreateOperationalCity({
+        name: city,
+        state,
+        latitude,
+        longitude,
+      });
+      cityId = opCity.id;
+    }
+
+    const operationalCity = await this.prisma.city.findUnique({
+      where: { id: cityId },
+      select: { id: true, name: true, slug: true },
+    });
+
+    const existingFlags =
+      app.riskFlags && typeof app.riskFlags === 'object' && !Array.isArray(app.riskFlags)
+        ? (app.riskFlags as Record<string, unknown>)
+        : {};
+
+    await this.prisma.merchantApplication.update({
+      where: { id: app.id },
+      data: {
+        pincode,
+        city,
+        state,
+        locality: locality || undefined,
+        latitude,
+        longitude,
+        cityId,
+        locationPincodeId: locationPincodeId ?? null,
+        locationAreaId: locationAreaId ?? null,
+        locationCityId: locationCityId ?? null,
+        riskFlags: {
+          ...existingFlags,
+          expansionArea,
+          inMasterDirectory: mld.inMasterDirectory,
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    return {
+      pincode,
+      city,
+      state,
+      locality,
+      latitude,
+      longitude,
+      cityId,
+      operationalCityName: operationalCity?.name ?? city,
+      locationPincodeId,
+      locationAreaId,
+      locationCityId,
+      inMasterDirectory: mld.inMasterDirectory,
+      expansionArea,
+    };
   }
 
   async updateStep(userId: string, dto: UpdateOnboardingStepDto, ipAddress?: string) {

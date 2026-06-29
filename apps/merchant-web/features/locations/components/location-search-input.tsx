@@ -24,6 +24,7 @@ interface LocationSearchInputProps {
   pincode?: string;
   onSelect: (selection: LocationSelection) => void;
   error?: string;
+  label?: string;
 }
 
 export function LocationSearchInput({
@@ -31,6 +32,7 @@ export function LocationSearchInput({
   pincode = '',
   onSelect,
   error,
+  label = 'Business locality *',
 }: LocationSearchInputProps) {
   const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
@@ -60,7 +62,7 @@ export function LocationSearchInput({
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-9 h-4 w-4 text-slate-400" />
         <Input
-          label="Business locality *"
+          label={label}
           placeholder="Search area, sector, or landmark"
           value={query}
           onChange={(e) => {
