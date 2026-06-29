@@ -3,8 +3,11 @@ import {
   isAddressGeoComplete,
   isDefaultDelhiCoords,
   isDeliveryAddressComplete,
+  persistDeliveryAddress,
+  restoreDeliveryLocationFromSavedAddress,
 } from './saved-delivery-address';
 import { useAddressStore } from '@/store/address-store';
+import { useLocationStore } from '@/store/location-store';
 
 describe('saved-delivery-address', () => {
   beforeEach(() => {
@@ -51,10 +54,42 @@ describe('saved-delivery-address', () => {
           lat: 28.6139,
           lng: 77.209,
           isDefault: true,
+          createdAt: new Date().toISOString(),
         },
       ],
     });
 
     expect(getDefaultSavedDeliveryAddress()).toBeNull();
+  });
+
+  it('restores pinned location from default saved address', () => {
+    useLocationStore.setState({
+      lat: 0,
+      lng: 0,
+      label: '',
+      source: 'default',
+      isReady: false,
+    });
+    useAddressStore.setState({
+      addresses: [
+        {
+          id: 'a1',
+          label: 'Home',
+          line1: 'Sector 4',
+          pincode: '201206',
+          city: 'Ghaziabad',
+          lat: 28.67,
+          lng: 77.45,
+          isDefault: true,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    expect(restoreDeliveryLocationFromSavedAddress()).toBe(true);
+    const location = useLocationStore.getState();
+    expect(location.isReady).toBe(true);
+    expect(location.pincode).toBe('201206');
+    expect(location.label).toContain('Ghaziabad');
   });
 });

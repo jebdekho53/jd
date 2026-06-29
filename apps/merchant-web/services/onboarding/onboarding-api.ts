@@ -25,6 +25,10 @@ export interface MerchantApplication {
   city?: string | null;
   cityId?: string | null;
   pincode?: string | null;
+  locality?: string | null;
+  locationPincodeId?: string | null;
+  locationAreaId?: string | null;
+  locationCityId?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   deliveryRadiusKm?: number | null;

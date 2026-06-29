@@ -1,6 +1,7 @@
 import {
   isPrivateApiPath,
   isPrivateDocumentPath,
+  isPublicBrowsePath,
   PRIVATE_API_PREFIXES,
 } from './constants';
 
@@ -34,6 +35,11 @@ describe('PWA private cache rules', () => {
     for (const path of sensitive) {
       expect(isPrivateApiPath(path)).toBe(true);
     }
+  });
+
+  it('routes search through dedicated SW handler, not generic page cache', () => {
+    expect(isPublicBrowsePath('/search')).toBe(false);
+    expect(isPublicBrowsePath('/products')).toBe(true);
   });
 
   it('lists all required private API prefixes', () => {

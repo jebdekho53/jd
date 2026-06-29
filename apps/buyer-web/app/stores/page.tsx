@@ -49,12 +49,15 @@ export default function StoresPage() {
 
   const { data: categories = [] } = useCategories();
   const storeParams = useMemo(
-    () => ({ lat, lng, pincode, radiusKm: 20, page, limit: 12, sort }),
+    () =>
+      lat != null && lng != null
+        ? { lat, lng, pincode, radiusKm: 20, page, limit: 12, sort }
+        : null,
     [lat, lng, pincode, page, sort],
   );
   const { data, isLoading, isError, error, refetch, isFetching } = useDiscoverStores(
-    storeParams,
-    Boolean(lat && lng),
+    storeParams ?? { lat: 0, lng: 0, radiusKm: 20, page, limit: 12, sort },
+    isReady && storeParams != null,
   );
 
   const filteredStores = useMemo(() => {

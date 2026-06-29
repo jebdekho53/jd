@@ -136,9 +136,9 @@ function GroceryQuickLink() {
 }
 
 export function HomePageContent() {
-  const { lat, lng, pincode } = useEffectiveLocation();
+  const { lat, lng, pincode, isReady } = useEffectiveLocation();
   const { data: categories = [] } = useCategories();
-  const hasLocation = Boolean(lat && lng);
+  const hasLocation = isReady && lat != null && lng != null;
 
   return (
     <div className="space-y-7 animate-fade-in md:space-y-10">
@@ -160,16 +160,16 @@ export function HomePageContent() {
 
       {hasLocation ? (
         <>
-          <StoreSection title="Nearby stores" subtitle="Delivering to your location" sort="distance" href="/stores" lat={lat} lng={lng} pincode={pincode} />
-          <FoodSection lat={lat} lng={lng} pincode={pincode} />
+          <StoreSection title="Nearby stores" subtitle="Delivering to your location" sort="distance" href="/stores" lat={lat!} lng={lng!} pincode={pincode} />
+          <FoodSection lat={lat!} lng={lng!} pincode={pincode} />
           <TopDealsSection />
           <OffersNearYouSection />
-          <StoreSection title="Popular stores" subtitle="Most loved in your area" sort="popular" href="/stores?sort=popular" lat={lat} lng={lng} pincode={pincode} />
+          <StoreSection title="Popular stores" subtitle="Most loved in your area" sort="popular" href="/stores?sort=popular" lat={lat!} lng={lng!} pincode={pincode} />
           <RecentlyViewedRail />
-          <StoreSection title="Fast delivery" subtitle="Quickest prep times" sort="fast" href="/stores?sort=fast" lat={lat} lng={lng} pincode={pincode} />
+          <StoreSection title="Fast delivery" subtitle="Quickest prep times" sort="fast" href="/stores?sort=fast" lat={lat!} lng={lng!} pincode={pincode} />
           <MembershipBanner />
-          <StoreSection title="Top rated stores" subtitle="Highest customer ratings" sort="rating" href="/stores?sort=rating" lat={lat} lng={lng} pincode={pincode} />
-          <StoreSection title="New on JebDekho" subtitle="Recently joined stores" sort="new" href="/stores?sort=new" lat={lat} lng={lng} pincode={pincode} />
+          <StoreSection title="Top rated stores" subtitle="Highest customer ratings" sort="rating" href="/stores?sort=rating" lat={lat!} lng={lng!} pincode={pincode} />
+          <StoreSection title="New on JebDekho" subtitle="Recently joined stores" sort="new" href="/stores?sort=new" lat={lat!} lng={lng!} pincode={pincode} />
           <ReferralBanner />
         </>
       ) : (

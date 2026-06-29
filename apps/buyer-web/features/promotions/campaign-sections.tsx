@@ -54,13 +54,13 @@ export function FlashSalesSection() {
 }
 
 export function OffersNearYouSection() {
-  const { lat, lng } = useEffectiveLocation();
+  const { lat, lng, isReady } = useEffectiveLocation();
   const { data: offers = [] } = useQuery({
     queryKey: ['offers', 'near', lat, lng],
     queryFn: () => getOffersNearYou(lat!, lng!),
-    enabled: Boolean(lat && lng),
+    enabled: isReady && lat != null && lng != null,
   });
-  if (!lat || !lng || offers.length === 0) return null;
+  if (!isReady || !lat || !lng || offers.length === 0) return null;
 
   return (
     <section>

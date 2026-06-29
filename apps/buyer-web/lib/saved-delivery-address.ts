@@ -99,3 +99,17 @@ export function getDefaultSavedDeliveryAddress(): DeliveryAddress | null {
   const delivery = profileAddressToDelivery(preferred);
   return isDeliveryAddressComplete(delivery) ? delivery : null;
 }
+
+/** Restore pinned delivery location from saved addresses when location store is empty. */
+export function restoreDeliveryLocationFromSavedAddress(): boolean {
+  const location = useLocationStore.getState();
+  if (location.isReady && location.lat && location.lng) {
+    return true;
+  }
+
+  const saved = getDefaultSavedDeliveryAddress();
+  if (!saved) return false;
+
+  persistDeliveryAddress(saved);
+  return true;
+}

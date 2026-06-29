@@ -181,6 +181,8 @@ export class MerchantOnboardingService {
       pincode,
       locationCityId: dto.locationCityId,
       locationAreaId: dto.locationAreaId,
+      latitude,
+      longitude,
     });
 
     let cityId: string;
@@ -1026,6 +1028,10 @@ export class MerchantOnboardingService {
       city: app.city,
       cityId: app.cityId,
       pincode: app.pincode,
+      locality: app.locality,
+      locationPincodeId: app.locationPincodeId,
+      locationAreaId: app.locationAreaId,
+      locationCityId: app.locationCityId,
       latitude: app.latitude,
       longitude: app.longitude,
       deliveryRadiusKm: app.deliveryRadiusKm,

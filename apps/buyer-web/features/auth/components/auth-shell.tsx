@@ -25,7 +25,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col lg:flex-row">
         <aside className="hidden flex-1 flex-col justify-center bg-gradient-to-br from-jd-primary to-jd-secondary px-10 py-16 text-white lg:flex">
           <div className="rounded-2xl bg-white/95 p-4 shadow-lg">
-            <Logo size="xl" priority />
+            <Logo size="xl" />
           </div>
           <p className="mt-6 max-w-md text-lg text-white/90">{BRAND_TAGLINE}</p>
           <ul className="mt-10 space-y-4">

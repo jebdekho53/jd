@@ -48,7 +48,6 @@ export function isPublicBrowsePath(pathname: string): boolean {
     pathname.startsWith('/products') ||
     pathname.startsWith('/store/') ||
     pathname.startsWith('/stores') ||
-    pathname.startsWith('/search') ||
     pathname.startsWith('/offers') ||
     pathname.startsWith('/compare') ||
     pathname.startsWith('/map') ||

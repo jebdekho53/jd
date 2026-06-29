@@ -13,30 +13,47 @@ import {
 } from '@/features/map/store-map';
 import { fetchMapStores } from '@/services/geo/map-api';
 import type { MapStorePin } from '@/services/geo/map-api';
+import { requestBrowserLocation } from '@/lib/geolocation';
+import { useReverseGeocode } from '@/hooks/use-reverse-geocode';
 import { useEffectiveLocation, useLocationStore } from '@/store/location-store';
 
 export function MapDiscoveryView() {
-  const { lat, lng, label, isReady } = useEffectiveLocation();
-  const setLocation = useLocationStore((s) => s.setLocation);
+  const { lat, lng, label, isReady, mapCenter } = useEffectiveLocation();
+  const setFromMaster = useLocationStore((s) => s.setFromMaster);
+  const { geocode, isLoading: isGeocoding } = useReverseGeocode();
   const [selected, setSelected] = useState<MapStorePin | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  const browseLat = lat ?? mapCenter.lat;
+  const browseLng = lng ?? mapCenter.lng;
+
   const { data: stores = [], isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['map-stores', lat, lng],
-    queryFn: () => fetchMapStores(lat, lng, 10),
+    queryKey: ['map-stores', browseLat, browseLng],
+    queryFn: () => fetchMapStores(browseLat, browseLng, 10),
     staleTime: 30_000,
     refetchInterval: 60_000,
+    enabled: isReady,
   });
 
-  const detectLocation = () => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation(pos.coords.latitude, pos.coords.longitude, 'Current location');
-      },
-      () => undefined,
-      { enableHighAccuracy: true, timeout: 10_000 },
-    );
+  const detectLocation = async () => {
+    try {
+      const pos = await requestBrowserLocation();
+      const parsed = await geocode(pos.lat, pos.lng);
+      if (parsed) {
+        setFromMaster({
+          lat: parsed.lat,
+          lng: parsed.lng,
+          label: parsed.locality || parsed.formattedAddress,
+          pincode: parsed.pincode || undefined,
+          city: parsed.city,
+          area: parsed.locality,
+        });
+        return;
+      }
+      useLocationStore.getState().setFromGps(pos.lat, pos.lng);
+    } catch {
+      /* ignore GPS errors */
+    }
   };
 
   const openStore = (store: MapStorePin) => {
@@ -58,7 +75,7 @@ export function MapDiscoveryView() {
             )}
           </div>
           <div className="flex gap-2">
-            <Chip size="sm" leadingIcon={<Navigation className="h-3.5 w-3.5" aria-hidden />} onClick={detectLocation}>
+            <Chip size="sm" leadingIcon={<Navigation className="h-3.5 w-3.5" aria-hidden />} onClick={() => void detectLocation()} disabled={isGeocoding}>
               GPS
             </Chip>
             <Button type="button" variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
@@ -72,8 +89,8 @@ export function MapDiscoveryView() {
           <div className="h-64 animate-pulse rounded-2xl bg-muted md:h-80" />
         ) : (
           <StoreMap
-            buyerLat={lat}
-            buyerLng={lng}
+            buyerLat={browseLat}
+            buyerLng={browseLng}
             stores={stores}
             selectedStoreId={selected?.id ?? null}
             onSelectStore={openStore}

@@ -34,7 +34,7 @@ export function RestaurantsListingContent() {
 
   const { data: restaurants = [], isLoading, isError, error, refetch } = useRestaurantsQuery(
     params,
-    Boolean(lat && lng),
+    isReady && lat != null && lng != null,
   );
 
   return (

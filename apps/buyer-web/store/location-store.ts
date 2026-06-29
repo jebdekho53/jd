@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -68,9 +69,20 @@ export const useLocationStore = create<LocationState>()(
     }),
     {
       name: 'jebdekho-location-v3',
-      version: 2,
+      version: 3,
+      migrate: (persisted, version) => {
+        const state = persisted as LocationCoords & { isReady?: boolean };
+        if (version < 3 && state.lat && state.lng && state.label && !state.isReady) {
+          state.isReady = true;
+        }
+        return persisted;
+      },
       onRehydrateStorage: () => (state) => {
-        if (typeof window === 'undefined' || state?.isReady) return;
+        if (typeof window === 'undefined' || !state) return;
+        if (!state.isReady && state.lat && state.lng && state.label) {
+          useLocationStore.setState({ isReady: true });
+        }
+        if (state.isReady) return;
         try {
           const raw = localStorage.getItem('jebdekho-location');
           if (!raw) return;
@@ -82,9 +94,7 @@ export const useLocationStore = create<LocationState>()(
           };
           const data = parsed.state ?? parsed;
           if (data.lat && data.lng && data.label) {
-            useLocationStore
-              .getState()
-              .setManual(data.lat, data.lng, data.label);
+            useLocationStore.getState().setManual(data.lat, data.lng, data.label);
           }
         } catch {
           /* ignore legacy parse errors */
@@ -94,17 +104,38 @@ export const useLocationStore = create<LocationState>()(
   ),
 );
 
-/** Coords + label for UI and API — falls back to Delhi until user confirms a location */
+/** True after persisted delivery location has been read from localStorage. */
+export function useLocationHydrated(): boolean {
+  const [hydrated, setHydrated] = useState(() =>
+    typeof window === 'undefined' ? false : useLocationStore.persist.hasHydrated(),
+  );
+
+  useEffect(() => {
+    if (useLocationStore.persist.hasHydrated()) {
+      setHydrated(true);
+      return;
+    }
+    return useLocationStore.persist.onFinishHydration(() => setHydrated(true));
+  }, []);
+
+  return hydrated;
+}
+
+/** Saved delivery location for browsing — never silently falls back to Delhi for APIs. */
 export function useEffectiveLocation() {
+  const hydrated = useLocationHydrated();
   const { lat, lng, label, pincode, city, area, isReady } = useLocationStore();
-  const fallback = DEFAULT_LOCATION;
+  const hasLocation = hydrated && isReady && Boolean(lat) && Boolean(lng);
+
   return {
-    lat: isReady && lat ? lat : fallback.lat,
-    lng: isReady && lng ? lng : fallback.lng,
-    label: isReady && label ? label : 'Set delivery location',
-    pincode: isReady ? pincode : undefined,
-    city: isReady ? city : undefined,
-    area: isReady ? area : undefined,
-    isReady,
+    hydrated,
+    isReady: hasLocation,
+    lat: hasLocation ? lat : undefined,
+    lng: hasLocation ? lng : undefined,
+    label: hasLocation && label ? label : 'Set delivery location',
+    pincode: hasLocation ? pincode : undefined,
+    city: hasLocation ? city : undefined,
+    area: hasLocation ? area : undefined,
+    mapCenter: hasLocation ? { lat: lat!, lng: lng! } : DEFAULT_LOCATION,
   };
 }

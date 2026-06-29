@@ -18,10 +18,18 @@ async function parseJson<T>(res: Response): Promise<T> {
   return json.data as T;
 }
 
+const UNAUTHENTICATED_PUSH_STATUS: PushStatusResponse = {
+  configured: false,
+  publicKey: null,
+  subscribed: false,
+  activeSubscriptions: 0,
+};
+
 export async function fetchPushStatus(): Promise<PushStatusResponse> {
   const res = await fetch('/api/buyer/notifications/push/status', {
     credentials: 'include',
   });
+  if (res.status === 401) return UNAUTHENTICATED_PUSH_STATUS;
   return parseJson<PushStatusResponse>(res);
 }
 

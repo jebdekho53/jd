@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DeliveryRegion, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { haversineKm } from '../../common/utils/delivery-eta.util';
 
 function normalizeQuery(q: string): string {
   return q.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -189,11 +190,33 @@ export class LocationDirectoryService {
     return results.slice(0, limit);
   }
 
+  private pickPincodeRow<
+    T extends { latitude: number; longitude: number },
+  >(rows: T[], latitude?: number, longitude?: number): T {
+    if (rows.length === 1) return rows[0]!;
+    if (
+      latitude != null &&
+      longitude != null &&
+      Number.isFinite(latitude) &&
+      Number.isFinite(longitude)
+    ) {
+      return rows.reduce((best, current) =>
+        haversineKm(latitude, longitude, current.latitude, current.longitude) <
+        haversineKm(latitude, longitude, best.latitude, best.longitude)
+          ? current
+          : best,
+      );
+    }
+    return rows[0]!;
+  }
+
   /** Resolve pincode against master directory without throwing for unknown pincodes. */
   async tryResolvePincode(params: {
     pincode: string;
     locationCityId?: string;
     locationAreaId?: string;
+    latitude?: number;
+    longitude?: number;
   }): Promise<ResolvedPincodeLocation> {
     if (!/^\d{6}$/.test(params.pincode)) {
       throw new BadRequestException('Invalid pincode format');
@@ -222,7 +245,7 @@ export class LocationDirectoryService {
       throw new BadRequestException('Pincode does not belong to selected area');
     }
 
-    const row = rows[0];
+    const row = this.pickPincodeRow(rows, params.latitude, params.longitude);
     const serialized = this.serializePincode(row);
     const locationCity = await this.prisma.locationCity.findUnique({
       where: { id: row.cityId },

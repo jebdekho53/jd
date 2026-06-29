@@ -24,6 +24,7 @@ export function LocationPickerModal({
   required = false,
 }: LocationPickerModalProps) {
   const { setFromGps, setFromMaster } = useLocationStore();
+  const savedLocation = useLocationStore();
   const { isConfigured } = useGoogleMaps();
   const { geocode, isLoading: isGeocoding } = useReverseGeocode();
   const [query, setQuery] = useState('');
@@ -45,8 +46,34 @@ export function LocationPickerModal({
       setQuery('');
       setError(null);
       setPreview(null);
+      return;
     }
-  }, [open]);
+
+    if (savedLocation.isReady && savedLocation.lat && savedLocation.lng) {
+      setMapPosition({ lat: savedLocation.lat, lng: savedLocation.lng });
+      setPreview({
+        lat: savedLocation.lat,
+        lng: savedLocation.lng,
+        label: savedLocation.label,
+        pincode: savedLocation.pincode,
+        city: savedLocation.city,
+        area: savedLocation.area,
+      });
+      return;
+    }
+
+    setMapPosition(DEFAULT_MAP_CENTER);
+    setPreview(null);
+  }, [
+    open,
+    savedLocation.area,
+    savedLocation.city,
+    savedLocation.isReady,
+    savedLocation.label,
+    savedLocation.lat,
+    savedLocation.lng,
+    savedLocation.pincode,
+  ]);
 
   const confirmMaster = (coords: {
     lat: number;

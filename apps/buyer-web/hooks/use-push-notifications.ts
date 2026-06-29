@@ -13,14 +13,19 @@ import {
 } from '@/lib/pwa/push/push-utils';
 import { PwaNotificationService } from '@/lib/pwa/notifications/notification-service';
 import { registerServiceWorker } from '@/lib/pwa/register-sw';
+import { useAuthStore } from '@/store/auth-store';
 
 export function usePushNotifications() {
   const [status, setStatus] = useState<PushPermissionState>('not_enabled');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [supported, setSupported] = useState(false);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const authLoading = useAuthStore((s) => s.loading);
 
   const refresh = useCallback(async () => {
+    if (authLoading) return;
+
     setLoading(true);
     setError(null);
     try {
@@ -36,6 +41,11 @@ export function usePushNotifications() {
       }
 
       const permission = await PwaNotificationService.permission();
+      if (!isAuthenticated) {
+        setStatus(resolveClientPushState(permission, false));
+        return;
+      }
+
       const apiStatus = await fetchPushStatus();
       setStatus(resolveClientPushState(permission, apiStatus.subscribed));
     } catch (e) {
@@ -43,7 +53,7 @@ export function usePushNotifications() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
     void refresh();

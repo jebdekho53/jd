@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { flushSyncQueue } from '@/lib/pwa/background-sync/queue';
 import { registerServiceWorker } from '@/lib/pwa/register-sw';
 import { CategoryCacheEffect } from '@/components/pwa/category-cache-effect';
+import { LocationBootstrap } from '@/components/location/location-bootstrap';
 import { InstallPrompt } from '@/components/pwa/install-prompt';
 import { UpdateAvailableToast } from '@/components/pwa/update-available-toast';
 import { PushAfterInstallPrompt } from '@/components/pwa/push-after-install-prompt';
@@ -38,6 +39,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
+      <LocationBootstrap />
       <CategoryCacheEffect />
       <InstallPrompt blockedByUpdate={updateAvailable} />
       <UpdateAvailableToast

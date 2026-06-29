@@ -25,7 +25,10 @@ export function CategoryDetailContent({ slug }: { slug: string }) {
   const apiCategory = flat.find((c) => c.slug === category.slug || c.id === category.id);
 
   const storeParams = useMemo(
-    () => ({ lat, lng, pincode, radiusKm: 20, page: 1, limit: 12, sort: 'distance' as const }),
+    () =>
+      lat != null && lng != null
+        ? { lat, lng, pincode, radiusKm: 20, page: 1, limit: 12, sort: 'distance' as const }
+        : null,
     [lat, lng, pincode],
   );
 
@@ -35,7 +38,11 @@ export function CategoryDetailContent({ slug }: { slug: string }) {
     isError,
     error,
     refetch,
-  } = useCategoryStores(apiCategory?.id ?? '', storeParams, Boolean(apiCategory?.id && lat && lng));
+  } = useCategoryStores(
+    apiCategory?.id ?? '',
+    storeParams ?? { lat: 0, lng: 0, radiusKm: 20, page: 1, limit: 12, sort: 'distance' as const },
+    Boolean(apiCategory?.id && isReady && storeParams),
+  );
 
   const stores = storesData?.data ?? [];
 

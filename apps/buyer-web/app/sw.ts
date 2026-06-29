@@ -49,6 +49,7 @@ const runtimeCaching = [
     matcher: ({ request, url }: { request: Request; url: URL }) =>
       sameOrigin({ url }) &&
       request.method === 'GET' &&
+      request.destination === 'document' &&
       url.pathname.startsWith('/search'),
     handler: new NetworkFirst({
       cacheName: cacheName('search-pages'),
