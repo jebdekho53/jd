@@ -15,6 +15,7 @@ import {
   type MenuCategory,
 } from '@/services/restaurant/menu-api';
 import { useApprovedMenuCategoriesQuery } from '@/hooks/use-categories-governance';
+import { useStoreCatalogKind } from '@/hooks/use-store-catalog-kind';
 
 const TABS = ['Categories', 'Items', 'Addon Groups', 'Combos', 'Link Addons'] as const;
 type Tab = (typeof TABS)[number];
@@ -31,6 +32,7 @@ export function MenuManagementContent({ storeId }: { storeId: string }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>('Categories');
+  const { isProductStore, isLoading: catalogLoading } = useStoreCatalogKind(storeId);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['merchant', 'menu', storeId],
@@ -75,6 +77,28 @@ export function MenuManagementContent({ storeId }: { storeId: string }) {
   const addonGroups = data?.addonGroups ?? [];
   const combos = data?.combos ?? [];
   const allItems = categories.flatMap((c) => c.items ?? []);
+
+  if (catalogLoading) {
+    return (
+      <div className="flex justify-center py-16">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (isProductStore) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
+        <h2 className="text-lg font-semibold text-slate-900">Products, not menu</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          This store sells grocery and retail categories. Use Products to add items — not Menu Management.
+        </p>
+        <Link href="/products" className="mt-4 inline-block">
+          <Button>Go to Products</Button>
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -171,7 +195,12 @@ function CategoriesPanel({
   loading: boolean;
   onCreate: (platformCategoryId: string, name?: string, description?: string) => void;
 }) {
-  const { data: approvedTree = [], isLoading: approvedLoading } = useApprovedMenuCategoriesQuery(storeId);
+  const {
+    data: approvedTree = [],
+    isLoading: approvedLoading,
+    isError: approvedError,
+    refetch: refetchApproved,
+  } = useApprovedMenuCategoriesQuery(storeId);
   const approvedOptions = approvedTree.flatMap((parent) =>
     parent.children.map((child) => ({
       id: child.id,
@@ -204,6 +233,13 @@ function CategoriesPanel({
           </p>
           {approvedLoading ? (
             <Spinner />
+          ) : approvedError ? (
+            <div className="space-y-2 rounded-lg border border-dashed border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <p>Could not load approved menu subcategories. Try again or contact support if this persists.</p>
+              <Button variant="outline" size="sm" onClick={() => refetchApproved()}>
+                Retry
+              </Button>
+            </div>
           ) : availableOptions.length === 0 ? (
             <p className="rounded-lg border border-dashed border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
               No approved menu subcategories yet. Request access on the Store Categories page and wait for admin approval.

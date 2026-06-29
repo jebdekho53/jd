@@ -10,6 +10,7 @@ import {
   useCategoryRequestsQuery,
   useRequestCategoryMutation,
 } from '@/hooks/use-categories-governance';
+import { useStoreCatalogKind } from '@/hooks/use-store-catalog-kind';
 import { useStoreStore } from '@/store/store-store';
 import type { StoreCategoryRequest, StoreCategoryRequestStatus } from '@/types/category-governance';
 import { RequestCategoryModal } from './components/request-category-modal';
@@ -60,8 +61,8 @@ export function CategoriesPageContent() {
   const [modalOpen, setModalOpen] = useState(false);
   const { data: requests, isLoading } = useCategoryRequestsQuery(storeId);
   const { data: catalog } = useCategoryCatalogQuery(storeId);
+  const { isMenuStore } = useStoreCatalogKind(storeId);
   const requestMutation = useRequestCategoryMutation(storeId);
-  const isMenuCatalog = catalog?.[0]?.catalogKind === 'MENU';
 
   const filtered = (requests ?? []).filter((r) => r.status === tab);
 
@@ -93,7 +94,7 @@ export function CategoriesPageContent() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Store Categories</h1>
           <p className="text-sm text-slate-500">
-            {isMenuCatalog ? (
+            {isMenuStore ? (
               <>
                 Request approval for <strong>{currentStore?.name}</strong> to sell in platform menu categories.
                 Only approved subcategories can be used when building your restaurant menu.
@@ -107,7 +108,7 @@ export function CategoriesPageContent() {
           </p>
         </div>
         <Button onClick={() => setModalOpen(true)}>
-          <Plus className="h-4 w-4" /> {isMenuCatalog ? 'Request menu category' : 'Request category'}
+          <Plus className="h-4 w-4" /> {isMenuStore ? 'Request menu category' : 'Request category'}
         </Button>
       </div>
 
@@ -143,8 +144,8 @@ export function CategoriesPageContent() {
 
       {tab === 'APPROVED' && (requests ?? []).filter((r) => r.status === 'APPROVED').length === 0 && (
         <p className="mt-4 text-sm text-amber-700">
-          You need at least one approved category before {isMenuCatalog ? 'adding menu items' : 'creating products'}.{' '}
-          {isMenuCatalog && storeId ? (
+          You need at least one approved category before {isMenuStore ? 'adding menu items' : 'creating products'}.{' '}
+          {isMenuStore && storeId ? (
             <Link href={`/stores/${storeId}/menu`} className="underline">Go to Menu</Link>
           ) : (
             <Link href="/products" className="underline">Go to Products</Link>
@@ -154,7 +155,7 @@ export function CategoriesPageContent() {
 
       {!isLoading && (catalog ?? []).length === 0 && (
         <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          {isMenuCatalog
+          {isMenuStore
             ? 'Menu categories (Food, Cafe, Bakery…) are not available yet. Ask platform admin to seed the menu catalog, then refresh this page.'
             : 'No product categories are available to request. Contact platform support.'}
         </p>

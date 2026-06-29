@@ -25,7 +25,7 @@ import { catalogKindForStoreBusinessTypes } from './utils/catalog-kind.util';
 const mockPrisma = {
   store: { findFirst: jest.fn() },
   storeBusinessType: { findMany: jest.fn(), findFirst: jest.fn() },
-  storeCategoryRequest: { findMany: jest.fn() },
+  storeCategoryRequest: { findMany: jest.fn(), findFirst: jest.fn() },
   storeCategory: { findMany: jest.fn(), findUnique: jest.fn() },
   category: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn() },
   merchantCategory: { findMany: jest.fn(), findFirst: jest.fn() },
@@ -247,5 +247,44 @@ describe('StoreCategoryAccessService menu subcategory', () => {
         }),
       }),
     );
+  });
+
+  it('includes approved category requests in MENU tree', async () => {
+    mockPrisma.store.findFirst.mockResolvedValue({ merchantProfileId: 'mp-1' });
+    mockPrisma.storeCategory.findMany.mockResolvedValue([]);
+    mockPrisma.storeCategoryRequest.findMany.mockResolvedValue([
+      { categoryId: 'food-parent', subcategoryId: 'pizza-sub' },
+    ]);
+    mockPrisma.category.findMany.mockResolvedValue([
+      {
+        id: 'food-parent',
+        name: 'Food',
+        slug: 'menu-food',
+        imageUrl: null,
+        icon: null,
+        parentId: null,
+        sortOrder: 1,
+        children: [
+          {
+            id: 'pizza-sub',
+            name: 'Pizza',
+            slug: 'pizza',
+            imageUrl: null,
+            icon: null,
+            parentId: 'food-parent',
+            sortOrder: 5,
+          },
+        ],
+      },
+    ]);
+
+    const tree = await accessService.listApprovedCategoryTree(
+      'store-food',
+      CategoryCatalogKind.MENU,
+    );
+
+    expect(tree).toHaveLength(1);
+    expect(tree[0]?.name).toBe('Food');
+    expect(tree[0]?.children[0]?.name).toBe('Pizza');
   });
 });

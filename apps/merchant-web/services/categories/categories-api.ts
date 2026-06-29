@@ -2,8 +2,12 @@ import { merchantFetch } from '@/services/api/merchant-client';
 import type { ApiResponse } from '@/types/auth';
 import type { CatalogCategory, StoreCategoryRequest } from '@/types/category-governance';
 
-function storeQuery(storeId: string) {
-  return `?storeId=${encodeURIComponent(storeId)}`;
+function storeQuery(storeId: string, extra?: Record<string, string>) {
+  const q = new URLSearchParams({ storeId });
+  if (extra) {
+    for (const [k, v] of Object.entries(extra)) q.set(k, v);
+  }
+  return `?${q.toString()}`;
 }
 
 export async function getCategoryCatalog(storeId: string): Promise<CatalogCategory[]> {
@@ -22,7 +26,7 @@ export async function listCategoryRequests(storeId: string): Promise<StoreCatego
 
 export async function listApprovedCategories(storeId: string): Promise<CatalogCategory[]> {
   const res = await merchantFetch<ApiResponse<CatalogCategory[]>>(
-    `/api/merchant/categories/approved${storeQuery(storeId)}`,
+    `/api/merchant/categories/approved${storeQuery(storeId, { catalogKind: 'PRODUCT' })}`,
   );
   return res.data;
 }

@@ -12,6 +12,7 @@ import { ProductAiBillingTab } from './components/product-ai-billing-tab';
 import { AiWalletCard } from './components/ai-wallet-card';
 import { AiChargeReceiptModal } from './components/ai-charge-receipt-modal';
 import { useProductsQuery } from '@/hooks/use-products';
+import { useStoreCatalogKind } from '@/hooks/use-store-catalog-kind';
 import { useStoreStore } from '@/store/store-store';
 import { useDebounce } from '@/hooks/use-debounce';
 import type { Product } from '@/types/product';
@@ -28,6 +29,7 @@ type ProductsTab = 'catalog' | 'ai-billing';
 
 export function ProductsPageContent() {
   const { currentStore } = useStoreStore();
+  const { isMenuStore, isLoading: catalogLoading } = useStoreCatalogKind(currentStore?.id);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
@@ -69,6 +71,26 @@ export function ProductsPageContent() {
         <p className="mt-1 text-sm text-slate-500">Select a store from the sidebar to manage products.</p>
         <Link href="/stores">
           <Button className="mt-4" variant="outline">Go to Stores</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  if (catalogLoading) {
+    return (
+      <div className="flex justify-center py-16 text-sm text-slate-500">Loading store type…</div>
+    );
+  }
+
+  if (isMenuStore) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
+        <h2 className="text-lg font-semibold text-slate-900">Restaurant menu, not products</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          This store uses food menu categories. Add dishes from Menu Management instead of Products.
+        </p>
+        <Link href={`/stores/${currentStore.id}/menu`} className="mt-4 inline-block">
+          <Button>Go to Menu</Button>
         </Link>
       </div>
     );

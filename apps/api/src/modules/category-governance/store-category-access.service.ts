@@ -3,6 +3,7 @@ import {
   CategoryCatalogKind,
   CategoryScope,
   MerchantCategoryStatus,
+  StoreCategoryRequestStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
@@ -112,6 +113,16 @@ export class StoreCategoryAccessService {
     });
     if (storeApproval) return;
 
+    const approvedRequest = await this.prisma.storeCategoryRequest.findFirst({
+      where: {
+        storeId,
+        categoryId: parentCategoryId,
+        subcategoryId,
+        status: StoreCategoryRequestStatus.APPROVED,
+      },
+    });
+    if (approvedRequest) return;
+
     const legacy = await this.prisma.merchantCategory.findFirst({
       where: {
         merchantProfileId,
@@ -167,6 +178,15 @@ export class StoreCategoryAccessService {
 
     const approvedSubIds = new Set(storeRows.map((r) => r.subcategoryId));
     const approvedParentIds = new Set(storeRows.map((r) => r.categoryId));
+
+    const approvedRequests = await this.prisma.storeCategoryRequest.findMany({
+      where: { storeId, status: StoreCategoryRequestStatus.APPROVED },
+      select: { categoryId: true, subcategoryId: true },
+    });
+    for (const row of approvedRequests) {
+      approvedSubIds.add(row.subcategoryId);
+      approvedParentIds.add(row.categoryId);
+    }
 
     if (approvedSubIds.size === 0) {
       const legacy = await this.prisma.merchantCategory.findMany({

@@ -28,7 +28,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { useStoreStore } from '@/store/store-store';
 import { useLogoutMutation } from '@/hooks/use-auth';
 import { useStoresQuery } from '@/hooks/use-stores';
-import { useCategoryCatalogQuery } from '@/hooks/use-categories-governance';
+import { useStoreCatalogKind } from '@/hooks/use-store-catalog-kind';
 
 const baseNav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -71,19 +71,16 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const { data: storeData } = useStoresQuery();
 
   const stores = storeData?.data ?? [];
-  const { data: catalog } = useCategoryCatalogQuery(currentStore?.id);
-  const catalogKind = catalog?.[0]?.catalogKind;
+  const { isMenuStore, isLoading: catalogLoading } = useStoreCatalogKind(currentStore?.id);
 
   const filteredBaseNav = baseNav.filter((item) => {
-    if (catalogKind === 'MENU' && (item.href === '/products' || item.href === '/inventory')) {
+    if (isMenuStore && (item.href === '/products' || item.href === '/inventory')) {
       return false;
     }
     return true;
   });
 
-  const showRestaurantNav = Boolean(
-    currentStore && (catalogKind === 'MENU' || catalogKind === undefined),
-  );
+  const showRestaurantNav = Boolean(currentStore && isMenuStore && !catalogLoading);
 
   const nav = currentStore
     ? [
