@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import { Loader2, MapPin } from 'lucide-react';
 import { useGoogleMaps } from './google-maps-context';
@@ -29,6 +29,7 @@ const mapOptions: google.maps.MapOptions = {
   streetViewControl: false,
   fullscreenControl: true,
   clickableIcons: false,
+  gestureHandling: 'greedy',
 };
 
 export function GoogleMapPicker({
@@ -39,6 +40,7 @@ export function GoogleMapPicker({
   disabled,
 }: GoogleMapPickerProps) {
   const { isLoaded, loadError } = useGoogleMaps();
+  const mapRef = useRef<google.maps.Map | null>(null);
 
   const center = useMemo(
     () =>
@@ -47,6 +49,10 @@ export function GoogleMapPicker({
         : DEFAULT_MAP_CENTER,
     [position.lat, position.lng],
   );
+
+  useEffect(() => {
+    mapRef.current?.panTo(center);
+  }, [center]);
 
   const handleMapClick = useCallback(
     (event: google.maps.MapMouseEvent) => {
@@ -107,6 +113,9 @@ export function GoogleMapPicker({
           zoom={DEFAULT_MAP_ZOOM}
           options={mapOptions}
           onClick={handleMapClick}
+          onLoad={(map) => {
+            mapRef.current = map;
+          }}
         >
           <Marker
             position={center}

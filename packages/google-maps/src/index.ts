@@ -11,3 +11,4 @@ export type { AddressLocationValue } from './address-location-picker';
 export { AddressLocationPicker } from './address-location-picker';
 export { GoogleDeliveryMap } from './google-delivery-map';
 export { GoogleStoreMap } from './google-store-map';
+export { OsmMapPicker } from './osm-map-picker';

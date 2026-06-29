@@ -49,10 +49,11 @@ build_next_app() {
 }
 
 build_next_app apps/buyer-web "${BUYER_URL:-https://jebdekho.com}" \
-  "NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL:-wss://api.jebdekho.com} NEXT_PUBLIC_SITE_URL=${BUYER_SITE_URL:-https://jebdekho.com}"
+  "NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL:-wss://api.jebdekho.com} NEXT_PUBLIC_SITE_URL=${BUYER_SITE_URL:-https://jebdekho.com} NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}"
 
 build_next_app apps/admin-web "${ADMIN_URL:-https://admin.jebdekho.com}"
-build_next_app apps/merchant-web "${MERCHANT_URL:-https://merchant.jebdekho.com}"
+build_next_app apps/merchant-web "${MERCHANT_URL:-https://merchant.jebdekho.com}" \
+  "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}"
 build_next_app apps/rider-web "${RIDER_URL:-https://rider.jebdekho.com}"
 build_next_app apps/vendor-web "${VENDOR_URL:-https://vendor.jebdekho.com}"
 build_next_app apps/franchise-web "${FRANCHISE_URL:-https://franchise.jebdekho.com}"

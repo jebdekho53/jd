@@ -23,6 +23,7 @@ interface MerchantAddressPickerProps {
   onLine1Suggestion?: (line1: string) => void;
   error?: string;
   searchLabel?: string;
+  mapHeightClassName?: string;
   onMasterSelect?: (selection: LocationSelection) => void;
   masterValue?: string;
   masterPincode?: string;
@@ -34,6 +35,7 @@ export function MerchantAddressPicker({
   onLine1Suggestion,
   error,
   searchLabel,
+  mapHeightClassName = 'h-56 sm:h-72',
   onMasterSelect,
   masterValue,
   masterPincode,
@@ -45,6 +47,8 @@ export function MerchantAddressPicker({
       onLine1Suggestion={onLine1Suggestion}
       error={error}
       searchLabel={searchLabel}
+      mapHeightClassName={mapHeightClassName}
+      outlineButtonClassName="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-brand-200 bg-brand-50 text-sm font-medium text-brand-800 transition hover:bg-brand-100 disabled:opacity-60"
       onReverseGeocode={reverseGeocodeCached}
       onRequestLocation={async () => {
         const { requestBrowserLocation } = await import('@/lib/geolocation');

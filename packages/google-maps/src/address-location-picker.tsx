@@ -4,6 +4,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { Navigation } from 'lucide-react';
 import { GooglePlacesAutocomplete } from './google-places-autocomplete';
 import { GoogleMapPicker } from './google-map-picker';
+import { OsmMapPicker } from './osm-map-picker';
 import { useGoogleMaps } from './google-maps-context';
 import type { ParsedGoogleAddress } from './parse-address';
 import { DEFAULT_MAP_CENTER } from './constants';
@@ -28,6 +29,7 @@ export interface AddressLocationPickerProps {
   onLine1Suggestion?: (line1: string) => void;
   error?: string;
   showMap?: boolean;
+  mapHeightClassName?: string;
   searchLabel?: string;
   fallback?: ReactNode;
   onRequestLocation?: () => Promise<{ lat: number; lng: number }>;
@@ -55,6 +57,7 @@ export function AddressLocationPicker({
   onLine1Suggestion,
   error,
   showMap = true,
+  mapHeightClassName = 'h-52 sm:h-64',
   searchLabel = 'Search address',
   fallback = null,
   onRequestLocation,
@@ -143,8 +146,55 @@ export function AddressLocationPicker({
 
   const combinedError = error ?? geocodeError ?? gpsError ?? undefined;
 
+  const locationButton = onRequestLocation ? (
+    <button
+      type="button"
+      className={outlineButtonClassName ?? buttonClassName}
+      disabled={gpsLoading || geocoding}
+      onClick={handleCurrentLocation}
+    >
+      <Navigation className="h-4 w-4" aria-hidden />
+      {gpsLoading || geocoding ? 'Locating…' : 'Use current location'}
+    </button>
+  ) : null;
+
+  const mapPicker = showMap ? (
+    isConfigured ? (
+      <GoogleMapPicker
+        position={position}
+        onPositionChange={handleMapMove}
+        disabled={geocoding}
+        heightClassName={mapHeightClassName}
+      />
+    ) : onReverseGeocode ? (
+      <OsmMapPicker
+        position={position}
+        onPositionChange={handleMapMove}
+        disabled={geocoding}
+        heightClassName={mapHeightClassName}
+      />
+    ) : null
+  ) : null;
+
   if (!isConfigured) {
-    return <>{fallback}</>;
+    return (
+      <div className="space-y-4">
+        {fallback}
+        {locationButton}
+        {mapPicker}
+        {combinedError ? <p className="text-sm text-red-600">{combinedError}</p> : null}
+        {value.locality && value.pincode && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+            <p>
+              {value.locality}
+              {value.city ? ` · ${value.city}` : ''}
+              {value.state ? ` · ${value.state}` : ''}
+              {value.pincode ? ` · PIN ${value.pincode}` : ''}
+            </p>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -156,21 +206,9 @@ export function AddressLocationPicker({
         error={combinedError}
       />
 
-      {onRequestLocation && (
-        <button
-          type="button"
-          className={outlineButtonClassName ?? buttonClassName}
-          disabled={gpsLoading || geocoding}
-          onClick={handleCurrentLocation}
-        >
-          <Navigation className="h-4 w-4" aria-hidden />
-          {gpsLoading || geocoding ? 'Locating…' : 'Use current location'}
-        </button>
-      )}
+      {locationButton}
 
-      {showMap && (
-        <GoogleMapPicker position={position} onPositionChange={handleMapMove} disabled={geocoding} />
-      )}
+      {mapPicker}
 
       {value.locality && value.pincode && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">

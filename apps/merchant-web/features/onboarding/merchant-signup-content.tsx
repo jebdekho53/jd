@@ -612,14 +612,19 @@ export function MerchantSignupContent() {
 
             {!booting && step === 3 && (
               <div className="space-y-4">
-                <StepHeader title="Store location" subtitle="Pin on Google Maps" />
+                <StepHeader
+                  title="Store location"
+                  subtitle="Search, use GPS, or pin your store on the map"
+                />
                 <Input
                   label="Store address"
+                  placeholder="Building, street, landmark"
                   value={form.storeAddress}
                   onChange={(e) => setForm({ ...form, storeAddress: e.target.value })}
                 />
                 <MerchantAddressPicker
-                  searchLabel="Store location *"
+                  searchLabel="Search on map"
+                  mapHeightClassName="h-56 sm:h-72"
                   masterValue={form.locality}
                   masterPincode={form.pincode}
                   value={{
@@ -649,6 +654,9 @@ export function MerchantSignupContent() {
                   onLine1Suggestion={(line1) => setForm((f) => ({ ...f, storeAddress: line1 }))}
                   onMasterSelect={handleLocationSelect}
                 />
+                <p className="text-xs text-slate-500">
+                  Allow location access when prompted, or drag the pin to your exact storefront.
+                </p>
                 {form.locality && (
                   <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
                     <p>
