@@ -7,7 +7,6 @@ import { FoodPaymentService } from './food-payment.service';
 import { FoodPaymentController } from './food-payment.controller';
 import { MenuService } from './menu.service';
 import { FoodOrderService } from './food-order.service';
-import { VerticalService } from './vertical.service';
 import { RestaurantDiscoveryService } from './restaurant-discovery.service';
 import { MenuOcrService } from './menu-ocr.service';
 import { BuyerRestaurantController } from './buyer-restaurant.controller';
@@ -25,6 +24,7 @@ import { PaymentModule } from '../payment/payment.module';
 import { PushModule } from '../push/push.module';
 import { EmailModule } from '../email/email.module';
 import { CategoryGovernanceModule } from '../category-governance/category-governance.module';
+import { StoreVerticalModule } from '../store-vertical/store-vertical.module';
 
 @Module({
   imports: [
@@ -33,6 +33,7 @@ import { CategoryGovernanceModule } from '../category-governance/category-govern
     OrderTimelineModule,
     MerchantModule,
     CategoryGovernanceModule,
+    StoreVerticalModule,
     forwardRef(() => ProductModule),
     PushModule,
     EmailModule,
@@ -53,10 +54,15 @@ import { CategoryGovernanceModule } from '../category-governance/category-govern
     FoodPaymentService,
     MenuService,
     FoodOrderService,
-    VerticalService,
     RestaurantDiscoveryService,
     MenuOcrService,
   ],
-  exports: [FoodCartService, FoodPaymentService, MenuService, VerticalService, RestaurantDiscoveryService],
+  exports: [
+    StoreVerticalModule,
+    FoodCartService,
+    FoodPaymentService,
+    MenuService,
+    RestaurantDiscoveryService,
+  ],
 })
 export class FoodModule {}

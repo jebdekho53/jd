@@ -26,7 +26,7 @@ import { ConfigService } from '@nestjs/config';
 import { getConfig } from '../../config/configuration';
 import { assertTrustedUploadUrl } from '../../common/utils/trusted-upload-url.util';
 import { resolveStoreCatalogKind } from './utils/catalog-kind.util';
-import { VerticalService } from '../food/vertical.service';
+import { VerticalService } from '../store-vertical/vertical.service';
 
 @Injectable()
 export class StoreCategoryRequestService {

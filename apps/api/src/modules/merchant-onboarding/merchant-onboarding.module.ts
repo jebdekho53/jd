@@ -9,7 +9,7 @@ import { EmailModule } from '../email/email.module';
 import { GeoModule } from '../geo/geo.module';
 import { GeocodingModule } from '../geocoding/geocoding.module';
 import { LocationDirectoryModule } from '../location-directory/location-directory.module';
-import { FoodModule } from '../food/food.module';
+import { StoreVerticalModule } from '../store-vertical/store-vertical.module';
 import { PasswordService } from '../auth/password.service';
 import { MerchantOnboardingService } from './merchant-onboarding.service';
 import { MerchantApplicationRiskService } from './merchant-application-risk.service';
@@ -28,7 +28,7 @@ import { AdminMerchantApplicationController } from './admin-merchant-application
     GeoModule,
     GeocodingModule,
     LocationDirectoryModule,
-    FoodModule,
+    StoreVerticalModule,
   ],
   controllers: [MerchantOnboardingController, AdminMerchantApplicationController],
   providers: [

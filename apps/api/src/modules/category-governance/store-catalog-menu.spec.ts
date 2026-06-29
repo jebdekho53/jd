@@ -14,7 +14,7 @@ import { StoreCategoryRequestService } from './store-category-request.service';
 import { StoreCategoryAccessService } from './store-category-access.service';
 import { ConfigService } from '@nestjs/config';
 import { MenuService } from '../food/menu.service';
-import { VerticalService } from '../food/vertical.service';
+import { VerticalService } from '../store-vertical/vertical.service';
 import { PrismaService } from '../../database/prisma.service';
 import { MerchantService } from '../merchant/merchant.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';

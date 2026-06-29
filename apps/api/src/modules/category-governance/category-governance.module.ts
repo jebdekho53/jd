@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MerchantModule } from '../merchant/merchant.module';
 import { BuyerModule } from '../buyer/buyer.module';
-import { FoodModule } from '../food/food.module';
+import { StoreVerticalModule } from '../store-vertical/store-vertical.module';
 import { AdminCategoryGovernanceService } from './admin-category-governance.service';
 import { AdminCategoryGovernanceController } from './admin-category-governance.controller';
 import { MerchantCategoryRequestService } from './merchant-category-request.service';
@@ -11,7 +11,7 @@ import { StoreCategoryAccessService } from './store-category-access.service';
 import { StoreCategoryRequestService } from './store-category-request.service';
 
 @Module({
-  imports: [MerchantModule, BuyerModule, FoodModule],
+  imports: [MerchantModule, BuyerModule, StoreVerticalModule],
   controllers: [AdminCategoryGovernanceController, MerchantCategoryGovernanceController],
   providers: [
     AdminCategoryGovernanceService,

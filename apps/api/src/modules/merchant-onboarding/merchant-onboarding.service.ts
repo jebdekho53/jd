@@ -48,7 +48,7 @@ import { CreateStoreDto } from '../store/dto/create-store.dto';
 import { LocationDirectoryService } from '../location-directory/location-directory.service';
 import { GeoService } from '../geo/geo.service';
 import { GeocodingCacheService } from '../geocoding/geocoding-cache.service';
-import { VerticalService } from '../food/vertical.service';
+import { VerticalService } from '../store-vertical/vertical.service';
 
 const DOC_TO_STORE: Partial<Record<MerchantDocumentType, StoreDocumentType>> = {
   GST_CERTIFICATE: StoreDocumentType.GST_CERTIFICATE,
