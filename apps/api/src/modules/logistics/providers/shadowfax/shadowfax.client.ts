@@ -6,11 +6,16 @@ import { LOGISTICS_HTTP_TIMEOUT_MS, LOGISTICS_RETRY_DELAY_MS, LOGISTICS_RETRY_MA
 import { LogisticsProviderError } from '../../errors/logistics.errors';
 import { maskSensitivePayload } from '../../utils/mask-sensitive.util';
 import {
+  assertSupportedShadowfaxPath,
+  maskShadowfaxToken,
   normalizeShadowfaxApiBase,
   resolveShadowfaxApiMode,
   shadowfaxRequestTarget,
-  type ShadowfaxApiMode,
 } from './shadowfax-url.util';
+import {
+  shadowfaxEndpointsForMode,
+  type ShadowfaxApiMode,
+} from './shadowfax.endpoints';
 
 export interface ShadowfaxCreatePayload {
   order_details: {
@@ -50,21 +55,23 @@ export class ShadowfaxClient {
   private readonly token: string;
   private readonly apiMode: ShadowfaxApiMode;
   private readonly creditsKey: string;
+  private readonly createOrderEndpoint: string;
 
   constructor(private readonly config: ConfigService) {
     const rawUrl = config.get<string>('SHADOWFAX_API_URL', '') ?? '';
-    this.apiUrl = normalizeShadowfaxApiBase(rawUrl);
     this.apiMode = resolveShadowfaxApiMode(
       rawUrl,
       config.get<string>('SHADOWFAX_API_MODE', ''),
     );
+    this.apiUrl = normalizeShadowfaxApiBase(rawUrl, this.apiMode);
+    this.createOrderEndpoint = shadowfaxEndpointsForMode(this.apiMode).createOrder;
     const nodeEnv = config.get<string>('NODE_ENV', 'development');
     this.token =
       nodeEnv === 'production'
-        ? (config.get<string>('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '')
+        ? (config.get<string>('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '').trim()
         : (config.get<string>('SHADOWFAX_TEST_TOKEN', '') ??
           config.get<string>('SHADOWFAX_PRODUCTION_TOKEN', '') ??
-          '');
+          '').trim();
     this.creditsKey = config.get<string>('SHADOWFAX_CREDITS_KEY', '') ?? '';
     this.http = axios.create({
       baseURL: this.apiUrl || undefined,
@@ -74,6 +81,16 @@ export class ShadowfaxClient {
         'Content-Type': 'application/json',
       },
     });
+    this.logger.log(
+      {
+        baseUrl: this.apiUrl || '(not set)',
+        apiMode: this.apiMode,
+        createOrderEndpoint: this.createOrderEndpoint,
+        tokenPresent: Boolean(this.token),
+        tokenMasked: maskShadowfaxToken(this.token),
+      },
+      'Shadowfax configuration resolved',
+    );
   }
 
   getApiMode(): ShadowfaxApiMode {
@@ -90,23 +107,21 @@ export class ShadowfaxClient {
     if (this.apiMode === 'flash') {
       return this.createFlashOrder(payload);
     }
-    return this.request('POST', '/api/v3/clients/shipments/', payload);
+    return this.request('POST', this.createOrderEndpoint, payload);
   }
 
   async cancelShipment(shipmentId: string, reason?: string): Promise<Record<string, unknown>> {
+    const endpoint = shadowfaxEndpointsForMode(this.apiMode).cancelOrder(shipmentId);
     if (this.apiMode === 'flash') {
-      return this.request('POST', '/order/cancel/', { order_id: shipmentId });
+      return this.request('POST', endpoint, { order_id: shipmentId });
     }
-    return this.request('POST', `/api/v3/clients/shipments/${shipmentId}/cancel/`, {
+    return this.request('POST', endpoint, {
       reason: reason ?? 'Cancelled by merchant',
     });
   }
 
   async trackShipment(shipmentId: string): Promise<Record<string, unknown>> {
-    if (this.apiMode === 'flash') {
-      return this.request('GET', `/order/track/${shipmentId}/`);
-    }
-    return this.request('GET', `/api/v3/clients/shipments/${shipmentId}/track/`);
+    return this.request('GET', shadowfaxEndpointsForMode(this.apiMode).trackOrder(shipmentId));
   }
 
   async estimatePrice(payload: {
@@ -128,7 +143,7 @@ export class ShadowfaxClient {
         },
       });
     }
-    return this.request('POST', '/api/v3/clients/serviceability/', payload);
+    return this.request('POST', shadowfaxEndpointsForMode(this.apiMode).serviceability, payload);
   }
 
   async healthCheck(): Promise<{ healthy: boolean; latencyMs: number; message?: string }> {
@@ -141,8 +156,7 @@ export class ShadowfaxClient {
       return { healthy: false, latencyMs: 0, message: missing };
     }
     try {
-      const path =
-        this.apiMode === 'flash' ? '/order/serviceability/' : '/api/v3/clients/health/';
+      const path = shadowfaxEndpointsForMode(this.apiMode).health;
       await this.http.request({
         method: this.apiMode === 'flash' ? 'POST' : 'GET',
         url: path,
@@ -225,6 +239,7 @@ export class ShadowfaxClient {
       );
     }
 
+    assertSupportedShadowfaxPath(this.apiMode, path);
     const requestTarget = shadowfaxRequestTarget(this.apiUrl, path);
     const started = Date.now();
     try {

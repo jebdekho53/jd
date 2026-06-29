@@ -150,7 +150,10 @@ export const validationSchema = Joi.object({
   ENABLE_DELHIVERY: Joi.string().valid('true', 'false').default('false'),
   ENABLE_BORZO: Joi.string().valid('true', 'false').default('false'),
   SHADOWFAX_API_URL: Joi.string().uri().empty('').optional(),
-  SHADOWFAX_API_MODE: Joi.string().valid('v3', 'flash', 'hyperlocal', 'hl', 'warehouse', 'ecommerce', '').empty('').optional(),
+  SHADOWFAX_API_MODE: Joi.string()
+    .valid('v3_marketplace', 'v3_warehouse', 'v3', 'flash', 'hyperlocal', 'hl', 'warehouse', 'marketplace', 'ecommerce', '')
+    .empty('')
+    .optional(),
   SHADOWFAX_CREDITS_KEY: Joi.string().empty('').optional(),
   SHADOWFAX_CLIENT_ID: Joi.string().empty('').optional(),
   SHADOWFAX_CLIENT_SECRET: Joi.string().empty('').optional(),
