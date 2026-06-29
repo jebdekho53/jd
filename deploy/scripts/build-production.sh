@@ -25,6 +25,11 @@ if [[ "${SEED_MENU_CATALOG:-1}" == "1" ]]; then
   pnpm seed:menu-catalog
 fi
 
+export NEXT_PUBLIC_APP_VERSION="${NEXT_PUBLIC_APP_VERSION:-$(git rev-parse --short=12 HEAD)}"
+STATIC_ROOT="${JD_NEXT_STATIC_ROOT:-$ROOT/.next-static}"
+echo "==> App version ${NEXT_PUBLIC_APP_VERSION}"
+mkdir -p "$STATIC_ROOT"
+
 echo "==> Building API"
 # Nest deletes dist/ but leaves tsbuildinfo; incremental tsc then emits nothing.
 rm -rf apps/api/dist apps/api/tsconfig.build.tsbuildinfo apps/api/tsconfig.tsbuildinfo
@@ -42,6 +47,15 @@ build_next_app() {
   echo "==> Building $(basename "$app_dir")"
   (
     cd "$app_dir"
+    app_name="$(basename "$app_dir")"
+    shared_static="$STATIC_ROOT/$app_name"
+    mkdir -p "$shared_static"
+    previous_static=""
+    if [[ -d .next/static ]]; then
+      previous_static="$(mktemp -d)"
+      cp -a .next/static/. "$previous_static/"
+      cp -an .next/static/. "$shared_static/" || true
+    fi
     export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.jebdekho.com/api/v1}"
     export NEXT_PUBLIC_API_ORIGIN="${NEXT_PUBLIC_API_ORIGIN:-https://api.jebdekho.com}"
     export NEXT_PUBLIC_APP_URL="$app_url"
@@ -49,7 +63,18 @@ build_next_app() {
       # shellcheck disable=SC2086
       export $extra_env
     fi
-    pnpm run build
+    if pnpm run build; then
+      if [[ -n "$previous_static" && -d "$previous_static" && -d .next/static ]]; then
+        cp -an "$previous_static"/. .next/static/ || true
+      fi
+      if [[ -d .next/static ]]; then
+        cp -an .next/static/. "$shared_static/" || true
+      fi
+      rm -rf "$previous_static"
+    else
+      rm -rf "$previous_static"
+      exit 1
+    fi
   )
 }
 

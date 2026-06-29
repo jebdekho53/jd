@@ -46,4 +46,22 @@ else
 fi
 pm2 save
 
+if [[ -x ./deploy/scripts/smoke-next-portals.sh ]]; then
+  echo "==> Smoke Next.js static assets"
+  ./deploy/scripts/smoke-next-portals.sh
+fi
+
+BUYER_JS_FILE=$(find apps/buyer-web/.next/static/chunks -type f -name '*.js' | head -1 || true)
+if [[ -n "$BUYER_JS_FILE" ]]; then
+  BUYER_JS_PATH="/_next/static/${BUYER_JS_FILE#apps/buyer-web/.next/static/}"
+  BUYER_JS_HEADERS=$(curl -sSI "https://jebdekho.com${BUYER_JS_PATH}" 2>/dev/null || true)
+  BUYER_JS_CODE=$(printf '%s\n' "$BUYER_JS_HEADERS" | awk 'toupper($0) ~ /^HTTP\// { code=$2 } END { print code }')
+  BUYER_JS_TYPE=$(printf '%s\n' "$BUYER_JS_HEADERS" | awk 'BEGIN{IGNORECASE=1} /^content-type:/ { print $2; exit }' | tr -d '\r')
+  echo "==> Buyer JS probe: ${BUYER_JS_PATH} code=${BUYER_JS_CODE:-000} type=${BUYER_JS_TYPE:-unknown}"
+  if [[ "${BUYER_JS_CODE:-000}" != "200" || ! "${BUYER_JS_TYPE:-}" =~ ^(application|text)/javascript ]]; then
+    echo "ERROR: buyer _next/static JS probe failed"
+    exit 1
+  fi
+fi
+
 echo "==> Done. Verify: curl http://127.0.0.1:\${API_PORT:-3001}/health"

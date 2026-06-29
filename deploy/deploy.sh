@@ -126,6 +126,19 @@ if [[ -x ./deploy/scripts/smoke-next-portals.sh ]]; then
   }
 fi
 
+BUYER_JS_FILE=$(find apps/buyer-web/.next/static/chunks -type f -name '*.js' | head -1 || true)
+if [[ -n "$BUYER_JS_FILE" ]]; then
+  BUYER_JS_PATH="/_next/static/${BUYER_JS_FILE#apps/buyer-web/.next/static/}"
+  BUYER_JS_HEADERS=$(curl -sSI "https://jebdekho.com${BUYER_JS_PATH}" 2>/dev/null || true)
+  BUYER_JS_CODE=$(printf '%s\n' "$BUYER_JS_HEADERS" | awk 'toupper($0) ~ /^HTTP\// { code=$2 } END { print code }')
+  BUYER_JS_TYPE=$(printf '%s\n' "$BUYER_JS_HEADERS" | awk 'BEGIN{IGNORECASE=1} /^content-type:/ { print $2; exit }' | tr -d '\r')
+  log "Post-deploy buyer JS probe: path=${BUYER_JS_PATH} code=${BUYER_JS_CODE:-000} type=${BUYER_JS_TYPE:-unknown}"
+  if [[ "${BUYER_JS_CODE:-000}" != "200" || ! "${BUYER_JS_TYPE:-}" =~ ^(application|text)/javascript ]]; then
+    log "ERROR: buyer _next/static JS probe failed — check nginx alias/MIME and PM2 build"
+    exit 1
+  fi
+fi
+
 PUBLIC_CATS_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -H "Origin: https://jebdekho.com" \
   "https://api.jebdekho.com/api/v1/buyer/categories" 2>/dev/null || echo "000")
 PUBLIC_HEALTH_CODE=$(curl -sS -o /dev/null -w "%{http_code}" "https://api.jebdekho.com/health" 2>/dev/null || echo "000")

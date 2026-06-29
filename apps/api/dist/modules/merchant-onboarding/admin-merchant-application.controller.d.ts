@@ -1,0 +1,605 @@
+import { RequestUser } from '../../common/types';
+import { MerchantOnboardingService } from './merchant-onboarding.service';
+import { ListMerchantApplicationsDto, RejectApplicationDto, RequestApplicationChangesDto, RequestApplicationDocumentsDto, ScheduleCallDto } from './dto/merchant-onboarding.dto';
+export declare class AdminMerchantApplicationController {
+    private readonly onboarding;
+    constructor(onboarding: MerchantOnboardingService);
+    list(query: ListMerchantApplicationsDto): Promise<{
+        success: boolean;
+        data: {
+            applications: {
+                id: string;
+                status: import("@prisma/client").$Enums.MerchantApplicationStatus;
+                ownerName: string | null;
+                ownerEmail: string | null;
+                ownerPhone: string | null;
+                businessName: string | null;
+                businessType: import("@prisma/client").$Enums.MerchantBusinessType | null;
+                businessTypes: import("@prisma/client").$Enums.VerticalBusinessType[];
+                gstNumber: string | null;
+                gstVerified: boolean;
+                panNumber: string | null;
+                storeName: string | null;
+                storeAddress: string | null;
+                state: string | null;
+                city: string | null;
+                cityId: string | null;
+                pincode: string | null;
+                latitude: number | null;
+                longitude: number | null;
+                deliveryRadiusKm: number | null;
+                storeLogoUrl: string | null;
+                storeBannerUrl: string | null;
+                deliveryCoveragePincodes: import("@prisma/client/runtime/library").JsonValue;
+                riskScore: number;
+                riskFlags: import("@prisma/client/runtime/library").JsonValue;
+                rejectionReason: string | null;
+                adminNotes: string | null;
+                submittedAt: Date | null;
+                reviewedAt: Date | null;
+                documents: {
+                    id: string;
+                    documentType: import("@prisma/client").$Enums.MerchantDocumentType;
+                    fileName: string;
+                    mimeType: string;
+                    fileUrl: string;
+                    uploadedAt: Date;
+                    applicationId: string;
+                }[];
+                kyc: {
+                    id: string;
+                    status: import("@prisma/client").$Enums.MerchantKycStatus;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    verifiedAt: Date | null;
+                    verifiedBy: string | null;
+                    notes: string | null;
+                    applicationId: string;
+                } | null;
+                bankAccount: {
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    applicationId: string;
+                    accountHolderName: string;
+                    accountNumber: string;
+                    ifsc: string;
+                    bankName: string | null;
+                    upiId: string | null;
+                } | null;
+                steps: {
+                    data: import("@prisma/client/runtime/library").JsonValue | null;
+                    id: string;
+                    completedAt: Date | null;
+                    applicationId: string;
+                    completed: boolean;
+                    stepKey: import("@prisma/client").$Enums.MerchantOnboardingStepKey;
+                }[];
+                store: {
+                    id: string;
+                    status: import("@prisma/client").$Enums.StoreStatus;
+                    name: string;
+                } | null;
+                merchantProfile: {
+                    id: string;
+                    businessName: string;
+                    kycStatus: import("@prisma/client").$Enums.KycStatus;
+                    isBlacklisted: boolean;
+                } | null;
+                createdAt: Date;
+                updatedAt: Date;
+            }[];
+            total: number;
+        };
+    }>;
+    get(id: string): Promise<{
+        success: boolean;
+        data: {
+            id: string;
+            status: import("@prisma/client").$Enums.MerchantApplicationStatus;
+            ownerName: string | null;
+            ownerEmail: string | null;
+            ownerPhone: string | null;
+            businessName: string | null;
+            businessType: import("@prisma/client").$Enums.MerchantBusinessType | null;
+            businessTypes: import("@prisma/client").$Enums.VerticalBusinessType[];
+            gstNumber: string | null;
+            gstVerified: boolean;
+            panNumber: string | null;
+            storeName: string | null;
+            storeAddress: string | null;
+            state: string | null;
+            city: string | null;
+            cityId: string | null;
+            pincode: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            deliveryRadiusKm: number | null;
+            storeLogoUrl: string | null;
+            storeBannerUrl: string | null;
+            deliveryCoveragePincodes: import("@prisma/client/runtime/library").JsonValue;
+            riskScore: number;
+            riskFlags: import("@prisma/client/runtime/library").JsonValue;
+            rejectionReason: string | null;
+            adminNotes: string | null;
+            submittedAt: Date | null;
+            reviewedAt: Date | null;
+            documents: {
+                id: string;
+                documentType: import("@prisma/client").$Enums.MerchantDocumentType;
+                fileName: string;
+                mimeType: string;
+                fileUrl: string;
+                uploadedAt: Date;
+                applicationId: string;
+            }[];
+            kyc: {
+                id: string;
+                status: import("@prisma/client").$Enums.MerchantKycStatus;
+                createdAt: Date;
+                updatedAt: Date;
+                verifiedAt: Date | null;
+                verifiedBy: string | null;
+                notes: string | null;
+                applicationId: string;
+            } | null;
+            bankAccount: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                applicationId: string;
+                accountHolderName: string;
+                accountNumber: string;
+                ifsc: string;
+                bankName: string | null;
+                upiId: string | null;
+            } | null;
+            steps: {
+                data: import("@prisma/client/runtime/library").JsonValue | null;
+                id: string;
+                completedAt: Date | null;
+                applicationId: string;
+                completed: boolean;
+                stepKey: import("@prisma/client").$Enums.MerchantOnboardingStepKey;
+            }[];
+            store: {
+                id: string;
+                status: import("@prisma/client").$Enums.StoreStatus;
+                name: string;
+            } | null;
+            merchantProfile: {
+                id: string;
+                businessName: string;
+                kycStatus: import("@prisma/client").$Enums.KycStatus;
+                isBlacklisted: boolean;
+            } | null;
+            createdAt: Date;
+            updatedAt: Date;
+        };
+    }>;
+    approve(admin: RequestUser, id: string, ip: string): Promise<{
+        success: boolean;
+        data: {
+            id: string;
+            status: import("@prisma/client").$Enums.MerchantApplicationStatus;
+            ownerName: string | null;
+            ownerEmail: string | null;
+            ownerPhone: string | null;
+            businessName: string | null;
+            businessType: import("@prisma/client").$Enums.MerchantBusinessType | null;
+            businessTypes: import("@prisma/client").$Enums.VerticalBusinessType[];
+            gstNumber: string | null;
+            gstVerified: boolean;
+            panNumber: string | null;
+            storeName: string | null;
+            storeAddress: string | null;
+            state: string | null;
+            city: string | null;
+            cityId: string | null;
+            pincode: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            deliveryRadiusKm: number | null;
+            storeLogoUrl: string | null;
+            storeBannerUrl: string | null;
+            deliveryCoveragePincodes: import("@prisma/client/runtime/library").JsonValue;
+            riskScore: number;
+            riskFlags: import("@prisma/client/runtime/library").JsonValue;
+            rejectionReason: string | null;
+            adminNotes: string | null;
+            submittedAt: Date | null;
+            reviewedAt: Date | null;
+            documents: {
+                id: string;
+                documentType: import("@prisma/client").$Enums.MerchantDocumentType;
+                fileName: string;
+                mimeType: string;
+                fileUrl: string;
+                uploadedAt: Date;
+                applicationId: string;
+            }[];
+            kyc: {
+                id: string;
+                status: import("@prisma/client").$Enums.MerchantKycStatus;
+                createdAt: Date;
+                updatedAt: Date;
+                verifiedAt: Date | null;
+                verifiedBy: string | null;
+                notes: string | null;
+                applicationId: string;
+            } | null;
+            bankAccount: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                applicationId: string;
+                accountHolderName: string;
+                accountNumber: string;
+                ifsc: string;
+                bankName: string | null;
+                upiId: string | null;
+            } | null;
+            steps: {
+                data: import("@prisma/client/runtime/library").JsonValue | null;
+                id: string;
+                completedAt: Date | null;
+                applicationId: string;
+                completed: boolean;
+                stepKey: import("@prisma/client").$Enums.MerchantOnboardingStepKey;
+            }[];
+            store: {
+                id: string;
+                status: import("@prisma/client").$Enums.StoreStatus;
+                name: string;
+            } | null;
+            merchantProfile: {
+                id: string;
+                businessName: string;
+                kycStatus: import("@prisma/client").$Enums.KycStatus;
+                isBlacklisted: boolean;
+            } | null;
+            createdAt: Date;
+            updatedAt: Date;
+        };
+    }>;
+    reject(admin: RequestUser, id: string, dto: RejectApplicationDto, ip: string): Promise<{
+        success: boolean;
+        data: {
+            id: string;
+            status: import("@prisma/client").$Enums.MerchantApplicationStatus;
+            ownerName: string | null;
+            ownerEmail: string | null;
+            ownerPhone: string | null;
+            businessName: string | null;
+            businessType: import("@prisma/client").$Enums.MerchantBusinessType | null;
+            businessTypes: import("@prisma/client").$Enums.VerticalBusinessType[];
+            gstNumber: string | null;
+            gstVerified: boolean;
+            panNumber: string | null;
+            storeName: string | null;
+            storeAddress: string | null;
+            state: string | null;
+            city: string | null;
+            cityId: string | null;
+            pincode: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            deliveryRadiusKm: number | null;
+            storeLogoUrl: string | null;
+            storeBannerUrl: string | null;
+            deliveryCoveragePincodes: import("@prisma/client/runtime/library").JsonValue;
+            riskScore: number;
+            riskFlags: import("@prisma/client/runtime/library").JsonValue;
+            rejectionReason: string | null;
+            adminNotes: string | null;
+            submittedAt: Date | null;
+            reviewedAt: Date | null;
+            documents: {
+                id: string;
+                documentType: import("@prisma/client").$Enums.MerchantDocumentType;
+                fileName: string;
+                mimeType: string;
+                fileUrl: string;
+                uploadedAt: Date;
+                applicationId: string;
+            }[];
+            kyc: {
+                id: string;
+                status: import("@prisma/client").$Enums.MerchantKycStatus;
+                createdAt: Date;
+                updatedAt: Date;
+                verifiedAt: Date | null;
+                verifiedBy: string | null;
+                notes: string | null;
+                applicationId: string;
+            } | null;
+            bankAccount: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                applicationId: string;
+                accountHolderName: string;
+                accountNumber: string;
+                ifsc: string;
+                bankName: string | null;
+                upiId: string | null;
+            } | null;
+            steps: {
+                data: import("@prisma/client/runtime/library").JsonValue | null;
+                id: string;
+                completedAt: Date | null;
+                applicationId: string;
+                completed: boolean;
+                stepKey: import("@prisma/client").$Enums.MerchantOnboardingStepKey;
+            }[];
+            store: {
+                id: string;
+                status: import("@prisma/client").$Enums.StoreStatus;
+                name: string;
+            } | null;
+            merchantProfile: {
+                id: string;
+                businessName: string;
+                kycStatus: import("@prisma/client").$Enums.KycStatus;
+                isBlacklisted: boolean;
+            } | null;
+            createdAt: Date;
+            updatedAt: Date;
+        };
+    }>;
+    requestDocuments(admin: RequestUser, id: string, dto: RequestApplicationDocumentsDto, ip: string): Promise<{
+        success: boolean;
+        data: {
+            id: string;
+            status: import("@prisma/client").$Enums.MerchantApplicationStatus;
+            ownerName: string | null;
+            ownerEmail: string | null;
+            ownerPhone: string | null;
+            businessName: string | null;
+            businessType: import("@prisma/client").$Enums.MerchantBusinessType | null;
+            businessTypes: import("@prisma/client").$Enums.VerticalBusinessType[];
+            gstNumber: string | null;
+            gstVerified: boolean;
+            panNumber: string | null;
+            storeName: string | null;
+            storeAddress: string | null;
+            state: string | null;
+            city: string | null;
+            cityId: string | null;
+            pincode: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            deliveryRadiusKm: number | null;
+            storeLogoUrl: string | null;
+            storeBannerUrl: string | null;
+            deliveryCoveragePincodes: import("@prisma/client/runtime/library").JsonValue;
+            riskScore: number;
+            riskFlags: import("@prisma/client/runtime/library").JsonValue;
+            rejectionReason: string | null;
+            adminNotes: string | null;
+            submittedAt: Date | null;
+            reviewedAt: Date | null;
+            documents: {
+                id: string;
+                documentType: import("@prisma/client").$Enums.MerchantDocumentType;
+                fileName: string;
+                mimeType: string;
+                fileUrl: string;
+                uploadedAt: Date;
+                applicationId: string;
+            }[];
+            kyc: {
+                id: string;
+                status: import("@prisma/client").$Enums.MerchantKycStatus;
+                createdAt: Date;
+                updatedAt: Date;
+                verifiedAt: Date | null;
+                verifiedBy: string | null;
+                notes: string | null;
+                applicationId: string;
+            } | null;
+            bankAccount: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                applicationId: string;
+                accountHolderName: string;
+                accountNumber: string;
+                ifsc: string;
+                bankName: string | null;
+                upiId: string | null;
+            } | null;
+            steps: {
+                data: import("@prisma/client/runtime/library").JsonValue | null;
+                id: string;
+                completedAt: Date | null;
+                applicationId: string;
+                completed: boolean;
+                stepKey: import("@prisma/client").$Enums.MerchantOnboardingStepKey;
+            }[];
+            store: {
+                id: string;
+                status: import("@prisma/client").$Enums.StoreStatus;
+                name: string;
+            } | null;
+            merchantProfile: {
+                id: string;
+                businessName: string;
+                kycStatus: import("@prisma/client").$Enums.KycStatus;
+                isBlacklisted: boolean;
+            } | null;
+            createdAt: Date;
+            updatedAt: Date;
+        };
+    }>;
+    requestChanges(admin: RequestUser, id: string, dto: RequestApplicationChangesDto): Promise<{
+        success: boolean;
+        data: {
+            id: string;
+            status: import("@prisma/client").$Enums.MerchantApplicationStatus;
+            ownerName: string | null;
+            ownerEmail: string | null;
+            ownerPhone: string | null;
+            businessName: string | null;
+            businessType: import("@prisma/client").$Enums.MerchantBusinessType | null;
+            businessTypes: import("@prisma/client").$Enums.VerticalBusinessType[];
+            gstNumber: string | null;
+            gstVerified: boolean;
+            panNumber: string | null;
+            storeName: string | null;
+            storeAddress: string | null;
+            state: string | null;
+            city: string | null;
+            cityId: string | null;
+            pincode: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            deliveryRadiusKm: number | null;
+            storeLogoUrl: string | null;
+            storeBannerUrl: string | null;
+            deliveryCoveragePincodes: import("@prisma/client/runtime/library").JsonValue;
+            riskScore: number;
+            riskFlags: import("@prisma/client/runtime/library").JsonValue;
+            rejectionReason: string | null;
+            adminNotes: string | null;
+            submittedAt: Date | null;
+            reviewedAt: Date | null;
+            documents: {
+                id: string;
+                documentType: import("@prisma/client").$Enums.MerchantDocumentType;
+                fileName: string;
+                mimeType: string;
+                fileUrl: string;
+                uploadedAt: Date;
+                applicationId: string;
+            }[];
+            kyc: {
+                id: string;
+                status: import("@prisma/client").$Enums.MerchantKycStatus;
+                createdAt: Date;
+                updatedAt: Date;
+                verifiedAt: Date | null;
+                verifiedBy: string | null;
+                notes: string | null;
+                applicationId: string;
+            } | null;
+            bankAccount: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                applicationId: string;
+                accountHolderName: string;
+                accountNumber: string;
+                ifsc: string;
+                bankName: string | null;
+                upiId: string | null;
+            } | null;
+            steps: {
+                data: import("@prisma/client/runtime/library").JsonValue | null;
+                id: string;
+                completedAt: Date | null;
+                applicationId: string;
+                completed: boolean;
+                stepKey: import("@prisma/client").$Enums.MerchantOnboardingStepKey;
+            }[];
+            store: {
+                id: string;
+                status: import("@prisma/client").$Enums.StoreStatus;
+                name: string;
+            } | null;
+            merchantProfile: {
+                id: string;
+                businessName: string;
+                kycStatus: import("@prisma/client").$Enums.KycStatus;
+                isBlacklisted: boolean;
+            } | null;
+            createdAt: Date;
+            updatedAt: Date;
+        };
+    }>;
+    scheduleCall(admin: RequestUser, id: string, dto: ScheduleCallDto): Promise<{
+        success: boolean;
+        data: {
+            id: string;
+            status: import("@prisma/client").$Enums.MerchantApplicationStatus;
+            ownerName: string | null;
+            ownerEmail: string | null;
+            ownerPhone: string | null;
+            businessName: string | null;
+            businessType: import("@prisma/client").$Enums.MerchantBusinessType | null;
+            businessTypes: import("@prisma/client").$Enums.VerticalBusinessType[];
+            gstNumber: string | null;
+            gstVerified: boolean;
+            panNumber: string | null;
+            storeName: string | null;
+            storeAddress: string | null;
+            state: string | null;
+            city: string | null;
+            cityId: string | null;
+            pincode: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            deliveryRadiusKm: number | null;
+            storeLogoUrl: string | null;
+            storeBannerUrl: string | null;
+            deliveryCoveragePincodes: import("@prisma/client/runtime/library").JsonValue;
+            riskScore: number;
+            riskFlags: import("@prisma/client/runtime/library").JsonValue;
+            rejectionReason: string | null;
+            adminNotes: string | null;
+            submittedAt: Date | null;
+            reviewedAt: Date | null;
+            documents: {
+                id: string;
+                documentType: import("@prisma/client").$Enums.MerchantDocumentType;
+                fileName: string;
+                mimeType: string;
+                fileUrl: string;
+                uploadedAt: Date;
+                applicationId: string;
+            }[];
+            kyc: {
+                id: string;
+                status: import("@prisma/client").$Enums.MerchantKycStatus;
+                createdAt: Date;
+                updatedAt: Date;
+                verifiedAt: Date | null;
+                verifiedBy: string | null;
+                notes: string | null;
+                applicationId: string;
+            } | null;
+            bankAccount: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                applicationId: string;
+                accountHolderName: string;
+                accountNumber: string;
+                ifsc: string;
+                bankName: string | null;
+                upiId: string | null;
+            } | null;
+            steps: {
+                data: import("@prisma/client/runtime/library").JsonValue | null;
+                id: string;
+                completedAt: Date | null;
+                applicationId: string;
+                completed: boolean;
+                stepKey: import("@prisma/client").$Enums.MerchantOnboardingStepKey;
+            }[];
+            store: {
+                id: string;
+                status: import("@prisma/client").$Enums.StoreStatus;
+                name: string;
+            } | null;
+            merchantProfile: {
+                id: string;
+                businessName: string;
+                kycStatus: import("@prisma/client").$Enums.KycStatus;
+                isBlacklisted: boolean;
+            } | null;
+            createdAt: Date;
+            updatedAt: Date;
+        };
+    }>;
+}

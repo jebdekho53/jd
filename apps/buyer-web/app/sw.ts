@@ -12,6 +12,7 @@ import {
 import { CACHE_LIMITS, runtimeCacheName } from '../lib/pwa/cache-config';
 import { isPublicBrowsePath } from '../lib/pwa/constants';
 import { shouldDeletePwaCache } from '../lib/pwa/cache-cleanup';
+import { getSafePrecacheEntries } from '../lib/pwa/precache-filter';
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -97,10 +98,11 @@ const runtimeCaching = [
       sameOrigin({ url }) &&
       request.method === 'GET' &&
       /\.(?:js|css)$/i.test(url.pathname),
-    handler: new CacheFirst({
+    handler: new NetworkFirst({
       cacheName: cacheName('static-assets'),
+      networkTimeoutSeconds: 8,
       plugins: [
-        new CacheableResponsePlugin({ statuses: [0, 200] }),
+        new CacheableResponsePlugin({ statuses: [200] }),
         new ExpirationPlugin({
           ...CACHE_LIMITS.static,
           purgeOnQuotaError: true,
@@ -123,7 +125,7 @@ const runtimeCaching = [
 ];
 
 const serwist = new Serwist({
-  precacheEntries: self.__SW_MANIFEST,
+  precacheEntries: getSafePrecacheEntries(self.__SW_MANIFEST, self.location.origin),
   skipWaiting: false,
   clientsClaim: true,
   navigationPreload: true,
@@ -147,7 +149,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => shouldDeletePwaCache(key, CACHE_PREFIX, false))
+          .filter((key) => shouldDeletePwaCache(key, CACHE_PREFIX, true))
           .map((key) => caches.delete(key)),
       ),
     ),

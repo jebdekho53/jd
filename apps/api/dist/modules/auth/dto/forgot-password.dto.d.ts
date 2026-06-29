@@ -1,0 +1,4 @@
+export declare class ForgotPasswordDto {
+    email?: string;
+    phone?: string;
+}

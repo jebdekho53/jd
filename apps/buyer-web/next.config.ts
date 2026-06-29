@@ -11,6 +11,7 @@ const revision =
 
 function resolveAppVersion(): string {
   if (process.env.NEXT_PUBLIC_APP_VERSION) return process.env.NEXT_PUBLIC_APP_VERSION;
+  if (revision) return revision.slice(0, 7);
   try {
     const pkg = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf-8')) as {
       version?: string;
@@ -32,7 +33,6 @@ const withSerwist = withSerwistInit({
   disable: process.env.NODE_ENV === 'development',
   additionalPrecacheEntries: [
     { url: '/offline', revision },
-    { url: '/checkout/razorpay-callback', revision },
     { url: '/pwa/icons/icon-192.png', revision },
     { url: '/pwa/icons/icon-512.png', revision },
   ],

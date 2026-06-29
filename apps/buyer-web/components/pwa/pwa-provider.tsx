@@ -9,6 +9,7 @@ import { InstallPrompt } from '@/components/pwa/install-prompt';
 import { UpdateAvailableToast } from '@/components/pwa/update-available-toast';
 import { PushAfterInstallPrompt } from '@/components/pwa/push-after-install-prompt';
 import { useServiceWorkerUpdate } from '@/hooks/use-service-worker-update';
+import { installChunkLoadRecovery } from '@/lib/pwa/chunk-recovery';
 
 async function flushQueues() {
   await flushSyncQueue({});
@@ -21,6 +22,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     if (process.env.NODE_ENV !== 'production') return;
 
     void registerServiceWorker();
+    const removeChunkRecovery = installChunkLoadRecovery();
 
     const onOnline = () => void flushQueues();
     window.addEventListener('online', onOnline);
@@ -31,6 +33,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     navigator.serviceWorker?.addEventListener('message', onMessage);
 
     return () => {
+      removeChunkRecovery();
       window.removeEventListener('online', onOnline);
       navigator.serviceWorker?.removeEventListener('message', onMessage);
     };

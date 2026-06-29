@@ -3,6 +3,7 @@ export const PWA_STORAGE_KEYS = {
   installDismissedAt: 'jebdekho:pwa:install-dismissed-at',
   installNeverShow: 'jebdekho:pwa:install-never-show',
   updatePending: 'jebdekho:pwa:update-pending',
+  chunkRecoveryAt: 'jebdekho:pwa:chunk-recovery-at',
 } as const;
 
 /** @deprecated Migrated to {@link PWA_STORAGE_KEYS.installNeverShow} */

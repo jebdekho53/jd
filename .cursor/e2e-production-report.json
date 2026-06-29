@@ -1,0 +1,107 @@
+{
+  "startedAt": "2026-06-28T18:55:22.135Z",
+  "buyerLogin": {
+    "ok": true,
+    "status": 200,
+    "hasRefresh": true
+  },
+  "merchantLogin": {
+    "ok": true,
+    "status": 200,
+    "hasRefresh": true
+  },
+  "me": {
+    "roles": [
+      "BUYER",
+      "MERCHANT"
+    ],
+    "hasBuyerProfile": false,
+    "hasMerchantProfile": false,
+    "userId": "cmqtiwwyd000dl2tsaj2mqrkt"
+  },
+  "stores": [
+    {
+      "id": "cmqtxuo1k0038l2ha01qry4qj",
+      "name": "atharv legal",
+      "status": "APPROVED",
+      "slug": "atharv-legal",
+      "pincode": "201017",
+      "latitude": 28.6139,
+      "longitude": 77.209,
+      "deliveryAreaCount": 0
+    }
+  ],
+  "product": {
+    "id": "cmquqphq2002il2hd4horxjfp",
+    "name": "milk",
+    "variantId": "cmquqphq6002kl2hd2qb6tupv",
+    "availableQty": 10,
+    "storeSlug": "atharv-legal",
+    "pincode": "201017",
+    "lat": 28.6139,
+    "lng": 77.209
+  },
+  "cart": {
+    "itemCount": 1,
+    "storeId": "cmqtxuo1k0038l2ha01qry4qj",
+    "grandTotal": 58
+  },
+  "codOrder": {
+    "orderId": "cmqy5fj8u009ml2xgjndoj14a",
+    "orderNumber": "JD-20260628-C1C880",
+    "status": "MERCHANT_ACCEPTED",
+    "paymentMethod": "COD"
+  },
+  "merchantTransitions": [
+    {
+      "action": "preparing",
+      "status": "PREPARING"
+    },
+    {
+      "action": "packing",
+      "status": "PACKING"
+    },
+    {
+      "action": "ready",
+      "status": "READY_FOR_PICKUP"
+    }
+  ],
+  "shipment": {
+    "found": false,
+    "note": "No ProviderShipment yet — Shadowfax may be unconfigured or dispatch pending"
+  },
+  "buyerTracking": {
+    "status": "MERCHANT_ACCEPTED",
+    "paymentMethod": "COD",
+    "paymentStatus": "PENDING",
+    "delivery": null,
+    "timeline": [
+      "MERCHANT_ACCEPTED"
+    ]
+  },
+  "health": {
+    "status": 200,
+    "body": {
+      "status": "ok",
+      "timestamp": "2026-06-28T18:55:22.334Z"
+    }
+  },
+  "blockers": [
+    "ProviderShipment not found after READY_FOR_PICKUP"
+  ],
+  "errors": [],
+  "buyerTrackingAfterReady": {
+    "status": "READY_FOR_PICKUP"
+  },
+  "duplicateReady": {
+    "status": 400
+  },
+  "finishedAt": "2026-06-28T18:55:31.963Z",
+  "summary": {
+    "store": "atharv legal",
+    "product": "milk",
+    "orderId": "cmqy5fj8u009ml2xgjndoj14a",
+    "orderNumber": "JD-20260628-C1C880",
+    "email": "ra***@gmail.com"
+  }
+}

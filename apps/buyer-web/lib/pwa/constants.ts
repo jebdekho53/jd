@@ -23,6 +23,8 @@ export const PRIVATE_DOCUMENT_PREFIXES = [
 export const PRIVATE_API_PREFIXES = [
   '/api/auth',
   '/api/buyer',
+  '/api/merchant',
+  '/api/admin',
   '/api/corporate',
 ] as const;
 

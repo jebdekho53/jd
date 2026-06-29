@@ -1,0 +1,225 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var ShadowfaxClient_1;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ShadowfaxClient = void 0;
+const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
+const axios_1 = require("axios");
+const client_1 = require("@prisma/client");
+const logistics_constants_1 = require("../../logistics.constants");
+const logistics_errors_1 = require("../../errors/logistics.errors");
+const mask_sensitive_util_1 = require("../../utils/mask-sensitive.util");
+const shadowfax_url_util_1 = require("./shadowfax-url.util");
+let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
+    constructor(config) {
+        this.config = config;
+        this.logger = new common_1.Logger(ShadowfaxClient_1.name);
+        const rawUrl = config.get('SHADOWFAX_API_URL', '') ?? '';
+        this.apiUrl = (0, shadowfax_url_util_1.normalizeShadowfaxApiBase)(rawUrl);
+        this.apiMode = (0, shadowfax_url_util_1.resolveShadowfaxApiMode)(rawUrl, config.get('SHADOWFAX_API_MODE', ''));
+        const nodeEnv = config.get('NODE_ENV', 'development');
+        this.token =
+            nodeEnv === 'production'
+                ? (config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '')
+                : (config.get('SHADOWFAX_TEST_TOKEN', '') ??
+                    config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ??
+                    '');
+        this.creditsKey = config.get('SHADOWFAX_CREDITS_KEY', '') ?? '';
+        this.http = axios_1.default.create({
+            baseURL: this.apiUrl || undefined,
+            timeout: logistics_constants_1.LOGISTICS_HTTP_TIMEOUT_MS,
+            headers: {
+                Authorization: this.authHeader(),
+                'Content-Type': 'application/json',
+            },
+        });
+    }
+    getApiMode() {
+        return this.apiMode;
+    }
+    isConfigured() {
+        if (!this.apiUrl || !this.token)
+            return false;
+        if (this.apiMode === 'flash' && !this.creditsKey)
+            return false;
+        return true;
+    }
+    async createShipment(payload) {
+        if (this.apiMode === 'flash') {
+            return this.createFlashOrder(payload);
+        }
+        return this.request('POST', '/api/v3/clients/shipments/', payload);
+    }
+    async cancelShipment(shipmentId, reason) {
+        if (this.apiMode === 'flash') {
+            return this.request('POST', '/order/cancel/', { order_id: shipmentId });
+        }
+        return this.request('POST', `/api/v3/clients/shipments/${shipmentId}/cancel/`, {
+            reason: reason ?? 'Cancelled by merchant',
+        });
+    }
+    async trackShipment(shipmentId) {
+        if (this.apiMode === 'flash') {
+            return this.request('GET', `/order/track/${shipmentId}/`);
+        }
+        return this.request('GET', `/api/v3/clients/shipments/${shipmentId}/track/`);
+    }
+    async estimatePrice(payload) {
+        if (this.apiMode === 'flash') {
+            return this.request('POST', '/order/serviceability/', {
+                pickup_details: {
+                    latitude: payload.pickup_lat,
+                    longitude: payload.pickup_lng,
+                },
+                drop_details: {
+                    latitude: payload.drop_lat,
+                    longitude: payload.drop_lng,
+                },
+            });
+        }
+        return this.request('POST', '/api/v3/clients/serviceability/', payload);
+    }
+    async healthCheck() {
+        const started = Date.now();
+        if (!this.isConfigured()) {
+            const missing = this.apiMode === 'flash' && !this.creditsKey
+                ? 'Shadowfax Flash requires SHADOWFAX_CREDITS_KEY'
+                : 'Shadowfax API not configured (SHADOWFAX_API_URL / token)';
+            return { healthy: false, latencyMs: 0, message: missing };
+        }
+        try {
+            const path = this.apiMode === 'flash' ? '/order/serviceability/' : '/api/v3/clients/health/';
+            await this.http.request({
+                method: this.apiMode === 'flash' ? 'POST' : 'GET',
+                url: path,
+                data: this.apiMode === 'flash'
+                    ? { pickup_details: { latitude: 28.61, longitude: 77.2 }, drop_details: { latitude: 28.62, longitude: 77.21 } }
+                    : undefined,
+                validateStatus: () => true,
+            });
+            return { healthy: true, latencyMs: Date.now() - started };
+        }
+        catch (err) {
+            return {
+                healthy: false,
+                latencyMs: Date.now() - started,
+                message: err instanceof Error ? err.message : 'Health check failed',
+            };
+        }
+    }
+    authHeader() {
+        if (!this.token)
+            return undefined;
+        if (this.apiMode === 'flash') {
+            return this.token;
+        }
+        return `Token ${this.token}`;
+    }
+    createFlashOrder(payload) {
+        const pickup = payload.order_details.pickup_details;
+        const drop = payload.order_details.drop_details;
+        const flashPayload = {
+            pickup_details: {
+                name: pickup.name,
+                contact_number: this.normalizePhone(pickup.contact),
+                address: [pickup.address_line_1, pickup.address_line_2].filter(Boolean).join(', '),
+                latitude: pickup.latitude,
+                longitude: pickup.longitude,
+            },
+            drop_details: {
+                name: drop.name,
+                contact_number: this.normalizePhone(drop.contact),
+                address: [drop.address_line_1, drop.address_line_2].filter(Boolean).join(', '),
+                latitude: drop.latitude,
+                longitude: drop.longitude,
+            },
+            order_details: {
+                order_id: payload.order_details.client_order_id,
+                is_prepaid: payload.order_details.paid,
+                cash_to_be_collected: payload.order_details.paid
+                    ? 0
+                    : Number(payload.order_details.order_value ?? 0),
+            },
+            user_details: {
+                contact_number: this.normalizePhone(drop.contact),
+                credits_key: this.creditsKey,
+            },
+        };
+        return this.request('POST', '/order/create/', flashPayload);
+    }
+    normalizePhone(phone) {
+        const digits = phone.replace(/\D/g, '');
+        return digits.length >= 10 ? digits.slice(-10) : digits;
+    }
+    async request(method, path, body, attempt = 1) {
+        if (!this.isConfigured()) {
+            throw new logistics_errors_1.LogisticsProviderError(this.apiMode === 'flash'
+                ? 'Shadowfax Flash is not configured (SHADOWFAX_API_URL, token, SHADOWFAX_CREDITS_KEY)'
+                : 'Shadowfax API is not configured (SHADOWFAX_API_URL / token)', client_1.DeliveryProviderType.SHADOWFAX, 'NOT_CONFIGURED', false);
+        }
+        const requestTarget = (0, shadowfax_url_util_1.shadowfaxRequestTarget)(this.apiUrl, path);
+        const started = Date.now();
+        try {
+            this.logger.log({
+                method,
+                requestTarget,
+                apiMode: this.apiMode,
+                body: body ? (0, mask_sensitive_util_1.maskSensitivePayload)(body) : undefined,
+            }, 'Shadowfax API request');
+            const response = method === 'GET'
+                ? await this.http.get(path)
+                : await this.http.post(path, body);
+            const latencyMs = Date.now() - started;
+            this.logger.log({ method, requestTarget, apiMode: this.apiMode, status: response.status, latencyMs }, 'Shadowfax API response');
+            return (response.data ?? {});
+        }
+        catch (err) {
+            const latencyMs = Date.now() - started;
+            const axiosErr = err;
+            const status = axiosErr.response?.status;
+            const retryable = status === 429 || (status != null && status >= 500);
+            const responseBody = (0, mask_sensitive_util_1.maskSensitivePayload)(axiosErr.response?.data);
+            const providerMessage = summarizeProviderBody(responseBody);
+            this.logger.error({
+                method,
+                requestTarget,
+                apiMode: this.apiMode,
+                status,
+                latencyMs,
+                providerMessage,
+                attempt,
+            }, 'Shadowfax API error');
+            if (retryable && attempt < logistics_constants_1.LOGISTICS_RETRY_MAX) {
+                await new Promise((r) => setTimeout(r, logistics_constants_1.LOGISTICS_RETRY_DELAY_MS * attempt));
+                return this.request(method, path, body, attempt + 1);
+            }
+            throw new logistics_errors_1.LogisticsProviderError(`Shadowfax API failed: ${providerMessage || axiosErr.message}`, client_1.DeliveryProviderType.SHADOWFAX, status ? String(status) : 'NETWORK_ERROR', retryable, err, { providerStatusCode: status, providerMessage });
+        }
+    }
+};
+exports.ShadowfaxClient = ShadowfaxClient;
+exports.ShadowfaxClient = ShadowfaxClient = ShadowfaxClient_1 = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [config_1.ConfigService])
+], ShadowfaxClient);
+function summarizeProviderBody(body) {
+    if (!body || typeof body !== 'object')
+        return '';
+    const row = body;
+    const msg = row.message ?? row.error ?? row.detail ?? row.reason ?? row.msg;
+    if (typeof msg === 'string')
+        return msg.slice(0, 300);
+    if (Array.isArray(msg))
+        return msg.join('; ').slice(0, 300);
+    return JSON.stringify((0, mask_sensitive_util_1.maskSensitivePayload)(body)).slice(0, 300);
+}
+//# sourceMappingURL=shadowfax.client.js.map

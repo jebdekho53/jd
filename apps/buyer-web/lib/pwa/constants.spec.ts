@@ -45,11 +45,13 @@ describe('PWA private cache rules', () => {
   it('lists all required private API prefixes', () => {
     expect(PRIVATE_API_PREFIXES).toEqual(
       expect.arrayContaining([
-        '/api/auth',
-        '/api/buyer',
-        '/api/corporate',
-      ]),
-    );
-    expect(PRIVATE_API_PREFIXES).toHaveLength(3);
+      '/api/auth',
+      '/api/buyer',
+      '/api/merchant',
+      '/api/admin',
+      '/api/corporate',
+    ]),
+  );
+    expect(PRIVATE_API_PREFIXES).toHaveLength(5);
   });
 });
