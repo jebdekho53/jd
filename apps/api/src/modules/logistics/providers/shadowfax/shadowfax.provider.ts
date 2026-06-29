@@ -41,6 +41,7 @@ export class ShadowfaxProvider implements ILogisticsProvider {
       order_details: {
         client_order_id: input.orderNumber,
         paid: !input.codAmount,
+        payment_mode: input.codAmount ? 'COD' : 'PREPAID',
         order_value: input.codAmount,
         pickup_details: this.toAddress(input.pickup),
         drop_details: this.toAddress(input.dropoff),

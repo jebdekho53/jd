@@ -18,7 +18,7 @@ function config(values: Record<string, string>): ConfigService {
   } as unknown as ConfigService;
 }
 
-function payload(): ShadowfaxCreatePayload {
+function payload(overrides: Partial<ShadowfaxCreatePayload['order_details']> = {}): ShadowfaxCreatePayload {
   return {
     order_details: {
       client_order_id: 'JD-20260629-TEST',
@@ -41,6 +41,7 @@ function payload(): ShadowfaxCreatePayload {
         latitude: 18.53,
         longitude: 73.86,
       },
+      ...overrides,
     },
   };
 }
@@ -79,12 +80,19 @@ describe('ShadowfaxClient', () => {
       }),
     );
 
-    await client.createShipment(payload());
+    const requestPayload = payload();
+
+    await client.createShipment(requestPayload);
 
     expect(mockedAxios.create).toHaveBeenCalledWith(
       expect.objectContaining({ baseURL: 'https://dale.shadowfax.in/api' }),
     );
-    expect(mockHttp.post).toHaveBeenCalledWith('/v3/clients/orders/', payload());
+    expect(mockHttp.post).toHaveBeenCalledWith(
+      '/v3/clients/orders/',
+      expect.objectContaining({
+        order_details: expect.objectContaining({ payment_mode: 'PREPAID' }),
+      }),
+    );
   });
 
   it('uses warehouse create endpoint only when explicitly configured', async () => {
@@ -97,9 +105,61 @@ describe('ShadowfaxClient', () => {
       }),
     );
 
-    await client.createShipment(payload());
+    const requestPayload = payload();
 
-    expect(mockHttp.post).toHaveBeenCalledWith('/v3/clients/shipments/', payload());
+    await client.createShipment(requestPayload);
+
+    expect(mockHttp.post).toHaveBeenCalledWith(
+      '/v3/clients/shipments/',
+      expect.objectContaining({
+        order_details: expect.objectContaining({ payment_mode: 'PREPAID' }),
+      }),
+    );
+  });
+
+  it('sends PREPAID payment mode for prepaid marketplace orders', async () => {
+    const client = new ShadowfaxClient(
+      config({
+        NODE_ENV: 'production',
+        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_PRODUCTION_TOKEN: 'raw-token-123',
+      }),
+    );
+
+    await client.createShipment(payload({ paid: true, order_value: undefined }));
+
+    expect(mockHttp.post).toHaveBeenCalledWith(
+      '/v3/clients/orders/',
+      expect.objectContaining({
+        order_details: expect.objectContaining({
+          paid: true,
+          payment_mode: 'PREPAID',
+        }),
+      }),
+    );
+  });
+
+  it('sends COD payment mode for COD marketplace orders', async () => {
+    const client = new ShadowfaxClient(
+      config({
+        NODE_ENV: 'production',
+        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_PRODUCTION_TOKEN: 'raw-token-123',
+      }),
+    );
+
+    await client.createShipment(payload({ paid: false, order_value: 499 }));
+
+    expect(mockHttp.post).toHaveBeenCalledWith(
+      '/v3/clients/orders/',
+      expect.objectContaining({
+        order_details: expect.objectContaining({
+          paid: false,
+          order_value: 499,
+          payment_mode: 'COD',
+        }),
+      }),
+    );
   });
 
   it('does not build a double /api/api base URL', () => {

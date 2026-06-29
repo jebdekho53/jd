@@ -22,11 +22,14 @@ export interface ShadowfaxCreatePayload {
     client_order_id: string;
     order_value?: number;
     paid: boolean;
+    payment_mode?: ShadowfaxPaymentMode;
     pickup_details: ShadowfaxAddressPayload;
     drop_details: ShadowfaxAddressPayload;
     order_items?: Array<{ name: string; quantity: number; price?: number }>;
   };
 }
+
+export type ShadowfaxPaymentMode = 'COD' | 'PREPAID';
 
 export interface ShadowfaxFlashCreatePayload {
   pickup_details: Record<string, unknown>;
@@ -56,6 +59,7 @@ export class ShadowfaxClient {
   private readonly apiMode: ShadowfaxApiMode;
   private readonly creditsKey: string;
   private readonly createOrderEndpoint: string;
+  private readonly debugPayloads: boolean;
 
   constructor(private readonly config: ConfigService) {
     const rawUrl = config.get<string>('SHADOWFAX_API_URL', '') ?? '';
@@ -65,6 +69,7 @@ export class ShadowfaxClient {
     );
     this.apiUrl = normalizeShadowfaxApiBase(rawUrl, this.apiMode);
     this.createOrderEndpoint = shadowfaxEndpointsForMode(this.apiMode).createOrder;
+    this.debugPayloads = this.isDebugLoggingEnabled();
     const nodeEnv = config.get<string>('NODE_ENV', 'development');
     this.token =
       nodeEnv === 'production'
@@ -104,10 +109,11 @@ export class ShadowfaxClient {
   }
 
   async createShipment(payload: ShadowfaxCreatePayload): Promise<Record<string, unknown>> {
+    const requestPayload = this.withPaymentMode(payload);
     if (this.apiMode === 'flash') {
-      return this.createFlashOrder(payload);
+      return this.createFlashOrder(requestPayload);
     }
-    return this.request('POST', this.createOrderEndpoint, payload);
+    return this.request('POST', this.createOrderEndpoint, requestPayload);
   }
 
   async cancelShipment(shipmentId: string, reason?: string): Promise<Record<string, unknown>> {
@@ -184,6 +190,26 @@ export class ShadowfaxClient {
     return `Token ${this.token}`;
   }
 
+  private withPaymentMode(payload: ShadowfaxCreatePayload): ShadowfaxCreatePayload {
+    const paymentMode = payload.order_details.payment_mode ?? this.paymentModeForPayload(payload);
+    return {
+      ...payload,
+      order_details: {
+        ...payload.order_details,
+        payment_mode: paymentMode,
+      },
+    };
+  }
+
+  private paymentModeForPayload(payload: ShadowfaxCreatePayload): ShadowfaxPaymentMode {
+    return payload.order_details.paid ? 'PREPAID' : 'COD';
+  }
+
+  private isDebugLoggingEnabled(): boolean {
+    const level = (this.config.get<string>('LOG_LEVEL', '') ?? '').toLowerCase();
+    return level === 'debug' || level === 'trace';
+  }
+
   private createFlashOrder(payload: ShadowfaxCreatePayload): Promise<Record<string, unknown>> {
     const pickup = payload.order_details.pickup_details;
     const drop = payload.order_details.drop_details;
@@ -248,10 +274,20 @@ export class ShadowfaxClient {
           method,
           requestTarget,
           apiMode: this.apiMode,
-          body: body ? maskSensitivePayload(body) : undefined,
         },
         'Shadowfax API request',
       );
+      if (body && this.debugPayloads) {
+        this.logger.debug(
+          {
+            method,
+            requestTarget,
+            apiMode: this.apiMode,
+            body: maskSensitivePayload(body),
+          },
+          'Shadowfax API request payload',
+        );
+      }
       const response =
         method === 'GET'
           ? await this.http.get(path)
