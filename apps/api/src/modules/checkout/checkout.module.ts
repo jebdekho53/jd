@@ -1,4 +1,4 @@
-import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, RequestMethod, forwardRef } from '@nestjs/common';
 import { CheckoutService } from './checkout.service';
 import { ReservationService } from './reservation.service';
 import { CheckoutController } from './checkout.controller';
@@ -17,7 +17,20 @@ import { PushModule } from '../push/push.module';
 import { LogisticsModule } from '../logistics/logistics.module';
 
 @Module({
-  imports: [CartModule, InventoryModule, PromotionModule, GeospatialModule, WalletLoyaltyModule, FinanceModule, TrustSafetyModule, FulfillmentNetworkModule, CorporateModule, LocationDirectoryModule, PushModule, LogisticsModule],
+  imports: [
+    CartModule,
+    InventoryModule,
+    PromotionModule,
+    GeospatialModule,
+    WalletLoyaltyModule,
+    FinanceModule,
+    TrustSafetyModule,
+    FulfillmentNetworkModule,
+    CorporateModule,
+    LocationDirectoryModule,
+    PushModule,
+    forwardRef(() => LogisticsModule),
+  ],
   controllers: [CheckoutController],
   providers: [CheckoutService, ReservationService],
   exports: [CheckoutService, ReservationService],

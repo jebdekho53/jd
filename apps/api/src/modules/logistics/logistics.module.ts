@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { RiderAssignmentModule } from '../rider-assignment/rider-assignment.module';
 import { OrderFulfillmentModule } from '../order/order-fulfillment.module';
 import { ShadowfaxClient } from './providers/shadowfax/shadowfax.client';
@@ -14,7 +14,7 @@ import { MerchantLogisticsController } from './merchant-logistics.controller';
 import { AdminLogisticsController } from './admin-logistics.controller';
 
 @Module({
-  imports: [RiderAssignmentModule, OrderFulfillmentModule],
+  imports: [RiderAssignmentModule, forwardRef(() => OrderFulfillmentModule)],
   controllers: [
     LogisticsWebhookController,
     MerchantLogisticsController,

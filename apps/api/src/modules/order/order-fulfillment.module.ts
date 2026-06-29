@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { SettlementModule } from '../settlement/settlement.module';
 import { FinanceModule } from '../finance/finance.module';
 import { CheckoutModule } from '../checkout/checkout.module';
@@ -10,9 +10,9 @@ import { OrderDeliveredHandlerService } from './order-delivered-handler.service'
 
 @Module({
   imports: [
-    SettlementModule,
-    FinanceModule,
-    CheckoutModule,
+    forwardRef(() => SettlementModule),
+    forwardRef(() => FinanceModule),
+    forwardRef(() => CheckoutModule),
     ComplianceModule,
     TrustSafetyModule,
     WalletLoyaltyModule,
