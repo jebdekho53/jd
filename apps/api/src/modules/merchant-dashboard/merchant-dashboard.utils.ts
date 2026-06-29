@@ -1,4 +1,5 @@
 import { OrderStatus } from '@prisma/client';
+import { MERCHANT_ACTIVE_LIVE_STATUSES } from '../order/merchant-pipeline.util';
 
 export const CANCELLED_STATUSES: OrderStatus[] = [
   OrderStatus.CANCELLED_BY_BUYER,
@@ -20,16 +21,7 @@ export const REVENUE_STATUSES: OrderStatus[] = [
 ];
 
 export const ORDER_TAB_STATUSES: Record<string, OrderStatus[]> = {
-  ACTIVE: [
-    OrderStatus.PAID,
-    OrderStatus.MERCHANT_ACCEPTED,
-    OrderStatus.PREPARING,
-    OrderStatus.PACKING,
-    OrderStatus.READY_FOR_PICKUP,
-    OrderStatus.RIDER_ASSIGNED,
-    OrderStatus.PICKED_UP,
-    OrderStatus.OUT_FOR_DELIVERY,
-  ],
+  ACTIVE: MERCHANT_ACTIVE_LIVE_STATUSES,
   NEW: [OrderStatus.PAID, OrderStatus.MERCHANT_ACCEPTED],
   ACCEPTED: [OrderStatus.MERCHANT_ACCEPTED],
   PREPARING: [OrderStatus.PREPARING],

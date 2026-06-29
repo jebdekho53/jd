@@ -31,6 +31,16 @@ export const PIPELINE_COLUMN_STATUSES: Record<MerchantPipelineColumn, OrderStatu
   CANCELLED: [...CANCELLED],
 };
 
+export const MERCHANT_LIVE_STATUS_GROUPS = {
+  incoming: [OrderStatus.PAID, OrderStatus.MERCHANT_ACCEPTED],
+  preparation: [OrderStatus.PREPARING],
+  packing: [OrderStatus.PACKING],
+  ready: [OrderStatus.READY_FOR_PICKUP],
+  dispatch: [OrderStatus.RIDER_ASSIGNED, OrderStatus.PICKED_UP, OrderStatus.OUT_FOR_DELIVERY],
+} as const satisfies Record<string, readonly OrderStatus[]>;
+
+export const MERCHANT_ACTIVE_LIVE_STATUSES = Object.values(MERCHANT_LIVE_STATUS_GROUPS).flat();
+
 export function resolvePipelineColumn(
   status: OrderStatus,
   paymentMethod?: PaymentMethod,

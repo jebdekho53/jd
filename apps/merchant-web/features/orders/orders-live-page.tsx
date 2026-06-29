@@ -7,17 +7,8 @@ import { OrderStatusBadge } from './components/order-status-badge';
 import { OrderSlaBadge } from './components/order-sla-badge';
 import { useOrdersQuery } from '@/hooks/use-orders';
 import { useStoreStore } from '@/store/store-store';
-import type { MerchantOrderListItem } from '@/types/order';
 import { liveOrdersQueryParams } from '@/lib/orders/live-orders-query';
-
-const QUEUES = [
-  { key: 'incoming', label: 'Incoming', match: (o: MerchantOrderListItem) => ['PAID', 'MERCHANT_ACCEPTED'].includes(o.status) },
-  { key: 'prep', label: 'Preparation', match: (o: MerchantOrderListItem) => o.status === 'PREPARING' },
-  { key: 'pack', label: 'Packing', match: (o: MerchantOrderListItem) => o.status === 'PACKING' },
-  { key: 'ready', label: 'Ready Queue', match: (o: MerchantOrderListItem) => o.status === 'READY_FOR_PICKUP' },
-  { key: 'dispatch', label: 'Dispatch', match: (o: MerchantOrderListItem) =>
-    ['RIDER_ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(o.status) },
-] as const;
+import { groupLiveOrders, LIVE_ORDER_GROUPS } from '@/lib/orders/live-order-groups';
 
 export function OrdersLivePageContent() {
   const { currentStore } = useStoreStore();
@@ -27,6 +18,7 @@ export function OrdersLivePageContent() {
   );
 
   const orders = data?.orders ?? [];
+  const groupedOrders = groupLiveOrders(orders);
 
   return (
     <div className="min-h-screen bg-slate-900 p-4 text-white">
@@ -48,8 +40,8 @@ export function OrdersLivePageContent() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-5">
-        {QUEUES.map((q) => {
-          const items = orders.filter(q.match);
+        {LIVE_ORDER_GROUPS.map((q) => {
+          const items = groupedOrders[q.key];
           return (
             <Card key={q.key} className="border-slate-700 bg-slate-800">
               <div className="border-b border-slate-700 px-4 py-3">

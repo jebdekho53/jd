@@ -13,6 +13,10 @@ import { MarketingEventService } from '../crm/marketing-event.service';
 import { SupportTicketService } from '../support/support-ticket.service';
 import { EmailNotificationService } from '../email/email-notification.service';
 import { PasswordService } from '../auth/password.service';
+import { LocationDirectoryService } from '../location-directory/location-directory.service';
+import { GeoService } from '../geo/geo.service';
+import { GeocodingCacheService } from '../geocoding/geocoding-cache.service';
+import { VerticalService } from '../store-vertical/vertical.service';
 
 const LOGO = 'https://cdn.example.com/logo.jpg';
 const BANNER = 'https://cdn.example.com/banner.jpg';
@@ -68,6 +72,13 @@ const mockStore = {
 };
 const mockRisk = { assess: jest.fn() };
 const mockRiskEngine = { getOrCreateProfile: jest.fn() };
+const mockLocations = { tryResolvePincode: jest.fn() };
+const mockGeo = { findOrCreateOperationalCity: jest.fn() };
+const mockGeocoding = { isConfigured: jest.fn(), reverseGeocode: jest.fn() };
+const mockVertical = {
+  ensureStoreVerticalProfile: jest.fn(),
+  ensureStoreBusinessTypesFromApplication: jest.fn(),
+};
 
 describe('MerchantOnboardingService branding', () => {
   let service: MerchantOnboardingService;
@@ -87,6 +98,10 @@ describe('MerchantOnboardingService branding', () => {
         { provide: SupportTicketService, useValue: { createTicket: jest.fn().mockResolvedValue({}) } },
         { provide: EmailNotificationService, useValue: { sendWelcomeEmail: jest.fn() } },
         { provide: PasswordService, useValue: { hash: jest.fn() } },
+        { provide: LocationDirectoryService, useValue: mockLocations },
+        { provide: GeoService, useValue: mockGeo },
+        { provide: GeocodingCacheService, useValue: mockGeocoding },
+        { provide: VerticalService, useValue: mockVertical },
       ],
     }).compile();
 
