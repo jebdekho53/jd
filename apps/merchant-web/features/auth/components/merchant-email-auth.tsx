@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { getSiteUrl } from '@jebdekho/web-config';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -37,6 +38,8 @@ export interface MerchantEmailAuthProps {
   heading?: string;
   submitLabel?: string;
   showForgotPassword?: boolean;
+  defaultEmail?: string;
+  onAccountExists?: (email: string) => void;
 }
 
 export function MerchantEmailAuth({
@@ -45,6 +48,8 @@ export function MerchantEmailAuth({
   heading,
   submitLabel,
   showForgotPassword = mode === 'login',
+  defaultEmail = '',
+  onAccountExists,
 }: MerchantEmailAuthProps) {
   const { toast } = useToast();
   const emailLogin = useEmailLoginMutation();
@@ -53,8 +58,12 @@ export function MerchantEmailAuth({
 
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: defaultEmail, password: '' },
   });
+
+  useEffect(() => {
+    if (defaultEmail) loginForm.setValue('email', defaultEmail);
+  }, [defaultEmail, loginForm]);
 
   const signupForm = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
@@ -88,7 +97,12 @@ export function MerchantEmailAuth({
       await onSuccess(result);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        toast('An account with this email already exists. Please log in instead.', 'error');
+        const email = signupForm.getValues('email').trim();
+        toast(
+          'This email is already registered. Sign in with your password to continue your application.',
+          'error',
+        );
+        onAccountExists?.(email);
         return;
       }
       handleError(err);

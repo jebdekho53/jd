@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { useSessionQuery } from '@/hooks/use-auth';
 import { Spinner } from '@/design-system/primitives';
-import { fetchOnboardingStatus } from '@/services/onboarding/onboarding-api';
+import { fetchOnboardingStatus, fetchApplication } from '@/services/onboarding/onboarding-api';
 import { refreshSession } from '@/services/auth/auth-api';
 
 export function AuthGuard({ children }: { children: ReactNode }) {
@@ -26,6 +26,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     if (!isMerchant) {
       void (async () => {
         try {
+          await fetchApplication();
           const appStatus = await fetchOnboardingStatus();
           if (appStatus.storeStatus === 'APPROVED') {
             setSyncingRole(true);
@@ -38,7 +39,9 @@ export function AuthGuard({ children }: { children: ReactNode }) {
             }
             setSyncingRole(false);
           }
-          router.replace(appStatus.hasApplication ? '/onboarding' : '/signup');
+          const continueWizard =
+            !appStatus.status || appStatus.status === 'DRAFT';
+          router.replace(continueWizard ? '/signup' : '/onboarding');
         } catch {
           router.replace('/signup');
         }

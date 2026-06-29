@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, ChevronLeft } from 'lucide-react';
-import { Button, Input, Select, useToast } from '@/design-system/primitives';
+import { Button, Input, Select, Spinner, useToast } from '@/design-system/primitives';
 import { MarketingShell } from '@/features/marketing/components/marketing-shell';
 import { MerchantEmailAuth } from '@/features/auth/components/merchant-email-auth';
 import { useCitiesQuery } from '@/hooks/use-geo';
@@ -29,6 +29,12 @@ import {
 } from '@/lib/phone';
 import { ImageUploadField } from '@/features/media/components/image-upload-field';
 import type { MerchantApplication } from '@/services/onboarding/onboarding-api';
+import { fetchMe } from '@/services/auth/auth-api';
+import { useAuthStore } from '@/store/auth-store';
+import {
+  inferSignupWizardStep,
+  syncVerifiedIdentityFromUser,
+} from '@/lib/merchant-entry-route';
 
 const STEPS = [
   'Verify',
@@ -71,6 +77,7 @@ const STEP_KEYS = [
 export function MerchantSignupContent() {
   const router = useRouter();
   const { toast } = useToast();
+  const [booting, setBooting] = useState(true);
   const [step, setStep] = useState(0);
   const [verifiedEmail, setVerifiedEmail] = useState('');
   const [verifiedPhone, setVerifiedPhone] = useState('');
@@ -110,6 +117,38 @@ export function MerchantSignupContent() {
   });
 
   const { data: cities = [] } = useCitiesQuery();
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        let user = useAuthStore.getState().user;
+        if (!user) {
+          user = await fetchMe();
+          if (user) useAuthStore.getState().setSession(user);
+        }
+        if (!user) return;
+        if (user.roles.includes('MERCHANT')) {
+          router.replace('/dashboard');
+          return;
+        }
+
+        const identity = syncVerifiedIdentityFromUser(user);
+        setVerifiedEmail(identity.verifiedEmail);
+        setVerifiedPhone(identity.verifiedPhone);
+        setNeedsPhone(identity.needsPhone);
+        setContactPhone(identity.contactPhone);
+
+        const app = await fetchApplication();
+        hydrateFromApplication(app);
+        const wizardStep = Math.max(1, inferSignupWizardStep(app));
+        setStep(wizardStep);
+      } catch {
+        /* fresh visitor — stay on account creation */
+      } finally {
+        setBooting(false);
+      }
+    })();
+  }, [router]);
 
   const hydrateFromApplication = (app: MerchantApplication) => {
     const types =
@@ -159,15 +198,25 @@ export function MerchantSignupContent() {
     if (!isPlaceholderPhone(phone)) {
       setContactPhone(phone.replace(/\D/g, '').slice(-10));
     }
-    try {
-      const app = await fetchApplication();
-      hydrateFromApplication(app);
-    } catch (e) {
-      toast((e as Error).message, 'error');
-      return;
+
+    let app: MerchantApplication | null = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        app = await fetchApplication();
+        break;
+      } catch {
+        if (attempt === 1) break;
+      }
     }
-    setStep(1);
-    toast('Verified! Complete your merchant application.', 'success');
+
+    if (app) {
+      hydrateFromApplication(app);
+      setStep(Math.max(1, inferSignupWizardStep(app)));
+    } else {
+      setStep(1);
+    }
+
+    toast('Account ready — complete your store details below.', 'success');
   };
 
   const saveStep = async (stepKey: (typeof STEP_KEYS)[number], extra?: Record<string, unknown>) => {
@@ -424,7 +473,11 @@ export function MerchantSignupContent() {
             exit={{ opacity: 0, y: -8 }}
             className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
           >
-            {step === 0 && (
+            {booting ? (
+              <div className="flex justify-center py-12">
+                <Spinner size="lg" className="text-brand-600" />
+              </div>
+            ) : step === 0 ? (
               <div className="space-y-4">
                 <MerchantEmailAuth
                   mode="signup"
@@ -432,6 +485,9 @@ export function MerchantSignupContent() {
                   submitLabel="Create Account & Continue"
                   showForgotPassword={false}
                   onSuccess={handleVerified}
+                  onAccountExists={(email) => {
+                    router.push(`/login?email=${encodeURIComponent(email)}`);
+                  }}
                 />
                 <p className="text-center text-sm text-slate-500">
                   Already registered?{' '}
@@ -440,9 +496,9 @@ export function MerchantSignupContent() {
                   </Link>
                 </p>
               </div>
-            )}
+            ) : null}
 
-            {step === 1 && (
+            {!booting && step === 1 && (
               <div className="space-y-4">
                 <StepHeader title="Business details" subtitle="Owner and legal entity" />
                 <div className="rounded-xl border border-brand-100 bg-brand-50/50 px-4 py-3 text-sm text-slate-700">
@@ -522,7 +578,7 @@ export function MerchantSignupContent() {
               </div>
             )}
 
-            {step === 2 && (
+            {!booting && step === 2 && (
               <div className="space-y-4">
                 <StepHeader title="Store details" subtitle="Brand and storefront" />
                 <Input
@@ -554,7 +610,7 @@ export function MerchantSignupContent() {
               </div>
             )}
 
-            {step === 3 && (
+            {!booting && step === 3 && (
               <div className="space-y-4">
                 <StepHeader title="Store location" subtitle="Pin on Google Maps" />
                 <Input
@@ -604,7 +660,7 @@ export function MerchantSignupContent() {
               </div>
             )}
 
-            {step === 4 && (
+            {!booting && step === 4 && (
               <div className="space-y-4">
                 <StepHeader title="Delivery coverage" subtitle="Pincodes you can serve" />
                 <Select
@@ -640,7 +696,7 @@ export function MerchantSignupContent() {
               </div>
             )}
 
-            {step === 5 && (
+            {!booting && step === 5 && (
               <div className="space-y-4">
                 <StepHeader title="Categories" subtitle="What you plan to sell (approval after go-live)" />
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -674,7 +730,7 @@ export function MerchantSignupContent() {
               </div>
             )}
 
-            {step === 6 && (
+            {!booting && step === 6 && (
               <div className="space-y-4">
                 <StepHeader title="GST & PAN" subtitle="Tax identity and documents" />
                 <div className="flex gap-2">
@@ -723,7 +779,7 @@ export function MerchantSignupContent() {
               </div>
             )}
 
-            {step === 7 && (
+            {!booting && step === 7 && (
               <div className="space-y-4">
                 <StepHeader title="Bank details" subtitle="For settlements and payouts" />
                 <Input
@@ -750,7 +806,7 @@ export function MerchantSignupContent() {
               </div>
             )}
 
-            {step === 8 && (
+            {!booting && step === 8 && (
               <div className="space-y-4">
                 <StepHeader title="Review & submit" subtitle="Confirm before sending for approval" />
                 <dl className="divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm">

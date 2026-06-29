@@ -8,19 +8,8 @@ import { useSessionQuery } from '@/hooks/use-auth';
 import { useToast } from '@/design-system/primitives';
 import { MerchantAuthShell } from './components/merchant-auth-shell';
 import { MerchantEmailAuth } from './components/merchant-email-auth';
-import { fetchOnboardingStatus } from '@/services/onboarding/onboarding-api';
+import { resolveMerchantEntryRoute } from '@/lib/merchant-entry-route';
 import type { VerifyOtpResult } from '@/types/auth';
-
-async function resolvePostLoginRoute(user: VerifyOtpResult['user']): Promise<string> {
-  if (user.roles.includes('MERCHANT')) return '/dashboard';
-  try {
-    const status = await fetchOnboardingStatus();
-    if (status.hasApplication) return '/onboarding';
-  } catch {
-    /* not authenticated or no application */
-  }
-  return '/signup';
-}
 
 export function LoginPageContent() {
   const router = useRouter();
@@ -31,12 +20,14 @@ export function LoginPageContent() {
 
   const notMerchantError = searchParams.get('error') === 'not_merchant';
 
+  const prefilledEmail = searchParams.get('email')?.trim() ?? '';
+
   useEffect(() => {
     const u = session ?? storedUser;
     if (!u) return;
     void (async () => {
-      const dest = await resolvePostLoginRoute(u);
-      if (dest !== '/signup') router.replace(searchParams.get('next') ?? dest);
+      const { path } = await resolveMerchantEntryRoute(u);
+      router.replace(searchParams.get('next') ?? path);
     })();
   }, [session, storedUser, router, searchParams]);
 
@@ -47,14 +38,9 @@ export function LoginPageContent() {
   }, [notMerchantError, toast]);
 
   const handleVerified = async (result: VerifyOtpResult) => {
-    const dest = await resolvePostLoginRoute(result.user);
-    if (dest === '/signup') {
-      toast('No merchant account found. Continue signup to apply.', 'info');
-      router.replace('/signup');
-      return;
-    }
-    toast('Signed in successfully!', 'success');
-    router.replace(searchParams.get('next') ?? dest);
+    const { path, toast: entryToast } = await resolveMerchantEntryRoute(result.user);
+    if (entryToast) toast(entryToast.message, entryToast.tone);
+    router.replace(searchParams.get('next') ?? path);
   };
 
   return (
@@ -70,7 +56,12 @@ export function LoginPageContent() {
         </p>
       }
     >
-      <MerchantEmailAuth mode="login" submitLabel="Verify & Sign in" onSuccess={handleVerified} />
+      <MerchantEmailAuth
+        mode="login"
+        submitLabel="Verify & Sign in"
+        defaultEmail={prefilledEmail}
+        onSuccess={handleVerified}
+      />
     </MerchantAuthShell>
   );
 }
