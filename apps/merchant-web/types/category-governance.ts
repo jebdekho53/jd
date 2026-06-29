@@ -17,17 +17,21 @@ export type StoreDocumentType =
   | 'BANK_PROOF'
   | 'OTHER';
 
+export type CategoryCatalogKind = 'PRODUCT' | 'MENU';
+
 export interface CatalogCategory {
   id: string;
   name: string;
   slug: string;
   imageUrl: string | null;
   sortOrder: number;
+  catalogKind?: CategoryCatalogKind;
   requestStatus: StoreCategoryRequestStatus | null;
   children: Array<{
     id: string;
     name: string;
     slug: string;
+    catalogKind?: CategoryCatalogKind;
     requestStatus: StoreCategoryRequestStatus | null;
   }>;
 }

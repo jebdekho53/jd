@@ -4,6 +4,7 @@ export type OrderStatus =
   | 'PAID'
   | 'MERCHANT_ACCEPTED'
   | 'PREPARING'
+  | 'PACKING'
   | 'READY_FOR_PICKUP'
   | 'RIDER_ASSIGNED'
   | 'OUT_FOR_DELIVERY'

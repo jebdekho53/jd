@@ -61,6 +61,7 @@ export function CategoriesPageContent() {
   const { data: requests, isLoading } = useCategoryRequestsQuery(storeId);
   const { data: catalog } = useCategoryCatalogQuery(storeId);
   const requestMutation = useRequestCategoryMutation(storeId);
+  const isMenuCatalog = catalog?.[0]?.catalogKind === 'MENU';
 
   const filtered = (requests ?? []).filter((r) => r.status === tab);
 
@@ -92,12 +93,21 @@ export function CategoriesPageContent() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Store Categories</h1>
           <p className="text-sm text-slate-500">
-            Request approval for <strong>{currentStore?.name}</strong> to sell in platform categories.
-            Only approved subcategories can be used when creating products.
+            {isMenuCatalog ? (
+              <>
+                Request approval for <strong>{currentStore?.name}</strong> to sell in platform menu categories.
+                Only approved subcategories can be used when building your restaurant menu.
+              </>
+            ) : (
+              <>
+                Request approval for <strong>{currentStore?.name}</strong> to sell in platform categories.
+                Only approved subcategories can be used when creating products.
+              </>
+            )}
           </p>
         </div>
         <Button onClick={() => setModalOpen(true)}>
-          <Plus className="h-4 w-4" /> Request category
+          <Plus className="h-4 w-4" /> {isMenuCatalog ? 'Request menu category' : 'Request category'}
         </Button>
       </div>
 

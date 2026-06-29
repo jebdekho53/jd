@@ -343,6 +343,7 @@ export interface CreateGlobalCategoryPayload {
   parentId?: string;
   imageUrl?: string;
   sortOrder?: number;
+  catalogKind?: 'PRODUCT' | 'MENU';
 }
 
 export interface UpdateGlobalCategoryPayload {

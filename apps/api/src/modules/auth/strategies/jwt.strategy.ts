@@ -5,10 +5,14 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { getConfig } from '../../../config/configuration';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { RequestUser } from '../../../common/types';
+import { TokenService } from '../token.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly tokenService: TokenService,
+  ) {
     const cfg = getConfig(configService);
 
     super({
@@ -22,20 +26,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   /**
-   * Called after Passport verifies the token signature and expiry.
-   * The returned value is attached to request.user.
+   * Re-validates account status, roles, and permissions from DB on every request.
+   * Prevents use of stale JWTs after suspension, role revocation, or blacklist.
    */
-  validate(payload: JwtPayload): RequestUser {
+  async validate(payload: JwtPayload): Promise<RequestUser> {
     if (!payload.sub) {
       throw new UnauthorizedException('Malformed token payload');
     }
-
-    return {
-      id: payload.sub,
-      phone: payload.phone,
-      email: payload.email ?? null,
-      roles: payload.roles ?? [],
-      permissions: payload.permissions ?? [],
-    };
+    return this.tokenService.resolveLiveRequestUser(payload.sub);
   }
 }

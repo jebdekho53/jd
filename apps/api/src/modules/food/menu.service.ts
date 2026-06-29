@@ -1,25 +1,32 @@
 import {
   BadRequestException,
+  ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
-  AddonSelectionType,
   DietType,
   MenuItemAvailability,
-  SpiceLevel,
+  StoreBusinessTypeStatus,
+  VerticalBusinessType,
 } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { StoreCategoryAccessService } from '../category-governance/store-category-access.service';
 import { slugifyMenu } from './vertical.constants';
 import { CreateMenuCategoryDto } from './dto/create-menu-category.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { CreateAddonGroupDto } from './dto/create-addon-group.dto';
 import { CreateComboDto } from './dto/create-combo.dto';
+import { mapPlatformSlugToMenuCategorySlug } from './utils/menu-category-slug.util';
 
 @Injectable()
 export class MenuService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly categoryAccess: StoreCategoryAccessService,
+  ) {}
 
   async assertStoreOwnership(merchantProfileId: string, storeId: string) {
     const store = await this.prisma.store.findFirst({
@@ -27,6 +34,45 @@ export class MenuService {
     });
     if (!store) throw new NotFoundException('Store not found');
     return store;
+  }
+
+  private async assertFoodBusinessTypeApproved(storeId: string): Promise<void> {
+    const approved = await this.prisma.storeBusinessType.findFirst({
+      where: {
+        storeId,
+        status: StoreBusinessTypeStatus.APPROVED,
+        businessType: {
+          in: [
+            VerticalBusinessType.RESTAURANT,
+            VerticalBusinessType.CLOUD_KITCHEN,
+            VerticalBusinessType.CAFE,
+          ],
+        },
+      },
+    });
+    if (!approved) {
+      throw new ForbiddenException(
+        'Restaurant business type must be approved before managing menu categories',
+      );
+    }
+  }
+
+  private async assertStoreFssai(storeId: string): Promise<void> {
+    const row = await this.prisma.product.findFirst({
+      where: {
+        storeId,
+        deletedAt: null,
+        fssaiLicense: { not: null },
+        NOT: { fssaiLicense: '' },
+      },
+      orderBy: { updatedAt: 'desc' },
+      select: { fssaiLicense: true },
+    });
+    if (!row?.fssaiLicense?.trim()) {
+      throw new BadRequestException(
+        'FSSAI license is required before adding menu items — add it on a product first or enter it when creating food products',
+      );
+    }
   }
 
   async getBuyerMenu(storeSlug: string) {
@@ -84,7 +130,10 @@ export class MenuService {
     return this.prisma.restaurantMenuCategory.findMany({
       where: { storeId },
       orderBy: { sortOrder: 'asc' },
-      include: { _count: { select: { items: true } } },
+      include: {
+        _count: { select: { items: true } },
+        platformCategory: { select: { id: true, name: true, slug: true, catalogKind: true } },
+      },
     });
   }
 
@@ -95,6 +144,7 @@ export class MenuService {
         where: { storeId },
         orderBy: { sortOrder: 'asc' },
         include: {
+          platformCategory: { select: { id: true, name: true, slug: true } },
           items: {
             orderBy: { sortOrder: 'asc' },
             include: {
@@ -127,26 +177,63 @@ export class MenuService {
 
   async createCategory(merchantProfileId: string, storeId: string, dto: CreateMenuCategoryDto) {
     await this.assertStoreOwnership(merchantProfileId, storeId);
-    const slug = dto.slug ?? slugifyMenu(dto.name);
+    await this.assertFoodBusinessTypeApproved(storeId);
+
+    if (!dto.platformCategoryId?.trim()) {
+      throw new BadRequestException('platformCategoryId is required — select an approved menu subcategory');
+    }
+
+    const platform = await this.categoryAccess.assertMenuSubcategoryApproved(
+      storeId,
+      merchantProfileId,
+      dto.platformCategoryId,
+    );
+
+    const existing = await this.prisma.restaurantMenuCategory.findFirst({
+      where: { storeId, platformCategoryId: dto.platformCategoryId, isActive: true },
+    });
+    if (existing) {
+      throw new ConflictException('A menu category for this approved subcategory already exists');
+    }
+
+    const displayName = dto.name?.trim() || platform.name;
+    const slug = dto.slug ?? slugifyMenu(displayName);
+    const categorySlug = dto.categorySlug ?? mapPlatformSlugToMenuCategorySlug(platform.slug);
+
     return this.prisma.restaurantMenuCategory.create({
       data: {
         storeId,
-        name: dto.name,
+        platformCategoryId: platform.subcategoryId,
+        name: displayName,
         slug,
-        categorySlug: dto.categorySlug,
+        categorySlug,
         description: dto.description,
         imageUrl: dto.imageUrl,
         sortOrder: dto.sortOrder ?? 0,
+      },
+      include: {
+        platformCategory: { select: { id: true, name: true, slug: true } },
       },
     });
   }
 
   async createMenuItem(merchantProfileId: string, storeId: string, dto: CreateMenuItemDto) {
     await this.assertStoreOwnership(merchantProfileId, storeId);
+    await this.assertFoodBusinessTypeApproved(storeId);
+    await this.assertStoreFssai(storeId);
+
     const category = await this.prisma.restaurantMenuCategory.findFirst({
       where: { id: dto.categoryId, storeId },
     });
     if (!category) throw new NotFoundException('Menu category not found');
+
+    if (category.platformCategoryId) {
+      await this.categoryAccess.assertMenuSubcategoryApproved(
+        storeId,
+        merchantProfileId,
+        category.platformCategoryId,
+      );
+    }
 
     const slug = dto.slug ?? slugifyMenu(dto.name);
     const item = await this.prisma.restaurantMenuItem.create({
@@ -190,7 +277,7 @@ export class MenuService {
       data: {
         storeId,
         name: dto.name,
-        selectionType: dto.selectionType ?? AddonSelectionType.SINGLE,
+        selectionType: dto.selectionType ?? 'SINGLE',
         isRequired: dto.isRequired ?? false,
         minSelections: dto.minSelections ?? 0,
         maxSelections: dto.maxSelections ?? 1,

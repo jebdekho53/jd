@@ -1,5 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
-import { CategoryScope, MerchantCategoryStatus } from '@prisma/client';
+import {
+  CategoryCatalogKind,
+  CategoryScope,
+  MerchantCategoryStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
 export type ApprovedCategoryTree = {
@@ -17,6 +21,40 @@ export type ApprovedCategoryTree = {
 export class StoreCategoryAccessService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async assertMenuSubcategoryApproved(
+    storeId: string,
+    merchantProfileId: string,
+    platformSubcategoryId: string,
+  ): Promise<{ parentId: string; subcategoryId: string; slug: string; name: string }> {
+    const subcategory = await this.prisma.category.findFirst({
+      where: {
+        id: platformSubcategoryId,
+        storeId: null,
+        scope: CategoryScope.GLOBAL,
+        catalogKind: CategoryCatalogKind.MENU,
+        isActive: true,
+        deletedAt: null,
+        parentId: { not: null },
+      },
+      select: { id: true, parentId: true, slug: true, name: true },
+    });
+    if (!subcategory?.parentId) {
+      throw new BadRequestException('Menu subcategory not found or is not a MENU catalog category');
+    }
+    await this.assertSubcategoryApproved(
+      storeId,
+      merchantProfileId,
+      subcategory.parentId,
+      subcategory.id,
+    );
+    return {
+      parentId: subcategory.parentId,
+      subcategoryId: subcategory.id,
+      slug: subcategory.slug,
+      name: subcategory.name,
+    };
+  }
+
   async assertProductCategoryAllowed(
     storeId: string,
     merchantProfileId: string,
@@ -29,6 +67,7 @@ export class StoreCategoryAccessService {
         isActive: true,
         storeId: null,
         scope: CategoryScope.GLOBAL,
+        catalogKind: CategoryCatalogKind.PRODUCT,
       },
       select: { id: true, parentId: true, name: true },
     });
@@ -111,7 +150,10 @@ export class StoreCategoryAccessService {
     );
   }
 
-  async listApprovedCategoryTree(storeId: string): Promise<ApprovedCategoryTree[]> {
+  async listApprovedCategoryTree(
+    storeId: string,
+    catalogKind: CategoryCatalogKind = CategoryCatalogKind.PRODUCT,
+  ): Promise<ApprovedCategoryTree[]> {
     const store = await this.prisma.store.findFirst({
       where: { id: storeId, deletedAt: null },
       select: { merchantProfileId: true },
@@ -155,6 +197,7 @@ export class StoreCategoryAccessService {
       where: {
         storeId: null,
         scope: CategoryScope.GLOBAL,
+        catalogKind,
         isActive: true,
         deletedAt: null,
         OR: [

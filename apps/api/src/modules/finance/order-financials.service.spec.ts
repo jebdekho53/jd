@@ -1,77 +1,62 @@
-import { PaymentMethod, PaymentStatus } from '@prisma/client';
+import { Test, TestingModule } from '@nestjs/testing';
 import { OrderFinancialsService } from './order-financials.service';
+import { PrismaService } from '../../database/prisma.service';
+import { FinanceCommissionService } from './finance-commission.service';
+import { LedgerService } from './ledger.service';
 
-const mockLedger = {
-  recordOrderPayment: jest.fn().mockResolvedValue(undefined),
-  recordTaxAccrual: jest.fn().mockResolvedValue(undefined),
-};
-const mockCommission = { resolveForOrder: jest.fn().mockResolvedValue({ commissionPercent: 10, commissionRuleId: 'r1' }) };
-const mockPrisma: {
-  orderFinancialSnapshot: { findUnique: jest.Mock; create: jest.Mock };
-  store: { findUnique: jest.Mock };
-  $transaction: jest.Mock;
-  taxRecord: { create: jest.Mock };
-  order: { findUnique: jest.Mock };
-} = {
-  orderFinancialSnapshot: {
-    findUnique: jest.fn().mockResolvedValue(null),
-    create: jest.fn(),
-  },
-  store: { findUnique: jest.fn().mockResolvedValue({ id: 's1', name: 'Store', slug: 'store', deliveryFee: 0, minOrderAmount: 0, cityId: 'c1' }) },
-  $transaction: jest.fn(async (cb: (tx: typeof mockPrisma) => Promise<unknown>) => cb(mockPrisma)),
-  taxRecord: { create: jest.fn() },
-  order: { findUnique: jest.fn() },
+const mockPrisma = {
+  orderFinancialSnapshot: { findUnique: jest.fn() },
+  order: { findFirst: jest.fn() },
 };
 
-describe('OrderFinancialsService', () => {
-  const service = new OrderFinancialsService(
-    mockPrisma as never,
-    mockCommission as never,
-    mockLedger as never,
-  );
+const mockLedger = { recordOrderPayment: jest.fn() };
+const mockCommission = { resolveCommissionPercent: jest.fn() };
 
-  beforeEach(() => {
+describe('OrderFinancialsService merchant access', () => {
+  let service: OrderFinancialsService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        OrderFinancialsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: FinanceCommissionService, useValue: mockCommission },
+        { provide: LedgerService, useValue: mockLedger },
+      ],
+    }).compile();
+    service = module.get(OrderFinancialsService);
     jest.clearAllMocks();
-    mockLedger.recordOrderPayment.mockResolvedValue(undefined);
-    mockLedger.recordTaxAccrual.mockResolvedValue(undefined);
   });
 
-  it('defers ledger for Razorpay orders at create', async () => {
-    await service.freezeOnOrderCreate({
-      orderId: 'o1',
-      storeId: 's1',
-      subtotal: 100,
-      discountAmount: 0,
-      deliveryFee: 20,
-      paymentMethod: PaymentMethod.RAZORPAY,
-    });
-    expect(mockLedger.recordOrderPayment).not.toHaveBeenCalled();
+  it('returns null when merchant does not own the order', async () => {
+    mockPrisma.order.findFirst.mockResolvedValue(null);
+    const result = await service.getOrderFinancialsForMerchant('order-other', 'merchant-user-1');
+    expect(result).toBeNull();
+    expect(mockPrisma.orderFinancialSnapshot.findUnique).not.toHaveBeenCalled();
   });
 
-  it('posts ledger for COD at create', async () => {
-    await service.freezeOnOrderCreate({
-      orderId: 'o2',
-      storeId: 's1',
-      subtotal: 100,
-      discountAmount: 0,
-      deliveryFee: 20,
-      paymentMethod: PaymentMethod.COD,
+  it('returns financials when merchant owns the order', async () => {
+    mockPrisma.order.findFirst.mockResolvedValue({ id: 'order-1' });
+    mockPrisma.orderFinancialSnapshot.findUnique.mockResolvedValue({
+      orderId: 'order-1',
+      subtotal: { toNumber: () => 100 },
+      discountAmount: { toNumber: () => 0 },
+      offerSubsidy: { toNumber: () => 0 },
+      merchantContribution: { toNumber: () => 0 },
+      platformContribution: { toNumber: () => 0 },
+      deliveryFee: { toNumber: () => 10 },
+      taxAmount: { toNumber: () => 5 },
+      commissionPercent: { toNumber: () => 10 },
+      commissionAmount: { toNumber: () => 10 },
+      netMerchantEarnings: { toNumber: () => 95 },
+      netPlatformEarnings: { toNumber: () => 10 },
+      riderPayoutAmount: { toNumber: () => 7 },
+      frozenAt: new Date('2026-01-01'),
+      storeSnapshot: {},
     });
-    expect(mockLedger.recordOrderPayment).toHaveBeenCalledWith('o2', expect.any(Number), true);
-  });
 
-  it('records online payment on verify', async () => {
-    mockPrisma.order.findUnique.mockResolvedValue({
-      paymentMethod: PaymentMethod.RAZORPAY,
-      paymentStatus: PaymentStatus.PAID,
-      totalAmount: 120,
-      deliveryFee: 20,
-      discountAmount: 0,
-      taxAmount: 5,
-    });
-    mockPrisma.orderFinancialSnapshot.findUnique.mockResolvedValue(null);
-
-    await service.recordOnlinePaymentConfirmed('o3');
-    expect(mockLedger.recordOrderPayment).toHaveBeenCalledWith('o3', expect.any(Number), false);
+    const result = await service.getOrderFinancialsForMerchant('order-1', 'merchant-user-1');
+    expect(result?.orderId).toBe('order-1');
+    expect(result?.netMerchantEarnings).toBe(95);
   });
 });

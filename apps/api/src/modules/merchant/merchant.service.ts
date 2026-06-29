@@ -49,10 +49,6 @@ export class MerchantService {
     });
     await this.blocklist.assertUserNotBlacklisted(userId);
 
-    const merchantRole = await this.prisma.role.findUniqueOrThrow({
-      where: { name: RoleName.MERCHANT },
-    });
-
     const profile = await this.prisma.$transaction(async (tx) => {
       const created = await tx.merchantProfile.create({
         data: {
@@ -64,13 +60,7 @@ export class MerchantService {
         },
       });
 
-      // Assign MERCHANT role (idempotent)
-      await tx.userRole.upsert({
-        where: { userId_roleId: { userId, roleId: merchantRole.id } },
-        update: {},
-        create: { userId, roleId: merchantRole.id },
-      });
-
+      // MERCHANT role is granted only after admin approval (ensureMerchantRole).
       return created;
     });
 

@@ -14,6 +14,8 @@ import { OrderFinancialsService } from '../finance/order-financials.service';
 import { OrderCacheService } from '../order/order-cache.service';
 import { DeliveryDispatchService } from '../logistics/delivery-dispatch.service';
 import { FoodPaymentService } from '../food/food-payment.service';
+import { WebhookDedupService } from '../../common/webhooks/webhook-dedup.service';
+import { OrderRefundService } from './order-refund.service';
 
 const mockOrderFinancials = { recordOnlinePaymentConfirmed: jest.fn() };
 const mockOrderCache = { invalidateAll: jest.fn() };
@@ -110,6 +112,15 @@ describe('PaymentService', () => {
         { provide: OrderCacheService, useValue: mockOrderCache },
         { provide: DeliveryDispatchService, useValue: mockDeliveryDispatch },
         { provide: FoodPaymentService, useValue: mockFoodPayment },
+        {
+          provide: WebhookDedupService,
+          useValue: {
+            claimEvent: jest.fn().mockResolvedValue({ action: 'process', recordId: 'wh-1' }),
+            markProcessed: jest.fn(),
+            markFailed: jest.fn(),
+          },
+        },
+        { provide: OrderRefundService, useValue: { reconcileRazorpayRefund: jest.fn() } },
       ],
     }).compile();
 

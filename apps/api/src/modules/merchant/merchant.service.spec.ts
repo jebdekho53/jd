@@ -49,7 +49,7 @@ describe('MerchantService', () => {
   // ── createProfile ─────────────────────────────────────────────────────────
 
   describe('createProfile', () => {
-    it('creates profile and assigns MERCHANT role', async () => {
+    it('creates profile without assigning MERCHANT role (admin approval required)', async () => {
       mockPrisma.merchantProfile.findUnique.mockResolvedValue(null);
       mockPrisma.user.findUniqueOrThrow.mockResolvedValue({
         phone: '+919876543211',
@@ -74,7 +74,7 @@ describe('MerchantService', () => {
       const result = await service.createProfile('u-1', CREATE_DTO);
 
       expect(mockPrisma.merchantProfile.create).toHaveBeenCalled();
-      expect(mockPrisma.userRole.upsert).toHaveBeenCalled();
+      expect(mockPrisma.userRole.upsert).not.toHaveBeenCalled();
       expect(result.businessName).toBe('Test Store');
     });
 

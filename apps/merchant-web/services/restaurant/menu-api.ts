@@ -8,6 +8,8 @@ export interface MenuCategory {
   imageUrl?: string | null;
   sortOrder: number;
   isActive: boolean;
+  platformCategoryId?: string | null;
+  platformCategory?: { id: string; name: string; slug: string } | null;
   _count?: { items: number };
   items?: MenuItem[];
 }
@@ -102,7 +104,12 @@ export async function fetchMenuCategories(storeId: string): Promise<MenuCategory
 
 export async function createMenuCategory(
   storeId: string,
-  body: { name: string; description?: string; sortOrder?: number },
+  body: {
+    platformCategoryId: string;
+    name?: string;
+    description?: string;
+    sortOrder?: number;
+  },
 ): Promise<MenuCategory> {
   const res = await merchantFetch<{ data: MenuCategory }>(
     `/api/merchant/stores/${storeId}/menu/categories`,

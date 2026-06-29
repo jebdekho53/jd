@@ -74,8 +74,8 @@ export class MerchantFinanceController {
 
   @Get('orders/:orderId')
   @Permissions('earnings:read')
-  async orderBreakdown(@Param('orderId') orderId: string) {
-    const data = await this.orderFinancials.getOrderFinancials(orderId);
+  async orderBreakdown(@CurrentUser() user: RequestUser, @Param('orderId') orderId: string) {
+    const data = await this.orderFinancials.getOrderFinancialsForMerchant(orderId, user.id);
     return { success: true, data };
   }
 

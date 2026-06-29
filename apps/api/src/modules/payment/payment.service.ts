@@ -31,6 +31,9 @@ import { CreateRazorpayOrderDto } from './dto/create-razorpay-order.dto';
 import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { normalizePayerPhone } from '../checkout/dto/payer-contact.dto';
 import { FoodPaymentService } from '../food/food-payment.service';
+import { WebhookProvider } from '@prisma/client';
+import { WebhookDedupService } from '../../common/webhooks/webhook-dedup.service';
+import { OrderRefundService } from './order-refund.service';
 
 @Injectable()
 export class PaymentService {
@@ -50,6 +53,8 @@ export class PaymentService {
     private readonly deliveryDispatch: DeliveryDispatchService,
     @Inject(forwardRef(() => FoodPaymentService))
     private readonly foodPayment: FoodPaymentService,
+    private readonly webhookDedup: WebhookDedupService,
+    private readonly orderRefunds: OrderRefundService,
   ) {}
 
   // ── Create Razorpay order for a reserved checkout ─────────────────────────
@@ -287,26 +292,49 @@ export class PaymentService {
       throw new UnauthorizedException('Invalid webhook signature');
     }
 
-    let event: { event: string; payload?: Record<string, unknown> };
+    let event: { event: string; id?: string; payload?: Record<string, unknown> };
     try {
       event = JSON.parse(rawBody.toString('utf8')) as typeof event;
     } catch {
       throw new BadRequestException('Invalid webhook payload');
     }
 
-    this.logger.log({ eventType: event.event }, 'Razorpay webhook received');
+    const claim = await this.webhookDedup.claimEvent(
+      WebhookProvider.RAZORPAY,
+      event.id,
+      rawBody,
+      signature,
+    );
+    if (claim.action === 'duplicate') {
+      this.logger.debug({ eventId: event.id }, 'Duplicate Razorpay webhook ignored');
+      return;
+    }
 
-    switch (event.event) {
-      case 'payment.captured':
-        await this.handlePaymentCaptured(event.payload);
-        break;
+    this.logger.log({ eventType: event.event, eventId: event.id }, 'Razorpay webhook received');
 
-      case 'payment.failed':
-        await this.handlePaymentFailed(event.payload);
-        break;
+    try {
+      switch (event.event) {
+        case 'payment.captured':
+          await this.handlePaymentCaptured(event.payload);
+          break;
 
-      default:
-        this.logger.debug(`Unhandled webhook event: ${event.event}`);
+        case 'payment.failed':
+          await this.handlePaymentFailed(event.payload);
+          break;
+
+        case 'refund.processed':
+        case 'refund.created':
+          await this.orderRefunds.reconcileRazorpayRefund(event.payload);
+          break;
+
+        default:
+          this.logger.debug(`Unhandled webhook event: ${event.event}`);
+      }
+      await this.webhookDedup.markProcessed(claim.recordId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Webhook processing failed';
+      await this.webhookDedup.markFailed(claim.recordId, message);
+      throw err;
     }
   }
 
@@ -338,15 +366,15 @@ export class PaymentService {
 
     const razorpayPaymentId = this.extractRazorpayPaymentId(payload);
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: { status: PaymentStatus.PAID, razorpayPaymentId: razorpayPaymentId ?? undefined },
-      });
-      await tx.checkout.updateMany({
-        where: { orderId: payment.order.id },
-        data: { status: CheckoutStatus.COMPLETED },
-      });
+    const updated = await this.prisma.payment.updateMany({
+      where: { id: payment.id, status: { not: PaymentStatus.PAID } },
+      data: { status: PaymentStatus.PAID, razorpayPaymentId: razorpayPaymentId ?? undefined },
+    });
+    if (updated.count === 0) return;
+
+    await this.prisma.checkout.updateMany({
+      where: { orderId: payment.order.id },
+      data: { status: CheckoutStatus.COMPLETED },
     });
 
     await this.statusHistory.transition({

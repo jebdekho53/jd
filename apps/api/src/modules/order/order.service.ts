@@ -14,6 +14,7 @@ import {
   OrderVertical,
   PaymentMethod,
   PaymentStatus,
+  OrderRefundInitiator,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
@@ -35,11 +36,9 @@ import {
 import { merchantOrderDayFilter, orderIstDayFilter } from '../../common/utils/ist-day.util';
 import { DeliveryDispatchService } from '../logistics/delivery-dispatch.service';
 import { ReservationService } from '../checkout/reservation.service';
-import { RewardService } from '../wallet-loyalty/reward.service';
-import { LedgerService } from '../finance/ledger.service';
-import { CreditNoteService } from '../compliance/credit-note.service';
-import { EmailNotificationService } from '../email/email-notification.service';
+import { OrderRefundService } from '../payment/order-refund.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
 import { ListOrdersDto, ListMerchantOrdersDto, ListAdminOrdersDto } from './dto/list-orders.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import {
@@ -242,11 +241,9 @@ export class OrderService implements OnModuleInit {
     private readonly statusHistory: OrderStatusHistoryService,
     private readonly deliveryDispatch: DeliveryDispatchService,
     private readonly reservation: ReservationService,
-    private readonly rewards: RewardService,
-    private readonly ledger: LedgerService,
-    private readonly creditNotes: CreditNoteService,
-    private readonly emailNotifications: EmailNotificationService,
+    private readonly orderRefunds: OrderRefundService,
     private readonly buyerPush: BuyerPushNotificationService,
+    private readonly deliveryTracking: DeliveryTrackingService,
   ) {}
 
   // ── Buyer: list orders ────────────────────────────────────────────────────
@@ -435,9 +432,15 @@ export class OrderService implements OnModuleInit {
     });
     await this.reservation.releaseOrderReservations(order.id, userId);
 
-    // Trigger refund if the order was already paid via Razorpay
-    if (order.paymentStatus === PaymentStatus.PAID && order.paymentMethod === PaymentMethod.RAZORPAY) {
-      await this.initiateRefund(order.id, userId, ipAddress);
+    // Trigger refund for any paid order with refundable balance
+    if (order.paymentStatus === PaymentStatus.PAID) {
+      await this.orderRefunds.initiateRefund({
+        orderId: order.id,
+        actorId: userId,
+        initiatorType: OrderRefundInitiator.BUYER,
+        reason: dto.reason,
+        ipAddress,
+      });
     }
 
     void this.cache.invalidateAll(orderId);
@@ -852,6 +855,21 @@ export class OrderService implements OnModuleInit {
       void this.buyerPush.notifyOrderAccepted(orderId).catch(() => {});
     }
 
+    const prepStatuses = new Set<OrderStatus>([
+      OrderStatus.MERCHANT_ACCEPTED,
+      OrderStatus.PREPARING,
+      OrderStatus.PACKING,
+      OrderStatus.READY_FOR_PICKUP,
+    ]);
+    if (prepStatuses.has(targetStatus)) {
+      this.deliveryTracking.emitOrderStatus({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        storeId: order.storeId,
+        orderStatus: targetStatus,
+      });
+    }
+
     void this.cache.invalidateAll(orderId);
     this.logger.log({ userId, orderId, from: order.status, to: targetStatus }, 'Order status advanced');
 
@@ -914,9 +932,14 @@ export class OrderService implements OnModuleInit {
     });
     await this.reservation.releaseOrderReservations(order.id, userId);
 
-    // Trigger refund if paid via Razorpay
-    if (order.paymentStatus === PaymentStatus.PAID && order.paymentMethod === PaymentMethod.RAZORPAY) {
-      await this.initiateRefund(order.id, userId, ipAddress);
+    if (order.paymentStatus === PaymentStatus.PAID) {
+      await this.orderRefunds.initiateRefund({
+        orderId: order.id,
+        actorId: userId,
+        initiatorType: OrderRefundInitiator.MERCHANT,
+        reason: dto.reason,
+        ipAddress,
+      });
     }
 
     void this.cache.invalidateAll(orderId);
@@ -925,75 +948,7 @@ export class OrderService implements OnModuleInit {
     return { orderId, status: newStatus };
   }
 
-  // ── Private: initiate refund ──────────────────────────────────────────────
-  //
-  // For Phase 7, marks the order REFUNDED and emits the event.
-  // Full Razorpay refund API call can be wired in Phase 8.
-
-  private async initiateRefund(orderId: string, actorId: string, ipAddress?: string): Promise<void> {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: { totalAmount: true },
-    });
-    const payment = await this.prisma.payment.findUnique({
-      where: { orderId },
-      select: { id: true, razorpayPaymentId: true },
-    });
-
-    await this.prisma.$transaction([
-      this.prisma.order.update({
-        where: { id: orderId },
-        data: { status: OrderStatus.REFUNDED, paymentStatus: PaymentStatus.REFUNDED },
-      }),
-      this.prisma.orderStatusHistory.create({
-        data: {
-          orderId,
-          status: OrderStatus.REFUNDED,
-          note: 'Refund initiated on order cancellation',
-          changedBy: actorId,
-          actorType: OrderActorType.SYSTEM,
-        },
-      }),
-      ...(payment
-        ? [this.prisma.payment.update({
-            where: { id: payment.id },
-            data: { status: PaymentStatus.REFUNDED },
-          })]
-        : []),
-    ]);
-
-    await Promise.all([
-      this.audit.log({
-        actorId,
-        action: 'ORDER_REFUNDED',
-        resourceType: 'order',
-        resourceId: orderId,
-        ipAddress,
-        metadata: { razorpayPaymentId: payment?.razorpayPaymentId } as Prisma.InputJsonValue,
-      }),
-      this.domainEvents.emit(
-        DomainEventType.ORDER_REFUNDED,
-        'order',
-        orderId,
-        { razorpayPaymentId: payment?.razorpayPaymentId ?? null } as Prisma.InputJsonValue,
-        { userId: actorId, ipAddress: ipAddress ?? null },
-      ),
-    ]);
-
-    void this.rewards.refundWalletForOrder(orderId, actorId).catch((err) => {
-      this.logger.error({ err, orderId }, 'Wallet refund on order cancellation failed');
-    });
-
-    if (order) {
-      void this.ledger.recordRefund(orderId, Number(order.totalAmount)).catch(() => {});
-      void this.creditNotes.createForRefund(orderId, 'Order refund / cancellation').catch((err) => {
-        this.logger.error({ err, orderId }, 'Credit note creation failed');
-      });
-      void this.emailNotifications.sendRefundProcessed(orderId).catch((err) => {
-        this.logger.error({ err, orderId }, 'Refund email failed');
-      });
-    }
-  }
+  // Refunds are handled by OrderRefundService (Razorpay-first, idempotent).
 
   private async getBuyerStoreStats(buyerProfileId: string, storeId: string) {
     const [agg, buyer] = await Promise.all([

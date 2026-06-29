@@ -9,9 +9,10 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { RIDER_ASSIGNMENT_EVENTS } from './rider-assignment.service';
+import { wsGatewayCorsOptions } from '../../common/websocket/ws-cors.util';
 
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: wsGatewayCorsOptions(),
   namespace: '/rider-assignment',
 })
 export class RiderAssignmentGateway {

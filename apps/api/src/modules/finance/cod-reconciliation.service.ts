@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { CodReconciliationStatus, LedgerReferenceType, PaymentMethod, Prisma } from '@prisma/client';
+import { CodReconciliationStatus, DeliveryProviderType, LedgerReferenceType, PaymentMethod, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { LedgerService } from './ledger.service';
 import { FinanceAlertService } from './finance-alert.service';
@@ -13,7 +13,11 @@ export class CodReconciliationService {
     private readonly alerts: FinanceAlertService,
   ) {}
 
-  async createForDeliveredOrder(orderId: string, riderProfileId: string): Promise<void> {
+  async createForDeliveredOrder(
+    orderId: string,
+    riderProfileId: string | null,
+    providerType?: DeliveryProviderType | null,
+  ): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: { id: true, totalAmount: true, paymentMethod: true },
@@ -29,9 +33,14 @@ export class CodReconciliationService {
     });
     if (existing) return;
 
+    if (!riderProfileId && !providerType) {
+      return;
+    }
+
     await this.prisma.codReconciliation.create({
       data: {
-        riderProfileId,
+        riderProfileId: riderProfileId ?? undefined,
+        providerType: providerType ?? undefined,
         orderId,
         amountExpected: order.totalAmount,
         amountCollected: order.totalAmount,
@@ -147,7 +156,7 @@ export class CodReconciliationService {
     return {
       records: rows.map((r) => ({
         id: r.id,
-        rider: r.riderProfile.name,
+        rider: r.riderProfile?.name ?? (r.providerType ? `Provider ${r.providerType}` : 'Unknown'),
         orderNumber: r.order?.orderNumber ?? null,
         amountExpected: decimalToNumber(r.amountExpected),
         amountCollected: decimalToNumber(r.amountCollected),

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -25,6 +26,7 @@ import { GeospatialService } from '../geospatial/geospatial.service';
 
 const CHECKOUT_TTL_MINUTES = 15;
 const FOOD_CHECKOUT_PENDING = 'PENDING';
+const FOOD_CHECKOUT_PROCESSING = 'PROCESSING';
 const FOOD_CHECKOUT_COMPLETED = 'COMPLETED';
 
 function generateOrderNumber(): string {
@@ -223,6 +225,19 @@ export class FoodCheckoutService {
     }
 
     const order = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.foodCheckout.updateMany({
+        where: { id: checkout.id, status: FOOD_CHECKOUT_PENDING },
+        data: { status: FOOD_CHECKOUT_PROCESSING },
+      });
+      if (claimed.count === 0) {
+        const current = await tx.foodCheckout.findUnique({ where: { id: checkout.id } });
+        if (current?.status === FOOD_CHECKOUT_COMPLETED && current.orderId) {
+          const existing = await tx.order.findUnique({ where: { id: current.orderId } });
+          if (existing) return existing;
+        }
+        throw new ConflictException('Food checkout is already being processed');
+      }
+
       const created = await tx.order.create({
         data: {
           orderNumber: generateOrderNumber(),

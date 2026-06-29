@@ -40,12 +40,10 @@ describe('PWA private cache rules', () => {
     expect(PRIVATE_API_PREFIXES).toEqual(
       expect.arrayContaining([
         '/api/auth',
-        '/api/buyer/addresses',
-        '/api/buyer/support',
+        '/api/buyer',
         '/api/corporate',
-        '/api/buyer/notifications',
-        '/api/buyer/offers/recommended',
       ]),
     );
+    expect(PRIVATE_API_PREFIXES).toHaveLength(3);
   });
 });

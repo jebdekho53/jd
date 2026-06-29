@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PaymentMethod, PaymentStatus, Prisma } from '@prisma/client';
+import { PaymentMethod, PaymentStatus, Prisma, OrderFinancialSnapshot } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { FinanceCommissionService } from './finance-commission.service';
 import { LedgerService } from './ledger.service';
@@ -146,6 +146,25 @@ export class OrderFinancialsService {
   async getOrderFinancials(orderId: string) {
     const snap = await this.prisma.orderFinancialSnapshot.findUnique({ where: { orderId } });
     if (!snap) return null;
+    return this.formatFinancials(snap);
+  }
+
+  async getOrderFinancialsForMerchant(orderId: string, merchantUserId: string) {
+    const owned = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        store: { merchantProfile: { userId: merchantUserId } },
+      },
+      select: { id: true },
+    });
+    if (!owned) return null;
+
+    const snap = await this.prisma.orderFinancialSnapshot.findUnique({ where: { orderId } });
+    if (!snap) return null;
+    return this.formatFinancials(snap);
+  }
+
+  private formatFinancials(snap: OrderFinancialSnapshot) {
     return {
       orderId: snap.orderId,
       subtotal: decimalToNumber(snap.subtotal),

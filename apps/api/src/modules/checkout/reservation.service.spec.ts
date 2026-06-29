@@ -6,6 +6,7 @@ import { DomainEventsService } from '../domain-events/domain-events.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { OrderStatusHistoryService } from '../order/order-status-history.service';
 import { OrderCacheService } from '../order/order-cache.service';
+import { DistributedLockService } from '../../redis/distributed-lock.service';
 
 const mockPrisma = {
   checkout: { findMany: jest.fn(), update: jest.fn(), findUnique: jest.fn() },
@@ -40,6 +41,10 @@ describe('ReservationService', () => {
         { provide: InventoryService, useValue: mockInventory },
         { provide: OrderStatusHistoryService, useValue: mockStatusHistory },
         { provide: OrderCacheService, useValue: mockOrderCache },
+        {
+          provide: DistributedLockService,
+          useValue: { runExclusive: async (_k: string, _t: number, fn: () => Promise<void>) => fn() },
+        },
       ],
     }).compile();
 

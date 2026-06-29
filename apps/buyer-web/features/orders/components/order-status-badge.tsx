@@ -14,6 +14,7 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; tone: Tone }> = {
   PAID: { label: 'Paid', tone: 'brand' },
   MERCHANT_ACCEPTED: { label: 'Accepted', tone: 'brand' },
   PREPARING: { label: 'Preparing', tone: 'brand' },
+  PACKING: { label: 'Packing', tone: 'brand' },
   READY_FOR_PICKUP: { label: 'Ready', tone: 'success' },
   RIDER_ASSIGNED: { label: 'Rider assigned', tone: 'success' },
   PICKED_UP: { label: 'Picked up', tone: 'success' },

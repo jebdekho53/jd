@@ -29,6 +29,7 @@ import {
   isHsnRequiredCategory,
 } from '../../common/utils/product-compliance.util';
 import { pickReturnPolicyPrismaData } from '../../common/utils/product-return-policy-fields.util';
+import { assertSafeExternalHttpsUrls } from '../../common/utils/safe-external-url.util';
 import { ListProductsDto } from './dto/list-products.dto';
 
 type VariantWithInventory = ProductVariant & { inventory: Inventory | null };
@@ -92,6 +93,8 @@ export class ProductService {
         await this.assertVariantSkuUnique(storeId, v.sku);
       }
     }
+
+    assertSafeExternalHttpsUrls(dto.imageUrls);
 
     const slug = await this.generateUniqueProductSlug(storeId, dto.name);
 
@@ -338,6 +341,9 @@ export class ProductService {
 
     if (dto.imageUrls !== undefined && dto.imageUrls.length === 0) {
       throw new BadRequestException('At least one product image is required');
+    }
+    if (dto.imageUrls !== undefined) {
+      assertSafeExternalHttpsUrls(dto.imageUrls);
     }
 
     // Regenerate slug if name changed

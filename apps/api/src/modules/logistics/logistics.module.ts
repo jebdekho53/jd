@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { RiderAssignmentModule } from '../rider-assignment/rider-assignment.module';
+import { OrderFulfillmentModule } from '../order/order-fulfillment.module';
 import { ShadowfaxClient } from './providers/shadowfax/shadowfax.client';
 import { ShadowfaxProvider } from './providers/shadowfax/shadowfax.provider';
 import { PorterProvider, DelhiveryProvider, BorzoProvider } from './providers/stub/stub-providers';
@@ -13,7 +14,7 @@ import { MerchantLogisticsController } from './merchant-logistics.controller';
 import { AdminLogisticsController } from './admin-logistics.controller';
 
 @Module({
-  imports: [RiderAssignmentModule],
+  imports: [RiderAssignmentModule, OrderFulfillmentModule],
   controllers: [
     LogisticsWebhookController,
     MerchantLogisticsController,

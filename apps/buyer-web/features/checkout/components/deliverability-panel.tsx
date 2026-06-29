@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
@@ -10,6 +11,7 @@ interface DeliverabilityPanelProps {
   lat: number;
   lng: number;
   pincode?: string;
+  onDeliverabilityChange?: (deliverable: boolean, loading: boolean) => void;
 }
 
 async function fetchDeliverability(storeId: string, lat: number, lng: number, pincode?: string) {
@@ -25,15 +27,36 @@ async function fetchDeliverability(storeId: string, lat: number, lng: number, pi
   return json.data as Awaited<ReturnType<typeof checkDeliverability>>;
 }
 
-export function DeliverabilityPanel({ storeId, lat, lng, pincode }: DeliverabilityPanelProps) {
+export function DeliverabilityPanel({
+  storeId,
+  lat,
+  lng,
+  pincode,
+  onDeliverabilityChange,
+}: DeliverabilityPanelProps) {
+  const queryEnabled = Boolean(storeId && lat && lng);
+
   const { data, isLoading } = useQuery({
     queryKey: ['deliverability', storeId, lat, lng, pincode],
     queryFn: () => fetchDeliverability(storeId, lat, lng, pincode),
-    enabled: Boolean(storeId && lat && lng),
+    enabled: queryEnabled,
     staleTime: 15_000,
   });
 
-  if (isLoading || !data || data.deliverable) return null;
+  useEffect(() => {
+    if (!onDeliverabilityChange) return;
+    if (!queryEnabled) {
+      onDeliverabilityChange(false, false);
+      return;
+    }
+    if (isLoading) {
+      onDeliverabilityChange(false, true);
+      return;
+    }
+    onDeliverabilityChange(data?.deliverable === true, false);
+  }, [data?.deliverable, isLoading, onDeliverabilityChange, queryEnabled]);
+
+  if (!queryEnabled || isLoading || !data || data.deliverable) return null;
 
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">

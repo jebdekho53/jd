@@ -6,6 +6,7 @@ import { daysAgoIst, startOfIstDay } from '../../common/utils/ist-day.util';
 import { LedgerService } from './ledger.service';
 import { FinanceCacheService } from './finance-cache.service';
 import { FinanceAlertService } from './finance-alert.service';
+import { DistributedLockService } from '../../redis/distributed-lock.service';
 import { decimalToNumber, roundMoney } from '../settlement/settlement.utils';
 
 @Injectable()
@@ -17,16 +18,21 @@ export class SettlementBatchService {
     private readonly ledger: LedgerService,
     private readonly cache: FinanceCacheService,
     private readonly alerts: FinanceAlertService,
+    private readonly lock: DistributedLockService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_1AM)
   async runDailySettlements(): Promise<void> {
-    await this.generateBatches(SettlementCycle.DAILY);
+    await this.lock.runExclusive('cron:settlement-daily', 3600, async () => {
+      await this.generateBatches(SettlementCycle.DAILY);
+    });
   }
 
   @Cron('0 2 * * 1')
   async runWeeklySettlements(): Promise<void> {
-    await this.generateBatches(SettlementCycle.WEEKLY);
+    await this.lock.runExclusive('cron:settlement-weekly', 3600, async () => {
+      await this.generateBatches(SettlementCycle.WEEKLY);
+    });
   }
 
   async generateBatches(cycle: SettlementCycle, merchantProfileId?: string): Promise<number> {

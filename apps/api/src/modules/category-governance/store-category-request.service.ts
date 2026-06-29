@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  CategoryCatalogKind,
   CategoryScope,
   DomainEventType,
   StoreCategoryRequestStatus,
@@ -21,6 +22,10 @@ import {
   UploadCategoryDocumentDto,
 } from './dto/category-governance.dto';
 import { StoreCategoryAccessService } from './store-category-access.service';
+import { ConfigService } from '@nestjs/config';
+import { getConfig } from '../../config/configuration';
+import { assertTrustedUploadUrl } from '../../common/utils/trusted-upload-url.util';
+import { resolveStoreCatalogKind } from './utils/catalog-kind.util';
 
 @Injectable()
 export class StoreCategoryRequestService {
@@ -33,6 +38,7 @@ export class StoreCategoryRequestService {
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
     private readonly categoryAccess: StoreCategoryAccessService,
+    private readonly config: ConfigService,
   ) {}
 
   private async assertStoreOwned(userId: string, storeId: string) {
@@ -44,8 +50,9 @@ export class StoreCategoryRequestService {
     return { profile, store };
   }
 
-  async listCatalog(userId: string, storeId: string) {
+  async listCatalog(userId: string, storeId: string, catalogKind?: CategoryCatalogKind) {
     await this.assertStoreOwned(userId, storeId);
+    const kind = await resolveStoreCatalogKind(this.prisma, storeId, catalogKind);
 
     const existing = await this.prisma.storeCategoryRequest.findMany({
       where: { storeId },
@@ -67,13 +74,14 @@ export class StoreCategoryRequestService {
       where: {
         storeId: null,
         scope: CategoryScope.GLOBAL,
+        catalogKind: kind,
         isActive: true,
         deletedAt: null,
         parentId: null,
       },
       include: {
         children: {
-          where: { isActive: true, deletedAt: null },
+          where: { isActive: true, deletedAt: null, catalogKind: kind },
           orderBy: { sortOrder: 'asc' },
         },
       },
@@ -109,9 +117,14 @@ export class StoreCategoryRequestService {
     });
   }
 
-  async listApprovedCategories(userId: string, storeId: string) {
+  async listApprovedCategories(
+    userId: string,
+    storeId: string,
+    catalogKind?: CategoryCatalogKind,
+  ) {
     await this.assertStoreOwned(userId, storeId);
-    return this.categoryAccess.listApprovedCategoryTree(storeId);
+    const kind = await resolveStoreCatalogKind(this.prisma, storeId, catalogKind);
+    return this.categoryAccess.listApprovedCategoryTree(storeId, kind);
   }
 
   async requestCategoryAccess(
@@ -124,11 +137,14 @@ export class StoreCategoryRequestService {
     await this.blocklist.assertUserNotBlacklisted(userId);
     await this.blocklist.assertMerchantProfileNotBlacklisted(profile.id);
 
+    const expectedKind = await resolveStoreCatalogKind(this.prisma, storeId);
+
     const parent = await this.prisma.category.findFirst({
       where: {
         id: dto.categoryId,
         storeId: null,
         scope: CategoryScope.GLOBAL,
+        catalogKind: expectedKind,
         isActive: true,
         deletedAt: null,
         parentId: null,
@@ -142,6 +158,7 @@ export class StoreCategoryRequestService {
         parentId: dto.categoryId,
         storeId: null,
         scope: CategoryScope.GLOBAL,
+        catalogKind: expectedKind,
         isActive: true,
         deletedAt: null,
       },
@@ -242,6 +259,9 @@ export class StoreCategoryRequestService {
         'Documents can only be uploaded when additional documents are requested',
       );
     }
+
+    const uploadBase = getConfig(this.config).storage.uploadPublicUrl;
+    assertTrustedUploadUrl(dto.fileUrl, uploadBase);
 
     await this.prisma.storeCategoryRequestDocument.create({
       data: {

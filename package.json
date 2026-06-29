@@ -23,6 +23,7 @@
     "db:deploy": "pnpm exec prisma migrate deploy --schema=prisma/schema.prisma",
     "db:setup:prod": "pnpm db:generate && pnpm db:migrate:prod && pnpm db:seed:locations",
     "db:seed:platform": "pnpm exec tsx prisma/seed-platform.ts",
+    "seed:menu-catalog": "pnpm exec tsx prisma/seed-menu-catalog.ts",
     "db:execute-category-soft-delete": "pnpm exec prisma db execute --schema=prisma/schema.prisma --file prisma/migrations/20260626120000_category_soft_delete/migration.sql",
     "db:seed": "pnpm exec tsx prisma/seed.ts",
     "db:seed:locations": "pnpm exec tsx prisma/seed-location-directory.ts",

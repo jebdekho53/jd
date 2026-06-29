@@ -1,5 +1,6 @@
 import {
   CallHandler,
+  ConflictException,
   ExecutionContext,
   Injectable,
   Logger,
@@ -58,8 +59,9 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
     if (existing) {
       if (existing.userId !== userId) {
-        // Key belongs to another user — treat as a new request (prevent info leak)
-        return next.handle();
+        throw new ConflictException(
+          'Idempotency-Key was already used by another account',
+        );
       }
 
       if (existing.processing) {

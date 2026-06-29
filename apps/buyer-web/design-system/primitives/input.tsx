@@ -5,10 +5,12 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   hint?: string;
+  /** Shows a required asterisk on the label. */
+  required?: boolean;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, hint, id, ...props }, ref) => {
+  ({ className, label, error, hint, id, required, ...props }, ref) => {
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
 
     return (
@@ -16,11 +18,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label htmlFor={inputId} className="mb-2 block text-sm font-medium text-neutral-800">
             {label}
+            {required && (
+              <span className="ml-0.5 text-red-600" aria-hidden>
+                *
+              </span>
+            )}
           </label>
         )}
         <input
           ref={ref}
           id={inputId}
+          required={required}
           className={cn(
             'flex h-11 w-full rounded-lg border bg-white px-4 text-base text-neutral-900',
             'placeholder:text-neutral-400',

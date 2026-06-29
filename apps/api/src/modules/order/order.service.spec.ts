@@ -9,11 +9,12 @@ import { OrderCacheService } from './order-cache.service';
 import { OrderStatusHistoryService } from './order-status-history.service';
 import { DeliveryDispatchService } from '../logistics/delivery-dispatch.service';
 import { ReservationService } from '../checkout/reservation.service';
-import { RewardService } from '../wallet-loyalty/reward.service';
+import { OrderRefundService } from '../payment/order-refund.service';
 import { LedgerService } from '../finance/ledger.service';
 import { CreditNoteService } from '../compliance/credit-note.service';
 import { EmailNotificationService } from '../email/email-notification.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
 import { orderServiceMocks } from '../../test/nest-mock-providers';
 
 const USER_ID = 'user1';
@@ -72,7 +73,7 @@ const mockPrisma = {
 const mockAudit = { log: jest.fn() };
 const mockDomainEvents = { emit: jest.fn() };
 const mockCache = { getDetail: jest.fn(), setDetail: jest.fn(), invalidate: jest.fn(), invalidateAll: jest.fn() };
-const { deliveryDispatch, rewards, ledger, creditNotes, emailNotifications, buyerPush } = orderServiceMocks;
+const { deliveryDispatch, rewards, ledger, creditNotes, emailNotifications, buyerPush, tracking } = orderServiceMocks;
 const mockReservation = { releaseOrderReservations: jest.fn() };
 const mockStatusHistory = { transition: jest.fn(), appendEntry: jest.fn(), recordInitial: jest.fn() };
 
@@ -90,11 +91,9 @@ describe('OrderService', () => {
         { provide: OrderStatusHistoryService, useValue: mockStatusHistory },
         { provide: DeliveryDispatchService, useValue: deliveryDispatch },
         { provide: ReservationService, useValue: mockReservation },
-        { provide: RewardService, useValue: rewards },
-        { provide: LedgerService, useValue: ledger },
-        { provide: CreditNoteService, useValue: creditNotes },
-        { provide: EmailNotificationService, useValue: emailNotifications },
+        { provide: OrderRefundService, useValue: { initiateRefund: jest.fn() } },
         { provide: BuyerPushNotificationService, useValue: buyerPush },
+        { provide: DeliveryTrackingService, useValue: tracking },
       ],
     }).compile();
 
@@ -233,6 +232,12 @@ describe('OrderService', () => {
       );
 
       expect(result.status).toBe(OrderStatus.MERCHANT_ACCEPTED);
+      expect(tracking.emitOrderStatus).toHaveBeenCalledWith({
+        orderId: ORDER_ID,
+        orderNumber: 'JD-20260622-ABC',
+        storeId: STORE_ID,
+        orderStatus: OrderStatus.MERCHANT_ACCEPTED,
+      });
     });
 
     it('CREATED → MERCHANT_ACCEPTED (legacy paid orders)', async () => {
@@ -257,6 +262,9 @@ describe('OrderService', () => {
       );
 
       expect(result.status).toBe(OrderStatus.PREPARING);
+      expect(tracking.emitOrderStatus).toHaveBeenCalledWith(
+        expect.objectContaining({ orderStatus: OrderStatus.PREPARING }),
+      );
     });
 
     it('PREPARING → PACKING', async () => {

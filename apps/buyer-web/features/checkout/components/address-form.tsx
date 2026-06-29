@@ -13,22 +13,29 @@ import {
 } from '@/components/google-maps/buyer-address-picker';
 import {
   getDefaultSavedDeliveryAddress,
+  isAddressGeoComplete,
   persistDeliveryAddress,
 } from '@/lib/saved-delivery-address';
+import { RequiredFieldLegend } from '@/features/checkout/components/required-field-legend';
 import type { DeliveryAddress } from '@/types/checkout';
 
-const schema = z.object({
-  line1: z.string().min(2, 'Enter house / flat number and street'),
-  line2: z.string().optional(),
-  locality: z.string().min(2, 'Select a delivery locality'),
-  city: z.string().min(2),
-  pincode: z.string().length(6, 'Enter a valid 6-digit PIN code'),
-  lat: z.number(),
-  lng: z.number(),
-  locationPincodeId: z.string().optional(),
-  locationAreaId: z.string().optional(),
-  locationCityId: z.string().optional(),
-});
+const schema = z
+  .object({
+    line1: z.string().min(2, 'Enter house / flat number and street'),
+    line2: z.string().optional(),
+    locality: z.string().min(2, 'Search and select your delivery area'),
+    city: z.string().min(2, 'City is required'),
+    pincode: z.string().length(6, 'Enter a valid 6-digit PIN code'),
+    lat: z.number(),
+    lng: z.number(),
+    locationPincodeId: z.string().optional(),
+    locationAreaId: z.string().optional(),
+    locationCityId: z.string().optional(),
+  })
+  .refine((data) => isAddressGeoComplete(data.lat, data.lng), {
+    message: 'Pin your exact delivery location on the map',
+    path: ['locality'],
+  });
 
 type FormData = z.infer<typeof schema>;
 
@@ -106,6 +113,8 @@ export function AddressForm({ onNext }: AddressFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <RequiredFieldLegend />
+
       <div className="flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">
         <MapPin className="h-4 w-4 shrink-0" />
         <span>
@@ -116,14 +125,16 @@ export function AddressForm({ onNext }: AddressFormProps) {
       </div>
 
       <Input
-        label="House / flat no. & street *"
+        label="House / flat no. & street"
         placeholder="e.g. 42 MG Road, Civil Lines"
+        required
         error={errors.line1?.message}
         {...register('line1')}
       />
       <Input
-        label="Area / landmark (optional)"
+        label="Area / landmark"
         placeholder="e.g. Near Metro Station"
+        hint="Optional — helps the delivery partner find you"
         {...register('line2')}
       />
       <Controller
@@ -134,11 +145,15 @@ export function AddressForm({ onNext }: AddressFormProps) {
             value={{ locality, city, state: '', pincode, lat, lng }}
             onChange={handleLocationChange}
             onLine1Suggestion={(line1) => setValue('line1', line1, { shouldValidate: true })}
-            error={errors.locality?.message ?? errors.pincode?.message}
-            searchLabel="Delivery address *"
+            error={errors.locality?.message ?? errors.pincode?.message ?? errors.city?.message}
+            searchLabel="Delivery area & map pin"
           />
         )}
       />
+      <p className="text-xs text-muted-foreground">
+        <span className="font-medium text-red-600">*</span> Search your area, then drag the pin on
+        the map to your building entrance.
+      </p>
 
       <Button type="submit" fullWidth>
         Continue to payment

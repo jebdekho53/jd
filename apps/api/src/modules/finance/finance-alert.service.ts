@@ -26,6 +26,26 @@ export class FinanceAlertService {
     });
   }
 
+  async raiseRefundFailed(orderId: string, refundId: string, reason: string): Promise<void> {
+    await this.create({
+      alertType: FinanceAlertType.REFUND_FAILED,
+      severity: FinanceAlertSeverity.CRITICAL,
+      title: `Refund failed for order ${orderId}`,
+      message: reason,
+      metadata: { orderId, refundId },
+    });
+  }
+
+  async raiseFraudAlert(input: {
+    alertType: FinanceAlertType;
+    severity: FinanceAlertSeverity;
+    title: string;
+    message: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    await this.create(input);
+  }
+
   async checkNegativeMerchantBalances(): Promise<number> {
     const wallets = await this.prisma.merchantWallet.findMany({
       where: { availableBalance: { lt: 0 } },

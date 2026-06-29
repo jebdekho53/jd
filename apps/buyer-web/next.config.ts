@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import withSerwistInit from '@serwist/next';
 import type { NextConfig } from 'next';
+import { nextSecurityHeaders } from '@jebdekho/web-config';
 
 const revision =
   spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf-8' }).stdout.trim() || randomUUID();
@@ -43,10 +44,15 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_APP_VERSION: appVersion,
   },
   transpilePackages: ['@jebdekho/order-timeline', '@jebdekho/web-config'],
+  async headers() {
+    return nextSecurityHeaders();
+  },
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: '**' },
-      { protocol: 'https', hostname: 'api.jebdekho.com' },
+      { protocol: 'https', hostname: 'api.jebdekho.com', pathname: '/uploads/**' },
+      ...(process.env.NEXT_PUBLIC_UPLOAD_HOST
+        ? [{ protocol: 'https' as const, hostname: process.env.NEXT_PUBLIC_UPLOAD_HOST, pathname: '/**' }]
+        : []),
     ],
   },
 };

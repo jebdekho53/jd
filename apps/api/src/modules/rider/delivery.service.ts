@@ -19,18 +19,11 @@ import { PrismaService } from '../../database/prisma.service';
 import { activeDeliveryStatuses } from '../rider-assignment/rider-assignment.util';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
-import { SettlementService } from '../settlement/settlement.service';
-import { CodReconciliationService } from '../finance/cod-reconciliation.service';
+import { OrderDeliveredHandlerService } from '../order/order-delivered-handler.service';
 import { ReservationService } from '../checkout/reservation.service';
 import { OrderStatusHistoryService } from '../order/order-status-history.service';
 import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
 import { TRACKING_EVENTS } from '../delivery-tracking/delivery-tracking.events';
-import { WalletLoyaltyCheckoutService } from '../wallet-loyalty/wallet-loyalty-checkout.service';
-import { ReferralService } from '../wallet-loyalty/referral.service';
-import { EmailNotificationService } from '../email/email-notification.service';
-import { InvoiceEngineService } from '../compliance/invoice-engine.service';
-import { TdsTcsService } from '../compliance/tds-tcs.service';
-import { TrustSafetyHookService } from '../trust-safety/trust-safety-hook.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 
 // ── State machine ────────────────────────────────────────────────────────────
@@ -79,17 +72,10 @@ export class DeliveryService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
-    private readonly settlement: SettlementService,
-    private readonly cod: CodReconciliationService,
+    private readonly orderDelivered: OrderDeliveredHandlerService,
     private readonly reservation: ReservationService,
     private readonly statusHistory: OrderStatusHistoryService,
     private readonly tracking: DeliveryTrackingService,
-    private readonly walletLoyalty: WalletLoyaltyCheckoutService,
-    private readonly referral: ReferralService,
-    private readonly invoiceEngine: InvoiceEngineService,
-    private readonly tdsTcs: TdsTcsService,
-    private readonly trustSafety: TrustSafetyHookService,
-    private readonly emailNotifications: EmailNotificationService,
     private readonly buyerPush: BuyerPushNotificationService,
   ) {}
 
@@ -375,28 +361,14 @@ export class DeliveryService {
     }
 
     if (toStatus === DeliveryStatus.DELIVERED) {
-      void this.settlement.createLedgerForDeliveredOrder(delivery.orderId, actorId).catch((err) => {
-        this.logger.error({ err, orderId: delivery.orderId }, 'Settlement creation failed');
+      void this.orderDelivered.handleDelivered({
+        orderId: delivery.orderId,
+        actorId,
+        riderProfileId,
+        deliveryId: delivery.id,
+      }).catch((err) => {
+        this.logger.error({ err, orderId: delivery.orderId }, 'Order delivered handler failed');
       });
-      void this.cod.createForDeliveredOrder(delivery.orderId, riderProfileId).catch((err) => {
-        this.logger.error({ err, orderId: delivery.orderId }, 'COD reconciliation failed');
-      });
-      void this.applyRiderEarningFromSnapshot(delivery.id, delivery.orderId).catch(() => {});
-      void this.reservation.fulfillOnDelivery(delivery.orderId).catch((err) => {
-        this.logger.error({ err, orderId: delivery.orderId }, 'Inventory fulfillment on delivery failed');
-      });
-      void this.finalizeOrderRewards(delivery.orderId, actorId).catch((err) => {
-        this.logger.error({ err, orderId: delivery.orderId }, 'Order rewards finalization failed');
-      });
-      void this.invoiceEngine.generateForOrder(delivery.orderId).catch((err) => {
-        this.logger.error({ err, orderId: delivery.orderId }, 'GST invoice generation failed');
-      });
-      void this.syncMonthlyTdsTcs().catch(() => {});
-      void this.trustSafety.onOrderDelivered(delivery.orderId, riderProfileId).catch(() => {});
-      void this.emailNotifications.sendOrderDelivered(delivery.orderId).catch((err) => {
-        this.logger.error({ err, orderId: delivery.orderId }, 'Order delivered email failed');
-      });
-      void this.buyerPush.notifyDelivered(delivery.orderId).catch(() => {});
     }
 
     const orderMeta = await this.prisma.order.findUnique({
@@ -452,7 +424,6 @@ export class DeliveryService {
   }
 
   private assertCanAdvance(current: DeliveryStatus, to: DeliveryStatus): void {
-
     if (TERMINAL_DELIVERY.has(current)) {
       throw new BadRequestException(`Delivery is in terminal status: ${current}`);
     }
@@ -471,34 +442,6 @@ export class DeliveryService {
       [DeliveryStatus.DELIVERED]: DomainEventType.ORDER_DELIVERED,
     };
     return map[status] ?? null;
-  }
-
-  private async finalizeOrderRewards(orderId: string, actorId: string): Promise<void> {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      select: { id: true, buyerProfileId: true, status: true },
-    });
-    if (!order || order.status === OrderStatus.COMPLETED) return;
-
-    await this.statusHistory.transition({
-      orderId,
-      toStatus: OrderStatus.COMPLETED,
-      actorType: OrderActorType.SYSTEM,
-      actorId,
-      note: 'Order completed after delivery',
-      skipIfAlreadyStatus: true,
-    });
-
-    void this.domainEvents.emit(
-      DomainEventType.ORDER_COMPLETED,
-      'order',
-      orderId,
-      { buyerProfileId: order.buyerProfileId },
-      { userId: actorId },
-    );
-
-    await this.walletLoyalty.processOrderCompleted(orderId);
-    await this.referral.completeReferralOnFirstOrder(order.buyerProfileId, orderId);
   }
 
   // ── Private: ownership helpers ────────────────────────────────────────────
@@ -531,24 +474,6 @@ export class DeliveryService {
 
     if (!delivery) throw new ForbiddenException('Delivery not assigned to you');
     return delivery;
-  }
-
-  private async applyRiderEarningFromSnapshot(deliveryId: string, orderId: string) {
-    const snap = await this.prisma.orderFinancialSnapshot.findUnique({
-      where: { orderId },
-      select: { riderPayoutAmount: true },
-    });
-    if (!snap) return;
-    await this.prisma.delivery.update({
-      where: { id: deliveryId },
-      data: { riderEarning: snap.riderPayoutAmount },
-    });
-  }
-
-  private async syncMonthlyTdsTcs() {
-    const now = new Date();
-    const periodMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    await this.tdsTcs.syncMonthlyFromInvoices(periodMonth);
   }
 }
 

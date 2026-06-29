@@ -10,6 +10,7 @@ import { resolveEnvFilePaths } from './config/env-path';
 import { LoggerModule } from './logger/logger.module';
 import { PrismaModule } from './database/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { WebhooksModule } from './common/webhooks/webhooks.module';
 import { HealthModule } from './health/health.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { DomainEventsModule } from './modules/domain-events/domain-events.module';
@@ -111,6 +112,7 @@ import { RequestIdInterceptor } from './common/interceptors/request-id.intercept
     // ── Infrastructure ────────────────────────────────────────────────────────
     PrismaModule,
     RedisModule,
+    WebhooksModule,
     OrderTimelineModule,
 
     // ── Feature modules ───────────────────────────────────────────────────────

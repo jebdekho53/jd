@@ -27,6 +27,7 @@ import { LogisticsProviderError } from './errors/logistics.errors';
 import { normalizedToDeliveryStatus } from './mappers/shadowfax-status.mapper';
 import { maskSensitivePayload } from './utils/mask-sensitive.util';
 import { isDispatchPaymentCleared } from '../order/merchant-order-visibility.util';
+import { OrderDeliveredHandlerService } from '../order/order-delivered-handler.service';
 import { isDispatchEligibleOrderStatus } from './utils/dispatch-eligibility.util';
 
 const PROVIDER_NAMES: Record<DeliveryProviderType, string> = {
@@ -48,6 +49,7 @@ export class DeliveryOrchestratorService {
     private readonly statusHistory: OrderStatusHistoryService,
     private readonly orderCache: OrderCacheService,
     private readonly events: EventEmitter2,
+    private readonly orderDelivered: OrderDeliveredHandlerService,
     private readonly config: ConfigService,
   ) {}
 
@@ -373,6 +375,16 @@ export class DeliveryOrchestratorService {
       shipmentId,
       normalizedStatus,
     });
+
+    if (normalizedStatus === ShipmentProviderStatus.DELIVERED) {
+      void this.orderDelivered.handleProviderDelivered(
+        shipment.orderId,
+        shipment.providerType,
+        shipment.deliveryId,
+      ).catch((err) => {
+        this.logger.error({ err, orderId: shipment.orderId }, 'Provider delivered handler failed');
+      });
+    }
   }
 
   private async syncOrderStatus(orderId: string, status: ShipmentProviderStatus): Promise<void> {

@@ -532,7 +532,7 @@ export class AuthService {
     userAgent?: string,
   ): Promise<void> {
     if (rawRefreshToken) {
-      await this.tokenService.revokeByRawToken(rawRefreshToken);
+      await this.tokenService.revokeByRawToken(rawRefreshToken, userId);
     }
 
     await Promise.all([

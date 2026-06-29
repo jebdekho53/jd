@@ -10,7 +10,7 @@ import {
   StaleWhileRevalidate,
 } from 'serwist';
 import { CACHE_LIMITS, runtimeCacheName } from '../lib/pwa/cache-config';
-import { isPrivateApiPath, isPublicBrowsePath } from '../lib/pwa/constants';
+import { isPublicBrowsePath } from '../lib/pwa/constants';
 import { shouldDeletePwaCache } from '../lib/pwa/cache-cleanup';
 
 declare global {
@@ -57,24 +57,6 @@ const runtimeCaching = [
         new CacheableResponsePlugin({ statuses: [0, 200] }),
         new ExpirationPlugin({
           ...CACHE_LIMITS.search,
-          purgeOnQuotaError: true,
-        }),
-      ],
-    }),
-  },
-  {
-    matcher: ({ request, url }: { request: Request; url: URL }) =>
-      sameOrigin({ url }) &&
-      request.method === 'GET' &&
-      url.pathname.startsWith('/api/buyer/') &&
-      !isPrivateApiPath(url.pathname),
-    handler: new NetworkFirst({
-      cacheName: cacheName('api-get'),
-      networkTimeoutSeconds: 10,
-      plugins: [
-        new CacheableResponsePlugin({ statuses: [0, 200] }),
-        new ExpirationPlugin({
-          ...CACHE_LIMITS.api,
           purgeOnQuotaError: true,
         }),
       ],
@@ -222,7 +204,15 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const rawUrl = (event.notification.data?.url as string | undefined) ?? '/';
-  const url = rawUrl.startsWith('http') ? rawUrl : new URL(rawUrl, self.location.origin).pathname;
+  let url = '/';
+  try {
+    const parsed = new URL(rawUrl, self.location.origin);
+    if (parsed.origin === self.location.origin) {
+      url = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+  } catch {
+    url = '/';
+  }
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {

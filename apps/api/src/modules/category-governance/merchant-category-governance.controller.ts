@@ -15,6 +15,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { CategoryCatalogKind } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -48,8 +49,9 @@ export class MerchantCategoryGovernanceController {
   async listStoreCatalog(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
+    @Query('catalogKind') catalogKind?: CategoryCatalogKind,
   ) {
-    const data = await this.storeCategoryService.listCatalog(user.id, storeId);
+    const data = await this.storeCategoryService.listCatalog(user.id, storeId, catalogKind);
     return { success: true, data };
   }
 
@@ -70,8 +72,28 @@ export class MerchantCategoryGovernanceController {
   async listStoreApproved(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
+    @Query('catalogKind') catalogKind?: CategoryCatalogKind,
   ) {
-    const data = await this.storeCategoryService.listApprovedCategories(user.id, storeId);
+    const data = await this.storeCategoryService.listApprovedCategories(
+      user.id,
+      storeId,
+      catalogKind,
+    );
+    return { success: true, data };
+  }
+
+  @Get('stores/:storeId/menu-categories/approved')
+  @Permissions('categories:read')
+  @ApiOperation({ summary: 'List approved menu subcategories for restaurant menu setup' })
+  async listStoreApprovedMenuCategories(
+    @CurrentUser() user: RequestUser,
+    @Param('storeId') storeId: string,
+  ) {
+    const data = await this.storeCategoryService.listApprovedCategories(
+      user.id,
+      storeId,
+      CategoryCatalogKind.MENU,
+    );
     return { success: true, data };
   }
 
@@ -128,9 +150,10 @@ export class MerchantCategoryGovernanceController {
   async listCatalog(
     @CurrentUser() user: RequestUser,
     @Query('storeId') storeId?: string,
+    @Query('catalogKind') catalogKind?: CategoryCatalogKind,
   ) {
     if (storeId) {
-      const data = await this.storeCategoryService.listCatalog(user.id, storeId);
+      const data = await this.storeCategoryService.listCatalog(user.id, storeId, catalogKind);
       return { success: true, data };
     }
     const data = await this.legacyService.listCatalog(user.id);
@@ -158,12 +181,17 @@ export class MerchantCategoryGovernanceController {
   async listApproved(
     @CurrentUser() user: RequestUser,
     @Query('storeId') storeId: string,
+    @Query('catalogKind') catalogKind?: CategoryCatalogKind,
   ) {
     if (!storeId) {
       const data = await this.legacyService.listApprovedCategories(user.id);
       return { success: true, data };
     }
-    const data = await this.storeCategoryService.listApprovedCategories(user.id, storeId);
+    const data = await this.storeCategoryService.listApprovedCategories(
+      user.id,
+      storeId,
+      catalogKind,
+    );
     return { success: true, data };
   }
 

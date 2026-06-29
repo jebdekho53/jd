@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Input, Text } from '@/design-system/primitives';
+import { RequiredFieldLegend } from '@/features/checkout/components/required-field-legend';
 import { isPlaceholderPhone } from '@/lib/phone';
 import type { PayerContact } from '@/types/checkout';
 
@@ -80,9 +81,11 @@ export function PayerContactForm({
           Required by Razorpay for receipts and payment confirmation
         </Text>
       </div>
+      <RequiredFieldLegend />
       <Input
         label="Full name"
         autoComplete="name"
+        required
         error={errors.name?.message}
         {...register('name')}
       />
@@ -90,6 +93,7 @@ export function PayerContactForm({
         label="Email"
         type="email"
         autoComplete="email"
+        required
         error={errors.email?.message}
         {...register('email')}
       />
@@ -100,6 +104,7 @@ export function PayerContactForm({
         autoComplete="tel"
         placeholder="10-digit mobile"
         maxLength={10}
+        required
         error={errors.phone?.message}
         {...register('phone')}
       />

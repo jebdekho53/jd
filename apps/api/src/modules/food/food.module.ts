@@ -24,6 +24,7 @@ import { ProductModule } from '../product/product.module';
 import { PaymentModule } from '../payment/payment.module';
 import { PushModule } from '../push/push.module';
 import { EmailModule } from '../email/email.module';
+import { CategoryGovernanceModule } from '../category-governance/category-governance.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { EmailModule } from '../email/email.module';
     LogisticsModule,
     OrderTimelineModule,
     MerchantModule,
+    CategoryGovernanceModule,
     forwardRef(() => ProductModule),
     PushModule,
     EmailModule,

@@ -15,6 +15,7 @@ import { RequestDocumentsDto } from './dto/request-documents.dto';
 import { SuspendStoreDto } from './dto/suspend-store.dto';
 import { RevokeRejectionDto } from './dto/revoke-rejection.dto';
 import { StoreService } from '../store/store.service';
+import { MerchantService } from '../merchant/merchant.service';
 import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 import { EmailNotificationService } from '../email/email-notification.service';
@@ -76,6 +77,7 @@ export class AdminStoreService {
     private readonly buyerCache: BuyerCacheService,
     private readonly blocklist: VerificationBlocklistService,
     private readonly emailNotifications: EmailNotificationService,
+    private readonly merchantService: MerchantService,
   ) {}
 
   async listStoreApprovals(
@@ -182,8 +184,18 @@ export class AdminStoreService {
         documentRequestBy: null,
         requestedDocumentTypes: Prisma.JsonNull,
       },
-      select: { id: true, status: true, isActive: true, reviewedAt: true },
+      select: {
+        id: true,
+        status: true,
+        isActive: true,
+        reviewedAt: true,
+        merchantProfile: { select: { userId: true } },
+      },
     });
+
+    if (updated.merchantProfile?.userId) {
+      await this.merchantService.ensureMerchantRole(updated.merchantProfile.userId);
+    }
 
     await Promise.all([
       this.audit.log({
@@ -222,7 +234,12 @@ export class AdminStoreService {
       { adminUserId, storeId, slug: store.slug },
       'Store approved — buyer store cache invalidated',
     );
-    return updated;
+    return {
+      id: updated.id,
+      status: updated.status,
+      isActive: updated.isActive,
+      reviewedAt: updated.reviewedAt,
+    };
   }
 
   async requestDocuments(

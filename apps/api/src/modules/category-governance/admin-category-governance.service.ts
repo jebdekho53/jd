@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  CategoryCatalogKind,
   CategoryScope,
   DomainEventType,
   Prisma,
@@ -83,6 +84,17 @@ export class AdminCategoryGovernanceService {
       if (!parent) throw new NotFoundException('Parent category not found');
     }
 
+    const catalogKind =
+      dto.catalogKind ??
+      (dto.parentId
+        ? (
+            await this.prisma.category.findFirst({
+              where: { id: dto.parentId },
+              select: { catalogKind: true },
+            })
+          )?.catalogKind ?? CategoryCatalogKind.PRODUCT
+        : CategoryCatalogKind.PRODUCT);
+
     const slug = this.toSlug(dto.name);
     const existing = await this.prisma.category.findFirst({
       where: {
@@ -104,6 +116,7 @@ export class AdminCategoryGovernanceService {
         description: dto.description,
         sortOrder: dto.sortOrder ?? 0,
         scope: CategoryScope.GLOBAL,
+        catalogKind,
         isActive: true,
       },
       include: { children: { where: { deletedAt: null } } },
@@ -231,8 +244,8 @@ export class AdminCategoryGovernanceService {
       this.prisma.storeCategoryRequest.findMany({
         where,
         include: {
-          category: { select: { id: true, name: true, slug: true } },
-          subcategory: { select: { id: true, name: true, slug: true } },
+          category: { select: { id: true, name: true, slug: true, catalogKind: true } },
+          subcategory: { select: { id: true, name: true, slug: true, catalogKind: true } },
           store: {
             select: {
               id: true,

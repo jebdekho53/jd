@@ -14,6 +14,7 @@ import {
   linkAddonToItem,
   type MenuCategory,
 } from '@/services/restaurant/menu-api';
+import { useApprovedMenuCategoriesQuery } from '@/hooks/use-categories-governance';
 
 const TABS = ['Categories', 'Items', 'Addon Groups', 'Combos', 'Link Addons'] as const;
 type Tab = (typeof TABS)[number];
@@ -39,7 +40,8 @@ export function MenuManagementContent({ storeId }: { storeId: string }) {
   const invalidate = () => qc.invalidateQueries({ queryKey: ['merchant', 'menu', storeId] });
 
   const categoryMutation = useMutation({
-    mutationFn: (body: { name: string; description?: string }) => createMenuCategory(storeId, body),
+    mutationFn: (body: { platformCategoryId: string; name?: string; description?: string }) =>
+      createMenuCategory(storeId, body),
     onSuccess: () => { toast('Category created', 'success'); invalidate(); },
     onError: (e: Error) => toast(e.message, 'error'),
   });
@@ -114,9 +116,12 @@ export function MenuManagementContent({ storeId }: { storeId: string }) {
         <>
           {tab === 'Categories' && (
             <CategoriesPanel
+              storeId={storeId}
               categories={categories}
               loading={categoryMutation.isPending}
-              onCreate={(name, description) => categoryMutation.mutate({ name, description })}
+              onCreate={(platformCategoryId, name, description) =>
+                categoryMutation.mutate({ platformCategoryId, name, description })
+              }
             />
           )}
           {tab === 'Items' && (
@@ -156,31 +161,95 @@ export function MenuManagementContent({ storeId }: { storeId: string }) {
 }
 
 function CategoriesPanel({
+  storeId,
   categories,
   loading,
   onCreate,
 }: {
+  storeId: string;
   categories: MenuCategory[];
   loading: boolean;
-  onCreate: (name: string, description?: string) => void;
+  onCreate: (platformCategoryId: string, name?: string, description?: string) => void;
 }) {
+  const { data: approvedTree = [], isLoading: approvedLoading } = useApprovedMenuCategoriesQuery(storeId);
+  const approvedOptions = approvedTree.flatMap((parent) =>
+    parent.children.map((child) => ({
+      id: child.id,
+      label: `${parent.name} → ${child.name}`,
+      platformName: child.name,
+    })),
+  );
+  const usedPlatformIds = new Set(
+    categories.map((c) => c.platformCategoryId).filter(Boolean) as string[],
+  );
+  const availableOptions = approvedOptions.filter((o) => !usedPlatformIds.has(o.id));
+
+  const [platformCategoryId, setPlatformCategoryId] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+
+  const selected = approvedOptions.find((o) => o.id === platformCategoryId);
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardBody className="space-y-4">
-          <h2 className="font-semibold text-slate-900">Add category</h2>
-          <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Starters" />
-          <Textarea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
-          <Button
-            loading={loading}
-            disabled={!name.trim()}
-            onClick={() => { onCreate(name.trim(), description.trim() || undefined); setName(''); setDescription(''); }}
-          >
-            <Plus className="h-4 w-4" /> Create category
-          </Button>
+          <h2 className="font-semibold text-slate-900">Add menu category</h2>
+          <p className="text-sm text-slate-500">
+            Choose an approved menu subcategory from{' '}
+            <Link href="/categories" className="text-brand-600 underline">
+              Store Categories
+            </Link>
+            . You can customize the display name shown to customers.
+          </p>
+          {approvedLoading ? (
+            <Spinner />
+          ) : availableOptions.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              No approved menu subcategories yet. Request access on the Store Categories page and wait for admin approval.
+            </p>
+          ) : (
+            <>
+              <Select
+                label="Approved subcategory *"
+                value={platformCategoryId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setPlatformCategoryId(id);
+                  const opt = approvedOptions.find((o) => o.id === id);
+                  if (opt && !name.trim()) setName(opt.platformName);
+                }}
+              >
+                <option value="">Select subcategory…</option>
+                {availableOptions.map((o) => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
+                ))}
+              </Select>
+              <Input
+                label="Display name (optional)"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={selected?.platformName ?? 'Defaults to platform name'}
+              />
+              <Textarea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+              <Button
+                loading={loading}
+                disabled={!platformCategoryId}
+                onClick={() => {
+                  onCreate(
+                    platformCategoryId,
+                    name.trim() || selected?.platformName,
+                    description.trim() || undefined,
+                  );
+                  setPlatformCategoryId('');
+                  setName('');
+                  setDescription('');
+                }}
+              >
+                <Plus className="h-4 w-4" /> Create category
+              </Button>
+            </>
+          )}
         </CardBody>
       </Card>
       <div className="space-y-3">
@@ -189,6 +258,9 @@ function CategoriesPanel({
             <CardBody className="flex items-center justify-between">
               <div>
                 <p className="font-semibold text-slate-900">{c.name}</p>
+                {c.platformCategory && (
+                  <p className="text-xs text-slate-500">Platform: {c.platformCategory.name}</p>
+                )}
                 {c.description && <p className="text-sm text-slate-500">{c.description}</p>}
               </div>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">

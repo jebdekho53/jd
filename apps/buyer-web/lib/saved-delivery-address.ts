@@ -3,6 +3,39 @@ import type { DeliveryAddress } from '@/types/checkout';
 import { useAddressStore } from '@/store/address-store';
 import { useLocationStore } from '@/store/location-store';
 
+/** Default map center (Delhi) — coords matching this are treated as unset. */
+const DEFAULT_MAP_LAT = 28.6139;
+const DEFAULT_MAP_LNG = 77.209;
+
+export function isDefaultDelhiCoords(lat: number, lng: number): boolean {
+  return (
+    Math.abs(lat - DEFAULT_MAP_LAT) < 0.0001 &&
+    Math.abs(lng - DEFAULT_MAP_LNG) < 0.0001
+  );
+}
+
+export function isAddressGeoComplete(
+  lat: number | undefined,
+  lng: number | undefined,
+): boolean {
+  if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return false;
+  }
+  return !isDefaultDelhiCoords(lat, lng);
+}
+
+export function isDeliveryAddressComplete(
+  address: Partial<DeliveryAddress> | null | undefined,
+): boolean {
+  if (!address) return false;
+  const line1 = address.line1?.trim();
+  const pincode = address.pincode?.trim();
+  const city = address.city?.trim();
+  if (!line1 || !pincode || !city) return false;
+  if (!/^\d{6}$/.test(pincode)) return false;
+  return isAddressGeoComplete(address.lat, address.lng);
+}
+
 export function profileAddressToDelivery(addr: ProfileAddress): DeliveryAddress {
   return {
     line1: addr.line1,
@@ -10,8 +43,8 @@ export function profileAddressToDelivery(addr: ProfileAddress): DeliveryAddress 
     locality: addr.landmark ?? addr.city ?? '',
     city: addr.city ?? '',
     pincode: addr.pincode,
-    lat: addr.lat ?? 28.6139,
-    lng: addr.lng ?? 77.209,
+    lat: addr.lat ?? DEFAULT_MAP_LAT,
+    lng: addr.lng ?? DEFAULT_MAP_LNG,
   };
 }
 
@@ -62,5 +95,7 @@ export function persistDeliveryAddress(addr: DeliveryAddress): void {
 export function getDefaultSavedDeliveryAddress(): DeliveryAddress | null {
   const addresses = useAddressStore.getState().addresses;
   const preferred = addresses.find((a) => a.isDefault) ?? addresses[0];
-  return preferred ? profileAddressToDelivery(preferred) : null;
+  if (!preferred) return null;
+  const delivery = profileAddressToDelivery(preferred);
+  return isDeliveryAddressComplete(delivery) ? delivery : null;
 }

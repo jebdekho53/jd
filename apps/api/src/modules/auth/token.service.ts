@@ -1,12 +1,14 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { RoleName, UserStatus } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { REDIS_KEYS } from '../../redis/redis.constants';
 import { getConfig } from '../../config/configuration';
+import { RequestUser } from '../../common/types';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { TokenPair } from './interfaces/token-pair.interface';
 
@@ -151,12 +153,14 @@ export class TokenService {
   /**
    * Revoke a single refresh token (logout from one device).
    */
-  async revokeByRawToken(rawRefreshToken: string): Promise<void> {
+  async revokeByRawToken(rawRefreshToken: string, expectedUserId?: string): Promise<void> {
     const tokenHash = this.hashToken(rawRefreshToken);
     const record = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
-    if (record && !record.revokedAt) {
-      await this.revokeToken(record.id);
+    if (!record || record.revokedAt) return;
+    if (expectedUserId && record.userId !== expectedUserId) {
+      throw new ForbiddenException('Refresh token does not belong to this session');
     }
+    await this.revokeToken(record.id);
   }
 
   /**
@@ -203,6 +207,41 @@ export class TokenService {
       email: user.email,
       roles: user.roles,
       permissions,
+    };
+  }
+
+  /** Fresh roles/permissions + account status for JWT guard (blocks stale suspended tokens). */
+  async resolveLiveRequestUser(userId: string): Promise<RequestUser> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, phone: true, email: true, status: true },
+    });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    if (user.status === UserStatus.SUSPENDED || user.status === UserStatus.DELETED) {
+      throw new UnauthorizedException('Account is not active');
+    }
+
+    const built = await this.buildUserForToken(userId);
+    const roleNames = built.roles.map((r) => r.role.name);
+
+    if (roleNames.includes(RoleName.MERCHANT)) {
+      const profile = await this.prisma.merchantProfile.findUnique({
+        where: { userId },
+        select: { isBlacklisted: true },
+      });
+      if (profile?.isBlacklisted) {
+        throw new UnauthorizedException('Merchant account is restricted');
+      }
+    }
+
+    return {
+      id: user.id,
+      phone: user.phone,
+      email: user.email,
+      roles: roleNames,
+      permissions: built.permissions,
     };
   }
 

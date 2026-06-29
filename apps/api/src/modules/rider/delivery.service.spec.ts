@@ -6,33 +6,13 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { deliveryServiceMocks } from '../../test/nest-mock-providers';
-import { SettlementService } from '../settlement/settlement.service';
-import { CodReconciliationService } from '../finance/cod-reconciliation.service';
+import { OrderDeliveredHandlerService } from '../order/order-delivered-handler.service';
 import { ReservationService } from '../checkout/reservation.service';
 import { OrderStatusHistoryService } from '../order/order-status-history.service';
 import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
-import { WalletLoyaltyCheckoutService } from '../wallet-loyalty/wallet-loyalty-checkout.service';
-import { ReferralService } from '../wallet-loyalty/referral.service';
-import { InvoiceEngineService } from '../compliance/invoice-engine.service';
-import { TdsTcsService } from '../compliance/tds-tcs.service';
-import { TrustSafetyHookService } from '../trust-safety/trust-safety-hook.service';
-import { EmailNotificationService } from '../email/email-notification.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 
-const {
-  settlement,
-  cod,
-  reservation,
-  statusHistory,
-  tracking,
-  walletLoyalty,
-  referral,
-  invoiceEngine,
-  tdsTcs,
-  trustSafety,
-  emailNotifications,
-  buyerPush,
-} = deliveryServiceMocks;
+const orderDelivered = { handleDelivered: jest.fn().mockResolvedValue(undefined) };
 
 const USER_ID = 'user1';
 const ORDER_ID = 'ord1';
@@ -88,18 +68,11 @@ describe('DeliveryService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
         { provide: DomainEventsService, useValue: mockDomainEvents },
-        { provide: SettlementService, useValue: settlement },
-        { provide: CodReconciliationService, useValue: cod },
-        { provide: ReservationService, useValue: reservation },
-        { provide: OrderStatusHistoryService, useValue: statusHistory },
-        { provide: DeliveryTrackingService, useValue: tracking },
-        { provide: WalletLoyaltyCheckoutService, useValue: walletLoyalty },
-        { provide: ReferralService, useValue: referral },
-        { provide: InvoiceEngineService, useValue: invoiceEngine },
-        { provide: TdsTcsService, useValue: tdsTcs },
-        { provide: TrustSafetyHookService, useValue: trustSafety },
-        { provide: EmailNotificationService, useValue: emailNotifications },
-        { provide: BuyerPushNotificationService, useValue: buyerPush },
+        { provide: OrderDeliveredHandlerService, useValue: orderDelivered },
+        { provide: ReservationService, useValue: deliveryServiceMocks.reservation },
+        { provide: OrderStatusHistoryService, useValue: deliveryServiceMocks.statusHistory },
+        { provide: DeliveryTrackingService, useValue: deliveryServiceMocks.tracking },
+        { provide: BuyerPushNotificationService, useValue: deliveryServiceMocks.buyerPush },
       ],
     }).compile();
 

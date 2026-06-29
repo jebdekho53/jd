@@ -76,6 +76,7 @@ describe('Store governance', () => {
         { provide: BuyerCacheService, useValue: mockBuyerCache },
         { provide: VerificationBlocklistService, useValue: mockBlocklist },
         { provide: EmailNotificationService, useValue: { sendMerchantStoreApproved: jest.fn(), sendMerchantStoreRejected: jest.fn() } },
+        { provide: MerchantService, useValue: { ensureMerchantRole: jest.fn() } },
       ],
     }).compile();
 

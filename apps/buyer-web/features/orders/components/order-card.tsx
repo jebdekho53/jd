@@ -24,9 +24,11 @@ export function OrderCard({ order }: OrderCardProps) {
     order.status,
   );
 
+  const href = isActive ? `/orders/${order.id}/track` : `/orders/${order.id}`;
+
   return (
     <Link
-      href={`/orders/${order.id}`}
+      href={href}
       className="block rounded-2xl border border-border bg-card p-4 shadow-card transition hover:shadow-pop active:scale-[0.99]"
     >
       <div className="flex items-start gap-3">

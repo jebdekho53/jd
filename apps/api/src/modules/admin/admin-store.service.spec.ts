@@ -9,6 +9,7 @@ import { DomainEventsService } from '../domain-events/domain-events.service';
 import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 import { EmailNotificationService } from '../email/email-notification.service';
+import { MerchantService } from '../merchant/merchant.service';
 
 const PENDING_STORE = {
   id: 's-1',
@@ -56,6 +57,7 @@ describe('AdminStoreService', () => {
         { provide: BuyerCacheService, useValue: mockBuyerCache },
         { provide: VerificationBlocklistService, useValue: mockBlocklist },
         { provide: EmailNotificationService, useValue: mockEmail },
+        { provide: MerchantService, useValue: { ensureMerchantRole: jest.fn() } },
       ],
     }).compile();
     service = module.get<AdminStoreService>(AdminStoreService);

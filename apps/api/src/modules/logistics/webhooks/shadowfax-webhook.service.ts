@@ -35,10 +35,10 @@ export class ShadowfaxWebhookService {
 
   verifySignature(rawBody: Buffer, signature: string | undefined): void {
     if (!this.webhookSecret) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new UnauthorizedException('Webhook secret not configured');
+      if (process.env.ALLOW_INSECURE_WEBHOOKS === 'true' && process.env.NODE_ENV !== 'production') {
+        return;
       }
-      return;
+      throw new UnauthorizedException('Webhook secret not configured');
     }
     if (!signature) {
       throw new UnauthorizedException('Missing webhook signature');
@@ -68,10 +68,10 @@ export class ShadowfaxWebhookService {
     authorization?: string,
   ): void {
     if (!this.webhookSecret) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new UnauthorizedException('Webhook secret not configured');
+      if (process.env.ALLOW_INSECURE_WEBHOOKS === 'true' && process.env.NODE_ENV !== 'production') {
+        return;
       }
-      return;
+      throw new UnauthorizedException('Webhook secret not configured');
     }
 
     if (signature) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
@@ -10,6 +10,7 @@ import { PaymentMethodSelector } from '@/features/checkout/components/payment-me
 import { CheckoutSummary } from '@/features/checkout/components/checkout-summary';
 import { CheckoutReturnPolicyPanel } from '@/features/checkout/components/checkout-return-policy-panel';
 import { CouponPanel } from '@/features/checkout/components/coupon-panel';
+import { CheckoutRequirementsHint } from '@/features/checkout/components/checkout-requirements-hint';
 import { DeliverabilityPanel } from '@/features/checkout/components/deliverability-panel';
 import { WalletCheckoutPanel } from '@/features/checkout/components/wallet-checkout-panel';
 import { RazorpayButton } from '@/features/checkout/components/razorpay-button';
@@ -18,13 +19,40 @@ import { PwaPaymentBanner } from '@/components/pwa/pwa-payment-banner';
 import { ActionBar, Button, Spinner } from '@/design-system/primitives';
 import { useCartQuery } from '@/hooks/use-cart';
 import { formatCurrency } from '@/lib/utils';
-import { getDefaultSavedDeliveryAddress } from '@/lib/saved-delivery-address';
+import { getDefaultSavedDeliveryAddress, isDeliveryAddressComplete } from '@/lib/saved-delivery-address';
 import { useInitiateCodCheckoutMutation, useInitiateCheckoutMutation } from '@/hooks/use-checkout';
 import { useProfileQuery } from '@/features/profile/hooks/use-profile';
 import { useCheckoutStore } from '@/store/checkout-store';
 import { useToast } from '@/design-system/primitives';
 import { SessionError } from '@/services/auth/auth-api';
-import type { PayerContact } from '@/types/checkout';
+import type { DeliveryAddress, PayerContact, PaymentMethod } from '@/types/checkout';
+
+function getCheckoutRequirements(options: {
+  deliveryAddress: DeliveryAddress | null;
+  paymentMethod: PaymentMethod;
+  deliverabilityLoading: boolean;
+  isDeliverable: boolean;
+  payerContact: PayerContact | null;
+}): string[] {
+  const items: string[] = [];
+  const { deliveryAddress, paymentMethod, deliverabilityLoading, isDeliverable, payerContact } =
+    options;
+
+  if (!deliveryAddress || !isDeliveryAddressComplete(deliveryAddress)) {
+    items.push('Delivery address: house no., area, city, PIN code, and map pin');
+  }
+  if (paymentMethod === 'COD') {
+    if (deliverabilityLoading) {
+      items.push('Checking if this store delivers to your address…');
+    } else if (!isDeliverable) {
+      items.push('This address is outside the store delivery zone');
+    }
+  }
+  if (paymentMethod === 'RAZORPAY' && !payerContact) {
+    items.push('Payment contact: full name, email, and 10-digit mobile');
+  }
+  return items;
+}
 
 export function CheckoutPageContent() {
   const router = useRouter();
@@ -54,6 +82,13 @@ export function CheckoutPageContent() {
   const [openRazorpayAfterInit, setOpenRazorpayAfterInit] = useState(false);
   const [checkoutReady, setCheckoutReady] = useState(false);
   const [payerContact, setPayerContact] = useState<PayerContact | null>(null);
+  const [isDeliverable, setIsDeliverable] = useState(false);
+  const [deliverabilityLoading, setDeliverabilityLoading] = useState(true);
+
+  const handleDeliverabilityChange = useCallback((deliverable: boolean, loading: boolean) => {
+    setIsDeliverable(deliverable);
+    setDeliverabilityLoading(loading);
+  }, []);
 
   useEffect(() => {
     const applySavedAddress = () => {
@@ -64,7 +99,10 @@ export function CheckoutPageContent() {
           state.setDeliveryAddress(saved);
           state.setStep('payment');
         }
-      } else if (state.step === 'address') {
+      } else if (
+        state.step === 'address' &&
+        isDeliveryAddressComplete(state.deliveryAddress)
+      ) {
         state.setStep('payment');
       }
       setCheckoutReady(true);
@@ -87,6 +125,17 @@ export function CheckoutPageContent() {
   const handlePlaceOrder = async () => {
     if (!deliveryAddress) return;
 
+    if (!isDeliveryAddressComplete(deliveryAddress)) {
+      toast('Please confirm your delivery address on the map', 'error');
+      setStep('address');
+      return;
+    }
+
+    if (paymentMethod === 'COD' && (deliverabilityLoading || !isDeliverable)) {
+      toast('This address is not deliverable from this store', 'error');
+      return;
+    }
+
     const payload = {
       deliveryAddress,
       buyerNote: buyerNote || undefined,
@@ -99,7 +148,8 @@ export function CheckoutPageContent() {
       try {
         const result = await initiateCod.mutateAsync(payload);
         setConfirmed(result.orderId, result.orderNumber);
-        router.replace(`/orders/${result.orderId}/confirmation`);
+        toast('Order placed successfully', 'success');
+        router.replace(`/orders/${result.orderId}/track`);
         reset();
       } catch (err) {
         setStep('payment');
@@ -132,7 +182,8 @@ export function CheckoutPageContent() {
 
   const handleRazorpaySuccess = (orderId: string, orderNumber: string) => {
     setConfirmed(orderId, orderNumber);
-    router.replace(`/orders/${orderId}/confirmation`);
+    toast('Order placed successfully', 'success');
+    router.replace(`/orders/${orderId}/track`);
     reset();
   };
 
@@ -149,12 +200,34 @@ export function CheckoutPageContent() {
   if (!cart || cart.items.length === 0) return null;
 
   const onlinePayReady = paymentMethod !== 'RAZORPAY' || Boolean(payerContact);
+  const codBlocked =
+    paymentMethod === 'COD' &&
+    (!deliveryAddress ||
+      !isDeliveryAddressComplete(deliveryAddress) ||
+      deliverabilityLoading ||
+      !isDeliverable);
+
+  const checkoutRequirements =
+    step === 'payment'
+      ? getCheckoutRequirements({
+          deliveryAddress,
+          paymentMethod,
+          deliverabilityLoading,
+          isDeliverable,
+          payerContact,
+        })
+      : [];
+
+  const paymentBlocked =
+    (paymentMethod === 'COD' && codBlocked) ||
+    (paymentMethod === 'RAZORPAY' && !checkoutId && !onlinePayReady);
 
   const renderPaymentCta = () =>
     paymentMethod === 'COD' ? (
       <Button
         fullWidth
         loading={initiateCod.isPending}
+        disabled={codBlocked}
         onClick={handlePlaceOrder}
         className="text-base"
       >
@@ -210,8 +283,15 @@ export function CheckoutPageContent() {
                   </div>
                   {step === 'address' ? (
                     <AddressForm onNext={() => setStep('payment')} />
-                  ) : (
-                    deliveryAddress && (
+                  ) : deliveryAddress ? (
+                    <div className="space-y-3">
+                      {!isDeliveryAddressComplete(deliveryAddress) && (
+                        <CheckoutRequirementsHint
+                          items={[
+                            'Delivery address is incomplete — edit and confirm map pin',
+                          ]}
+                        />
+                      )}
                       <div className="flex items-start justify-between gap-3">
                         <div className="text-sm text-muted-foreground">
                           <p className="font-medium text-foreground">{deliveryAddress.line1}</p>
@@ -228,8 +308,8 @@ export function CheckoutPageContent() {
                           Edit
                         </button>
                       </div>
-                    )
-                  )}
+                    </div>
+                  ) : null}
                 </div>
 
                 {step === 'payment' && (
@@ -247,7 +327,6 @@ export function CheckoutPageContent() {
                     />
 
                     <div className="mt-4">
-                      {paymentMethod === 'RAZORPAY' && <PwaPaymentBanner />}
                       <PaymentMethodSelector
                         value={paymentMethod}
                         onChange={(method) => {
@@ -256,10 +335,14 @@ export function CheckoutPageContent() {
                           setOpenRazorpayAfterInit(false);
                         }}
                       />
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Choose how you want to pay. COD requires a deliverable address.
+                      </p>
                     </div>
 
                     {paymentMethod === 'RAZORPAY' && (
                       <div className="mt-4">
+                        <PwaPaymentBanner />
                         <PayerContactForm
                           value={payerContact}
                           onChange={setPayerContact}
@@ -288,6 +371,10 @@ export function CheckoutPageContent() {
                       />
                     </div>
 
+                    {paymentBlocked && checkoutRequirements.length > 0 && (
+                      <CheckoutRequirementsHint items={checkoutRequirements} className="mt-4" />
+                    )}
+
                     {/* Desktop CTA; mobile uses sticky ActionBar */}
                     <div className="mt-5 hidden lg:block">{renderPaymentCta()}</div>
                   </div>
@@ -301,6 +388,7 @@ export function CheckoutPageContent() {
                     lat={deliveryAddress.lat}
                     lng={deliveryAddress.lng}
                     pincode={deliveryAddress.pincode}
+                    onDeliverabilityChange={handleDeliverabilityChange}
                   />
                   <CouponPanel cart={cart} />
                   <CheckoutReturnPolicyPanel items={cart.items} />
@@ -320,7 +408,14 @@ export function CheckoutPageContent() {
                 {formatCurrency(cart.totals.grandTotal)}
               </p>
             </div>
-            <div className="flex-1">{renderPaymentCta()}</div>
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              {paymentBlocked && checkoutRequirements.length > 0 && (
+                <p className="line-clamp-2 text-[11px] text-amber-800">
+                  {checkoutRequirements[0]}
+                </p>
+              )}
+              {renderPaymentCta()}
+            </div>
           </ActionBar>
         )}
       </PageShell>

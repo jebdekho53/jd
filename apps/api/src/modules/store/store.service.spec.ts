@@ -9,6 +9,7 @@ import { DomainEventsService } from '../domain-events/domain-events.service';
 import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 import { LocationDirectoryService } from '../location-directory/location-directory.service';
+import { ConfigService } from '@nestjs/config';
 
 const MERCHANT_PROFILE = { id: 'mp-1', userId: 'u-1', businessName: 'Test' };
 const SAMPLE_LOGO = 'https://cdn.example.com/logo.jpg';
@@ -83,6 +84,13 @@ describe('StoreService', () => {
         { provide: BuyerCacheService, useValue: mockBuyerCache },
         { provide: VerificationBlocklistService, useValue: mockBlocklist },
         { provide: LocationDirectoryService, useValue: mockLocations },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string) =>
+              key === 'UPLOAD_PUBLIC_URL' ? 'https://api.jebdekho.com/uploads' : undefined,
+          },
+        },
       ],
     }).compile();
     service = module.get<StoreService>(StoreService);

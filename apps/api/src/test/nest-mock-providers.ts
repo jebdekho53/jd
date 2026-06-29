@@ -62,6 +62,7 @@ export const orderServiceMocks = {
     notifyOrderAccepted: jest.fn().mockResolvedValue(undefined),
     notifyReadyForPickup: jest.fn().mockResolvedValue(undefined),
   }),
+  tracking: stub({ emitOrderStatus: jest.fn(), publishUpdate: jest.fn(), emitDeliveryEvent: jest.fn() }),
 };
 
 export const deliveryServiceMocks = {

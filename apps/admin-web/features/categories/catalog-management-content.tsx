@@ -27,6 +27,7 @@ export function CatalogManagementContent() {
   const [sortOrder, setSortOrder] = useState(0);
   const [imageUrl, setImageUrl] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [catalogKind, setCatalogKind] = useState<'PRODUCT' | 'MENU'>('PRODUCT');
   const [imageError, setImageError] = useState<string | null>(null);
 
   const { data: categories = [], isLoading, isError, refetch } = useQuery({
@@ -64,6 +65,7 @@ export function CatalogManagementContent() {
     setSortOrder(categories.length);
     setImageUrl('');
     setIsActive(true);
+    setCatalogKind('PRODUCT');
   }
 
   function openCreateChild(parent: GlobalCategory) {
@@ -104,6 +106,7 @@ export function CatalogManagementContent() {
         name: name.trim(),
         sortOrder,
         imageUrl,
+        catalogKind,
       });
       return;
     }
@@ -180,6 +183,9 @@ export function CatalogManagementContent() {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-semibold text-slate-900">{parent.name}</h3>
+                  <Badge tone={parent.catalogKind === 'MENU' ? 'info' : 'neutral'}>
+                    {parent.catalogKind === 'MENU' ? 'Menu catalog' : 'Product catalog'}
+                  </Badge>
                   <Badge tone={parent.isActive ? 'success' : 'warning'}>
                     {parent.isActive ? 'Active' : 'Disabled'}
                   </Badge>
@@ -290,6 +296,20 @@ export function CatalogManagementContent() {
             value={sortOrder}
             onChange={(e) => setSortOrder(Number(e.target.value))}
           />
+
+          {formMode?.type === 'create-parent' && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Catalog type</label>
+              <select
+                value={catalogKind}
+                onChange={(e) => setCatalogKind(e.target.value as 'PRODUCT' | 'MENU')}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              >
+                <option value="PRODUCT">Product catalog (groceries & retail)</option>
+                <option value="MENU">Menu catalog (restaurants & food)</option>
+              </select>
+            </div>
+          )}
 
           {formMode?.type === 'edit' && (
             <label className="flex items-center gap-2 text-sm text-slate-700">

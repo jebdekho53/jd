@@ -10,7 +10,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { MerchantCategoryStatus, StoreCategoryRequestStatus, StoreDocumentType } from '@prisma/client';
+import { CategoryCatalogKind, MerchantCategoryStatus, StoreCategoryRequestStatus, StoreDocumentType } from '@prisma/client';
 
 export class CreateGlobalCategoryDto {
   @IsString()
@@ -40,6 +40,10 @@ export class CreateGlobalCategoryDto {
   @IsInt()
   @Min(0)
   sortOrder?: number;
+
+  @IsOptional()
+  @IsEnum(CategoryCatalogKind)
+  catalogKind?: CategoryCatalogKind;
 }
 
 export class UpdateGlobalCategoryDto {
@@ -70,6 +74,10 @@ export class UpdateGlobalCategoryDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsEnum(CategoryCatalogKind)
+  catalogKind?: CategoryCatalogKind;
 }
 
 export class RequestStoreCategoryAccessDto {

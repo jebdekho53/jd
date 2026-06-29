@@ -26,6 +26,7 @@ function DocumentPreview({ doc }: { doc: StoreVerificationDocument }) {
       <iframe
         src={doc.fileUrl}
         title={doc.fileName}
+        sandbox=""
         className="h-72 w-full rounded-lg border border-slate-200 bg-white"
       />
     );

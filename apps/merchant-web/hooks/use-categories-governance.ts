@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getCategoryCatalog,
   listApprovedCategories,
+  listApprovedMenuCategories,
   listCategoryRequests,
   requestCategoryAccess,
 } from '@/services/categories/categories-api';
@@ -40,6 +41,16 @@ export function useApprovedCategoriesQuery(storeId: string | undefined) {
   return useQuery({
     queryKey: merchantStoreCategoryKey(user?.id, storeId, 'categories-approved'),
     queryFn: () => listApprovedCategories(storeId!),
+    enabled: Boolean(user?.id) && Boolean(storeId),
+    staleTime: 30_000,
+  });
+}
+
+export function useApprovedMenuCategoriesQuery(storeId: string | undefined) {
+  const { data: user } = useSessionQuery();
+  return useQuery({
+    queryKey: merchantStoreCategoryKey(user?.id, storeId, 'menu-categories-approved'),
+    queryFn: () => listApprovedMenuCategories(storeId!),
     enabled: Boolean(user?.id) && Boolean(storeId),
     staleTime: 30_000,
   });

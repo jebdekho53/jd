@@ -19,8 +19,8 @@ export interface AdminCategoryRequest {
   adminNote: string | null;
   createdAt: string;
   reviewedAt: string | null;
-  category: { id: string; name: string; slug: string };
-  subcategory: { id: string; name: string; slug: string };
+  category: { id: string; name: string; slug: string; catalogKind?: 'PRODUCT' | 'MENU' };
+  subcategory: { id: string; name: string; slug: string; catalogKind?: 'PRODUCT' | 'MENU' };
   store: {
     id: string;
     name: string;
@@ -43,6 +43,7 @@ export interface GlobalCategory {
   description: string | null;
   sortOrder: number;
   isActive: boolean;
+  catalogKind?: 'PRODUCT' | 'MENU';
   parentId?: string | null;
   children: GlobalCategory[];
 }

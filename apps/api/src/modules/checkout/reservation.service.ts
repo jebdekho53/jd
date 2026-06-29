@@ -15,6 +15,7 @@ import { DomainEventsService } from '../domain-events/domain-events.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { OrderCacheService } from '../order/order-cache.service';
 import { OrderStatusHistoryService } from '../order/order-status-history.service';
+import { DistributedLockService } from '../../redis/distributed-lock.service';
 
 export const RESERVATION_TTL_MINUTES = 15;
 
@@ -35,6 +36,7 @@ export class ReservationService {
     private readonly inventory: InventoryService,
     private readonly statusHistory: OrderStatusHistoryService,
     private readonly orderCache: OrderCacheService,
+    private readonly lock: DistributedLockService,
   ) {}
 
   async reserveInventory(
@@ -111,6 +113,12 @@ export class ReservationService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async releaseExpiredReservations(): Promise<void> {
+    await this.lock.runExclusive('cron:inventory-release', 50, async () => {
+      await this.releaseExpiredReservationsInner();
+    });
+  }
+
+  private async releaseExpiredReservationsInner(): Promise<void> {
     const now = new Date();
 
     const expiredCheckouts = await this.prisma.checkout.findMany({

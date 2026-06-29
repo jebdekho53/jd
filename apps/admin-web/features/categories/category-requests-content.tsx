@@ -10,7 +10,7 @@ import {
   revokeCategoryRejection,
 } from '@/services/admin-api';
 import type { StoreCategoryRequestStatus } from '@/types/category-governance';
-import { Button } from '@/design-system';
+import { Button, Badge } from '@/design-system';
 
 const TABS: { label: string; value: StoreCategoryRequestStatus }[] = [
   { label: 'Pending', value: 'PENDING' },
@@ -99,9 +99,14 @@ export function CategoryRequestsContent() {
                   <p className="font-semibold text-slate-900">
                     {item.category.name} → {item.subcategory.name}
                   </p>
-                  <p className="text-sm text-slate-500">
-                    Store: {item.store.name} · {mp.businessName} · {mp.user.phone}
-                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <Badge tone={item.category.catalogKind === 'MENU' ? 'info' : 'neutral'}>
+                      {item.category.catalogKind === 'MENU' ? 'Menu' : 'Product'}
+                    </Badge>
+                    <p className="text-sm text-slate-500">
+                      Store: {item.store.name} · {mp.businessName} · {mp.user.phone}
+                    </p>
+                  </div>
                   {item.reason && <p className="mt-1 text-sm text-slate-600">{item.reason}</p>}
                 </div>
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{item.status}</span>

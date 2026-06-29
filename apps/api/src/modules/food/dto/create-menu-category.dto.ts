@@ -1,12 +1,17 @@
-import { IsArray, IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MenuCategorySlug } from '@prisma/client';
 
 export class CreateMenuCategoryDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Approved platform menu subcategory id' })
   @IsString()
-  name!: string;
+  @IsNotEmpty()
+  platformCategoryId!: string;
+
+  @ApiPropertyOptional({ description: 'Optional display name override (defaults to platform name)' })
+  @IsOptional()
+  @IsString()
+  name?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -31,5 +36,6 @@ export class CreateMenuCategoryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
+  @Min(0)
   sortOrder?: number;
 }

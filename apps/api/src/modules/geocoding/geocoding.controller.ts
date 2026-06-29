@@ -1,5 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../common/decorators/public.decorator';
 import { GeocodingCacheService } from './geocoding-cache.service';
 
@@ -10,6 +11,7 @@ export class GeocodingController {
 
   @Get('reverse')
   @Public()
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
   @ApiOperation({
     summary: 'Reverse geocode lat/lng with Redis cache',
     description: 'Returns null when Google is unavailable — clients should fall back to pincode/master directory.',

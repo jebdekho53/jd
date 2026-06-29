@@ -334,7 +334,7 @@ export class MerchantOnboardingService {
         ipAddress,
       );
     } else {
-      await this.merchantService.ensureMerchantRole(userId);
+      // Profile exists — role granted only on admin approval.
     }
 
     let storeId = app.storeId;

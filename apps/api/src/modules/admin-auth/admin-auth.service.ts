@@ -338,7 +338,7 @@ export class AdminAuthService {
 
   async logout(userId: string, rawRefreshToken?: string, ipAddress?: string) {
     if (rawRefreshToken) {
-      await this.tokenService.revokeByRawToken(rawRefreshToken);
+      await this.tokenService.revokeByRawToken(rawRefreshToken, userId);
       const tokenHash = createHash('sha256').update(rawRefreshToken).digest('hex');
       const rt = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
       if (rt) {

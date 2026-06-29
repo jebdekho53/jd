@@ -9,8 +9,9 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { FLEET_EVENTS, FLEET_ROOM } from './fleet-os.events';
+import { wsGatewayCorsOptions } from '../../common/websocket/ws-cors.util';
 
-@WebSocketGateway({ cors: { origin: '*' }, namespace: '/fleet' })
+@WebSocketGateway({ cors: wsGatewayCorsOptions(), namespace: '/fleet' })
 export class FleetOsGateway {
   private readonly logger = new Logger(FleetOsGateway.name);
 

@@ -1,10 +1,13 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { MenuOcrStatus, Prisma } from '@prisma/client';
+import { CategoryCatalogKind, MenuOcrStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { OpenAiVisionClient } from '../product/openai-vision.client';
+import { StoreCategoryAccessService } from '../category-governance/store-category-access.service';
 import { MenuService } from './menu.service';
 import { slugifyMenu } from './vertical.constants';
+import { assertTrustedUploadUrl } from '../../common/utils/trusted-upload-url.util';
+import { getConfig } from '../../config/configuration';
 
 const MENU_OCR_PROMPT = `You are a restaurant menu OCR assistant for an Indian food delivery platform.
 
@@ -45,11 +48,14 @@ export class MenuOcrService {
     private readonly prisma: PrismaService,
     private readonly vision: OpenAiVisionClient,
     private readonly menu: MenuService,
+    private readonly categoryAccess: StoreCategoryAccessService,
     private readonly config: ConfigService,
   ) {}
 
   async uploadMenuForOcr(merchantProfileId: string, storeId: string, imageUrl: string) {
     await this.menu.assertStoreOwnership(merchantProfileId, storeId);
+    const uploadBase = getConfig(this.config).storage.uploadPublicUrl;
+    assertTrustedUploadUrl(imageUrl, uploadBase);
 
     const job = await this.prisma.menuOcrJob.create({
       data: { storeId, imageUrl, status: MenuOcrStatus.UPLOADED },
@@ -119,8 +125,26 @@ export class MenuOcrService {
       }[];
     };
 
+    const approvedTree = await this.categoryAccess.listApprovedCategoryTree(
+      storeId,
+      CategoryCatalogKind.MENU,
+    );
+    const approvedByName = new Map(
+      approvedTree.flatMap((p) =>
+        p.children.map((c) => [c.name.trim().toLowerCase(), c.id] as const),
+      ),
+    );
+
     for (const [ci, cat] of (draft.categories ?? []).entries()) {
+      const platformCategoryId = approvedByName.get(cat.name.trim().toLowerCase());
+      if (!platformCategoryId) {
+        throw new BadRequestException(
+          `OCR category "${cat.name}" has no matching approved menu subcategory. Request access on Store Categories first.`,
+        );
+      }
+
       const category = await this.menu.createCategory(merchantProfileId, storeId, {
+        platformCategoryId,
         name: cat.name,
         slug: slugifyMenu(cat.name),
         sortOrder: ci,

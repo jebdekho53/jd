@@ -17,6 +17,9 @@ import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
 import { ListStoresDto } from './dto/list-stores.dto';
 import { UploadVerificationDocumentDto } from './dto/upload-verification-document.dto';
+import { ConfigService } from '@nestjs/config';
+import { getConfig } from '../../config/configuration';
+import { assertTrustedUploadUrl } from '../../common/utils/trusted-upload-url.util';
 
 // Fields a merchant may edit on an APPROVED store
 const APPROVED_STORE_EDITABLE_FIELDS: Array<keyof UpdateStoreDto> = [
@@ -65,6 +68,7 @@ export class StoreService {
     private readonly buyerCache: BuyerCacheService,
     private readonly blocklist: VerificationBlocklistService,
     private readonly locations: LocationDirectoryService,
+    private readonly config: ConfigService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -524,6 +528,9 @@ export class StoreService {
           `Requested: ${requestedTypes.join(', ')}`,
       );
     }
+
+    const uploadBase = getConfig(this.config).storage.uploadPublicUrl;
+    assertTrustedUploadUrl(dto.fileUrl, uploadBase);
 
     await this.prisma.storeVerificationDocument.create({
       data: {

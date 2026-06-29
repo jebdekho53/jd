@@ -26,6 +26,7 @@ import { SettlementBatchService } from './settlement-batch.service';
 import { CodReconciliationService } from './cod-reconciliation.service';
 import { RiderPayoutService } from './rider-payout.service';
 import { FinanceExportService } from './finance-export.service';
+import { OrderRefundService } from '../payment/order-refund.service';
 import { SettlementService } from '../settlement/settlement.service';
 import {
   CodSubmitDto,
@@ -49,6 +50,7 @@ export class AdminFinanceController {
     private readonly riderPayouts: RiderPayoutService,
     private readonly exports: FinanceExportService,
     private readonly settlement: SettlementService,
+    private readonly orderRefunds: OrderRefundService,
   ) {}
 
   @Get('overview')
@@ -119,6 +121,14 @@ export class AdminFinanceController {
     @Body() dto: RejectCodDto,
   ) {
     const data = await this.cod.reject(user.id, id, dto.reason);
+    return { success: true, data };
+  }
+
+  @Get('refunds/failed')
+  @Permissions('settlements:read')
+  @ApiOperation({ summary: 'List failed order refunds for admin dashboard' })
+  async failedRefunds(@Query() query: ListFinanceQueryDto) {
+    const data = await this.orderRefunds.listFailedRefunds(query.page, query.limit);
     return { success: true, data };
   }
 

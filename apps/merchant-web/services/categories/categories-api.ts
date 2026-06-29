@@ -27,7 +27,14 @@ export async function listApprovedCategories(storeId: string): Promise<CatalogCa
   return res.data;
 }
 
-export async function requestCategoryAccess(
+export async function listApprovedMenuCategories(storeId: string): Promise<CatalogCategory[]> {
+  const res = await merchantFetch<ApiResponse<CatalogCategory[]>>(
+    `/api/merchant/stores/${storeId}/menu-categories/approved`,
+  );
+  return res.data;
+}
+
+export async function createCategoryRequest(
   storeId: string,
   payload: { categoryId: string; subcategoryId: string; reason?: string },
 ): Promise<StoreCategoryRequest> {
@@ -37,3 +44,6 @@ export async function requestCategoryAccess(
   );
   return res.data;
 }
+
+/** @alias createCategoryRequest */
+export const requestCategoryAccess = createCategoryRequest;
