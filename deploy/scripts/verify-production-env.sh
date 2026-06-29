@@ -76,6 +76,15 @@ if (!pub.includes('BEGIN PUBLIC KEY')) {
 
 console.log('Production env verification passed');
 
+const jwtIssuer = (process.env.JWT_ISSUER || 'jebdekho-api').trim();
+if (/jebdehko/i.test(jwtIssuer)) {
+  console.error('ERROR: JWT_ISSUER contains typo "jebdehko" — use https://api.jebdekho.com');
+  process.exit(1);
+}
+if (jwtIssuer.includes('jebdekho') && !jwtIssuer.includes('jebdekho.com')) {
+  console.warn('WARN: JWT_ISSUER should be https://api.jebdekho.com for production OIDC clients');
+}
+
 // Google Maps (warn only — master directory fallback)
 const gmapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 if (!gmapsKey.trim()) {

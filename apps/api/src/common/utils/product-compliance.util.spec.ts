@@ -1,4 +1,5 @@
 import {
+  hasProductBuyerComplianceGaps,
   isFssaiRequiredCategory,
   isHsnRequiredCategory,
 } from './product-compliance.util';
@@ -26,5 +27,29 @@ describe('product-compliance.util', () => {
       false,
     );
     expect(isFssaiRequiredCategory({ slug: 'personal-care', name: 'Personal Care' })).toBe(false);
+  });
+
+  it('flags buyer compliance gaps for incomplete grocery products', () => {
+    expect(
+      hasProductBuyerComplianceGaps({
+        imageUrls: [],
+        categoryId: 'cat-1',
+        category: { slug: 'dairy-bakery', name: 'Dairy & Bakery' },
+        hsnCodeId: null,
+        fssaiLicense: null,
+        taxCategory: 'GOODS',
+      }),
+    ).toBe(true);
+
+    expect(
+      hasProductBuyerComplianceGaps({
+        imageUrls: ['https://api.jebdekho.com/uploads/product/x.jpg'],
+        categoryId: 'cat-1',
+        category: { slug: 'dairy-bakery', name: 'Dairy & Bakery' },
+        hsnCodeId: 'hsn-1',
+        fssaiLicense: '12345678901234',
+        taxCategory: 'GOODS',
+      }),
+    ).toBe(false);
   });
 });

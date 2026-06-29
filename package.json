@@ -31,7 +31,11 @@
     "db:reset": "pnpm exec prisma migrate reset --schema=prisma/schema.prisma",
     "deploy:production": "bash deploy/deploy.sh",
     "deploy:rollback": "bash deploy/rollback.sh",
-    "vps:update": "bash deploy/scripts/vps-update.sh"
+    "vps:update": "bash deploy/scripts/vps-update.sh",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report",
+    "qa:jebdekho": "playwright test tests/e2e"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
@@ -39,7 +43,9 @@
     "prisma": "^6.19.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@types/bcrypt": "^5.0.2",
+    "dotenv": "^16.5.0",
     "turbo": "^2.5.4",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0"

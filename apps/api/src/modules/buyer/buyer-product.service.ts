@@ -28,6 +28,7 @@ import {
 import { resolveDeliveryTerms } from '../../common/utils/delivery-coverage.util';
 import { normalizeDeliveryPartnerLabel, resolveStoreDeliveryPartnerLabel } from './logistics-label.util';
 import { buildReturnPolicySummary } from '../../common/utils/product-return-policy.util';
+import { hasProductBuyerComplianceGaps } from '../../common/utils/product-compliance.util';
 import type { ReturnPolicySummary } from '../../common/utils/product-return-policy.util';
 import { ConfigService } from '@nestjs/config';
 
@@ -123,6 +124,30 @@ async function fetchStoreProductCategoryIds(
     distinct: ['categoryId'],
   });
   return rows.map((r) => r.categoryId!).filter(Boolean);
+}
+
+type ProductComplianceRow = {
+  imageUrls: string[];
+  categoryId: string | null;
+  category: { slug: string; name: string } | null;
+  hsnCodeId: string | null;
+  fssaiLicense: string | null;
+  taxCategory: string;
+};
+
+function isBuyerCompliantProduct(
+  product: ProductComplianceRow,
+  storeFssaiLicense?: string | null,
+): boolean {
+  return !hasProductBuyerComplianceGaps({
+    imageUrls: product.imageUrls,
+    categoryId: product.categoryId,
+    category: product.category,
+    hsnCodeId: product.hsnCodeId,
+    fssaiLicense: product.fssaiLicense,
+    taxCategory: product.taxCategory,
+    storeFssaiLicense,
+  });
 }
 
 function mapVariant(v: {
@@ -232,7 +257,11 @@ export class BuyerProductService {
         this.prisma.product.count({ where }),
       ]);
 
-      const products = raw.map((p) => ({
+      const storeFssaiLicense =
+        raw.find((p) => p.fssaiLicense?.trim())?.fssaiLicense ?? null;
+      const compliant = raw.filter((p) => isBuyerCompliantProduct(p, storeFssaiLicense));
+
+      const products = compliant.map((p) => ({
         id: p.id,
         name: p.name,
         slug: p.slug,
@@ -248,7 +277,8 @@ export class BuyerProductService {
         variants: p.variants.map(mapVariant),
       })) satisfies BuyerProduct[];
 
-      return { products, total };
+      const adjustedTotal = Math.max(0, total - (raw.length - compliant.length));
+      return { products, total: adjustedTotal };
     });
   }
 
@@ -296,6 +326,18 @@ export class BuyerProductService {
       });
 
       if (!raw) return null;
+
+      const storeFssaiLicense = await this.prisma.product.findFirst({
+        where: { storeId: raw.storeId, fssaiLicense: { not: null } },
+        select: { fssaiLicense: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      if (
+        !isBuyerCompliantProduct(raw, storeFssaiLicense?.fssaiLicense ?? raw.fssaiLicense)
+      ) {
+        return null;
+      }
 
       const reviewAgg = await this.prisma.productReview.aggregate({
         where: { productId: raw.id, status: 'VISIBLE' },

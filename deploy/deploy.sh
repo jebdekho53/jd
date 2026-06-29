@@ -118,6 +118,14 @@ for port in 3000 3002 3003 3004 3005 3006; do
   fi
 done
 
+if [[ -x ./deploy/scripts/smoke-next-portals.sh ]]; then
+  log "Smoke: Next.js static assets..."
+  ./deploy/scripts/smoke-next-portals.sh | tee -a "$LOG_FILE" || {
+    log "ERROR: Next.js static asset mismatch — admin/buyer chunks may 400 until rebuild+reload"
+    exit 1
+  }
+fi
+
 PUBLIC_CATS_CODE=$(curl -sS -o /dev/null -w "%{http_code}" -H "Origin: https://jebdekho.com" \
   "https://api.jebdekho.com/api/v1/buyer/categories" 2>/dev/null || echo "000")
 PUBLIC_HEALTH_CODE=$(curl -sS -o /dev/null -w "%{http_code}" "https://api.jebdekho.com/health" 2>/dev/null || echo "000")

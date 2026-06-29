@@ -30,6 +30,9 @@ const DEFAULT_FILTERS: PipelineFilters = {
 
 function initialFiltersFromUrl(searchParams: URLSearchParams): PipelineFilters {
   const filters: PipelineFilters = { ...DEFAULT_FILTERS };
+  if (searchParams.get('today') === 'true') {
+    filters.datePreset = 'today';
+  }
   const status = searchParams.get('status');
   if (status === 'PAID' || status === 'PAYMENT_PENDING' || status === 'CREATED') {
     filters.pipelineColumn = 'NEW';

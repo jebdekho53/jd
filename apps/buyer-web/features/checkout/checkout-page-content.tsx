@@ -23,6 +23,7 @@ import { getDefaultSavedDeliveryAddress, isDeliveryAddressComplete } from '@/lib
 import { useInitiateCodCheckoutMutation, useInitiateCheckoutMutation } from '@/hooks/use-checkout';
 import { useProfileQuery } from '@/features/profile/hooks/use-profile';
 import { useCheckoutStore } from '@/store/checkout-store';
+import { useAuthStore } from '@/store/auth-store';
 import { useToast } from '@/design-system/primitives';
 import { SessionError } from '@/services/auth/auth-api';
 import type { DeliveryAddress, PayerContact, PaymentMethod } from '@/types/checkout';
@@ -84,6 +85,8 @@ export function CheckoutPageContent() {
   const [payerContact, setPayerContact] = useState<PayerContact | null>(null);
   const [isDeliverable, setIsDeliverable] = useState(false);
   const [deliverabilityLoading, setDeliverabilityLoading] = useState(true);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const authLoading = useAuthStore((s) => s.loading);
 
   const handleDeliverabilityChange = useCallback((deliverable: boolean, loading: boolean) => {
     setIsDeliverable(deliverable);
@@ -117,10 +120,12 @@ export function CheckoutPageContent() {
   }, []);
 
   useEffect(() => {
-    if (!isLoading && (!cart || cart.items.length === 0)) {
+    if (!checkoutReady || authLoading || isLoading) return;
+    if (!isAuthenticated) return;
+    if (!cart || cart.items.length === 0) {
       router.replace('/cart');
     }
-  }, [isLoading, cart, router]);
+  }, [checkoutReady, authLoading, isLoading, isAuthenticated, cart, router]);
 
   const handlePlaceOrder = async () => {
     if (!deliveryAddress) return;

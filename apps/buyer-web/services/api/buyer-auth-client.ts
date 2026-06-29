@@ -4,7 +4,6 @@
  */
 
 import { SessionError } from '@/services/auth/auth-api';
-import { useAuthStore } from '@/store/auth-store';
 
 export async function buyerFetch<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
@@ -27,7 +26,6 @@ export async function buyerFetch<T>(path: string, init?: RequestInit): Promise<T
   }
 
   if (res.status === 401) {
-    useAuthStore.getState().clearSession();
     throw new SessionError('Session expired. Please log in again.', 401, 'UNAUTHENTICATED');
   }
 

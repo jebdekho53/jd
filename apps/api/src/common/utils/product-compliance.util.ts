@@ -37,3 +37,46 @@ export function isTaxComplianceCategory(
   if (taxCategory === 'EXEMPT' || taxCategory === 'NIL_RATED') return false;
   return isHsnRequiredCategory(category);
 }
+
+export function isPublicProductImageUrl(url: string | null | undefined): boolean {
+  if (!url?.trim()) return false;
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') return false;
+    return u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+export interface ProductBuyerComplianceInput {
+  imageUrls: string[];
+  categoryId: string | null;
+  category?: CategoryComplianceRef | null;
+  hsnCodeId?: string | null;
+  fssaiLicense?: string | null;
+  taxCategory?: string | null;
+  storeFssaiLicense?: string | null;
+}
+
+/** True when the product should stay hidden from buyer catalogue (merchant "Needs update"). */
+export function hasProductBuyerComplianceGaps(input: ProductBuyerComplianceInput): boolean {
+  if (!isPublicProductImageUrl(input.imageUrls[0])) return true;
+  if (!input.categoryId || !input.category) return true;
+
+  const taxCategory = input.taxCategory ?? 'GOODS';
+  if (
+    isTaxComplianceCategory(input.category, taxCategory) &&
+    !input.hsnCodeId
+  ) {
+    return true;
+  }
+
+  if (isFssaiRequiredCategory(input.category)) {
+    const onProduct = input.fssaiLicense?.trim();
+    const inherited = input.storeFssaiLicense?.trim();
+    if (!onProduct && !inherited) return true;
+  }
+
+  return false;
+}
