@@ -72,6 +72,9 @@ export function useRequestCategoryMutation(storeId: string | undefined) {
       qc.invalidateQueries({
         queryKey: merchantStoreCategoryKey(user?.id, storeId, 'categories-approved'),
       });
+      qc.invalidateQueries({
+        queryKey: merchantStoreCategoryKey(user?.id, storeId, 'menu-categories-approved'),
+      });
     },
   });
 }
