@@ -29,7 +29,11 @@ export function RequestCategoryModal({ open, catalog, loading, onClose, onSubmit
       open={open}
       onClose={onClose}
       title="Request category access"
-      description="Select a category and subcategory. Admin approval is required before you can add products."
+      description={
+        catalog[0]?.catalogKind === 'MENU'
+          ? 'Select a menu category and subcategory (e.g. Food → Biryani, Cafe → Coffee). Admin approval is required before you can add menu items.'
+          : 'Select a category and subcategory. Admin approval is required before you can add products.'
+      }
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={onClose}>Cancel</Button>

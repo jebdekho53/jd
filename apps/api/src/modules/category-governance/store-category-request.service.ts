@@ -26,6 +26,7 @@ import { ConfigService } from '@nestjs/config';
 import { getConfig } from '../../config/configuration';
 import { assertTrustedUploadUrl } from '../../common/utils/trusted-upload-url.util';
 import { resolveStoreCatalogKind } from './utils/catalog-kind.util';
+import { VerticalService } from '../food/vertical.service';
 
 @Injectable()
 export class StoreCategoryRequestService {
@@ -39,6 +40,7 @@ export class StoreCategoryRequestService {
     private readonly domainEvents: DomainEventsService,
     private readonly categoryAccess: StoreCategoryAccessService,
     private readonly config: ConfigService,
+    private readonly verticalService: VerticalService,
   ) {}
 
   private async assertStoreOwned(userId: string, storeId: string) {
@@ -52,6 +54,7 @@ export class StoreCategoryRequestService {
 
   async listCatalog(userId: string, storeId: string, catalogKind?: CategoryCatalogKind) {
     await this.assertStoreOwned(userId, storeId);
+    await this.verticalService.ensureStoreBusinessTypesFromApplication(storeId);
     const kind = await resolveStoreCatalogKind(this.prisma, storeId, catalogKind);
 
     const existing = await this.prisma.storeCategoryRequest.findMany({

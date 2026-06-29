@@ -5,6 +5,8 @@
  */
 
 import { NotificationChannel, PrismaClient, RoleName, StoreStatus, UserStatus, MerchantCategoryStatus, CategoryScope, KycStatus, RiderStatus, VehicleType, VendorType, FranchisePartnerStatus, CityLaunchStatus } from '@prisma/client';
+import { MENU_CATALOG } from './data/menu-catalog/catalog';
+import { assertMenuCatalogSlugUniqueness, upsertMenuCatalog } from './data/menu-catalog/upsert';
 import * as bcrypt from 'bcrypt';
 import { seedLocationDirectory } from './seed-location-directory';
 
@@ -1015,6 +1017,15 @@ async function seedMembershipPlan(): Promise<void> {
   }
 }
 
+async function seedMenuCatalog(): Promise<void> {
+  console.log('  Seeding MENU catalog (Food, Cafe, Bakery…)…');
+  assertMenuCatalogSlugUniqueness(MENU_CATALOG);
+  const stats = await upsertMenuCatalog(prisma, MENU_CATALOG);
+  console.log(
+    `  MENU catalog: ${stats.parentsCreated + stats.parentsUpdated} parents, ${stats.childrenCreated + stats.childrenUpdated} subcategories`,
+  );
+}
+
 async function main(): Promise<void> {
   console.log('Starting seed...');
 
@@ -1024,6 +1035,7 @@ async function main(): Promise<void> {
   await seedLocationDirectory();
   await seedNotificationTemplates();
   await seedGlobalCategories();
+  await seedMenuCatalog();
   await seedDemoBuyer();
   await seedDemoMerchants();
   await seedDemoStoreZones();

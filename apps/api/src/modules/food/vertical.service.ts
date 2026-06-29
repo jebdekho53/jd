@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  MerchantBusinessType,
   StoreBusinessTypeStatus,
   StoreStatus,
   VerticalBusinessType,
@@ -151,6 +152,30 @@ export class VerticalService {
     );
   }
 
+  /** Backfill store business types from onboarding application when missing (e.g. cloud kitchen). */
+  async ensureStoreBusinessTypesFromApplication(storeId: string) {
+    const existing = await this.prisma.storeBusinessType.count({ where: { storeId } });
+    if (existing > 0) return this.listStoreBusinessTypes(storeId);
+
+    const app = await this.prisma.merchantApplication.findFirst({
+      where: { storeId },
+      include: { businessTypes: true },
+    });
+    if (!app) return [];
+
+    const types = new Set<VerticalBusinessType>();
+    for (const row of app.businessTypes) {
+      types.add(row.businessType);
+    }
+    if (app.businessType) {
+      const mapped = merchantBusinessTypeToVertical(app.businessType);
+      if (mapped) types.add(mapped);
+    }
+    const list = [...types];
+    if (list.length === 0) return [];
+    return this.setStoreBusinessTypes(storeId, list, list[0]);
+  }
+
   async findStoresByVertical(
     businessType: VerticalBusinessType,
     opts: { lat?: number; lng?: number; limit?: number; page?: number } = {},
@@ -176,4 +201,28 @@ export class VerticalService {
     });
     return stores;
   }
+}
+
+function merchantBusinessTypeToVertical(type: MerchantBusinessType): VerticalBusinessType | null {
+  const map: Partial<Record<MerchantBusinessType, VerticalBusinessType>> = {
+    GROCERY: VerticalBusinessType.GROCERY,
+    RESTAURANT: VerticalBusinessType.RESTAURANT,
+    CLOUD_KITCHEN: VerticalBusinessType.CLOUD_KITCHEN,
+    CAFE: VerticalBusinessType.CAFE,
+    BAKERY: VerticalBusinessType.BAKERY,
+    SWEETS: VerticalBusinessType.SWEETS,
+    FRUITS_VEGETABLES: VerticalBusinessType.FRUITS_VEGETABLES,
+    MEAT_FISH: VerticalBusinessType.MEAT_FISH,
+    BEAUTY: VerticalBusinessType.BEAUTY,
+    PET_STORE: VerticalBusinessType.PET_STORE,
+    HOME_KITCHEN: VerticalBusinessType.HOME_KITCHEN,
+    ELECTRONICS: VerticalBusinessType.ELECTRONICS,
+    BABY_STORE: VerticalBusinessType.BABY_STORE,
+    SUPPLEMENTS: VerticalBusinessType.SUPPLEMENTS,
+    HEALTH_NUTRITION: VerticalBusinessType.SUPPLEMENTS,
+    FLOWERS: VerticalBusinessType.FLOWERS,
+    LOCAL_STORE: VerticalBusinessType.LOCAL_STORE,
+    OTHER: VerticalBusinessType.LOCAL_STORE,
+  };
+  return map[type] ?? null;
 }

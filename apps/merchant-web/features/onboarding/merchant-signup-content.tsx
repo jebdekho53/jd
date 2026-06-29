@@ -198,6 +198,7 @@ export function MerchantSignupContent() {
       ownerName: app.ownerName ?? f.ownerName,
       businessName: app.businessName ?? f.businessName,
       businessTypes: types,
+      preferredCategories: types,
       gstNumber: app.gstNumber ?? f.gstNumber,
       gstValid: app.gstVerified ?? f.gstValid,
       panNumber: app.panNumber ?? f.panNumber,
@@ -341,12 +342,21 @@ export function MerchantSignupContent() {
     setStep(4);
   };
 
-  const nextFromCategories = () => {
+  const nextFromCategories = async () => {
     if (form.preferredCategories.length === 0) {
       toast('Select at least one category you plan to sell', 'error');
       return;
     }
-    setStep(6);
+    try {
+      await updateOnboardingStep({
+        businessType: form.preferredCategories[0],
+        businessTypes: form.preferredCategories,
+      });
+      setForm((f) => ({ ...f, businessTypes: [...f.preferredCategories] }));
+      setStep(6);
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   };
 
   const nextFromKyc = async () => {
@@ -902,7 +912,13 @@ export function MerchantSignupContent() {
 
             {!booting && step === 5 && (
               <div className="space-y-4">
-                <StepHeader title="Categories" subtitle="What you plan to sell (approval after go-live)" />
+                <StepHeader
+                  title="Business vertical"
+                  subtitle="Cloud kitchen, cafe, grocery, etc. — used to show the right catalog after signup"
+                />
+                <p className="text-xs text-slate-500">
+                  After your store is approved, request platform categories (Food → Biryani, Cafe → Coffee, etc.) under Store Categories.
+                </p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {BUSINESS_TYPES.map((t) => {
                     const checked = form.preferredCategories.includes(t);

@@ -20,6 +20,11 @@ export NODE_ENV=production
 echo "==> Prisma generate"
 pnpm db:generate
 
+if [[ "${SEED_MENU_CATALOG:-1}" == "1" ]]; then
+  echo "==> Seeding MENU catalog (Food, Cafe, …)"
+  pnpm seed:menu-catalog
+fi
+
 echo "==> Building API"
 # Nest deletes dist/ but leaves tsbuildinfo; incremental tsc then emits nothing.
 rm -rf apps/api/dist apps/api/tsconfig.build.tsbuildinfo apps/api/tsconfig.tsbuildinfo

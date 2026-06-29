@@ -143,8 +143,20 @@ export function CategoriesPageContent() {
 
       {tab === 'APPROVED' && (requests ?? []).filter((r) => r.status === 'APPROVED').length === 0 && (
         <p className="mt-4 text-sm text-amber-700">
-          You need at least one approved category before creating products.{' '}
-          <Link href="/products" className="underline">Go to Products</Link>
+          You need at least one approved category before {isMenuCatalog ? 'adding menu items' : 'creating products'}.{' '}
+          {isMenuCatalog && storeId ? (
+            <Link href={`/stores/${storeId}/menu`} className="underline">Go to Menu</Link>
+          ) : (
+            <Link href="/products" className="underline">Go to Products</Link>
+          )}
+        </p>
+      )}
+
+      {!isLoading && (catalog ?? []).length === 0 && (
+        <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {isMenuCatalog
+            ? 'Menu categories (Food, Cafe, Bakery…) are not available yet. Ask platform admin to seed the menu catalog, then refresh this page.'
+            : 'No product categories are available to request. Contact platform support.'}
         </p>
       )}
 

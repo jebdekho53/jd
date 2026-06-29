@@ -14,6 +14,7 @@ import { StoreCategoryRequestService } from './store-category-request.service';
 import { StoreCategoryAccessService } from './store-category-access.service';
 import { ConfigService } from '@nestjs/config';
 import { MenuService } from '../food/menu.service';
+import { VerticalService } from '../food/vertical.service';
 import { PrismaService } from '../../database/prisma.service';
 import { MerchantService } from '../merchant/merchant.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
@@ -46,6 +47,9 @@ const mockCategoryAccess = {
   assertMenuSubcategoryApproved: jest.fn(),
   listApprovedCategoryTree: jest.fn(),
 };
+const mockVerticalService = {
+  ensureStoreBusinessTypesFromApplication: jest.fn().mockResolvedValue([]),
+};
 
 describe('Store catalog kind filtering', () => {
   let storeCategoryService: StoreCategoryRequestService;
@@ -61,6 +65,7 @@ describe('Store catalog kind filtering', () => {
         { provide: DomainEventsService, useValue: mockEvents },
         { provide: StoreCategoryAccessService, useValue: mockCategoryAccess },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: VerticalService, useValue: mockVerticalService },
       ],
     }).compile();
 

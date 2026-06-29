@@ -27,10 +27,22 @@ export async function resolveStoreCatalogKind(
   explicit?: CategoryCatalogKind,
 ): Promise<CategoryCatalogKind> {
   if (explicit) return explicit;
-  const rows = await prisma.storeBusinessType.findMany({
+
+  const approved = await prisma.storeBusinessType.findMany({
     where: { storeId, status: StoreBusinessTypeStatus.APPROVED },
     select: { businessType: true },
   });
-  if (rows.length === 0) return CategoryCatalogKind.PRODUCT;
-  return catalogKindForStoreBusinessTypes(rows.map((r) => r.businessType));
+  if (approved.length > 0) {
+    return catalogKindForStoreBusinessTypes(approved.map((r) => r.businessType));
+  }
+
+  const pending = await prisma.storeBusinessType.findMany({
+    where: { storeId, status: StoreBusinessTypeStatus.PENDING },
+    select: { businessType: true },
+  });
+  if (pending.length > 0) {
+    return catalogKindForStoreBusinessTypes(pending.map((r) => r.businessType));
+  }
+
+  return CategoryCatalogKind.PRODUCT;
 }

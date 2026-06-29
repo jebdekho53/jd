@@ -48,6 +48,7 @@ import { CreateStoreDto } from '../store/dto/create-store.dto';
 import { LocationDirectoryService } from '../location-directory/location-directory.service';
 import { GeoService } from '../geo/geo.service';
 import { GeocodingCacheService } from '../geocoding/geocoding-cache.service';
+import { VerticalService } from '../food/vertical.service';
 
 const DOC_TO_STORE: Partial<Record<MerchantDocumentType, StoreDocumentType>> = {
   GST_CERTIFICATE: StoreDocumentType.GST_CERTIFICATE,
@@ -90,6 +91,7 @@ export class MerchantOnboardingService {
     private readonly locations: LocationDirectoryService,
     private readonly geo: GeoService,
     private readonly geocoding: GeocodingCacheService,
+    private readonly verticalService: VerticalService,
   ) {}
 
   async getPublicStats() {
@@ -509,6 +511,8 @@ export class MerchantOnboardingService {
           },
         });
       }
+
+      await this.verticalService.ensureStoreBusinessTypesFromApplication(storeId);
     }
 
     await this.storeService.submitForReview(userId, storeId, ipAddress);
