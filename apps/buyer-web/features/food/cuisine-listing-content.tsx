@@ -19,17 +19,18 @@ export function CuisineListingContent({
   cuisineName: string;
   cuisineSlug: string;
 }) {
-  const { lat, lng, label, isReady } = useEffectiveLocation();
+  const { lat, lng, label, pincode, isReady } = useEffectiveLocation();
 
   const params = useMemo(
     () => ({
       lat: lat ?? undefined,
       lng: lng ?? undefined,
+      pincode: pincode ?? undefined,
       cuisine: cuisineSlug,
       page: 1,
       limit: 36,
     }),
-    [lat, lng, cuisineSlug],
+    [lat, lng, pincode, cuisineSlug],
   );
 
   const { data: restaurants = [], isLoading, isError, error, refetch } = useRestaurantsQuery(

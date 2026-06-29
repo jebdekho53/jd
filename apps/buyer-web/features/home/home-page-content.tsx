@@ -80,10 +80,10 @@ function LocationGate() {
   );
 }
 
-function FoodSection({ lat, lng }: { lat: number; lng: number }) {
+function FoodSection({ lat, lng, pincode }: { lat: number; lng: number; pincode?: string }) {
   const params = useMemo(
-    () => ({ lat, lng, page: 1, limit: 8 }),
-    [lat, lng],
+    () => ({ lat, lng, pincode, page: 1, limit: 8 }),
+    [lat, lng, pincode],
   );
   const { data: restaurants = [], isLoading } = useRestaurantsQuery(params, true);
 
@@ -161,7 +161,7 @@ export function HomePageContent() {
       {hasLocation ? (
         <>
           <StoreSection title="Nearby stores" subtitle="Delivering to your location" sort="distance" href="/stores" lat={lat} lng={lng} pincode={pincode} />
-          <FoodSection lat={lat} lng={lng} />
+          <FoodSection lat={lat} lng={lng} pincode={pincode} />
           <TopDealsSection />
           <OffersNearYouSection />
           <StoreSection title="Popular stores" subtitle="Most loved in your area" sort="popular" href="/stores?sort=popular" lat={lat} lng={lng} pincode={pincode} />

@@ -109,6 +109,14 @@ export function MenuManagementContent({ storeId }: { storeId: string }) {
           <h1 className="text-xl font-bold text-slate-900">Menu Management</h1>
           <p className="text-sm text-slate-500">
             Categories, dishes, addon groups, and combos for this restaurant store.
+            Saved dishes appear on the customer app for buyers in your delivery area.
+          </p>
+          <p className="mt-1 text-xs text-amber-800">
+            Not showing on jebdekho.com? Ensure your store is approved, add the buyer&apos;s pincode under{' '}
+            <Link href="/settings/delivery-coverage" className="font-medium underline">
+              Delivery Coverage
+            </Link>
+            , then ask customers to refresh the Restaurants page.
           </p>
         </div>
         <div className="flex gap-2">

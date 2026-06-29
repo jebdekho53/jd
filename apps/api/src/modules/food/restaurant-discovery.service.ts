@@ -16,6 +16,7 @@ export class RestaurantDiscoveryService {
   async listRestaurants(opts: {
     lat?: number;
     lng?: number;
+    pincode?: string;
     cuisineSlug?: string;
     vertical?: VerticalBusinessType;
     page?: number;
@@ -39,7 +40,12 @@ export class RestaurantDiscoveryService {
         businessTypes: {
           some: {
             businessType: { in: foodTypes },
-            status: StoreBusinessTypeStatus.APPROVED,
+            status: {
+              in: [
+                StoreBusinessTypeStatus.APPROVED,
+                StoreBusinessTypeStatus.PENDING,
+              ],
+            },
           },
         },
         ...(opts.cuisineSlug
@@ -81,6 +87,7 @@ export class RestaurantDiscoveryService {
           canDeliverToBuyer(toDeliverableStoreShape(store), {
             lat: opts.lat!,
             lng: opts.lng!,
+            pincode: opts.pincode,
             discoveryRadiusKm: DEFAULT_BUYER_DISCOVERY_RADIUS_KM,
           }).eligible,
         )

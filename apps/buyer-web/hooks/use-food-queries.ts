@@ -44,6 +44,7 @@ export function useRestaurantMenuQuery(slug: string) {
     enabled: Boolean(slug),
     staleTime: 15_000,
     refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
   });
 }
 

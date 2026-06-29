@@ -16,7 +16,7 @@ import { useEffectiveLocation } from '@/store/location-store';
 
 export function RestaurantsListingContent() {
   const router = useRouter();
-  const { lat, lng, label, isReady } = useEffectiveLocation();
+  const { lat, lng, label, pincode, isReady } = useEffectiveLocation();
   const [cuisineSlug, setCuisineSlug] = useState<string | undefined>();
   const { data: cuisines = [] } = useCuisinesQuery();
 
@@ -24,11 +24,12 @@ export function RestaurantsListingContent() {
     () => ({
       lat: lat ?? undefined,
       lng: lng ?? undefined,
+      pincode: pincode ?? undefined,
       cuisine: cuisineSlug,
       page: 1,
       limit: 36,
     }),
-    [lat, lng, cuisineSlug],
+    [lat, lng, pincode, cuisineSlug],
   );
 
   const { data: restaurants = [], isLoading, isError, error, refetch } = useRestaurantsQuery(
@@ -95,7 +96,7 @@ export function RestaurantsListingContent() {
           ) : restaurants.length === 0 ? (
             <EmptyState
               title="No restaurants found"
-              description="Try a different cuisine filter or explore food on the home page."
+              description="No food stores deliver to this location yet. Try another area, or ask the restaurant to add your pincode in Delivery Coverage."
               actionLabel="Back to food"
               onAction={() => router.push('/food')}
             />

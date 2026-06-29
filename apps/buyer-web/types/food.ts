@@ -199,6 +199,7 @@ export interface FoodCodCheckoutResult {
 export interface ListRestaurantsParams {
   lat?: number;
   lng?: number;
+  pincode?: string;
   cuisine?: string;
   vertical?: string;
   page?: number;

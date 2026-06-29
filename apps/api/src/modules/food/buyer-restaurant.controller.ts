@@ -26,6 +26,7 @@ export class BuyerRestaurantController {
   async listRestaurants(
     @Query('lat') lat?: number,
     @Query('lng') lng?: number,
+    @Query('pincode') pincode?: string,
     @Query('cuisine') cuisineSlug?: string,
     @Query('vertical') vertical?: VerticalBusinessType,
     @Query('page') page?: number,
@@ -34,6 +35,7 @@ export class BuyerRestaurantController {
     const data = await this.discovery.listRestaurants({
       lat: lat ? Number(lat) : undefined,
       lng: lng ? Number(lng) : undefined,
+      pincode: pincode?.trim() || undefined,
       cuisineSlug,
       vertical,
       page: page ? Number(page) : undefined,
