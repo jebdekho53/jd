@@ -12,9 +12,10 @@ import {
   Matches,
   Max,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   MerchantBusinessType,
   MerchantDocumentType,
@@ -23,26 +24,33 @@ import {
 } from '@prisma/client';
 import { PHONE_E164_REGEX } from '../../../common/constants';
 
+const emptyToUndefined = ({ value }: { value: unknown }) =>
+  typeof value === 'string' && value.trim() === '' ? undefined : value;
+
 export class ResolveStoreLocationDto {
   @ApiPropertyOptional()
+  @Transform(emptyToUndefined)
   @IsOptional()
   @IsString()
   locality?: string;
 
   @ApiPropertyOptional()
+  @Transform(emptyToUndefined)
   @IsOptional()
   @IsString()
   city?: string;
 
   @ApiPropertyOptional()
+  @Transform(emptyToUndefined)
   @IsOptional()
   @IsString()
   state?: string;
 
   @ApiPropertyOptional()
+  @Transform(emptyToUndefined)
   @IsOptional()
-  @IsString()
-  @Length(6, 6)
+  @ValidateIf((o) => o.pincode != null)
+  @Matches(/^\d{6}$/)
   pincode?: string;
 
   @ApiProperty()

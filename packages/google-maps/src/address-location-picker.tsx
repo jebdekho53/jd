@@ -86,11 +86,18 @@ export function AddressLocationPicker({
 
   const reverse = useCallback(
     async (lat: number, lng: number) => {
-      if (!onReverseGeocode) return null;
       setGeocoding(true);
       setGeocodeError(null);
       try {
-        return await onReverseGeocode(lat, lng);
+        if (isConfigured) {
+          const { reverseGeocodeClient } = await import('./reverse-geocode-client');
+          const clientResult = await reverseGeocodeClient(lat, lng);
+          if (clientResult) return clientResult;
+        }
+        if (onReverseGeocode) {
+          return await onReverseGeocode(lat, lng);
+        }
+        return null;
       } catch (err) {
         setGeocodeError(err instanceof Error ? err.message : 'Reverse geocoding failed');
         return null;
@@ -98,7 +105,7 @@ export function AddressLocationPicker({
         setGeocoding(false);
       }
     },
-    [onReverseGeocode],
+    [isConfigured, onReverseGeocode],
   );
 
   const handleMapMove = useCallback(

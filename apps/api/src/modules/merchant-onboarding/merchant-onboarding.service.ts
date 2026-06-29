@@ -162,10 +162,17 @@ export class MerchantOnboardingService {
     }
 
     if (!pincode || !/^\d{6}$/.test(pincode)) {
-      throw new BadRequestException('A valid 6-digit pincode is required. Pin your store on the map or use GPS.');
+      const geocodeHint = this.geocoding.isConfigured()
+        ? ''
+        : ' Server geocoding is not configured (set GOOGLE_MAPS_API_KEY on API).';
+      throw new BadRequestException(
+        `A valid 6-digit pincode is required. Pin your store on the map or use GPS.${geocodeHint}`,
+      );
     }
     if (!city || !state) {
-      throw new BadRequestException('City and state are required. Try search, GPS, or drag the map pin.');
+      throw new BadRequestException(
+        'City and state are required. Try search, GPS, or drag the map pin.',
+      );
     }
 
     const mld = await this.locations.tryResolvePincode({

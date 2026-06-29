@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -74,6 +74,30 @@ const STEP_KEYS = [
   'REVIEW',
 ] as const;
 
+const RESOLVE_DEBOUNCE_MS = 400;
+
+type LocationSelectionInput = {
+  locality: string;
+  city: string;
+  state: string;
+  pincode: string;
+  lat: number;
+  lng: number;
+  locationPincodeId?: string;
+  locationAreaId?: string;
+  locationCityId?: string;
+};
+
+function isLocationReadyForResolve(selection: LocationSelectionInput): boolean {
+  return (
+    Number.isFinite(selection.lat) &&
+    Number.isFinite(selection.lng) &&
+    /^\d{6}$/.test(selection.pincode.trim()) &&
+    Boolean(selection.city.trim()) &&
+    Boolean(selection.state.trim())
+  );
+}
+
 export function MerchantSignupContent() {
   const router = useRouter();
   const { toast } = useToast();
@@ -86,6 +110,15 @@ export function MerchantSignupContent() {
   const [saving, setSaving] = useState(false);
   const [resolvingLocation, setResolvingLocation] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState<Set<string>>(new Set());
+  const resolveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resolveVersionRef = useRef(0);
+
+  useEffect(
+    () => () => {
+      if (resolveDebounceRef.current) clearTimeout(resolveDebounceRef.current);
+    },
+    [],
+  );
 
   const [form, setForm] = useState({
     ownerName: '',
@@ -395,17 +428,7 @@ export function MerchantSignupContent() {
     }
   };
 
-  const applyLocationSelection = async (selection: {
-    locality: string;
-    city: string;
-    state: string;
-    pincode: string;
-    lat: number;
-    lng: number;
-    locationPincodeId?: string;
-    locationAreaId?: string;
-    locationCityId?: string;
-  }) => {
+  const syncLocationForm = (selection: LocationSelectionInput) => {
     setForm((f) => ({
       ...f,
       locality: selection.locality,
@@ -418,45 +441,81 @@ export function MerchantSignupContent() {
       locationAreaId: selection.locationAreaId ?? '',
       locationCityId: selection.locationCityId ?? '',
     }));
-    setResolvingLocation(true);
-    try {
-      const resolved = await resolveStoreLocation({
-        locality: selection.locality,
-        city: selection.city,
-        state: selection.state,
-        pincode: selection.pincode,
-        latitude: selection.lat,
-        longitude: selection.lng,
-        locationCityId: selection.locationCityId,
-        locationAreaId: selection.locationAreaId,
-      });
-      setForm((f) => ({
-        ...f,
-        locality: resolved.locality || selection.locality,
-        city: resolved.city,
-        state: resolved.state,
-        pincode: resolved.pincode,
-        latitude: resolved.latitude,
-        longitude: resolved.longitude,
-        cityId: resolved.cityId,
-        operationalCityName: resolved.operationalCityName,
-        expansionArea: resolved.expansionArea,
-        locationPincodeId: resolved.locationPincodeId ?? '',
-        locationAreaId: resolved.locationAreaId ?? '',
-        locationCityId: resolved.locationCityId ?? '',
-      }));
-      if (resolved.expansionArea) {
-        toast(
-          'Location saved. Our team will review delivery in this area after you submit.',
-          'info',
-        );
-      }
-    } catch (e) {
-      toast((e as Error).message, 'error');
-    } finally {
-      setResolvingLocation(false);
-    }
   };
+
+  const resolveLocationWhenReady = useCallback(
+    async (selection: LocationSelectionInput) => {
+      if (!isLocationReadyForResolve(selection)) return;
+
+      const version = ++resolveVersionRef.current;
+      setResolvingLocation(true);
+      try {
+        const body: Parameters<typeof resolveStoreLocation>[0] = {
+          latitude: selection.lat,
+          longitude: selection.lng,
+        };
+        const locality = selection.locality.trim();
+        const city = selection.city.trim();
+        const state = selection.state.trim();
+        const pincode = selection.pincode.trim();
+        if (locality) body.locality = locality;
+        if (city) body.city = city;
+        if (state) body.state = state;
+        if (pincode) body.pincode = pincode;
+        if (selection.locationCityId) body.locationCityId = selection.locationCityId;
+        if (selection.locationAreaId) body.locationAreaId = selection.locationAreaId;
+
+        const resolved = await resolveStoreLocation(body);
+        if (version !== resolveVersionRef.current) return;
+
+        setForm((f) => ({
+          ...f,
+          locality: resolved.locality || selection.locality,
+          city: resolved.city,
+          state: resolved.state,
+          pincode: resolved.pincode,
+          latitude: resolved.latitude,
+          longitude: resolved.longitude,
+          cityId: resolved.cityId,
+          operationalCityName: resolved.operationalCityName,
+          expansionArea: resolved.expansionArea,
+          locationPincodeId: resolved.locationPincodeId ?? '',
+          locationAreaId: resolved.locationAreaId ?? '',
+          locationCityId: resolved.locationCityId ?? '',
+        }));
+        if (resolved.expansionArea) {
+          toast(
+            'Location saved. Our team will review delivery in this area after you submit.',
+            'info',
+          );
+        }
+      } catch (e) {
+        if (version === resolveVersionRef.current) {
+          toast((e as Error).message, 'error');
+        }
+      } finally {
+        if (version === resolveVersionRef.current) {
+          setResolvingLocation(false);
+        }
+      }
+    },
+    [toast],
+  );
+
+  const applyLocationSelection = useCallback(
+    (selection: LocationSelectionInput) => {
+      syncLocationForm(selection);
+
+      if (resolveDebounceRef.current) clearTimeout(resolveDebounceRef.current);
+
+      if (!isLocationReadyForResolve(selection)) return;
+
+      resolveDebounceRef.current = setTimeout(() => {
+        void resolveLocationWhenReady(selection);
+      }, RESOLVE_DEBOUNCE_MS);
+    },
+    [resolveLocationWhenReady],
+  );
 
   const handleFile = async (documentType: string, file: File) => {
     const reader = new FileReader();
