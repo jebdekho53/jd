@@ -11,12 +11,13 @@ import { AdminAiProductUsageController } from './admin-ai-product-usage.controll
 import { AdminAiProductUsageService } from './admin-ai-product-usage.service';
 import { AdminMerchantAiWalletController } from './admin-merchant-ai-wallet.controller';
 import { StoreModule } from '../store/store.module';
+import { StoreVerticalModule } from '../store-vertical/store-vertical.module';
 import { BuyerModule } from '../buyer/buyer.module';
 import { MerchantModule } from '../merchant/merchant.module';
 import { ProductModule } from '../product/product.module';
 
 @Module({
-  imports: [StoreModule, BuyerModule, MerchantModule, ProductModule],
+  imports: [StoreModule, StoreVerticalModule, BuyerModule, MerchantModule, ProductModule],
   controllers: [
     AdminStoreController,
     AdminMerchantController,

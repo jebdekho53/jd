@@ -10,6 +10,7 @@ import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 import { EmailNotificationService } from '../email/email-notification.service';
 import { MerchantService } from '../merchant/merchant.service';
+import { VerticalService } from '../store-vertical/vertical.service';
 
 const PENDING_STORE = {
   id: 's-1',
@@ -26,6 +27,7 @@ const mockPrisma = {
     count: jest.fn(),
     update: jest.fn(),
   },
+  storeBusinessType: { updateMany: jest.fn() },
   merchantProfile: { update: jest.fn(), findUnique: jest.fn().mockResolvedValue({ userId: 'u-1' }) },
   storeDocumentRequest: { create: jest.fn() },
   $transaction: jest.fn(),
@@ -41,6 +43,9 @@ const mockBlocklist = {
 const mockEmail = {
   sendMerchantStoreApproved: jest.fn(),
   sendMerchantStoreRejected: jest.fn(),
+};
+const mockVerticalService = {
+  ensureStoreBusinessTypesFromApplication: jest.fn().mockResolvedValue([]),
 };
 
 describe('AdminStoreService', () => {
@@ -58,6 +63,7 @@ describe('AdminStoreService', () => {
         { provide: VerificationBlocklistService, useValue: mockBlocklist },
         { provide: EmailNotificationService, useValue: mockEmail },
         { provide: MerchantService, useValue: { ensureMerchantRole: jest.fn() } },
+        { provide: VerticalService, useValue: mockVerticalService },
       ],
     }).compile();
     service = module.get<AdminStoreService>(AdminStoreService);

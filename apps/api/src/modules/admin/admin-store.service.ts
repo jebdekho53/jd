@@ -4,7 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { DomainEventType, Prisma, RejectionType, StoreDocumentType, StoreStatus } from '@prisma/client';
+import { DomainEventType, Prisma, RejectionType, StoreBusinessTypeStatus, StoreDocumentType, StoreStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
@@ -19,6 +19,7 @@ import { MerchantService } from '../merchant/merchant.service';
 import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 import { EmailNotificationService } from '../email/email-notification.service';
+import { VerticalService } from '../store-vertical/vertical.service';
 
 const APPROVABLE_STATUSES: StoreStatus[] = [
   StoreStatus.PENDING_REVIEW,
@@ -78,6 +79,7 @@ export class AdminStoreService {
     private readonly blocklist: VerificationBlocklistService,
     private readonly emailNotifications: EmailNotificationService,
     private readonly merchantService: MerchantService,
+    private readonly verticalService: VerticalService,
   ) {}
 
   async listStoreApprovals(
@@ -196,6 +198,17 @@ export class AdminStoreService {
     if (updated.merchantProfile?.userId) {
       await this.merchantService.ensureMerchantRole(updated.merchantProfile.userId);
     }
+
+    await this.verticalService.ensureStoreBusinessTypesFromApplication(storeId);
+    await this.prisma.storeBusinessType.updateMany({
+      where: { storeId, status: StoreBusinessTypeStatus.PENDING },
+      data: {
+        status: StoreBusinessTypeStatus.APPROVED,
+        reviewedBy: adminUserId,
+        reviewedAt: now,
+        rejectionReason: null,
+      },
+    });
 
     await Promise.all([
       this.audit.log({

@@ -9,12 +9,13 @@ import {
   DietType,
   MenuItemAvailability,
   StoreBusinessTypeStatus,
-  VerticalBusinessType,
+  StoreStatus,
 } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { StoreCategoryAccessService } from '../category-governance/store-category-access.service';
-import { slugifyMenu } from './vertical.constants';
+import { VerticalService } from '../store-vertical/vertical.service';
+import { isFoodVertical, slugifyMenu } from './vertical.constants';
 import { CreateMenuCategoryDto } from './dto/create-menu-category.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { CreateAddonGroupDto } from './dto/create-addon-group.dto';
@@ -26,6 +27,7 @@ export class MenuService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly categoryAccess: StoreCategoryAccessService,
+    private readonly verticalService: VerticalService,
   ) {}
 
   async assertStoreOwnership(merchantProfileId: string, storeId: string) {
@@ -37,24 +39,40 @@ export class MenuService {
   }
 
   private async assertFoodBusinessTypeApproved(storeId: string): Promise<void> {
-    const approved = await this.prisma.storeBusinessType.findFirst({
-      where: {
-        storeId,
-        status: StoreBusinessTypeStatus.APPROVED,
-        businessType: {
-          in: [
-            VerticalBusinessType.RESTAURANT,
-            VerticalBusinessType.CLOUD_KITCHEN,
-            VerticalBusinessType.CAFE,
-          ],
-        },
-      },
+    await this.verticalService.ensureStoreBusinessTypesFromApplication(storeId);
+
+    const foodTypes = await this.prisma.storeBusinessType.findMany({
+      where: { storeId },
+      select: { businessType: true, status: true },
     });
-    if (!approved) {
-      throw new ForbiddenException(
-        'Restaurant business type must be approved before managing menu categories',
-      );
+
+    if (
+      foodTypes.some(
+        (row) =>
+          isFoodVertical(row.businessType) && row.status === StoreBusinessTypeStatus.APPROVED,
+      )
+    ) {
+      return;
     }
+
+    const store = await this.prisma.store.findFirst({
+      where: { id: storeId, deletedAt: null },
+      select: { status: true },
+    });
+
+    if (
+      store?.status === StoreStatus.APPROVED &&
+      foodTypes.some(
+        (row) =>
+          isFoodVertical(row.businessType) && row.status === StoreBusinessTypeStatus.PENDING,
+      )
+    ) {
+      return;
+    }
+
+    throw new ForbiddenException(
+      'Restaurant business type must be approved before managing menu categories',
+    );
   }
 
   private async assertStoreFssai(storeId: string): Promise<void> {

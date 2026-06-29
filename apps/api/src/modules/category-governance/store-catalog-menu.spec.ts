@@ -43,12 +43,12 @@ const mockConfig = {
   get: (key: string) =>
     key === 'UPLOAD_PUBLIC_URL' ? 'https://api.jebdekho.com/uploads' : undefined,
 };
+const mockVerticalService = {
+  ensureStoreBusinessTypesFromApplication: jest.fn().mockResolvedValue([]),
+};
 const mockCategoryAccess = {
   assertMenuSubcategoryApproved: jest.fn(),
   listApprovedCategoryTree: jest.fn(),
-};
-const mockVerticalService = {
-  ensureStoreBusinessTypesFromApplication: jest.fn().mockResolvedValue([]),
 };
 
 describe('Store catalog kind filtering', () => {
@@ -141,6 +141,7 @@ describe('Menu category approval gate', () => {
         MenuService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: StoreCategoryAccessService, useValue: mockCategoryAccess },
+        { provide: VerticalService, useValue: mockVerticalService },
       ],
     }).compile();
 
@@ -150,11 +151,14 @@ describe('Menu category approval gate', () => {
       id: 'store-food',
       merchantProfileId: 'mp-1',
       deletedAt: null,
+      status: 'APPROVED',
     });
-    mockPrisma.storeBusinessType.findFirst.mockResolvedValue({
-      businessType: VerticalBusinessType.RESTAURANT,
-      status: StoreBusinessTypeStatus.APPROVED,
-    });
+    mockPrisma.storeBusinessType.findMany.mockResolvedValue([
+      {
+        businessType: VerticalBusinessType.RESTAURANT,
+        status: StoreBusinessTypeStatus.APPROVED,
+      },
+    ]);
   });
 
   it('blocks menu category create without platformCategoryId', async () => {
@@ -202,6 +206,29 @@ describe('Menu category approval gate', () => {
         }),
       }),
     );
+  });
+
+  it('allows menu category when food business type is pending on an approved store', async () => {
+    mockPrisma.storeBusinessType.findMany.mockResolvedValue([
+      {
+        businessType: VerticalBusinessType.CLOUD_KITCHEN,
+        status: StoreBusinessTypeStatus.PENDING,
+      },
+    ]);
+    mockCategoryAccess.assertMenuSubcategoryApproved.mockResolvedValue({
+      parentId: 'parent-food',
+      subcategoryId: 'sub-pizza',
+      slug: 'pizza',
+      name: 'Pizza',
+    });
+    mockPrisma.restaurantMenuCategory.findFirst.mockResolvedValue(null);
+    mockPrisma.restaurantMenuCategory.create.mockResolvedValue({ id: 'rmc-2', name: 'Pizza' });
+
+    const result = await menuService.createCategory('mp-1', 'store-food', {
+      platformCategoryId: 'sub-pizza',
+    });
+
+    expect(result.id).toBe('rmc-2');
   });
 
   it('rejects duplicate menu category for same platform subcategory', async () => {
