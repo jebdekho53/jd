@@ -15,6 +15,7 @@ import { StoreCategoryAccessService } from './store-category-access.service';
 import { ConfigService } from '@nestjs/config';
 import { MenuService } from '../food/menu.service';
 import { VerticalService } from '../store-vertical/vertical.service';
+import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { PrismaService } from '../../database/prisma.service';
 import { MerchantService } from '../merchant/merchant.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
@@ -49,6 +50,9 @@ const mockConfig = {
 };
 const mockVerticalService = {
   ensureStoreBusinessTypesFromApplication: jest.fn().mockResolvedValue([]),
+};
+const mockBuyerCache = {
+  invalidateStoreCache: jest.fn().mockResolvedValue(undefined),
 };
 const mockCategoryAccess = {
   assertMenuSubcategoryApproved: jest.fn(),
@@ -146,16 +150,21 @@ describe('Menu category approval gate', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: StoreCategoryAccessService, useValue: mockCategoryAccess },
         { provide: VerticalService, useValue: mockVerticalService },
+        { provide: BuyerCacheService, useValue: mockBuyerCache },
       ],
     }).compile();
 
     menuService = module.get(MenuService);
     jest.clearAllMocks();
-    mockPrisma.store.findFirst.mockResolvedValue({
-      id: 'store-food',
-      merchantProfileId: 'mp-1',
-      deletedAt: null,
-      status: 'APPROVED',
+    mockPrisma.store.findFirst.mockImplementation((args?: { where?: { merchantProfileId?: string } }) => {
+      if (args?.where && 'merchantProfileId' in args.where) {
+        return Promise.resolve({
+          id: 'store-food',
+          merchantProfileId: 'mp-1',
+          deletedAt: null,
+        });
+      }
+      return Promise.resolve({ id: 'store-food', status: 'APPROVED', slug: 'cloud-9' });
     });
     mockPrisma.storeBusinessType.findMany.mockResolvedValue([
       {

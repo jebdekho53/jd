@@ -105,6 +105,9 @@ function MenuItemRow({
             {item.description && (
               <p className="mt-0.5 line-clamp-2 text-xs text-jd-text-muted">{item.description}</p>
             )}
+            {item.servingSize && (
+              <p className="mt-0.5 text-[11px] text-jd-text-muted">{item.servingSize}</p>
+            )}
             {defaultVariant && item.variants.length > 1 && (
               <p className="mt-1 text-[11px] text-jd-text-muted">{defaultVariant.name}</p>
             )}

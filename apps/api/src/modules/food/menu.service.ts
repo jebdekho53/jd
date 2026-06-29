@@ -15,6 +15,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { StoreCategoryAccessService } from '../category-governance/store-category-access.service';
 import { VerticalService } from '../store-vertical/vertical.service';
+import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { isFoodVertical, slugifyMenu } from './vertical.constants';
 import { CreateMenuCategoryDto } from './dto/create-menu-category.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
@@ -29,6 +30,7 @@ export class MenuService {
     private readonly prisma: PrismaService,
     private readonly categoryAccess: StoreCategoryAccessService,
     private readonly verticalService: VerticalService,
+    private readonly buyerCache: BuyerCacheService,
   ) {}
 
   async assertStoreOwnership(merchantProfileId: string, storeId: string) {
@@ -74,6 +76,15 @@ export class MenuService {
     throw new ForbiddenException(
       'Restaurant business type must be approved before managing menu categories',
     );
+  }
+
+  private async invalidateBuyerMenuCache(storeId: string): Promise<void> {
+    const store = await this.prisma.store.findFirst({
+      where: { id: storeId, deletedAt: null },
+      select: { slug: true },
+    });
+    if (!store?.slug) return;
+    await this.buyerCache.invalidateStoreCache(store.slug);
   }
 
   private async assertStoreFssai(storeId: string): Promise<void> {
@@ -210,7 +221,7 @@ export class MenuService {
     const slug = dto.slug ?? slugifyMenu(displayName);
     const categorySlug = dto.categorySlug ?? mapPlatformSlugToMenuCategorySlug(platform.slug);
 
-    return this.prisma.restaurantMenuCategory.create({
+    const category = await this.prisma.restaurantMenuCategory.create({
       data: {
         storeId,
         platformCategoryId: platform.subcategoryId,
@@ -225,6 +236,8 @@ export class MenuService {
         platformCategory: { select: { id: true, name: true, slug: true } },
       },
     });
+    void this.invalidateBuyerMenuCache(storeId);
+    return category;
   }
 
   async createMenuItem(merchantProfileId: string, storeId: string, dto: CreateMenuItemDto) {
@@ -278,6 +291,7 @@ export class MenuService {
     });
 
     await this.upsertSearchIndex(item.id);
+    void this.invalidateBuyerMenuCache(storeId);
     return item;
   }
 

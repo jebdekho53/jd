@@ -42,7 +42,8 @@ export function useRestaurantMenuQuery(slug: string) {
     queryKey: foodKeys.menu(slug),
     queryFn: () => getRestaurantMenu(slug),
     enabled: Boolean(slug),
-    staleTime: 60_000,
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
   });
 }
 

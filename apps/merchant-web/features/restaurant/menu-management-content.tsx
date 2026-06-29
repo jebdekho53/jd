@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button, Card, CardBody, Input, Select, Spinner, Textarea, useToast } from '@/design-system/primitives';
+import { ImageUploadField } from '@/features/media/components/image-upload-field';
 import {
   createAddonGroup,
   createCombo,
@@ -327,24 +329,166 @@ function ItemsPanel({
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? '');
   const [name, setName] = useState('');
   const [basePrice, setBasePrice] = useState('');
+  const [mrp, setMrp] = useState('');
   const [description, setDescription] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [servingSize, setServingSize] = useState('');
   const [dietType, setDietType] = useState<string>('VEG');
   const [spiceLevel, setSpiceLevel] = useState<string>('MEDIUM');
   const [prepTimeMins, setPrepTimeMins] = useState('15');
+  const [sizeName, setSizeName] = useState('');
+  const [sizePrice, setSizePrice] = useState('');
+  const [sizes, setSizes] = useState<Array<{ name: string; price: number; isDefault: boolean }>>([]);
 
-  const reset = () => { setName(''); setBasePrice(''); setDescription(''); };
+  const hasSizes = sizes.length > 0;
+
+  const reset = () => {
+    setName('');
+    setBasePrice('');
+    setMrp('');
+    setDescription('');
+    setImageUrl('');
+    setServingSize('');
+    setSizes([]);
+    setSizeName('');
+    setSizePrice('');
+  };
+
+  const addSize = () => {
+    if (!sizeName.trim() || !sizePrice.trim()) return;
+    const price = Number(sizePrice);
+    if (!Number.isFinite(price) || price < 0) return;
+    setSizes((prev) => [
+      ...prev.map((s) => ({ ...s, isDefault: false })),
+      { name: sizeName.trim(), price, isDefault: prev.length === 0 },
+    ]);
+    setSizeName('');
+    setSizePrice('');
+  };
+
+  const setDefaultSize = (index: number) => {
+    setSizes((prev) => prev.map((s, i) => ({ ...s, isDefault: i === index })));
+  };
+
+  const removeSize = (index: number) => {
+    setSizes((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length > 0 && !next.some((s) => s.isDefault)) {
+        next[0] = { ...next[0], isDefault: true };
+      }
+      return next;
+    });
+  };
+
+  const resolvedBasePrice = () => {
+    if (hasSizes) {
+      const def = sizes.find((s) => s.isDefault) ?? sizes[0];
+      return def?.price ?? 0;
+    }
+    return Number(basePrice);
+  };
+
+  const canSubmit =
+    Boolean(categoryId && name.trim()) &&
+    (hasSizes ? sizes.every((s) => s.price >= 0) : Boolean(basePrice));
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardBody className="space-y-4">
           <h2 className="font-semibold text-slate-900">Add menu item</h2>
+          <p className="text-sm text-slate-500">
+            Photo, price, and sizes appear on the customer app as soon as you save.
+          </p>
           <Select label="Category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
             {!categories.length && <option value="">Create a category first</option>}
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
-          <Input label="Dish name" value={name} onChange={(e) => setName(e.target.value)} />
-          <Input label="Base price (₹)" type="number" min={0} value={basePrice} onChange={(e) => setBasePrice(e.target.value)} />
+          <Input label="Dish name *" value={name} onChange={(e) => setName(e.target.value)} />
+          <ImageUploadField
+            label="Dish photo"
+            value={imageUrl || null}
+            onChange={setImageUrl}
+            purpose="product"
+            hint="Shown to customers on the menu"
+          />
+          {!hasSizes && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                label="Price (₹) *"
+                type="number"
+                min={0}
+                value={basePrice}
+                onChange={(e) => setBasePrice(e.target.value)}
+              />
+              <Input
+                label="MRP (₹, optional)"
+                type="number"
+                min={0}
+                value={mrp}
+                onChange={(e) => setMrp(e.target.value)}
+              />
+            </div>
+          )}
+          <div className="rounded-xl border border-slate-200 p-3 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-slate-800">Sizes (optional)</p>
+              <p className="text-xs text-slate-500">
+                Add Half / Full, Regular / Large, etc. Each size can have its own price.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Input
+                placeholder="Size name (e.g. Regular)"
+                value={sizeName}
+                onChange={(e) => setSizeName(e.target.value)}
+                className="min-w-[140px] flex-1"
+              />
+              <Input
+                placeholder="Price ₹"
+                type="number"
+                min={0}
+                value={sizePrice}
+                onChange={(e) => setSizePrice(e.target.value)}
+                className="w-28"
+              />
+              <Button type="button" variant="secondary" size="sm" onClick={addSize}>
+                Add size
+              </Button>
+            </div>
+            {sizes.map((size, index) => (
+              <div key={`${size.name}-${index}`} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="text-slate-700">
+                  {size.name} — <strong>₹{size.price}</strong>
+                  {size.isDefault && <span className="ml-2 text-xs text-brand-600">Default</span>}
+                </span>
+                <div className="flex gap-2">
+                  {!size.isDefault && (
+                    <button
+                      type="button"
+                      className="text-xs text-brand-600 underline"
+                      onClick={() => setDefaultSize(index)}
+                    >
+                      Set default
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="text-xs text-red-600 underline"
+                    onClick={() => removeSize(index)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <Input
+            label="Serving size (optional)"
+            value={servingSize}
+            onChange={(e) => setServingSize(e.target.value)}
+            placeholder="e.g. Serves 2, 250g"
+          />
           <Textarea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
           <div className="grid gap-4 sm:grid-cols-2">
             <Select label="Diet" value={dietType} onChange={(e) => setDietType(e.target.value)}>
@@ -357,16 +501,27 @@ function ItemsPanel({
           <Input label="Prep time (mins)" type="number" min={1} value={prepTimeMins} onChange={(e) => setPrepTimeMins(e.target.value)} />
           <Button
             loading={loading}
-            disabled={!categoryId || !name.trim() || !basePrice}
+            disabled={!canSubmit}
             onClick={() => {
+              const price = resolvedBasePrice();
               onCreate({
                 categoryId,
                 name: name.trim(),
-                basePrice: Number(basePrice),
+                basePrice: price,
                 description: description.trim() || undefined,
+                imageUrls: imageUrl.trim() ? [imageUrl.trim()] : undefined,
+                mrp: mrp.trim() ? Number(mrp) : undefined,
+                servingSize: servingSize.trim() || undefined,
                 dietType,
                 spiceLevel,
                 prepTimeMins: Number(prepTimeMins) || 15,
+                variants: hasSizes
+                  ? sizes.map((s) => ({
+                      name: s.name,
+                      price: s.price,
+                      isDefault: s.isDefault,
+                    }))
+                  : undefined,
               });
               reset();
             }}
@@ -380,17 +535,37 @@ function ItemsPanel({
           <div key={cat.id}>
             <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{cat.name}</h3>
             <div className="space-y-2">
-              {(cat.items ?? []).map((item) => (
-                <Card key={item.id}>
-                  <CardBody className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-slate-900">{item.name}</p>
-                      <p className="text-xs text-slate-500">{formatLabel(item.dietType)} · {item.prepTimeMins ?? 15} min</p>
-                    </div>
-                    <span className="font-semibold text-brand-700">₹{item.basePrice}</span>
-                  </CardBody>
-                </Card>
-              ))}
+              {(cat.items ?? []).map((item) => {
+                const thumb = item.imageUrls?.[0];
+                const variants = item.variants ?? [];
+                const priceLabel =
+                  variants.length > 1
+                    ? variants.map((v) => `${v.name} ₹${v.price}`).join(' · ')
+                    : `₹${item.basePrice}`;
+                return (
+                  <Card key={item.id}>
+                    <CardBody className="flex items-center gap-3">
+                      {thumb ? (
+                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                          <Image src={thumb} alt="" fill className="object-cover" unoptimized />
+                        </div>
+                      ) : (
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-400">
+                          No photo
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-slate-900">{item.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {formatLabel(item.dietType)} · {item.prepTimeMins ?? 15} min
+                          {item.servingSize ? ` · ${item.servingSize}` : ''}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-brand-700">{priceLabel}</p>
+                      </div>
+                    </CardBody>
+                  </Card>
+                );
+              })}
               {!cat.items?.length && (
                 <p className="text-sm text-slate-400">No items in this category.</p>
               )}

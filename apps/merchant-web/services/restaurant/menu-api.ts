@@ -26,10 +26,13 @@ export interface MenuItem {
   name: string;
   slug: string;
   description?: string | null;
+  imageUrls?: string[];
   basePrice: number;
+  mrp?: number | null;
   dietType: string;
   spiceLevel?: string | null;
   prepTimeMins?: number | null;
+  servingSize?: string | null;
   categoryId: string;
   variants?: MenuItemVariant[];
 }
@@ -125,9 +128,13 @@ export async function createMenuItem(
     name: string;
     basePrice: number;
     description?: string;
+    imageUrls?: string[];
+    mrp?: number;
+    servingSize?: string;
     dietType?: string;
     spiceLevel?: string;
     prepTimeMins?: number;
+    variants?: Array<{ name: string; price: number; isDefault?: boolean }>;
   },
 ): Promise<MenuItem> {
   const res = await merchantFetch<{ data: MenuItem }>(

@@ -23,6 +23,7 @@ import { ProductModule } from '../product/product.module';
 import { PaymentModule } from '../payment/payment.module';
 import { PushModule } from '../push/push.module';
 import { EmailModule } from '../email/email.module';
+import { BuyerModule } from '../buyer/buyer.module';
 import { CategoryGovernanceModule } from '../category-governance/category-governance.module';
 import { StoreVerticalModule } from '../store-vertical/store-vertical.module';
 
@@ -32,6 +33,7 @@ import { StoreVerticalModule } from '../store-vertical/store-vertical.module';
     LogisticsModule,
     OrderTimelineModule,
     MerchantModule,
+    BuyerModule,
     CategoryGovernanceModule,
     StoreVerticalModule,
     forwardRef(() => ProductModule),
