@@ -20,6 +20,16 @@ export const REVENUE_STATUSES: OrderStatus[] = [
 ];
 
 export const ORDER_TAB_STATUSES: Record<string, OrderStatus[]> = {
+  ACTIVE: [
+    OrderStatus.PAID,
+    OrderStatus.MERCHANT_ACCEPTED,
+    OrderStatus.PREPARING,
+    OrderStatus.PACKING,
+    OrderStatus.READY_FOR_PICKUP,
+    OrderStatus.RIDER_ASSIGNED,
+    OrderStatus.PICKED_UP,
+    OrderStatus.OUT_FOR_DELIVERY,
+  ],
   NEW: [OrderStatus.PAID, OrderStatus.MERCHANT_ACCEPTED],
   ACCEPTED: [OrderStatus.MERCHANT_ACCEPTED],
   PREPARING: [OrderStatus.PREPARING],

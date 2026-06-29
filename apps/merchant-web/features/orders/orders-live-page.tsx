@@ -8,6 +8,7 @@ import { OrderSlaBadge } from './components/order-sla-badge';
 import { useOrdersQuery } from '@/hooks/use-orders';
 import { useStoreStore } from '@/store/store-store';
 import type { MerchantOrderListItem } from '@/types/order';
+import { liveOrdersQueryParams } from '@/lib/orders/live-orders-query';
 
 const QUEUES = [
   { key: 'incoming', label: 'Incoming', match: (o: MerchantOrderListItem) => ['PAID', 'MERCHANT_ACCEPTED'].includes(o.status) },
@@ -21,7 +22,7 @@ const QUEUES = [
 export function OrdersLivePageContent() {
   const { currentStore } = useStoreStore();
   const { data, refetch, isFetching } = useOrdersQuery(
-    { storeId: currentStore?.id, today: true, limit: 200 },
+    liveOrdersQueryParams(currentStore?.id),
     { refetchInterval: 15_000 },
   );
 

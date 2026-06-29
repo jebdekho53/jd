@@ -20,6 +20,7 @@ export interface MerchantOrderListItem {
   status: OrderStatus;
   paymentMethod: PaymentMethod;
   paymentStatus: string;
+  orderVertical?: 'GROCERY' | 'FOOD';
   totalAmount: number;
   createdAt: string;
   updatedAt?: string;
@@ -149,6 +150,7 @@ export interface OrderListResponse {
 export interface ListOrdersParams {
   status?: OrderStatus;
   merchantStatusGroup?:
+    | 'active'
     | 'new'
     | 'accepted'
     | 'preparing'

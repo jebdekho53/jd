@@ -14,6 +14,7 @@ export class MerchantDashboardOrdersQueryDto extends MerchantDashboardStoreQuery
     description: 'Order status tab',
     enum: [
       'NEW',
+      'ACTIVE',
       'ACCEPTED',
       'PREPARING',
       'READY_FOR_PICKUP',

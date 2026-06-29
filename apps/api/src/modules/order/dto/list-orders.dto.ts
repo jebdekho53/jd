@@ -39,11 +39,11 @@ export class ListMerchantOrdersDto extends ListOrdersDto {
 
   @ApiProperty({
     required: false,
-    enum: ['new', 'accepted', 'preparing', 'packing', 'ready_for_pickup', 'rider_assigned', 'delivered', 'cancelled'],
+    enum: ['active', 'new', 'accepted', 'preparing', 'packing', 'ready_for_pickup', 'rider_assigned', 'delivered', 'cancelled'],
   })
   @IsOptional()
-  @IsIn(['new', 'accepted', 'preparing', 'packing', 'ready_for_pickup', 'rider_assigned', 'delivered', 'cancelled'])
-  merchantStatusGroup?: 'new' | 'accepted' | 'preparing' | 'packing' | 'ready_for_pickup' | 'rider_assigned' | 'delivered' | 'cancelled';
+  @IsIn(['active', 'new', 'accepted', 'preparing', 'packing', 'ready_for_pickup', 'rider_assigned', 'delivered', 'cancelled'])
+  merchantStatusGroup?: 'active' | 'new' | 'accepted' | 'preparing' | 'packing' | 'ready_for_pickup' | 'rider_assigned' | 'delivered' | 'cancelled';
 
   @ApiProperty({
     required: false,

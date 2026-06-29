@@ -24,6 +24,16 @@ export const BUYER_STATUS_GROUPS = {
 } as const satisfies Record<string, OrderStatus[]>;
 
 export const MERCHANT_STATUS_GROUPS = {
+  active: [
+    OrderStatus.PAID,
+    OrderStatus.MERCHANT_ACCEPTED,
+    OrderStatus.PREPARING,
+    OrderStatus.PACKING,
+    OrderStatus.READY_FOR_PICKUP,
+    OrderStatus.RIDER_ASSIGNED,
+    OrderStatus.PICKED_UP,
+    OrderStatus.OUT_FOR_DELIVERY,
+  ],
   new: [OrderStatus.PAID, OrderStatus.MERCHANT_ACCEPTED],
   accepted: [OrderStatus.MERCHANT_ACCEPTED],
   preparing: [OrderStatus.PREPARING],

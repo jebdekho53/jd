@@ -19,6 +19,11 @@ import {
   MerchantDashboardStoreQueryDto,
 } from './dto/merchant-dashboard-query.dto';
 import {
+  buildMerchantListWhere,
+  merchantDefaultVisibleWhere,
+} from '../order/merchant-order-visibility.util';
+import type { MerchantPipelineColumn } from '../order/merchant-pipeline.util';
+import {
   CANCELLED_STATUSES,
   EMPTY_MERCHANT_OVERVIEW,
   ORDER_TAB_STATUSES,
@@ -195,16 +200,21 @@ export class MerchantDashboardService {
         };
       }
 
-      const statusFilter = query.tab
-        ? ORDER_TAB_STATUSES[query.tab] ?? undefined
-        : undefined;
-
       const where: Prisma.OrderWhereInput = {
         storeId: { in: storeIds },
-        ...(statusFilter ? { status: { in: statusFilter } } : {}),
+        ...(query.tab
+          ? query.tab === 'ACTIVE'
+            ? buildMerchantListWhere({ merchantStatusGroup: 'active' })
+            : buildMerchantListWhere({ pipelineColumn: query.tab as MerchantPipelineColumn })
+          : merchantDefaultVisibleWhere()),
       };
 
-      const [orders, total, tabCounts] = await Promise.all([
+      const tabWhere = (tab: string): Prisma.OrderWhereInput =>
+        tab === 'ACTIVE'
+          ? buildMerchantListWhere({ merchantStatusGroup: 'active' })
+          : buildMerchantListWhere({ pipelineColumn: tab as MerchantPipelineColumn });
+
+      const [orders, total, tabCountEntries] = await Promise.all([
         this.prisma.order.findMany({
           where,
           orderBy: { createdAt: 'desc' },
@@ -235,21 +245,17 @@ export class MerchantDashboardService {
           },
         }),
         this.prisma.order.count({ where }),
-        this.prisma.order.groupBy({
-          by: ['status'],
-          where: { storeId: { in: storeIds } },
-          _count: { id: true },
-        }),
+        Promise.all(
+          Object.keys(ORDER_TAB_STATUSES).map(async (tab) => [
+            tab,
+            await this.prisma.order.count({
+              where: { storeId: { in: storeIds }, ...tabWhere(tab) },
+            }),
+          ] as const),
+        ),
       ]);
 
-      const tabs = Object.fromEntries(
-        Object.entries(ORDER_TAB_STATUSES).map(([tab, statuses]) => [
-          tab,
-          tabCounts
-            .filter((r) => statuses.includes(r.status))
-            .reduce((s, r) => s + r._count.id, 0),
-        ]),
-      );
+      const tabs = Object.fromEntries(tabCountEntries);
 
       return {
         orders: orders.map((o) => ({

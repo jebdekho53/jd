@@ -529,6 +529,7 @@ export class OrderService implements OnModuleInit {
           createdAt: true,
           updatedAt: true,
           storeId: true,
+          orderVertical: true,
           deliveryLat: true,
           deliveryLng: true,
           buyerProfile: {

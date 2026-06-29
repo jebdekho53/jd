@@ -6,18 +6,20 @@ import { PIPELINE_COLUMN_STATUSES } from './merchant-pipeline.util';
 
 const COD_METHODS: PaymentMethod[] = [PaymentMethod.COD, PaymentMethod.WALLET_COD];
 
-/** Statuses merchants must never see in the default actionable queue. */
-export const MERCHANT_HIDDEN_STATUSES: OrderStatus[] = [
-  OrderStatus.CREATED,
-  OrderStatus.PAYMENT_PENDING,
-];
-
 const CANCELLED_STATUSES: OrderStatus[] = [
   OrderStatus.CANCELLED_BY_BUYER,
   OrderStatus.CANCELLED_BY_MERCHANT,
   OrderStatus.CANCELLED_BY_ADMIN,
   OrderStatus.PAYMENT_FAILED,
   OrderStatus.DELIVERY_FAILED,
+];
+
+/** Statuses merchants must never see in the default actionable queue. */
+export const MERCHANT_HIDDEN_STATUSES: OrderStatus[] = [
+  OrderStatus.CREATED,
+  OrderStatus.PAYMENT_PENDING,
+  OrderStatus.REFUNDED,
+  ...CANCELLED_STATUSES,
 ];
 
 /** Payment must be confirmed (or COD) before merchant queue visibility. */
