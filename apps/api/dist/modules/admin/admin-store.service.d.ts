@@ -12,6 +12,7 @@ import { MerchantService } from '../merchant/merchant.service';
 import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 import { EmailNotificationService } from '../email/email-notification.service';
+import { VerticalService } from '../store-vertical/vertical.service';
 type StoreApprovalItem = {
     id: string;
     name: string;
@@ -56,8 +57,9 @@ export declare class AdminStoreService {
     private readonly blocklist;
     private readonly emailNotifications;
     private readonly merchantService;
+    private readonly verticalService;
     private readonly logger;
-    constructor(prisma: PrismaService, storeService: StoreService, audit: AuditService, domainEvents: DomainEventsService, buyerCache: BuyerCacheService, blocklist: VerificationBlocklistService, emailNotifications: EmailNotificationService, merchantService: MerchantService);
+    constructor(prisma: PrismaService, storeService: StoreService, audit: AuditService, domainEvents: DomainEventsService, buyerCache: BuyerCacheService, blocklist: VerificationBlocklistService, emailNotifications: EmailNotificationService, merchantService: MerchantService, verticalService: VerticalService);
     listStoreApprovals(dto: ListStoreApprovalsDto): Promise<{
         stores: StoreApprovalItem[];
         total: number;

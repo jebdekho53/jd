@@ -29,6 +29,7 @@ const product_module_1 = require("../product/product.module");
 const payment_module_1 = require("../payment/payment.module");
 const push_module_1 = require("../push/push.module");
 const email_module_1 = require("../email/email.module");
+const buyer_module_1 = require("../buyer/buyer.module");
 const category_governance_module_1 = require("../category-governance/category-governance.module");
 const store_vertical_module_1 = require("../store-vertical/store-vertical.module");
 let FoodModule = class FoodModule {
@@ -41,6 +42,7 @@ exports.FoodModule = FoodModule = __decorate([
             logistics_module_1.LogisticsModule,
             order_timeline_module_1.OrderTimelineModule,
             merchant_module_1.MerchantModule,
+            buyer_module_1.BuyerModule,
             category_governance_module_1.CategoryGovernanceModule,
             store_vertical_module_1.StoreVerticalModule,
             (0, common_1.forwardRef)(() => product_module_1.ProductModule),

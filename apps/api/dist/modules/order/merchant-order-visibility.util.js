@@ -11,16 +11,18 @@ const client_1 = require("@prisma/client");
 const order_status_groups_1 = require("./order-status-groups");
 const merchant_pipeline_util_1 = require("./merchant-pipeline.util");
 const COD_METHODS = [client_1.PaymentMethod.COD, client_1.PaymentMethod.WALLET_COD];
-exports.MERCHANT_HIDDEN_STATUSES = [
-    client_1.OrderStatus.CREATED,
-    client_1.OrderStatus.PAYMENT_PENDING,
-];
 const CANCELLED_STATUSES = [
     client_1.OrderStatus.CANCELLED_BY_BUYER,
     client_1.OrderStatus.CANCELLED_BY_MERCHANT,
     client_1.OrderStatus.CANCELLED_BY_ADMIN,
     client_1.OrderStatus.PAYMENT_FAILED,
     client_1.OrderStatus.DELIVERY_FAILED,
+];
+exports.MERCHANT_HIDDEN_STATUSES = [
+    client_1.OrderStatus.CREATED,
+    client_1.OrderStatus.PAYMENT_PENDING,
+    client_1.OrderStatus.REFUNDED,
+    ...CANCELLED_STATUSES,
 ];
 function merchantPaymentVisibilityWhere() {
     return {

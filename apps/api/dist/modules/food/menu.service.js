@@ -14,12 +14,17 @@ const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../../database/prisma.service");
 const store_category_access_service_1 = require("../category-governance/store-category-access.service");
+const vertical_service_1 = require("../store-vertical/vertical.service");
+const buyer_cache_service_1 = require("../buyer/buyer-cache.service");
 const vertical_constants_1 = require("./vertical.constants");
 const menu_category_slug_util_1 = require("./utils/menu-category-slug.util");
+const store_fssai_util_1 = require("../../common/utils/store-fssai.util");
 let MenuService = class MenuService {
-    constructor(prisma, categoryAccess) {
+    constructor(prisma, categoryAccess, verticalService, buyerCache) {
         this.prisma = prisma;
         this.categoryAccess = categoryAccess;
+        this.verticalService = verticalService;
+        this.buyerCache = buyerCache;
     }
     async assertStoreOwnership(merchantProfileId, storeId) {
         const store = await this.prisma.store.findFirst({
@@ -30,36 +35,37 @@ let MenuService = class MenuService {
         return store;
     }
     async assertFoodBusinessTypeApproved(storeId) {
-        const approved = await this.prisma.storeBusinessType.findFirst({
-            where: {
-                storeId,
-                status: client_1.StoreBusinessTypeStatus.APPROVED,
-                businessType: {
-                    in: [
-                        client_1.VerticalBusinessType.RESTAURANT,
-                        client_1.VerticalBusinessType.CLOUD_KITCHEN,
-                        client_1.VerticalBusinessType.CAFE,
-                    ],
-                },
-            },
+        await this.verticalService.ensureStoreBusinessTypesFromApplication(storeId);
+        const foodTypes = await this.prisma.storeBusinessType.findMany({
+            where: { storeId },
+            select: { businessType: true, status: true },
         });
-        if (!approved) {
-            throw new common_1.ForbiddenException('Restaurant business type must be approved before managing menu categories');
+        if (foodTypes.some((row) => (0, vertical_constants_1.isFoodVertical)(row.businessType) && row.status === client_1.StoreBusinessTypeStatus.APPROVED)) {
+            return;
         }
+        const store = await this.prisma.store.findFirst({
+            where: { id: storeId, deletedAt: null },
+            select: { status: true },
+        });
+        if (store?.status === client_1.StoreStatus.APPROVED &&
+            foodTypes.some((row) => (0, vertical_constants_1.isFoodVertical)(row.businessType) && row.status === client_1.StoreBusinessTypeStatus.PENDING)) {
+            return;
+        }
+        throw new common_1.ForbiddenException('Restaurant business type must be approved before managing menu categories');
+    }
+    async invalidateBuyerMenuCache(storeId) {
+        const store = await this.prisma.store.findFirst({
+            where: { id: storeId, deletedAt: null },
+            select: { slug: true },
+        });
+        if (!store?.slug)
+            return;
+        await this.buyerCache.invalidateStoreCache(store.slug);
     }
     async assertStoreFssai(storeId) {
-        const row = await this.prisma.product.findFirst({
-            where: {
-                storeId,
-                deletedAt: null,
-                fssaiLicense: { not: null },
-                NOT: { fssaiLicense: '' },
-            },
-            orderBy: { updatedAt: 'desc' },
-            select: { fssaiLicense: true },
-        });
-        if (!row?.fssaiLicense?.trim()) {
-            throw new common_1.BadRequestException('FSSAI license is required before adding menu items — add it on a product first or enter it when creating food products');
+        const hasFssai = await (0, store_fssai_util_1.storeHasFssaiOnFile)(this.prisma, storeId);
+        if (!hasFssai) {
+            throw new common_1.BadRequestException('FSSAI license is required before adding menu items. Upload your FSSAI certificate in Store settings or add the license number on a product.');
         }
     }
     async getBuyerMenu(storeSlug) {
@@ -173,7 +179,7 @@ let MenuService = class MenuService {
         const displayName = dto.name?.trim() || platform.name;
         const slug = dto.slug ?? (0, vertical_constants_1.slugifyMenu)(displayName);
         const categorySlug = dto.categorySlug ?? (0, menu_category_slug_util_1.mapPlatformSlugToMenuCategorySlug)(platform.slug);
-        return this.prisma.restaurantMenuCategory.create({
+        const category = await this.prisma.restaurantMenuCategory.create({
             data: {
                 storeId,
                 platformCategoryId: platform.subcategoryId,
@@ -188,6 +194,8 @@ let MenuService = class MenuService {
                 platformCategory: { select: { id: true, name: true, slug: true } },
             },
         });
+        void this.invalidateBuyerMenuCache(storeId);
+        return category;
     }
     async createMenuItem(merchantProfileId, storeId, dto) {
         await this.assertStoreOwnership(merchantProfileId, storeId);
@@ -233,6 +241,7 @@ let MenuService = class MenuService {
             include: { variants: true },
         });
         await this.upsertSearchIndex(item.id);
+        void this.invalidateBuyerMenuCache(storeId);
         return item;
     }
     async createAddonGroup(merchantProfileId, storeId, dto) {
@@ -338,6 +347,8 @@ exports.MenuService = MenuService;
 exports.MenuService = MenuService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        store_category_access_service_1.StoreCategoryAccessService])
+        store_category_access_service_1.StoreCategoryAccessService,
+        vertical_service_1.VerticalService,
+        buyer_cache_service_1.BuyerCacheService])
 ], MenuService);
 //# sourceMappingURL=menu.service.js.map

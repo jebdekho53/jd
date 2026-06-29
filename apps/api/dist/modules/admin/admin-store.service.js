@@ -22,6 +22,7 @@ const merchant_service_1 = require("../merchant/merchant.service");
 const buyer_cache_service_1 = require("../buyer/buyer-cache.service");
 const verification_blocklist_service_1 = require("../merchant/verification-blocklist.service");
 const email_notification_service_1 = require("../email/email-notification.service");
+const vertical_service_1 = require("../store-vertical/vertical.service");
 const APPROVABLE_STATUSES = [
     client_1.StoreStatus.PENDING_REVIEW,
     client_1.StoreStatus.UNDER_REVIEW,
@@ -36,7 +37,7 @@ const REQUEST_DOCUMENTS_STATUSES = [
     client_1.StoreStatus.DOCUMENTS_REQUIRED,
 ];
 let AdminStoreService = AdminStoreService_1 = class AdminStoreService {
-    constructor(prisma, storeService, audit, domainEvents, buyerCache, blocklist, emailNotifications, merchantService) {
+    constructor(prisma, storeService, audit, domainEvents, buyerCache, blocklist, emailNotifications, merchantService, verticalService) {
         this.prisma = prisma;
         this.storeService = storeService;
         this.audit = audit;
@@ -45,6 +46,7 @@ let AdminStoreService = AdminStoreService_1 = class AdminStoreService {
         this.blocklist = blocklist;
         this.emailNotifications = emailNotifications;
         this.merchantService = merchantService;
+        this.verticalService = verticalService;
         this.logger = new common_1.Logger(AdminStoreService_1.name);
     }
     async listStoreApprovals(dto) {
@@ -144,6 +146,16 @@ let AdminStoreService = AdminStoreService_1 = class AdminStoreService {
         if (updated.merchantProfile?.userId) {
             await this.merchantService.ensureMerchantRole(updated.merchantProfile.userId);
         }
+        await this.verticalService.ensureStoreBusinessTypesFromApplication(storeId);
+        await this.prisma.storeBusinessType.updateMany({
+            where: { storeId, status: client_1.StoreBusinessTypeStatus.PENDING },
+            data: {
+                status: client_1.StoreBusinessTypeStatus.APPROVED,
+                reviewedBy: adminUserId,
+                reviewedAt: now,
+                rejectionReason: null,
+            },
+        });
         await Promise.all([
             this.audit.log({
                 actorId: adminUserId,
@@ -603,6 +615,7 @@ exports.AdminStoreService = AdminStoreService = AdminStoreService_1 = __decorate
         buyer_cache_service_1.BuyerCacheService,
         verification_blocklist_service_1.VerificationBlocklistService,
         email_notification_service_1.EmailNotificationService,
-        merchant_service_1.MerchantService])
+        merchant_service_1.MerchantService,
+        vertical_service_1.VerticalService])
 ], AdminStoreService);
 //# sourceMappingURL=admin-store.service.js.map

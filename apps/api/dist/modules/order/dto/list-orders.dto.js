@@ -22,7 +22,7 @@ class ListOrdersDto {
         this.limit = 20;
     }
     static _OPENAPI_METADATA_FACTORY() {
-        return { status: { required: false, type: () => Object }, statusGroup: { required: false, type: () => Object, enum: ['active', 'cancelled', 'completed'] }, page: { required: false, type: () => Number, default: 1, minimum: 1 }, limit: { required: false, type: () => Number, default: 20, minimum: 1, maximum: 50 } };
+        return { status: { required: false, type: () => Object }, statusGroup: { required: false, type: () => Object, enum: ['active', 'cancelled', 'completed'] }, page: { required: false, type: () => Number, default: 1, minimum: 1 }, limit: { required: false, type: () => Number, default: 20, minimum: 1, maximum: 200 } };
     }
 }
 exports.ListOrdersDto = ListOrdersDto;
@@ -47,17 +47,17 @@ __decorate([
     __metadata("design:type", Number)
 ], ListOrdersDto.prototype, "page", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ required: false, default: 20 }),
+    (0, swagger_1.ApiProperty)({ required: false, default: 20, maximum: 200 }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
-    (0, class_validator_1.Max)(50),
+    (0, class_validator_1.Max)(200),
     (0, class_transformer_1.Type)(() => Number),
     __metadata("design:type", Number)
 ], ListOrdersDto.prototype, "limit", void 0);
 class ListMerchantOrdersDto extends ListOrdersDto {
     static _OPENAPI_METADATA_FACTORY() {
-        return { storeId: { required: false, type: () => String }, merchantStatusGroup: { required: false, type: () => Object, enum: ['new', 'accepted', 'preparing', 'packing', 'ready_for_pickup', 'rider_assigned', 'delivered', 'cancelled'] }, pipelineColumn: { required: false, type: () => String, enum: ['NEW', 'ACCEPTED', 'PREPARING', 'PACKING', 'READY_FOR_PICKUP', 'RIDER_ASSIGNED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'] }, today: { required: false, type: () => Boolean }, yesterday: { required: false, type: () => Boolean }, dateFrom: { required: false, type: () => String }, dateTo: { required: false, type: () => String }, paymentMethod: { required: false, type: () => Object }, q: { required: false, type: () => String } };
+        return { storeId: { required: false, type: () => String }, merchantStatusGroup: { required: false, type: () => Object, enum: ['active', 'new', 'accepted', 'preparing', 'packing', 'ready_for_pickup', 'rider_assigned', 'delivered', 'cancelled'] }, pipelineColumn: { required: false, type: () => String, enum: ['NEW', 'ACCEPTED', 'PREPARING', 'PACKING', 'READY_FOR_PICKUP', 'RIDER_ASSIGNED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'] }, today: { required: false, type: () => Boolean }, yesterday: { required: false, type: () => Boolean }, dateFrom: { required: false, type: () => String }, dateTo: { required: false, type: () => String }, paymentMethod: { required: false, type: () => Object }, q: { required: false, type: () => String } };
     }
 }
 exports.ListMerchantOrdersDto = ListMerchantOrdersDto;
@@ -70,10 +70,10 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,
-        enum: ['new', 'accepted', 'preparing', 'packing', 'ready_for_pickup', 'rider_assigned', 'delivered', 'cancelled'],
+        enum: ['active', 'new', 'accepted', 'preparing', 'packing', 'ready_for_pickup', 'rider_assigned', 'delivered', 'cancelled'],
     }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsIn)(['new', 'accepted', 'preparing', 'packing', 'ready_for_pickup', 'rider_assigned', 'delivered', 'cancelled']),
+    (0, class_validator_1.IsIn)(['active', 'new', 'accepted', 'preparing', 'packing', 'ready_for_pickup', 'rider_assigned', 'delivered', 'cancelled']),
     __metadata("design:type", String)
 ], ListMerchantOrdersDto.prototype, "merchantStatusGroup", void 0);
 __decorate([

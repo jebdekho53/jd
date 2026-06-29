@@ -43,10 +43,13 @@ export declare class LocationDirectoryService {
         pincode?: string;
         limit?: number;
     }): Promise<LocationSearchResult[]>;
+    private pickPincodeRow;
     tryResolvePincode(params: {
         pincode: string;
         locationCityId?: string;
         locationAreaId?: string;
+        latitude?: number;
+        longitude?: number;
     }): Promise<ResolvedPincodeLocation>;
     getByPincode(pincode: string): Promise<LocationSearchResult[]>;
     getBySlug(slug: string): Promise<LocationSearchResult>;

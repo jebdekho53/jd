@@ -11,6 +11,7 @@ import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 import { EmailNotificationService } from '../email/email-notification.service';
 import { MerchantService } from '../merchant/merchant.service';
+import { VerticalService } from '../store-vertical/vertical.service';
 import { MERCHANT_BLOCKED_MESSAGE } from '../../common/constants/rejection.constants';
 
 const MERCHANT_CTX = {
@@ -59,6 +60,9 @@ const mockBlocklist = {
   blockMerchantIdentifiers: jest.fn(),
   removeMerchantIdentifiers: jest.fn(),
 };
+const mockVerticalService = {
+  ensureStoreBusinessTypesFromApplication: jest.fn().mockResolvedValue([]),
+};
 
 describe('Store governance', () => {
   let adminStoreService: AdminStoreService;
@@ -77,6 +81,7 @@ describe('Store governance', () => {
         { provide: VerificationBlocklistService, useValue: mockBlocklist },
         { provide: EmailNotificationService, useValue: { sendMerchantStoreApproved: jest.fn(), sendMerchantStoreRejected: jest.fn() } },
         { provide: MerchantService, useValue: { ensureMerchantRole: jest.fn() } },
+        { provide: VerticalService, useValue: mockVerticalService },
       ],
     }).compile();
 

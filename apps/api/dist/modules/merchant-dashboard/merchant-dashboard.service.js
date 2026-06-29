@@ -14,6 +14,7 @@ exports.MerchantDashboardService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../../database/prisma.service");
+const merchant_order_visibility_util_1 = require("../order/merchant-order-visibility.util");
 const merchant_dashboard_utils_1 = require("./merchant-dashboard.utils");
 let MerchantDashboardService = MerchantDashboardService_1 = class MerchantDashboardService {
     constructor(prisma) {
@@ -147,14 +148,18 @@ let MerchantDashboardService = MerchantDashboardService_1 = class MerchantDashbo
                     meta: { page, limit, total: 0, totalPages: 0 },
                 };
             }
-            const statusFilter = query.tab
-                ? merchant_dashboard_utils_1.ORDER_TAB_STATUSES[query.tab] ?? undefined
-                : undefined;
             const where = {
                 storeId: { in: storeIds },
-                ...(statusFilter ? { status: { in: statusFilter } } : {}),
+                ...(query.tab
+                    ? query.tab === 'ACTIVE'
+                        ? (0, merchant_order_visibility_util_1.buildMerchantListWhere)({ merchantStatusGroup: 'active' })
+                        : (0, merchant_order_visibility_util_1.buildMerchantListWhere)({ pipelineColumn: query.tab })
+                    : (0, merchant_order_visibility_util_1.merchantDefaultVisibleWhere)()),
             };
-            const [orders, total, tabCounts] = await Promise.all([
+            const tabWhere = (tab) => tab === 'ACTIVE'
+                ? (0, merchant_order_visibility_util_1.buildMerchantListWhere)({ merchantStatusGroup: 'active' })
+                : (0, merchant_order_visibility_util_1.buildMerchantListWhere)({ pipelineColumn: tab });
+            const [orders, total, tabCountEntries] = await Promise.all([
                 this.prisma.order.findMany({
                     where,
                     orderBy: { createdAt: 'desc' },
@@ -185,18 +190,14 @@ let MerchantDashboardService = MerchantDashboardService_1 = class MerchantDashbo
                     },
                 }),
                 this.prisma.order.count({ where }),
-                this.prisma.order.groupBy({
-                    by: ['status'],
-                    where: { storeId: { in: storeIds } },
-                    _count: { id: true },
-                }),
+                Promise.all(Object.keys(merchant_dashboard_utils_1.ORDER_TAB_STATUSES).map(async (tab) => [
+                    tab,
+                    await this.prisma.order.count({
+                        where: { storeId: { in: storeIds }, ...tabWhere(tab) },
+                    }),
+                ])),
             ]);
-            const tabs = Object.fromEntries(Object.entries(merchant_dashboard_utils_1.ORDER_TAB_STATUSES).map(([tab, statuses]) => [
-                tab,
-                tabCounts
-                    .filter((r) => statuses.includes(r.status))
-                    .reduce((s, r) => s + r._count.id, 0),
-            ]));
+            const tabs = Object.fromEntries(tabCountEntries);
             return {
                 orders: orders.map((o) => ({
                     id: o.id,

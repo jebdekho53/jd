@@ -5,6 +5,7 @@ exports.emptyMerchantAnalytics = emptyMerchantAnalytics;
 exports.decimalToNumber = decimalToNumber;
 exports.pctChange = pctChange;
 const client_1 = require("@prisma/client");
+const merchant_pipeline_util_1 = require("../order/merchant-pipeline.util");
 exports.CANCELLED_STATUSES = [
     client_1.OrderStatus.CANCELLED_BY_BUYER,
     client_1.OrderStatus.CANCELLED_BY_MERCHANT,
@@ -23,6 +24,7 @@ exports.REVENUE_STATUSES = [
     client_1.OrderStatus.COMPLETED,
 ];
 exports.ORDER_TAB_STATUSES = {
+    ACTIVE: merchant_pipeline_util_1.MERCHANT_ACTIVE_LIVE_STATUSES,
     NEW: [client_1.OrderStatus.PAID, client_1.OrderStatus.MERCHANT_ACCEPTED],
     ACCEPTED: [client_1.OrderStatus.MERCHANT_ACCEPTED],
     PREPARING: [client_1.OrderStatus.PREPARING],

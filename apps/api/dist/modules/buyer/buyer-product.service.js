@@ -23,6 +23,7 @@ const buyer_visibility_util_1 = require("./buyer-visibility.util");
 const delivery_coverage_util_1 = require("../../common/utils/delivery-coverage.util");
 const logistics_label_util_1 = require("./logistics-label.util");
 const product_return_policy_util_1 = require("../../common/utils/product-return-policy.util");
+const product_compliance_util_1 = require("../../common/utils/product-compliance.util");
 const config_1 = require("@nestjs/config");
 async function fetchStoreProductCategoryIds(prisma, storeId) {
     const rows = await prisma.product.findMany({
@@ -31,6 +32,17 @@ async function fetchStoreProductCategoryIds(prisma, storeId) {
         distinct: ['categoryId'],
     });
     return rows.map((r) => r.categoryId).filter(Boolean);
+}
+function isBuyerCompliantProduct(product, storeFssaiLicense) {
+    return !(0, product_compliance_util_1.hasProductBuyerComplianceGaps)({
+        imageUrls: product.imageUrls,
+        categoryId: product.categoryId,
+        category: product.category,
+        hsnCodeId: product.hsnCodeId,
+        fssaiLicense: product.fssaiLicense,
+        taxCategory: product.taxCategory,
+        storeFssaiLicense,
+    });
 }
 function mapVariant(v) {
     return {
@@ -104,7 +116,9 @@ let BuyerProductService = BuyerProductService_1 = class BuyerProductService {
                 }),
                 this.prisma.product.count({ where }),
             ]);
-            const products = raw.map((p) => ({
+            const storeFssaiLicense = raw.find((p) => p.fssaiLicense?.trim())?.fssaiLicense ?? null;
+            const compliant = raw.filter((p) => isBuyerCompliantProduct(p, storeFssaiLicense));
+            const products = compliant.map((p) => ({
                 id: p.id,
                 name: p.name,
                 slug: p.slug,
@@ -119,7 +133,8 @@ let BuyerProductService = BuyerProductService_1 = class BuyerProductService {
                 category: p.category,
                 variants: p.variants.map(mapVariant),
             }));
-            return { products, total };
+            const adjustedTotal = Math.max(0, total - (raw.length - compliant.length));
+            return { products, total: adjustedTotal };
         });
     }
     async getProductById(productId, storeSlug) {
@@ -159,6 +174,14 @@ let BuyerProductService = BuyerProductService_1 = class BuyerProductService {
             });
             if (!raw)
                 return null;
+            const storeFssaiLicense = await this.prisma.product.findFirst({
+                where: { storeId: raw.storeId, fssaiLicense: { not: null } },
+                select: { fssaiLicense: true },
+                orderBy: { updatedAt: 'desc' },
+            });
+            if (!isBuyerCompliantProduct(raw, storeFssaiLicense?.fssaiLicense ?? raw.fssaiLicense)) {
+                return null;
+            }
             const reviewAgg = await this.prisma.productReview.aggregate({
                 where: { productId: raw.id, status: 'VISIBLE' },
                 _avg: { rating: true },

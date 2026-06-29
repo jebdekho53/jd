@@ -12,6 +12,7 @@ export declare class RestaurantDiscoveryService {
     listRestaurants(opts: {
         lat?: number;
         lng?: number;
+        pincode?: string;
         cuisineSlug?: string;
         vertical?: VerticalBusinessType;
         page?: number;

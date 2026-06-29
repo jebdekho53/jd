@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MERCHANT_STATUS_GROUPS = exports.BUYER_STATUS_GROUPS = void 0;
 const client_1 = require("@prisma/client");
+const merchant_pipeline_util_1 = require("./merchant-pipeline.util");
 exports.BUYER_STATUS_GROUPS = {
     active: [
         client_1.OrderStatus.PAYMENT_PENDING,
@@ -25,6 +26,7 @@ exports.BUYER_STATUS_GROUPS = {
     completed: [client_1.OrderStatus.DELIVERED, client_1.OrderStatus.COMPLETED, client_1.OrderStatus.REFUNDED],
 };
 exports.MERCHANT_STATUS_GROUPS = {
+    active: merchant_pipeline_util_1.MERCHANT_ACTIVE_LIVE_STATUSES,
     new: [client_1.OrderStatus.PAID, client_1.OrderStatus.MERCHANT_ACCEPTED],
     accepted: [client_1.OrderStatus.MERCHANT_ACCEPTED],
     preparing: [client_1.OrderStatus.PREPARING],

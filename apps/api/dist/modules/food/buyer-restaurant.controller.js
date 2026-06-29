@@ -28,10 +28,11 @@ let BuyerRestaurantController = class BuyerRestaurantController {
     getVerticals() {
         return { success: true, data: this.discovery.getHomeVerticals() };
     }
-    async listRestaurants(lat, lng, cuisineSlug, vertical, page, limit) {
+    async listRestaurants(lat, lng, pincode, cuisineSlug, vertical, page, limit) {
         const data = await this.discovery.listRestaurants({
             lat: lat ? Number(lat) : undefined,
             lng: lng ? Number(lng) : undefined,
+            pincode: pincode?.trim() || undefined,
             cuisineSlug,
             vertical,
             page: page ? Number(page) : undefined,
@@ -69,12 +70,13 @@ __decorate([
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, common_1.Query)('lat')),
     __param(1, (0, common_1.Query)('lng')),
-    __param(2, (0, common_1.Query)('cuisine')),
-    __param(3, (0, common_1.Query)('vertical')),
-    __param(4, (0, common_1.Query)('page')),
-    __param(5, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('pincode')),
+    __param(3, (0, common_1.Query)('cuisine')),
+    __param(4, (0, common_1.Query)('vertical')),
+    __param(5, (0, common_1.Query)('page')),
+    __param(6, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, Number, String, String, Number, Number]),
+    __metadata("design:paramtypes", [Number, Number, String, String, String, Number, Number]),
     __metadata("design:returntype", Promise)
 ], BuyerRestaurantController.prototype, "listRestaurants", null);
 __decorate([

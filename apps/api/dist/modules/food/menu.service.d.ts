@@ -1,6 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { StoreCategoryAccessService } from '../category-governance/store-category-access.service';
+import { VerticalService } from '../store-vertical/vertical.service';
+import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { CreateMenuCategoryDto } from './dto/create-menu-category.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { CreateAddonGroupDto } from './dto/create-addon-group.dto';
@@ -8,7 +10,9 @@ import { CreateComboDto } from './dto/create-combo.dto';
 export declare class MenuService {
     private readonly prisma;
     private readonly categoryAccess;
-    constructor(prisma: PrismaService, categoryAccess: StoreCategoryAccessService);
+    private readonly verticalService;
+    private readonly buyerCache;
+    constructor(prisma: PrismaService, categoryAccess: StoreCategoryAccessService, verticalService: VerticalService, buyerCache: BuyerCacheService);
     assertStoreOwnership(merchantProfileId: string, storeId: string): Promise<{
         phone: string | null;
         email: string | null;
@@ -56,6 +60,7 @@ export declare class MenuService {
         reputationStats: Prisma.JsonValue | null;
     }>;
     private assertFoodBusinessTypeApproved;
+    private invalidateBuyerMenuCache;
     private assertStoreFssai;
     getBuyerMenu(storeSlug: string): Promise<{
         store: {

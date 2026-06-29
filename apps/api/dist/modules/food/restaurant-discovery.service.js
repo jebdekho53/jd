@@ -41,7 +41,12 @@ let RestaurantDiscoveryService = class RestaurantDiscoveryService {
                 businessTypes: {
                     some: {
                         businessType: { in: foodTypes },
-                        status: client_1.StoreBusinessTypeStatus.APPROVED,
+                        status: {
+                            in: [
+                                client_1.StoreBusinessTypeStatus.APPROVED,
+                                client_1.StoreBusinessTypeStatus.PENDING,
+                            ],
+                        },
                     },
                 },
                 ...(opts.cuisineSlug
@@ -80,6 +85,7 @@ let RestaurantDiscoveryService = class RestaurantDiscoveryService {
                 .filter(({ store }) => (0, buyer_visibility_util_1.canDeliverToBuyer)((0, buyer_visibility_util_1.toDeliverableStoreShape)(store), {
                 lat: opts.lat,
                 lng: opts.lng,
+                pincode: opts.pincode,
                 discoveryRadiusKm: buyer_visibility_util_1.DEFAULT_BUYER_DISCOVERY_RADIUS_KM,
             }).eligible)
                 .sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999))

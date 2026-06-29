@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SLA_THRESHOLDS = exports.PIPELINE_COLUMN_STATUSES = void 0;
+exports.SLA_THRESHOLDS = exports.MERCHANT_ACTIVE_LIVE_STATUSES = exports.MERCHANT_LIVE_STATUS_GROUPS = exports.PIPELINE_COLUMN_STATUSES = void 0;
 exports.resolvePipelineColumn = resolvePipelineColumn;
 exports.slaLevel = slaLevel;
 exports.minutesSince = minutesSince;
@@ -23,6 +23,14 @@ exports.PIPELINE_COLUMN_STATUSES = {
     DELIVERED: [client_1.OrderStatus.DELIVERED, client_1.OrderStatus.COMPLETED],
     CANCELLED: [...CANCELLED],
 };
+exports.MERCHANT_LIVE_STATUS_GROUPS = {
+    incoming: [client_1.OrderStatus.PAID, client_1.OrderStatus.MERCHANT_ACCEPTED],
+    preparation: [client_1.OrderStatus.PREPARING],
+    packing: [client_1.OrderStatus.PACKING],
+    ready: [client_1.OrderStatus.READY_FOR_PICKUP],
+    dispatch: [client_1.OrderStatus.RIDER_ASSIGNED, client_1.OrderStatus.PICKED_UP, client_1.OrderStatus.OUT_FOR_DELIVERY],
+};
+exports.MERCHANT_ACTIVE_LIVE_STATUSES = Object.values(exports.MERCHANT_LIVE_STATUS_GROUPS).flat();
 function resolvePipelineColumn(status, paymentMethod) {
     if (CANCELLED.has(status))
         return 'CANCELLED';

@@ -429,6 +429,7 @@ let OrderService = OrderService_1 = class OrderService {
                     createdAt: true,
                     updatedAt: true,
                     storeId: true,
+                    orderVertical: true,
                     deliveryLat: true,
                     deliveryLng: true,
                     buyerProfile: {

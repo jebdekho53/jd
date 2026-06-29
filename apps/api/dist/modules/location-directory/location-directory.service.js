@@ -13,6 +13,7 @@ exports.LocationDirectoryService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../../database/prisma.service");
+const delivery_eta_util_1 = require("../../common/utils/delivery-eta.util");
 function normalizeQuery(q) {
     return q.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
@@ -152,6 +153,20 @@ let LocationDirectoryService = class LocationDirectoryService {
         }
         return results.slice(0, limit);
     }
+    pickPincodeRow(rows, latitude, longitude) {
+        if (rows.length === 1)
+            return rows[0];
+        if (latitude != null &&
+            longitude != null &&
+            Number.isFinite(latitude) &&
+            Number.isFinite(longitude)) {
+            return rows.reduce((best, current) => (0, delivery_eta_util_1.haversineKm)(latitude, longitude, current.latitude, current.longitude) <
+                (0, delivery_eta_util_1.haversineKm)(latitude, longitude, best.latitude, best.longitude)
+                ? current
+                : best);
+        }
+        return rows[0];
+    }
     async tryResolvePincode(params) {
         if (!/^\d{6}$/.test(params.pincode)) {
             throw new common_1.BadRequestException('Invalid pincode format');
@@ -176,7 +191,7 @@ let LocationDirectoryService = class LocationDirectoryService {
         if (params.locationAreaId && !rows.some((r) => r.areaId === params.locationAreaId)) {
             throw new common_1.BadRequestException('Pincode does not belong to selected area');
         }
-        const row = rows[0];
+        const row = this.pickPincodeRow(rows, params.latitude, params.longitude);
         const serialized = this.serializePincode(row);
         const locationCity = await this.prisma.locationCity.findUnique({
             where: { id: row.cityId },

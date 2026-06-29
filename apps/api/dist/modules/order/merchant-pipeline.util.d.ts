@@ -1,6 +1,14 @@
 import { OrderStatus, PaymentMethod } from '@prisma/client';
 export type MerchantPipelineColumn = 'NEW' | 'ACCEPTED' | 'PREPARING' | 'PACKING' | 'READY_FOR_PICKUP' | 'RIDER_ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
 export declare const PIPELINE_COLUMN_STATUSES: Record<MerchantPipelineColumn, OrderStatus[]>;
+export declare const MERCHANT_LIVE_STATUS_GROUPS: {
+    readonly incoming: readonly ["PAID", "MERCHANT_ACCEPTED"];
+    readonly preparation: readonly ["PREPARING"];
+    readonly packing: readonly ["PACKING"];
+    readonly ready: readonly ["READY_FOR_PICKUP"];
+    readonly dispatch: readonly ["RIDER_ASSIGNED", "PICKED_UP", "OUT_FOR_DELIVERY"];
+};
+export declare const MERCHANT_ACTIVE_LIVE_STATUSES: ("RIDER_ASSIGNED" | "PAID" | "MERCHANT_ACCEPTED" | "PREPARING" | "PACKING" | "READY_FOR_PICKUP" | "PICKED_UP" | "OUT_FOR_DELIVERY")[];
 export declare function resolvePipelineColumn(status: OrderStatus, paymentMethod?: PaymentMethod): MerchantPipelineColumn;
 export declare const SLA_THRESHOLDS: {
     readonly accept: {

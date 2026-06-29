@@ -207,6 +207,56 @@ describe('OrderService', () => {
     });
   });
 
+  // ── Merchant order list ───────────────────────────────────────────────────
+
+  describe('listMerchantOrders', () => {
+    beforeEach(() => {
+      mockPrisma.merchantProfile.findUnique.mockResolvedValue({ id: MERCHANT_PROFILE_ID });
+      mockPrisma.store.findMany.mockResolvedValue([{ id: STORE_ID }]);
+      mockPrisma.order.findMany.mockResolvedValue([buildOrder(OrderStatus.PREPARING, { storeId: STORE_ID })]);
+      mockPrisma.order.count.mockResolvedValue(1);
+    });
+
+    it('lists orders for an owned storeId', async () => {
+      const result = await service.listMerchantOrders(USER_ID, {
+        storeId: STORE_ID,
+        limit: 100,
+      });
+
+      expect(result.orders).toHaveLength(1);
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ storeId: { in: [STORE_ID] } }),
+          take: 100,
+        }),
+      );
+    });
+
+    it('lists orders across merchant stores when no storeId is provided', async () => {
+      const result = await service.listMerchantOrders(USER_ID, { limit: 100 });
+
+      expect(result.orders).toHaveLength(1);
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ storeId: { in: [STORE_ID] } }),
+          take: 100,
+        }),
+      );
+    });
+
+    it('rejects a storeId not owned by the merchant', async () => {
+      await expect(
+        service.listMerchantOrders(USER_ID, {
+          storeId: 'cmqnotowned0000l2ha99999999',
+          limit: 100,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockPrisma.order.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.order.count).not.toHaveBeenCalled();
+    });
+  });
+
   // ── Merchant state transitions ─────────────────────────────────────────────
 
   describe('advanceMerchantOrder', () => {

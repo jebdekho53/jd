@@ -7,7 +7,7 @@ export declare class ListOrdersDto {
 }
 export declare class ListMerchantOrdersDto extends ListOrdersDto {
     storeId?: string;
-    merchantStatusGroup?: 'new' | 'accepted' | 'preparing' | 'packing' | 'ready_for_pickup' | 'rider_assigned' | 'delivered' | 'cancelled';
+    merchantStatusGroup?: 'active' | 'new' | 'accepted' | 'preparing' | 'packing' | 'ready_for_pickup' | 'rider_assigned' | 'delivered' | 'cancelled';
     pipelineColumn?: string;
     today?: boolean;
     yesterday?: boolean;

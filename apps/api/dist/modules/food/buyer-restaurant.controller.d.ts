@@ -14,7 +14,7 @@ export declare class BuyerRestaurantController {
             href: string;
         }[];
     };
-    listRestaurants(lat?: number, lng?: number, cuisineSlug?: string, vertical?: VerticalBusinessType, page?: number, limit?: number): Promise<{
+    listRestaurants(lat?: number, lng?: number, pincode?: string, cuisineSlug?: string, vertical?: VerticalBusinessType, page?: number, limit?: number): Promise<{
         success: boolean;
         data: {
             id: string;

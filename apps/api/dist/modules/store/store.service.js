@@ -59,6 +59,8 @@ let StoreService = StoreService_1 = class StoreService {
             pincode: dto.pincode,
             locationCityId: dto.locationCityId,
             locationAreaId: dto.locationAreaId,
+            latitude: dto.latitude,
+            longitude: dto.longitude,
         });
         const locationPincodeId = mld.inMasterDirectory
             ? dto.locationPincodeId ?? mld.locationPincodeId

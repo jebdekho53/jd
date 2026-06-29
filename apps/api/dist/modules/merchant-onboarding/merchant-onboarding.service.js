@@ -141,6 +141,8 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
             pincode,
             locationCityId: dto.locationCityId,
             locationAreaId: dto.locationAreaId,
+            latitude,
+            longitude,
         });
         let cityId;
         let locationPincodeId;
@@ -903,6 +905,10 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
             city: app.city,
             cityId: app.cityId,
             pincode: app.pincode,
+            locality: app.locality,
+            locationPincodeId: app.locationPincodeId,
+            locationAreaId: app.locationAreaId,
+            locationCityId: app.locationCityId,
             latitude: app.latitude,
             longitude: app.longitude,
             deliveryRadiusKm: app.deliveryRadiusKm,

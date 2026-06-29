@@ -22,11 +22,11 @@ export class ListOrdersDto {
   @Type(() => Number)
   page?: number = 1;
 
-  @ApiProperty({ required: false, default: 20 })
+  @ApiProperty({ required: false, default: 20, maximum: 200 })
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(50)
+  @Max(200)
   @Type(() => Number)
   limit?: number = 20;
 }

@@ -4,6 +4,7 @@ export declare const BUYER_STATUS_GROUPS: {
     readonly completed: ["DELIVERED", "COMPLETED", "REFUNDED"];
 };
 export declare const MERCHANT_STATUS_GROUPS: {
+    readonly active: ("RIDER_ASSIGNED" | "PAID" | "MERCHANT_ACCEPTED" | "PREPARING" | "PACKING" | "READY_FOR_PICKUP" | "PICKED_UP" | "OUT_FOR_DELIVERY")[];
     readonly new: ["PAID", "MERCHANT_ACCEPTED"];
     readonly accepted: ["MERCHANT_ACCEPTED"];
     readonly preparing: ["PREPARING"];
