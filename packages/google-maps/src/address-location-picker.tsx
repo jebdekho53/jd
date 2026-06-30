@@ -190,14 +190,6 @@ export function AddressLocationPicker({
     setGpsError(null);
     try {
       const pos = await onRequestLocation();
-      const parsed = await reverse(pos.lat, pos.lng);
-      if (parsed) {
-        applyParsed(parsed);
-        if (!hasValidPincode(parsed)) {
-          setGeocodeError('Could not detect pincode for this location. Enter pincode manually below.');
-        }
-        return;
-      }
       onChange({
         locality: value.locality || 'Current location',
         city: value.city ?? '',
@@ -206,7 +198,15 @@ export function AddressLocationPicker({
         lat: pos.lat,
         lng: pos.lng,
       });
-      setGeocodeError('Could not resolve address for this location. Enter pincode manually below.');
+      const parsed = await reverse(pos.lat, pos.lng);
+      if (parsed) {
+        applyParsed(parsed);
+        if (!hasValidPincode(parsed)) {
+          setGeocodeError('Could not detect pincode for this location. Enter pincode manually below.');
+        }
+        return;
+      }
+      setGeocodeError('Could not resolve address. You can still enter pincode and address manually.');
     } catch (err) {
       setGpsError(err instanceof Error ? err.message : 'Could not get location');
     } finally {
@@ -214,7 +214,7 @@ export function AddressLocationPicker({
     }
   };
 
-  const combinedError = error ?? geocodeError ?? gpsError ?? undefined;
+  const combinedError = error ?? gpsError ?? undefined;
 
   const locationButton = onRequestLocation ? (
     <button
@@ -253,6 +253,7 @@ export function AddressLocationPicker({
         {locationButton}
         {mapPicker}
         {combinedError ? <p className="text-sm text-red-600">{combinedError}</p> : null}
+        {geocodeError ? <p className="text-sm text-amber-700">{geocodeError}</p> : null}
         {showSelectionSummary && value.locality && (
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
             <p>
@@ -279,6 +280,7 @@ export function AddressLocationPicker({
       {locationButton}
 
       {mapPicker}
+      {geocodeError ? <p className="text-sm text-amber-700">{geocodeError}</p> : null}
 
       {fallback}
 

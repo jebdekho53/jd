@@ -85,6 +85,60 @@ type MerchantSignupContentProps = {
   onboardingOnly?: boolean;
 };
 
+type FieldErrors = Partial<Record<
+  | 'contactPhone'
+  | 'ownerName'
+  | 'businessName'
+  | 'storeName'
+  | 'storeAddress'
+  | 'locality'
+  | 'landmark'
+  | 'city'
+  | 'state'
+  | 'pincode'
+  | 'deliveryCoverage'
+  | 'gstNumber'
+  | 'panNumber'
+  | 'accountHolderName'
+  | 'accountNumber'
+  | 'confirmAccountNumber'
+  | 'ifsc'
+  | 'bankName'
+  | 'categories',
+  string
+>>;
+
+function readableBackendMessage(message: string) {
+  return message
+    .replace(/\bgstNumber\b/g, 'GST number')
+    .replace(/\bpanNumber\b/g, 'PAN')
+    .replace(/\bownerPhone\b/g, 'Phone')
+    .replace(/\bownerEmail\b/g, 'Email')
+    .replace(/\bstoreName\b/g, 'Store name')
+    .replace(/\bpincode\b/g, 'Pincode')
+    .replace(/\bifsc\b/g, 'IFSC')
+    .replace(/\baccountNumber\b/g, 'Account number')
+    .replace(/\baccountHolderName\b/g, 'Account holder name');
+}
+
+function fieldForBackendMessage(message: string): keyof FieldErrors | null {
+  const lower = message.toLowerCase();
+  if (lower.includes('gst')) return 'gstNumber';
+  if (lower.includes('pan')) return 'panNumber';
+  if (lower.includes('ifsc')) return 'ifsc';
+  if (lower.includes('account holder')) return 'accountHolderName';
+  if (lower.includes('account number') || lower.includes('bank account')) return 'accountNumber';
+  if (lower.includes('phone') || lower.includes('mobile')) return 'contactPhone';
+  if (lower.includes('email')) return 'contactPhone';
+  if (lower.includes('storename') || lower.includes('store name')) return 'storeName';
+  if (lower.includes('pincode')) return 'pincode';
+  if (lower.includes('address')) return 'storeAddress';
+  if (lower.includes('locality') || lower.includes('area')) return 'locality';
+  if (lower.includes('landmark')) return 'landmark';
+  if (lower.includes('category')) return 'categories';
+  return null;
+}
+
 type LocationSelectionInput = {
   locality: string;
   city: string;
@@ -135,6 +189,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
   const [saving, setSaving] = useState(false);
   const [resolvingLocation, setResolvingLocation] = useState(false);
   const [declarationAccepted, setDeclarationAccepted] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [uploadedDocs, setUploadedDocs] = useState<Set<string>>(new Set());
   const resolveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resolveVersionRef = useRef(0);
@@ -185,6 +240,16 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
   });
 
   const { data: cities = [] } = useCitiesQuery();
+
+  const handleStepError = useCallback(
+    (err: unknown) => {
+      const message = readableBackendMessage(err instanceof Error ? err.message : 'We could not save this step. Please try again.');
+      const field = fieldForBackendMessage(message);
+      if (field) setFieldErrors((prev) => ({ ...prev, [field]: message }));
+      toast(message, 'error');
+    },
+    [toast],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -333,14 +398,17 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
 
   const nextFromBusiness = async () => {
     if (!form.ownerName.trim()) {
+      setFieldErrors((prev) => ({ ...prev, ownerName: 'Owner full name is required.' }));
       toast('Owner name is required', 'error');
       return;
     }
     if (!form.businessName.trim()) {
+      setFieldErrors((prev) => ({ ...prev, businessName: 'Business / legal name is required.' }));
       toast('Business name is required', 'error');
       return;
     }
     if (form.businessTypes.length === 0) {
+      setFieldErrors((prev) => ({ ...prev, categories: 'Select at least one business type.' }));
       toast('Select at least one business type', 'error');
       return;
     }
@@ -348,6 +416,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       ? normalizeIndianPhone(contactPhone)
       : normalizeIndianPhone(verifiedPhone);
     if (!isValidIndianPhone(phoneForSave)) {
+      setFieldErrors((prev) => ({ ...prev, contactPhone: 'Enter a valid 10-digit mobile number.' }));
       toast('Enter a valid 10-digit mobile number', 'error');
       return;
     }
@@ -366,12 +435,15 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       setNeedsPhone(false);
       setStep(2);
     } catch (e) {
-      toast((e as Error).message, 'error');
+      handleStepError(e);
     }
   };
 
   const nextFromStoreBasics = async () => {
     if (!form.storeName.trim() || !form.storeLogoUrl || !form.storeBannerUrl) {
+      if (!form.storeName.trim()) {
+        setFieldErrors((prev) => ({ ...prev, storeName: 'Store display name is required.' }));
+      }
       toast('Store name, logo, and banner are required', 'error');
       return;
     }
@@ -383,7 +455,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       });
       setStep(3);
     } catch (e) {
-      toast((e as Error).message, 'error');
+      handleStepError(e);
     }
   };
 
@@ -401,7 +473,6 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
     if (!form.state.trim()) issues.push('state');
     if (!/^\d{6}$/.test(form.pincode.trim())) issues.push('6-digit pincode');
     if (form.latitude == null || form.longitude == null) issues.push('map pin');
-    if (!form.cityId) issues.push('resolved city');
     return issues;
   };
 
@@ -446,12 +517,13 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       });
       setStep(4);
     } catch (e) {
-      toast((e as Error).message, 'error');
+      handleStepError(e);
     }
   };
 
   const nextFromCategories = async () => {
     if (form.preferredCategories.length === 0) {
+      setFieldErrors((prev) => ({ ...prev, categories: 'Select at least one category you plan to sell.' }));
       toast('Select at least one category you plan to sell', 'error');
       return;
     }
@@ -464,12 +536,13 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       setForm((f) => ({ ...f, businessTypes: [...f.preferredCategories] }));
       setStep(6);
     } catch (e) {
-      toast((e as Error).message, 'error');
+      handleStepError(e);
     }
   };
 
   const nextFromKyc = async () => {
     if (!form.panNumber.trim()) {
+      setFieldErrors((prev) => ({ ...prev, panNumber: 'PAN number is required.' }));
       toast('PAN number is required', 'error');
       return;
     }
@@ -483,15 +556,19 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       });
       setStep(7);
     } catch (e) {
-      toast((e as Error).message, 'error');
+      handleStepError(e);
     }
   };
 
   const checkGst = async () => {
     if (!form.gstNumber) return;
-    const res = await validateGst(form.gstNumber);
-    setForm((f) => ({ ...f, gstValid: res.valid }));
-    toast(res.message, res.valid ? 'success' : 'error');
+    try {
+      const res = await validateGst(form.gstNumber);
+      setForm((f) => ({ ...f, gstValid: res.valid }));
+      toast(res.message, res.valid ? 'success' : 'error');
+    } catch (e) {
+      handleStepError(e);
+    }
   };
 
   const saveStoreDetails = async () => {
@@ -551,7 +628,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       });
       setStep(5);
     } catch (e) {
-      toast((e as Error).message, 'error');
+      handleStepError(e);
     } finally {
       setSaving(false);
     }
@@ -624,7 +701,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
         }
       } catch (e) {
         if (version === resolveVersionRef.current) {
-          toast((e as Error).message, 'error');
+          handleStepError(e);
         }
       } finally {
         if (version === resolveVersionRef.current) {
@@ -663,7 +740,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
         setUploadedDocs((prev) => new Set(prev).add(documentType));
         toast(`${file.name} uploaded`, 'success');
       } catch (e) {
-        toast((e as Error).message, 'error');
+        handleStepError(e);
       }
     };
     reader.readAsDataURL(file);
@@ -671,10 +748,17 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
 
   const nextFromBank = async () => {
     if (!form.accountHolderName.trim() || !form.accountNumber.trim() || !form.ifsc.trim()) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        accountHolderName: !form.accountHolderName.trim() ? 'Account holder name is required.' : prev.accountHolderName,
+        accountNumber: !form.accountNumber.trim() ? 'Account number is required.' : prev.accountNumber,
+        ifsc: !form.ifsc.trim() ? 'IFSC code is required.' : prev.ifsc,
+      }));
       toast('Bank account details are required', 'error');
       return;
     }
     if (form.accountNumber !== form.confirmAccountNumber) {
+      setFieldErrors((prev) => ({ ...prev, confirmAccountNumber: 'Account numbers do not match.' }));
       toast('Account numbers do not match', 'error');
       return;
     }
@@ -700,7 +784,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       toast('Application submitted! We will review it shortly.', 'success');
       setShowStatus(true);
     } catch (e) {
-      toast((e as Error).message, 'error');
+      handleStepError(e);
     } finally {
       setSaving(false);
     }
@@ -846,32 +930,43 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                   )}
                 </div>
                 {needsPhone && (
-                  <div className="flex gap-2">
+                  <div className="grid gap-2 sm:grid-cols-[auto_1fr]">
                     <span className="flex h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-600">
                       +91
                     </span>
-                  <Input
-                      label="Store contact mobile *"
-                      type="tel"
-                      value={contactPhone}
-                      onChange={(e) =>
-                        setContactPhone(e.target.value.replace(/\D/g, '').slice(0, 10))
-                      }
-                      placeholder="10-digit number for orders & OTP"
-                      className="flex-1"
-                    />
+                    <div className="min-w-0">
+                      <Input
+                        label="Store contact mobile *"
+                        type="tel"
+                        value={contactPhone}
+                        onChange={(e) => {
+                          setFieldErrors((prev) => ({ ...prev, contactPhone: undefined }));
+                          setContactPhone(e.target.value.replace(/\D/g, '').slice(0, 10));
+                        }}
+                        placeholder="10-digit number for orders & OTP"
+                        error={fieldErrors.contactPhone}
+                      />
+                    </div>
                   </div>
                 )}
                 <Input
                   label="Owner full name *"
                   placeholder="As per PAN / GST"
                   value={form.ownerName}
-                  onChange={(e) => setForm({ ...form, ownerName: e.target.value })}
+                  onChange={(e) => {
+                    setFieldErrors((prev) => ({ ...prev, ownerName: undefined }));
+                    setForm({ ...form, ownerName: e.target.value });
+                  }}
+                  error={fieldErrors.ownerName}
                 />
                 <Input
                   label="Business / legal name *"
                   value={form.businessName}
-                  onChange={(e) => setForm({ ...form, businessName: e.target.value })}
+                  onChange={(e) => {
+                    setFieldErrors((prev) => ({ ...prev, businessName: undefined }));
+                    setForm({ ...form, businessName: e.target.value });
+                  }}
+                  error={fieldErrors.businessName}
                 />
                 <div>
                   <p className="mb-2 text-sm font-medium text-slate-700">Business types</p>
@@ -914,7 +1009,11 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                 <Input
                   label="Store display name *"
                   value={form.storeName}
-                  onChange={(e) => setForm({ ...form, storeName: e.target.value })}
+                  onChange={(e) => {
+                    setFieldErrors((prev) => ({ ...prev, storeName: undefined }));
+                    setForm({ ...form, storeName: e.target.value });
+                  }}
+                  error={fieldErrors.storeName}
                 />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <ImageUploadField
@@ -950,7 +1049,11 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                   label="Shop / Building / Floor / Street address line 1 *"
                   placeholder="Example: E-110, Ground Floor, Windsor Street"
                   value={form.storeAddress}
-                  onChange={(e) => setForm({ ...form, storeAddress: e.target.value })}
+                  onChange={(e) => {
+                    setFieldErrors((prev) => ({ ...prev, storeAddress: undefined }));
+                    setForm({ ...form, storeAddress: e.target.value });
+                  }}
+                  error={fieldErrors.storeAddress}
                 />
                 <Input
                   label="Address line 2 (optional)"
@@ -1000,25 +1103,41 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                     label="Locality / Area *"
                     placeholder="Raj Nagar Extension"
                     value={form.locality}
-                    onChange={(e) => setForm({ ...form, locality: e.target.value })}
+                    onChange={(e) => {
+                      setFieldErrors((prev) => ({ ...prev, locality: undefined }));
+                      setForm({ ...form, locality: e.target.value });
+                    }}
+                    error={fieldErrors.locality}
                   />
                   <Input
                     label="Landmark *"
                     placeholder="Near main gate, bank, school, etc."
                     value={form.landmark}
-                    onChange={(e) => setForm({ ...form, landmark: e.target.value })}
+                    onChange={(e) => {
+                      setFieldErrors((prev) => ({ ...prev, landmark: undefined }));
+                      setForm({ ...form, landmark: e.target.value });
+                    }}
+                    error={fieldErrors.landmark}
                   />
                   <Input
                     label="City *"
                     placeholder="Ghaziabad"
                     value={form.city}
-                    onChange={(e) => setForm({ ...form, city: e.target.value })}
+                    onChange={(e) => {
+                      setFieldErrors((prev) => ({ ...prev, city: undefined }));
+                      setForm({ ...form, city: e.target.value });
+                    }}
+                    error={fieldErrors.city}
                   />
                   <Input
                     label="State *"
                     placeholder="Uttar Pradesh"
                     value={form.state}
-                    onChange={(e) => setForm({ ...form, state: e.target.value })}
+                    onChange={(e) => {
+                      setFieldErrors((prev) => ({ ...prev, state: undefined }));
+                      setForm({ ...form, state: e.target.value });
+                    }}
+                    error={fieldErrors.state}
                   />
                 </div>
                 <Input
@@ -1045,6 +1164,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                     value={form.pincode}
                     onChange={(e) => {
                       const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setFieldErrors((prev) => ({ ...prev, pincode: undefined }));
                       setForm((f) => ({ ...f, pincode: pin }));
                       if (/^\d{6}$/.test(pin)) {
                         applyLocationSelection({
@@ -1076,6 +1196,9 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                       }
                     }}
                   />
+                )}
+                {fieldErrors.pincode && (
+                  <p className="text-xs text-red-600">{fieldErrors.pincode}</p>
                 )}
                 {isBroadPickupAddress(form.storeAddress, form.locality, form.city) && (
                   <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
@@ -1161,8 +1284,14 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                     rows={3}
                     placeholder="201204, 201003, 110094"
                     value={form.deliveryCoverageInput}
-                    onChange={(e) => setForm({ ...form, deliveryCoverageInput: e.target.value })}
+                    onChange={(e) => {
+                      setFieldErrors((prev) => ({ ...prev, deliveryCoverage: undefined }));
+                      setForm({ ...form, deliveryCoverageInput: e.target.value });
+                    }}
                   />
+                  {fieldErrors.deliveryCoverage && (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.deliveryCoverage}</p>
+                  )}
                 </div>
                 <NavButtons saving={saving} onBack={() => setStep(3)} onNext={saveStoreDetails} />
               </div>
@@ -1216,8 +1345,12 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                     label="GSTIN (optional)"
                     placeholder="15-character GST"
                     value={form.gstNumber}
-                    onChange={(e) => setForm({ ...form, gstNumber: e.target.value.toUpperCase() })}
+                    onChange={(e) => {
+                      setFieldErrors((prev) => ({ ...prev, gstNumber: undefined }));
+                      setForm({ ...form, gstNumber: e.target.value.toUpperCase() });
+                    }}
                     className="flex-1"
+                    error={fieldErrors.gstNumber}
                   />
                   <Button variant="secondary" className="mt-6" onClick={checkGst}>
                     Validate
@@ -1231,7 +1364,11 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                 <Input
                   label="PAN number *"
                   value={form.panNumber}
-                  onChange={(e) => setForm({ ...form, panNumber: e.target.value.toUpperCase() })}
+                  onChange={(e) => {
+                    setFieldErrors((prev) => ({ ...prev, panNumber: undefined }));
+                    setForm({ ...form, panNumber: e.target.value.toUpperCase() });
+                  }}
+                  error={fieldErrors.panNumber}
                 />
                 <p className="text-sm font-medium text-slate-700">Upload documents</p>
                 {DOC_TYPES.map((d) => (
@@ -1263,22 +1400,38 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                 <Input
                   label="Account holder name *"
                   value={form.accountHolderName}
-                  onChange={(e) => setForm({ ...form, accountHolderName: e.target.value })}
+                  onChange={(e) => {
+                    setFieldErrors((prev) => ({ ...prev, accountHolderName: undefined }));
+                    setForm({ ...form, accountHolderName: e.target.value });
+                  }}
+                  error={fieldErrors.accountHolderName}
                 />
                 <Input
                   label="Account number *"
                   value={form.accountNumber}
-                  onChange={(e) => setForm({ ...form, accountNumber: e.target.value.replace(/\D/g, '') })}
+                  onChange={(e) => {
+                    setFieldErrors((prev) => ({ ...prev, accountNumber: undefined }));
+                    setForm({ ...form, accountNumber: e.target.value.replace(/\D/g, '') });
+                  }}
+                  error={fieldErrors.accountNumber}
                 />
                 <Input
                   label="Confirm account number *"
                   value={form.confirmAccountNumber}
-                  onChange={(e) => setForm({ ...form, confirmAccountNumber: e.target.value.replace(/\D/g, '') })}
+                  onChange={(e) => {
+                    setFieldErrors((prev) => ({ ...prev, confirmAccountNumber: undefined }));
+                    setForm({ ...form, confirmAccountNumber: e.target.value.replace(/\D/g, '') });
+                  }}
+                  error={fieldErrors.confirmAccountNumber}
                 />
                 <Input
                   label="IFSC code *"
                   value={form.ifsc}
-                  onChange={(e) => setForm({ ...form, ifsc: e.target.value.toUpperCase() })}
+                  onChange={(e) => {
+                    setFieldErrors((prev) => ({ ...prev, ifsc: undefined }));
+                    setForm({ ...form, ifsc: e.target.value.toUpperCase() });
+                  }}
+                  error={fieldErrors.ifsc}
                 />
                 <Input
                   label="UPI ID (optional)"

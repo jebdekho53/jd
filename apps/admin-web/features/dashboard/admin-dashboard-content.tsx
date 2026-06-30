@@ -47,15 +47,15 @@ export function AdminDashboardContent() {
             <AdminMetricCard label="Total stores" value={o?.totalStores ?? '—'} loading={overview.isLoading} href="/stores" />
             <AdminMetricCard label="Total orders" value={o?.totalOrders ?? '—'} loading={overview.isLoading} href="/orders" />
             <AdminMetricCard label="Orders today" value={o?.ordersToday ?? '—'} loading={overview.isLoading} href="/orders?today=true" />
-            <AdminMetricCard label="GMV today" value={formatInr(o?.gmvToday ?? 0)} loading={overview.isLoading} href="/orders?today=true" />
-            <AdminMetricCard label="GMV this month" value={formatInr(o?.gmvThisMonth ?? 0)} loading={overview.isLoading} href="/orders" />
+            <AdminMetricCard label="GMV today" value={formatInr(o?.gmvToday ?? 0)} loading={overview.isLoading} href="/finance" />
+            <AdminMetricCard label="GMV this month" value={formatInr(o?.gmvThisMonth ?? 0)} loading={overview.isLoading} href="/finance" />
             <AdminMetricCard label="Approved stores" value={o?.approvedStores ?? '—'} loading={overview.isLoading} href="/stores?status=APPROVED" />
             <AdminMetricCard label="Pending stores" value={o?.pendingStores ?? '—'} loading={overview.isLoading} href="/stores?status=PENDING" />
             <AdminMetricCard label="Rejected stores" value={o?.rejectedStores ?? '—'} loading={overview.isLoading} href="/stores?status=REJECTED" />
             <AdminMetricCard label="Active riders" value={o?.activeRiders ?? '—'} loading={overview.isLoading} href="/riders" />
             <AdminMetricCard label="Online riders" value={o?.onlineRiders ?? '—'} loading={overview.isLoading} href="/riders?status=ONLINE" />
             <AdminMetricCard label="New users today" value={o?.newUsersToday ?? '—'} loading={overview.isLoading} href="/users" />
-            <AdminMetricCard label="Cancelled today" value={o?.cancelledOrdersToday ?? '—'} loading={overview.isLoading} href="/orders?status=CANCELLED" />
+            <AdminMetricCard label="Cancelled today" value={o?.cancelledOrdersToday ?? '—'} loading={overview.isLoading} href="/orders?statusGroup=cancelled&today=true" />
             <AdminMetricCard label="Failed payments" value={o?.failedPayments ?? '—'} loading={overview.isLoading} href="/orders?paymentStatus=FAILED" />
           </div>
         </AdminSection>

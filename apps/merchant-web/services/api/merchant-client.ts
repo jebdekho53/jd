@@ -23,7 +23,7 @@ function friendlyApiMessage(status: number, message: string, path: string) {
   const lower = message.toLowerCase();
 
   if (status === 0) return 'Network issue. Your draft is safe. Try again.';
-  if (status === 400) return message && message !== 'Something went wrong' ? message : 'Please check the highlighted fields.';
+  if (status === 400 || status === 422) return message && message !== 'Something went wrong' ? message : 'Please check the highlighted fields.';
   if (status === 401) return 'Your session expired. Please login again.';
   if (status === 403) return 'You do not have permission to edit this onboarding.';
   if (status === 500) return 'We could not save this step. Please try again.';

@@ -494,7 +494,20 @@ export class MerchantOnboardingService {
   }
 
   async submitApplication(userId: string, ipAddress?: string) {
-    const app = await this.requireDraftApplication(userId);
+    let app = await this.requireDraftApplication(userId);
+    if (!app.cityId && app.city && app.state && app.latitude != null && app.longitude != null) {
+      const city = await this.geo.findOrCreateOperationalCity({
+        name: app.city,
+        state: app.state,
+        latitude: app.latitude,
+        longitude: app.longitude,
+      });
+      app = await this.prisma.merchantApplication.update({
+        where: { id: app.id },
+        data: { cityId: city.id },
+        include: this.applicationInclude(),
+      });
+    }
     this.assertSubmissionReady(app);
 
     let profile = await this.prisma.merchantProfile.findUnique({ where: { userId } });

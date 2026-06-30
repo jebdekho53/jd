@@ -348,58 +348,66 @@ export class InventoryService {
     const limit = Math.min(params.limit ?? 50, 100);
     const skip = (page - 1) * limit;
 
-    const rows = await this.prisma.$queryRaw<
-      Array<{
-        product_id: string;
-        product_name: string;
-        store_id: string;
-        store_name: string;
-        variant_id: string;
-        sku: string;
-        available_qty: number;
-        reserved_qty: number;
-        sold_qty: number;
-        threshold: number;
-        status: InventoryStatus;
-        fssai_license: string | null;
-        country_of_origin: string | null;
-        shelf_life: string | null;
-      }>
-    >`
-      SELECT p.id AS product_id, p.name AS product_name,
-             s.id AS store_id, s.name AS store_name,
-             v.id AS variant_id, v.sku,
-             i.quantity AS available_qty, i.reserved AS reserved_qty,
-             i.sold_qty, i.low_stock_threshold AS threshold, i.status,
-             p.fssai_license, p.country_of_origin, p.shelf_life
-      FROM inventory i
-      JOIN product_variants v ON v.id = i.variant_id
-      JOIN products p ON p.id = v.product_id AND p.deleted_at IS NULL
-      JOIN stores s ON s.id = p.store_id AND s.deleted_at IS NULL
-      WHERE (${params.storeId ?? null}::text IS NULL OR s.id = ${params.storeId ?? null})
-        AND (${params.outOfStock ?? false} = false OR (i.quantity <= 0 AND i.status != 'DISABLED'))
-        AND (${params.lowStock ?? false} = false OR (i.quantity > 0 AND i.quantity <= i.low_stock_threshold))
-      ORDER BY i.quantity ASC
-      LIMIT ${limit} OFFSET ${skip}
-    `;
+    const where: Prisma.InventoryWhereInput = {
+      variant: {
+        product: {
+          deletedAt: null,
+          store: {
+            deletedAt: null,
+            ...(params.storeId ? { id: params.storeId } : {}),
+          },
+        },
+      },
+      ...(params.outOfStock
+        ? { availableQty: { lte: 0 }, status: { not: InventoryStatus.DISABLED } }
+        : {}),
+      ...(params.lowStock
+        ? { availableQty: { gt: 0, lte: this.prisma.inventory.fields.lowStockThreshold } }
+        : {}),
+    };
+
+    const rows = await this.prisma.inventory.findMany({
+      where,
+      include: {
+        variant: {
+          select: {
+            id: true,
+            sku: true,
+            product: {
+              select: {
+                id: true,
+                name: true,
+                fssaiLicense: true,
+                countryOfOrigin: true,
+                shelfLife: true,
+                store: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ availableQty: 'asc' }, { updatedAt: 'desc' }],
+      skip,
+      take: limit,
+    });
 
     return {
       items: rows.map((r) => ({
-        productId: r.product_id,
-        productName: r.product_name,
-        storeId: r.store_id,
-        storeName: r.store_name,
-        variantId: r.variant_id,
-        sku: r.sku,
-        availableQty: r.available_qty,
-        reservedQty: r.reserved_qty,
-        soldQty: r.sold_qty,
-        lowStockThreshold: r.threshold,
+        productId: r.variant.product.id,
+        productName: r.variant.product.name,
+        storeId: r.variant.product.store.id,
+        storeName: r.variant.product.store.name,
+        variantId: r.variant.id,
+        sku: r.variant.sku,
+        availableQty: r.availableQty,
+        reservedQty: r.reservedQty,
+        soldQty: r.soldQty,
+        lowStockThreshold: r.lowStockThreshold,
         status: r.status,
-        stockLevel: buyerStockLevel(r.available_qty),
-        fssaiLicense: r.fssai_license,
-        countryOfOrigin: r.country_of_origin,
-        shelfLife: r.shelf_life,
+        stockLevel: buyerStockLevel(r.availableQty),
+        fssaiLicense: r.variant.product.fssaiLicense,
+        countryOfOrigin: r.variant.product.countryOfOrigin,
+        shelfLife: r.variant.product.shelfLife,
       })),
       page,
       limit,

@@ -19,6 +19,8 @@ const admin_product_service_1 = require("./admin-product.service");
 const admin_ai_product_usage_controller_1 = require("./admin-ai-product-usage.controller");
 const admin_ai_product_usage_service_1 = require("./admin-ai-product-usage.service");
 const admin_merchant_ai_wallet_controller_1 = require("./admin-merchant-ai-wallet.controller");
+const admin_user_controller_1 = require("./admin-user.controller");
+const admin_user_service_1 = require("./admin-user.service");
 const store_module_1 = require("../store/store.module");
 const store_vertical_module_1 = require("../store-vertical/store-vertical.module");
 const buyer_module_1 = require("../buyer/buyer.module");
@@ -37,6 +39,7 @@ exports.AdminModule = AdminModule = __decorate([
             admin_product_controller_1.AdminProductController,
             admin_ai_product_usage_controller_1.AdminAiProductUsageController,
             admin_merchant_ai_wallet_controller_1.AdminMerchantAiWalletController,
+            admin_user_controller_1.AdminUserController,
         ],
         providers: [
             admin_store_service_1.AdminStoreService,
@@ -44,6 +47,7 @@ exports.AdminModule = AdminModule = __decorate([
             admin_media_service_1.AdminMediaService,
             admin_product_service_1.AdminProductService,
             admin_ai_product_usage_service_1.AdminAiProductUsageService,
+            admin_user_service_1.AdminUserService,
         ],
         exports: [
             admin_store_service_1.AdminStoreService,
@@ -51,6 +55,7 @@ exports.AdminModule = AdminModule = __decorate([
             admin_media_service_1.AdminMediaService,
             admin_product_service_1.AdminProductService,
             admin_ai_product_usage_service_1.AdminAiProductUsageService,
+            admin_user_service_1.AdminUserService,
         ],
     })
 ], AdminModule);

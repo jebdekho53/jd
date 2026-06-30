@@ -33,6 +33,7 @@ function formatStatus(status: OrderStatus): string {
 export function OrderMonitoringContent() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<FilterTab>('all');
+  const [todayOnly, setTodayOnly] = useState(false);
   const [status, setStatus] = useState<OrderStatus | ''>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | ''>('');
@@ -48,8 +49,9 @@ export function OrderMonitoringContent() {
     const st = searchParams.get('status') as OrderStatus | null;
     const pm = searchParams.get('paymentMethod') as PaymentMethod | null;
     const ps = searchParams.get('paymentStatus') as PaymentStatus | null;
-    if (today) setTab('today');
-    else if (sg) setTab(sg);
+    setTodayOnly(today);
+    if (sg) setTab(sg);
+    else if (today) setTab('today');
     if (st) setStatus(st);
     if (pm) setPaymentMethod(pm);
     if (ps) setPaymentStatus(ps);
@@ -58,7 +60,7 @@ export function OrderMonitoringContent() {
   const queryParams: ListOrdersParams = {
     limit: 50,
     page: 1,
-    ...(tab === 'today' && { today: true }),
+    ...((tab === 'today' || todayOnly) && { today: true }),
     ...(tab !== 'all' && tab !== 'today' && { statusGroup: tab }),
     ...(status && { status }),
     ...(paymentMethod && { paymentMethod }),
@@ -80,7 +82,10 @@ export function OrderMonitoringContent() {
           <button
             key={value}
             type="button"
-            onClick={() => setTab(value)}
+            onClick={() => {
+              setTab(value);
+              setTodayOnly(value === 'today');
+            }}
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
               tab === value
                 ? 'bg-primary text-white'
