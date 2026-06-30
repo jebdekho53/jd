@@ -35,17 +35,18 @@ import {
   inferSignupWizardStep,
   syncVerifiedIdentityFromUser,
 } from '@/lib/merchant-entry-route';
+import { OnboardingStatusContent } from '@/features/onboarding/onboarding-status-content';
 
 const STEPS = [
-  'Verify',
-  'Business',
-  'Store',
-  'Location',
-  'Delivery',
-  'Categories',
-  'GST/PAN',
-  'Bank',
-  'Review',
+  'Account Verification',
+  'Business Type',
+  'Store Details',
+  'Pickup Location',
+  'Delivery Coverage',
+  'Store Categories',
+  'GST / PAN',
+  'Bank Details',
+  'Review & Submit',
 ] as const;
 
 const BUSINESS_TYPES = [
@@ -66,16 +67,23 @@ const DOC_TYPES = [
 ];
 
 const STEP_KEYS = [
-  'PERSONAL_DETAILS',
-  'BUSINESS_DETAILS',
-  'STORE_DETAILS',
-  'DOCUMENTS',
-  'BANK_DETAILS',
+  'VERIFY',
+  'BUSINESS',
+  'STORE',
+  'LOCATION',
+  'DELIVERY',
+  'CATEGORIES',
+  'GST_PAN',
+  'BANK',
   'REVIEW',
 ] as const;
 
 const RESOLVE_DEBOUNCE_MS = 400;
 const EDITABLE_APPLICATION_STATUSES = new Set(['DRAFT', 'REJECTED']);
+
+type MerchantSignupContentProps = {
+  onboardingOnly?: boolean;
+};
 
 type LocationSelectionInput = {
   locality: string;
@@ -114,17 +122,19 @@ function isBroadPickupAddress(addressLine1: string, locality: string, city: stri
     .some((part) => line === part);
 }
 
-export function MerchantSignupContent() {
+export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignupContentProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [booting, setBooting] = useState(true);
   const [step, setStep] = useState(0);
+  const [showStatus, setShowStatus] = useState(false);
   const [verifiedEmail, setVerifiedEmail] = useState('');
   const [verifiedPhone, setVerifiedPhone] = useState('');
   const [needsPhone, setNeedsPhone] = useState(false);
   const [contactPhone, setContactPhone] = useState('');
   const [saving, setSaving] = useState(false);
   const [resolvingLocation, setResolvingLocation] = useState(false);
+  const [declarationAccepted, setDeclarationAccepted] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState<Set<string>>(new Set());
   const resolveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resolveVersionRef = useRef(0);
@@ -169,6 +179,7 @@ export function MerchantSignupContent() {
     storeBannerUrl: '',
     accountHolderName: '',
     accountNumber: '',
+    confirmAccountNumber: '',
     ifsc: '',
     upiId: '',
   });
@@ -183,7 +194,10 @@ export function MerchantSignupContent() {
           user = await fetchMe();
           if (user) useAuthStore.getState().setSession(user);
         }
-        if (!user) return;
+        if (!user) {
+          if (onboardingOnly) router.replace('/login');
+          return;
+        }
         if (user.roles.includes('MERCHANT')) {
           router.replace('/dashboard');
           return;
@@ -197,6 +211,10 @@ export function MerchantSignupContent() {
 
         const app = await fetchApplication();
         if (!EDITABLE_APPLICATION_STATUSES.has(app.status)) {
+          setShowStatus(true);
+          return;
+        }
+        if (!onboardingOnly) {
           router.replace('/onboarding');
           return;
         }
@@ -204,12 +222,12 @@ export function MerchantSignupContent() {
         const wizardStep = Math.max(1, inferSignupWizardStep(app));
         setStep(wizardStep);
       } catch {
-        /* fresh visitor — stay on account creation */
+        if (onboardingOnly) router.replace('/login');
       } finally {
         setBooting(false);
       }
     })();
-  }, [router]);
+  }, [onboardingOnly, router]);
 
   const hydrateFromApplication = (app: MerchantApplication) => {
     const pickup = app.pickupAddress;
@@ -253,6 +271,7 @@ export function MerchantSignupContent() {
       storeBannerUrl: app.storeBannerUrl ?? f.storeBannerUrl,
       accountHolderName: app.bankAccount?.accountHolderName ?? f.accountHolderName,
       accountNumber: app.bankAccount?.accountNumber ?? f.accountNumber,
+      confirmAccountNumber: app.bankAccount?.accountNumber ?? f.confirmAccountNumber,
       ifsc: app.bankAccount?.ifsc ?? f.ifsc,
       upiId: app.bankAccount?.upiId ?? f.upiId,
     }));
@@ -285,6 +304,11 @@ export function MerchantSignupContent() {
       if (!EDITABLE_APPLICATION_STATUSES.has(app.status)) {
         router.replace('/onboarding');
         toast('Signed in successfully!', 'success');
+        return;
+      }
+      if (!onboardingOnly) {
+        router.replace('/onboarding');
+        toast('Account ready — continue your onboarding.', 'success');
         return;
       }
       hydrateFromApplication(app);
@@ -328,12 +352,12 @@ export function MerchantSignupContent() {
       return;
     }
     try {
-      await saveStep('PERSONAL_DETAILS', {
+      await saveStep('VERIFY', {
         ownerName: form.ownerName.trim(),
         ownerEmail: verifiedEmail || undefined,
         ownerPhone: phoneForSave,
       });
-      await saveStep('BUSINESS_DETAILS', {
+      await saveStep('BUSINESS', {
         businessName: form.businessName.trim(),
         businessType: form.businessTypes[0],
         businessTypes: form.businessTypes,
@@ -346,12 +370,21 @@ export function MerchantSignupContent() {
     }
   };
 
-  const nextFromStoreBasics = () => {
+  const nextFromStoreBasics = async () => {
     if (!form.storeName.trim() || !form.storeLogoUrl || !form.storeBannerUrl) {
       toast('Store name, logo, and banner are required', 'error');
       return;
     }
-    setStep(3);
+    try {
+      await saveStep('STORE', {
+        storeName: form.storeName.trim(),
+        storeLogoUrl: form.storeLogoUrl,
+        storeBannerUrl: form.storeBannerUrl,
+      });
+      setStep(3);
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   };
 
   const getPickupAddressIssues = () => {
@@ -372,7 +405,7 @@ export function MerchantSignupContent() {
     return issues;
   };
 
-  const nextFromLocation = () => {
+  const nextFromLocation = async () => {
     if (resolvingLocation) {
       toast('Resolving location…', 'info');
       return;
@@ -382,7 +415,39 @@ export function MerchantSignupContent() {
       toast(`Complete pickup address: ${issues.join(', ')}`, 'error');
       return;
     }
-    setStep(4);
+    const city = cities.find((c) => c.id === form.cityId);
+    try {
+      await saveStep('LOCATION', {
+        storeAddress: form.storeAddress.trim(),
+        pickupAddress: {
+          addressLine1: form.storeAddress.trim(),
+          addressLine2: form.addressLine2.trim() || undefined,
+          locality: form.locality.trim(),
+          landmark: form.landmark.trim(),
+          city: city?.name ?? (form.operationalCityName || form.city),
+          state: form.state.trim(),
+          pincode: form.pincode.trim(),
+          latitude: form.latitude,
+          longitude: form.longitude,
+          pickupInstructions: form.pickupInstructions.trim() || undefined,
+          googlePlaceId: form.googlePlaceId || undefined,
+          formattedAddress: form.formattedAddress || undefined,
+        },
+        locality: form.locality,
+        state: form.state,
+        city: city?.name ?? (form.operationalCityName || form.city),
+        cityId: form.cityId,
+        pincode: form.pincode.trim(),
+        locationPincodeId: form.locationPincodeId || undefined,
+        locationAreaId: form.locationAreaId || undefined,
+        locationCityId: form.locationCityId || undefined,
+        latitude: form.latitude,
+        longitude: form.longitude,
+      });
+      setStep(4);
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
   };
 
   const nextFromCategories = async () => {
@@ -392,6 +457,7 @@ export function MerchantSignupContent() {
     }
     try {
       await updateOnboardingStep({
+        stepKey: 'CATEGORIES',
         businessType: form.preferredCategories[0],
         businessTypes: form.preferredCategories,
       });
@@ -408,7 +474,7 @@ export function MerchantSignupContent() {
       return;
     }
     try {
-      await saveStep('BUSINESS_DETAILS', {
+      await saveStep('GST_PAN', {
         businessName: form.businessName.trim(),
         businessType: form.businessTypes[0],
         businessTypes: form.businessTypes,
@@ -443,7 +509,7 @@ export function MerchantSignupContent() {
     setSaving(true);
     try {
       await updateOnboardingStep({
-        stepKey: 'STORE_DETAILS',
+        stepKey: 'DELIVERY',
         storeName: form.storeName.trim(),
         storeAddress: form.storeAddress.trim(),
         pickupAddress: {
@@ -608,21 +674,31 @@ export function MerchantSignupContent() {
       toast('Bank account details are required', 'error');
       return;
     }
+    if (form.accountNumber !== form.confirmAccountNumber) {
+      toast('Account numbers do not match', 'error');
+      return;
+    }
     await saveBankAccount({
       accountHolderName: form.accountHolderName.trim(),
       accountNumber: form.accountNumber.trim(),
       ifsc: form.ifsc.trim().toUpperCase(),
       upiId: form.upiId.trim() || undefined,
     });
+    await saveStep('BANK');
     setStep(8);
   };
 
   const handleSubmit = async () => {
     setSaving(true);
     try {
+      await updateOnboardingStep({
+        stepKey: 'REVIEW',
+        declarationAccepted,
+        submittedForApproval: false,
+      });
       await submitApplication();
       toast('Application submitted! We will review it shortly.', 'success');
-      router.push('/onboarding');
+      setShowStatus(true);
     } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
@@ -630,13 +706,21 @@ export function MerchantSignupContent() {
     }
   };
 
+  if (showStatus) return <OnboardingStatusContent />;
+
+  const progressStep = onboardingOnly ? step - 1 : step;
+
   return (
     <MarketingShell>
-      <div className="mx-auto max-w-2xl px-4 py-10">
+      <div className={onboardingOnly ? 'mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8' : 'mx-auto max-w-2xl px-4 py-10'}>
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-slate-900">Become a JebDekho Partner</h1>
+          <h1 className="text-3xl font-bold text-slate-900">
+            {onboardingOnly ? 'Continue your onboarding' : 'Become a JebDekho Partner'}
+          </h1>
           <p className="mt-2 text-slate-600">
-            Verify your identity, submit your store details, and go live after approval.
+            {onboardingOnly
+              ? 'Your draft is saved after every step. Approval usually takes 24–48 hours.'
+              : 'Create your merchant account, then continue onboarding on one dedicated page.'}
           </p>
         </div>
 
@@ -645,12 +729,12 @@ export function MerchantSignupContent() {
             <div key={label} className="min-w-[3rem] flex-1">
               <div
                 className={`h-1.5 rounded-full transition-colors ${
-                  i <= step ? 'bg-brand-600' : 'bg-slate-200'
+                  i <= progressStep ? 'bg-brand-600' : 'bg-slate-200'
                 }`}
               />
               <p
                 className={`mt-1.5 truncate text-center text-[10px] font-medium ${
-                  i <= step ? 'text-brand-700' : 'text-slate-400'
+                  i <= progressStep ? 'text-brand-700' : 'text-slate-400'
                 }`}
               >
                 {label}
@@ -659,9 +743,58 @@ export function MerchantSignupContent() {
           ))}
         </div>
         <p className="mt-2 text-center text-xs text-slate-500">
-          {computeWizardProgress(step)}% complete — draft saves when you continue each step
+          {computeWizardProgress(progressStep)}% complete — {saving ? 'Saving…' : 'Draft saved'}
         </p>
 
+        <div className={onboardingOnly ? 'mt-8 grid gap-6 lg:grid-cols-[18rem_1fr]' : ''}>
+          {onboardingOnly && (
+            <aside className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Start selling after approval
+              </p>
+              <ol className="mt-4 space-y-2">
+                {STEPS.slice(1).map((label, index) => {
+                  const visualStep = index + 1;
+                  const active = step === visualStep;
+                  const done = step > visualStep;
+                  return (
+                    <li key={label}>
+                      <button
+                        type="button"
+                        onClick={() => setStep(visualStep)}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${
+                          active
+                            ? 'bg-brand-50 text-brand-700'
+                            : done
+                              ? 'text-slate-800 hover:bg-slate-50'
+                              : 'text-slate-500 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span
+                          className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                            done
+                              ? 'bg-brand-600 text-white'
+                              : active
+                                ? 'bg-brand-100 text-brand-700'
+                                : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {done ? '✓' : visualStep}
+                        </span>
+                        {label}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+              <div className="mt-5 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+                <p className="font-medium text-slate-800">Need help?</p>
+                <p className="mt-1">Contact support@jebdekho.com</p>
+              </div>
+            </aside>
+          )}
+
+          <div>
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -717,8 +850,8 @@ export function MerchantSignupContent() {
                     <span className="flex h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-600">
                       +91
                     </span>
-                    <Input
-                      label="Store contact mobile"
+                  <Input
+                      label="Store contact mobile *"
                       type="tel"
                       value={contactPhone}
                       onChange={(e) =>
@@ -730,13 +863,13 @@ export function MerchantSignupContent() {
                   </div>
                 )}
                 <Input
-                  label="Owner full name"
+                  label="Owner full name *"
                   placeholder="As per PAN / GST"
                   value={form.ownerName}
                   onChange={(e) => setForm({ ...form, ownerName: e.target.value })}
                 />
                 <Input
-                  label="Business / legal name"
+                  label="Business / legal name *"
                   value={form.businessName}
                   onChange={(e) => setForm({ ...form, businessName: e.target.value })}
                 />
@@ -779,13 +912,13 @@ export function MerchantSignupContent() {
               <div className="space-y-4">
                 <StepHeader title="Store details" subtitle="Brand and storefront" />
                 <Input
-                  label="Store display name"
+                  label="Store display name *"
                   value={form.storeName}
                   onChange={(e) => setForm({ ...form, storeName: e.target.value })}
                 />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <ImageUploadField
-                    label="Store logo"
+                  label="Store logo"
                     mode="square"
                     purpose="store-logo"
                     required
@@ -794,7 +927,7 @@ export function MerchantSignupContent() {
                     allowRemove={false}
                   />
                   <ImageUploadField
-                    label="Store banner"
+                  label="Store banner"
                     mode="banner"
                     purpose="store-banner"
                     required
@@ -814,7 +947,7 @@ export function MerchantSignupContent() {
                   subtitle="Add the exact shop address delivery partners will use for pickup"
                 />
                 <Input
-                  label="Shop / Building / Floor / Street address line 1"
+                  label="Shop / Building / Floor / Street address line 1 *"
                   placeholder="Example: E-110, Ground Floor, Windsor Street"
                   value={form.storeAddress}
                   onChange={(e) => setForm({ ...form, storeAddress: e.target.value })}
@@ -864,25 +997,25 @@ export function MerchantSignupContent() {
                 />
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Input
-                    label="Locality / Area"
+                    label="Locality / Area *"
                     placeholder="Raj Nagar Extension"
                     value={form.locality}
                     onChange={(e) => setForm({ ...form, locality: e.target.value })}
                   />
                   <Input
-                    label="Landmark"
+                    label="Landmark *"
                     placeholder="Near main gate, bank, school, etc."
                     value={form.landmark}
                     onChange={(e) => setForm({ ...form, landmark: e.target.value })}
                   />
                   <Input
-                    label="City"
+                    label="City *"
                     placeholder="Ghaziabad"
                     value={form.city}
                     onChange={(e) => setForm({ ...form, city: e.target.value })}
                   />
                   <Input
-                    label="State"
+                    label="State *"
                     placeholder="Uttar Pradesh"
                     value={form.state}
                     onChange={(e) => setForm({ ...form, state: e.target.value })}
@@ -905,7 +1038,7 @@ export function MerchantSignupContent() {
                 )}
                 {form.locality && (!/^\d{6}$/.test(form.pincode) || !form.cityId) && (
                   <Input
-                    label="Pincode"
+                    label="Pincode *"
                     placeholder="6-digit pincode"
                     inputMode="numeric"
                     maxLength={6}
@@ -1013,13 +1146,13 @@ export function MerchantSignupContent() {
                   </Select>
                 )}
                 <Input
-                  label="Delivery radius (km)"
+                  label="Delivery radius (km) *"
                   type="number"
                   value={form.deliveryRadiusKm}
                   onChange={(e) => setForm({ ...form, deliveryRadiusKm: Number(e.target.value) })}
                 />
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Delivery coverage pincodes</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Delivery coverage pincodes (optional)</label>
                   <p className="mb-2 text-xs text-slate-500">
                     Store pincode {form.pincode ? `(${form.pincode})` : ''} is included. Add more comma-separated pincodes.
                   </p>
@@ -1096,7 +1229,7 @@ export function MerchantSignupContent() {
                   </p>
                 )}
                 <Input
-                  label="PAN number"
+                  label="PAN number *"
                   value={form.panNumber}
                   onChange={(e) => setForm({ ...form, panNumber: e.target.value.toUpperCase() })}
                 />
@@ -1128,17 +1261,22 @@ export function MerchantSignupContent() {
               <div className="space-y-4">
                 <StepHeader title="Bank details" subtitle="For settlements and payouts" />
                 <Input
-                  label="Account holder name"
+                  label="Account holder name *"
                   value={form.accountHolderName}
                   onChange={(e) => setForm({ ...form, accountHolderName: e.target.value })}
                 />
                 <Input
-                  label="Account number"
+                  label="Account number *"
                   value={form.accountNumber}
                   onChange={(e) => setForm({ ...form, accountNumber: e.target.value.replace(/\D/g, '') })}
                 />
                 <Input
-                  label="IFSC code"
+                  label="Confirm account number *"
+                  value={form.confirmAccountNumber}
+                  onChange={(e) => setForm({ ...form, confirmAccountNumber: e.target.value.replace(/\D/g, '') })}
+                />
+                <Input
+                  label="IFSC code *"
                   value={form.ifsc}
                   onChange={(e) => setForm({ ...form, ifsc: e.target.value.toUpperCase() })}
                 />
@@ -1181,11 +1319,20 @@ export function MerchantSignupContent() {
                     )}
                   </div>
                 )}
+                <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={declarationAccepted}
+                    onChange={(e) => setDeclarationAccepted(e.target.checked)}
+                  />
+                  <span>I confirm the information is correct.</span>
+                </label>
                 <div className="flex gap-3">
                   <Button variant="secondary" onClick={() => setStep(7)}>
                     <ChevronLeft className="mr-1 h-4 w-4" /> Back
                   </Button>
-                  <Button className="flex-1" loading={saving} onClick={handleSubmit}>
+                  <Button className="flex-1" loading={saving} disabled={!declarationAccepted} onClick={handleSubmit}>
                     Submit application
                   </Button>
                 </div>
@@ -1193,6 +1340,8 @@ export function MerchantSignupContent() {
             )}
           </motion.div>
         </AnimatePresence>
+          </div>
+        </div>
       </div>
     </MarketingShell>
   );
@@ -1203,6 +1352,7 @@ function StepHeader({ title, subtitle }: { title: string; subtitle: string }) {
     <div>
       <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
       <p className="text-sm text-slate-500">{subtitle}</p>
+      <p className="mt-2 text-xs font-medium text-slate-500">Fields marked * are required.</p>
     </div>
   );
 }

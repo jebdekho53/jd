@@ -39,11 +39,9 @@ export function AuthGuard({ children }: { children: ReactNode }) {
             }
             setSyncingRole(false);
           }
-          const continueWizard =
-            !appStatus.status || appStatus.status === 'DRAFT';
-          router.replace(continueWizard ? '/signup' : '/onboarding');
+          router.replace('/onboarding');
         } catch {
-          router.replace('/signup');
+          router.replace('/onboarding');
         }
       })();
     }

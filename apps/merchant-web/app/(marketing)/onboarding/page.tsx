@@ -1,5 +1,5 @@
-import { OnboardingStatusContent } from '@/features/onboarding/onboarding-status-content';
+import { MerchantSignupContent } from '@/features/onboarding/merchant-signup-content';
 
 export default function OnboardingPage() {
-  return <OnboardingStatusContent />;
+  return <MerchantSignupContent onboardingOnly />;
 }
