@@ -5,6 +5,9 @@ export default async function globalSetup(): Promise<void> {
   saveRunState({
     startedAt: new Date().toISOString(),
     issues: [],
+    appResults: [],
+    apiRequests: [],
+    routeAudits: [],
     networkErrors: [],
     consoleErrors: [],
     brokenNavigation: [],

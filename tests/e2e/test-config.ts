@@ -43,7 +43,7 @@ export const qaConfig: QaTestConfig = {
   },
   admin: {
     email: env('E2E_ADMIN_EMAIL', 'jebdekho@gmail.com'),
-    password: env('E2E_ADMIN_PASSWORD', 'Jhx82ndc9g@jd'),
+    password: env('E2E_ADMIN_PASSWORD', 'Rahulrashiseth@1302'),
   },
   qaReportsDir: env('QA_REPORTS_DIR', 'qa-reports'),
   testProductName: 'QA TEST PRODUCT - DELETE AFTER TEST',

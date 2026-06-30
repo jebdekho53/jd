@@ -19,20 +19,23 @@ const logistics_constants_1 = require("../../logistics.constants");
 const logistics_errors_1 = require("../../errors/logistics.errors");
 const mask_sensitive_util_1 = require("../../utils/mask-sensitive.util");
 const shadowfax_url_util_1 = require("./shadowfax-url.util");
+const shadowfax_endpoints_1 = require("./shadowfax.endpoints");
 let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
     constructor(config) {
         this.config = config;
         this.logger = new common_1.Logger(ShadowfaxClient_1.name);
         const rawUrl = config.get('SHADOWFAX_API_URL', '') ?? '';
-        this.apiUrl = (0, shadowfax_url_util_1.normalizeShadowfaxApiBase)(rawUrl);
         this.apiMode = (0, shadowfax_url_util_1.resolveShadowfaxApiMode)(rawUrl, config.get('SHADOWFAX_API_MODE', ''));
+        this.apiUrl = (0, shadowfax_url_util_1.normalizeShadowfaxApiBase)(rawUrl, this.apiMode);
+        this.createOrderEndpoint = (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).createOrder;
+        this.debugPayloads = this.isDebugLoggingEnabled();
         const nodeEnv = config.get('NODE_ENV', 'development');
         this.token =
             nodeEnv === 'production'
-                ? (config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '')
+                ? (config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '').trim()
                 : (config.get('SHADOWFAX_TEST_TOKEN', '') ??
                     config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ??
-                    '');
+                    '').trim();
         this.creditsKey = config.get('SHADOWFAX_CREDITS_KEY', '') ?? '';
         this.http = axios_1.default.create({
             baseURL: this.apiUrl || undefined,
@@ -42,6 +45,13 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
                 'Content-Type': 'application/json',
             },
         });
+        this.logger.log({
+            baseUrl: this.apiUrl || '(not set)',
+            apiMode: this.apiMode,
+            createOrderEndpoint: this.createOrderEndpoint,
+            tokenPresent: Boolean(this.token),
+            tokenMasked: (0, shadowfax_url_util_1.maskShadowfaxToken)(this.token),
+        }, 'Shadowfax configuration resolved');
     }
     getApiMode() {
         return this.apiMode;
@@ -54,24 +64,23 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
         return true;
     }
     async createShipment(payload) {
+        const requestPayload = this.withPaymentMode(payload);
         if (this.apiMode === 'flash') {
-            return this.createFlashOrder(payload);
+            return this.createFlashOrder(requestPayload);
         }
-        return this.request('POST', '/api/v3/clients/shipments/', payload);
+        return this.request('POST', this.createOrderEndpoint, requestPayload);
     }
     async cancelShipment(shipmentId, reason) {
+        const endpoint = (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).cancelOrder(shipmentId);
         if (this.apiMode === 'flash') {
-            return this.request('POST', '/order/cancel/', { order_id: shipmentId });
+            return this.request('POST', endpoint, { order_id: shipmentId });
         }
-        return this.request('POST', `/api/v3/clients/shipments/${shipmentId}/cancel/`, {
+        return this.request('POST', endpoint, {
             reason: reason ?? 'Cancelled by merchant',
         });
     }
     async trackShipment(shipmentId) {
-        if (this.apiMode === 'flash') {
-            return this.request('GET', `/order/track/${shipmentId}/`);
-        }
-        return this.request('GET', `/api/v3/clients/shipments/${shipmentId}/track/`);
+        return this.request('GET', (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).trackOrder(shipmentId));
     }
     async estimatePrice(payload) {
         if (this.apiMode === 'flash') {
@@ -86,7 +95,7 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
                 },
             });
         }
-        return this.request('POST', '/api/v3/clients/serviceability/', payload);
+        return this.request('POST', (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).serviceability, payload);
     }
     async healthCheck() {
         const started = Date.now();
@@ -97,7 +106,7 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
             return { healthy: false, latencyMs: 0, message: missing };
         }
         try {
-            const path = this.apiMode === 'flash' ? '/order/serviceability/' : '/api/v3/clients/health/';
+            const path = (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).health;
             await this.http.request({
                 method: this.apiMode === 'flash' ? 'POST' : 'GET',
                 url: path,
@@ -123,6 +132,23 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
             return this.token;
         }
         return `Token ${this.token}`;
+    }
+    withPaymentMode(payload) {
+        const paymentMode = payload.order_details.payment_mode ?? this.paymentModeForPayload(payload);
+        return {
+            ...payload,
+            order_details: {
+                ...payload.order_details,
+                payment_mode: paymentMode,
+            },
+        };
+    }
+    paymentModeForPayload(payload) {
+        return payload.order_details.paid ? 'PREPAID' : 'COD';
+    }
+    isDebugLoggingEnabled() {
+        const level = (this.config.get('LOG_LEVEL', '') ?? '').toLowerCase();
+        return level === 'debug' || level === 'trace';
     }
     createFlashOrder(payload) {
         const pickup = payload.order_details.pickup_details;
@@ -166,6 +192,7 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
                 ? 'Shadowfax Flash is not configured (SHADOWFAX_API_URL, token, SHADOWFAX_CREDITS_KEY)'
                 : 'Shadowfax API is not configured (SHADOWFAX_API_URL / token)', client_1.DeliveryProviderType.SHADOWFAX, 'NOT_CONFIGURED', false);
         }
+        (0, shadowfax_url_util_1.assertSupportedShadowfaxPath)(this.apiMode, path);
         const requestTarget = (0, shadowfax_url_util_1.shadowfaxRequestTarget)(this.apiUrl, path);
         const started = Date.now();
         try {
@@ -173,8 +200,15 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
                 method,
                 requestTarget,
                 apiMode: this.apiMode,
-                body: body ? (0, mask_sensitive_util_1.maskSensitivePayload)(body) : undefined,
             }, 'Shadowfax API request');
+            if (body && this.debugPayloads) {
+                this.logger.debug({
+                    method,
+                    requestTarget,
+                    apiMode: this.apiMode,
+                    body: (0, mask_sensitive_util_1.maskSensitivePayload)(body),
+                }, 'Shadowfax API request payload');
+            }
             const response = method === 'GET'
                 ? await this.http.get(path)
                 : await this.http.post(path, body);

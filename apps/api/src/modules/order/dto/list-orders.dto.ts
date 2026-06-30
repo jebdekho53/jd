@@ -3,6 +3,7 @@ import { OmitType } from '@nestjs/swagger';
 import { IsEnum, IsIn, IsInt, IsOptional, IsString, Max, Min, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OrderStatus, PaymentMethod } from '@prisma/client';
+import { IsCuid } from '../../../common/validators/cuid.validator';
 
 export class ListOrdersDto {
   @ApiProperty({ required: false, enum: OrderStatus })
@@ -35,6 +36,7 @@ export class ListMerchantOrdersDto extends ListOrdersDto {
   @ApiProperty({ required: false, description: 'Filter by store ID' })
   @IsOptional()
   @IsString()
+  @IsCuid()
   storeId?: string;
 
   @ApiProperty({

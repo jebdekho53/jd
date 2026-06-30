@@ -255,6 +255,43 @@ describe('OrderService', () => {
       expect(mockPrisma.order.findMany).not.toHaveBeenCalled();
       expect(mockPrisma.order.count).not.toHaveBeenCalled();
     });
+
+    it('uses active merchant visibility for live orders', async () => {
+      await service.listMerchantOrders(USER_ID, {
+        storeId: STORE_ID,
+        merchantStatusGroup: 'active',
+        limit: 200,
+      });
+
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            storeId: { in: [STORE_ID] },
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  expect.objectContaining({ paymentMethod: expect.any(Object) }),
+                  expect.objectContaining({ paymentStatus: PaymentStatus.PAID }),
+                ]),
+              }),
+              expect.objectContaining({
+                status: expect.objectContaining({
+                  in: expect.arrayContaining([
+                    OrderStatus.MERCHANT_ACCEPTED,
+                    OrderStatus.PREPARING,
+                    OrderStatus.PACKING,
+                    OrderStatus.READY_FOR_PICKUP,
+                    OrderStatus.RIDER_ASSIGNED,
+                    OrderStatus.OUT_FOR_DELIVERY,
+                  ]),
+                }),
+              }),
+            ]),
+          }),
+          take: 200,
+        }),
+      );
+    });
   });
 
   // ── Merchant state transitions ─────────────────────────────────────────────

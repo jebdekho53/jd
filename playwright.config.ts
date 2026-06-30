@@ -43,7 +43,10 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      testMatch: /(buyer|rbac|api)\/.*\.spec\.ts/,
+      testMatch: [
+        /(buyer|rbac|api)\/.*\.spec\.ts/,
+        /(buyer-prod|merchant-prod|admin-prod|navigation-audit|api-network-audit)\.spec\.ts/,
+      ],
     },
     {
       name: 'chromium-merchant',

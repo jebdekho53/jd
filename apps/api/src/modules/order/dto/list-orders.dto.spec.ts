@@ -26,6 +26,13 @@ describe('ListMerchantOrdersDto', () => {
   });
 
   it('accepts merchant order limits used by the web app', async () => {
+    const { dto, errors } = await validateMerchantOrdersQuery({ limit: '100' });
+
+    expect(errors).toHaveLength(0);
+    expect(dto.limit).toBe(100);
+  });
+
+  it('accepts the live orders limit used by the web app', async () => {
     const { dto, errors } = await validateMerchantOrdersQuery({ limit: '200' });
 
     expect(errors).toHaveLength(0);
@@ -53,6 +60,43 @@ describe('ListMerchantOrdersDto', () => {
         expect.objectContaining({
           property: 'status',
           constraints: expect.objectContaining({ isEnum: expect.any(String) }),
+        }),
+      ]),
+    );
+  });
+
+  it('rejects invalid merchant status groups', async () => {
+    const { errors } = await validateMerchantOrdersQuery({ merchantStatusGroup: 'stale_group' });
+
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          property: 'merchantStatusGroup',
+          constraints: expect.objectContaining({ isIn: expect.any(String) }),
+        }),
+      ]),
+    );
+  });
+
+  it('accepts the active merchant status group used by live orders', async () => {
+    const { dto, errors } = await validateMerchantOrdersQuery({
+      merchantStatusGroup: 'active',
+      limit: '200',
+    });
+
+    expect(errors).toHaveLength(0);
+    expect(dto.merchantStatusGroup).toBe('active');
+    expect(dto.limit).toBe(200);
+  });
+
+  it('rejects invalid storeId formats', async () => {
+    const { errors } = await validateMerchantOrdersQuery({ storeId: 'not-a-cuid', limit: '100' });
+
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          property: 'storeId',
+          constraints: expect.objectContaining({ matches: expect.any(String) }),
         }),
       ]),
     );

@@ -1,10 +1,11 @@
 import { ConfigService } from '@nestjs/config';
-import { type ShadowfaxApiMode } from './shadowfax-url.util';
+import { type ShadowfaxApiMode } from './shadowfax.endpoints';
 export interface ShadowfaxCreatePayload {
     order_details: {
         client_order_id: string;
         order_value?: number;
         paid: boolean;
+        payment_mode?: ShadowfaxPaymentMode;
         pickup_details: ShadowfaxAddressPayload;
         drop_details: ShadowfaxAddressPayload;
         order_items?: Array<{
@@ -14,6 +15,7 @@ export interface ShadowfaxCreatePayload {
         }>;
     };
 }
+export type ShadowfaxPaymentMode = 'COD' | 'PREPAID';
 export interface ShadowfaxFlashCreatePayload {
     pickup_details: Record<string, unknown>;
     drop_details: Record<string, unknown>;
@@ -39,6 +41,8 @@ export declare class ShadowfaxClient {
     private readonly token;
     private readonly apiMode;
     private readonly creditsKey;
+    private readonly createOrderEndpoint;
+    private readonly debugPayloads;
     constructor(config: ConfigService);
     getApiMode(): ShadowfaxApiMode;
     isConfigured(): boolean;
@@ -58,6 +62,9 @@ export declare class ShadowfaxClient {
         message?: string;
     }>;
     private authHeader;
+    private withPaymentMode;
+    private paymentModeForPayload;
+    private isDebugLoggingEnabled;
     private createFlashOrder;
     private normalizePhone;
     private request;

@@ -16,6 +16,7 @@ const swagger_2 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 const client_1 = require("@prisma/client");
+const cuid_validator_1 = require("../../../common/validators/cuid.validator");
 class ListOrdersDto {
     constructor() {
         this.page = 1;
@@ -65,6 +66,7 @@ __decorate([
     (0, swagger_1.ApiProperty)({ required: false, description: 'Filter by store ID' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, cuid_validator_1.IsCuid)(),
     __metadata("design:type", String)
 ], ListMerchantOrdersDto.prototype, "storeId", void 0);
 __decorate([
