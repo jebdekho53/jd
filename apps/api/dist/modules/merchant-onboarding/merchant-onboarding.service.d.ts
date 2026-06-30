@@ -1140,6 +1140,11 @@ export declare class MerchantOnboardingService {
         updatedAt: Date;
     }>;
     private applicationInclude;
+    private normalizeStepKey;
+    private normalizeIndianPhone;
+    private markStepCompleted;
+    private markStepKeysCompleted;
+    private saveBankPayloadIfComplete;
     private syncUserPhoneIfNeeded;
     private requireDraftApplication;
     private assertSubmissionReady;
