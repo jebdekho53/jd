@@ -29,21 +29,21 @@ function env(key: string, fallback = ''): string {
 }
 
 export const qaConfig: QaTestConfig = {
-  buyerUrl: env('E2E_BUYER_URL', 'https://jebdekho.com'),
-  merchantUrl: env('E2E_MERCHANT_URL', 'https://merchant.jebdekho.com'),
-  adminUrl: env('E2E_ADMIN_URL', 'https://admin.jebdekho.com'),
-  apiUrl: env('E2E_API_URL', 'https://api.jebdekho.com'),
+  buyerUrl: env('QA_BUYER_URL', env('E2E_BUYER_URL', 'https://jebdekho.com')),
+  merchantUrl: env('QA_MERCHANT_URL', env('E2E_MERCHANT_URL', 'https://merchant.jebdekho.com')),
+  adminUrl: env('QA_ADMIN_URL', env('E2E_ADMIN_URL', 'https://admin.jebdekho.com')),
+  apiUrl: env('QA_API_URL', env('E2E_API_URL', 'https://api.jebdekho.com')),
   buyer: {
-    email: env('E2E_BUYER_EMAIL', env('E2E_BUYER_MERCHANT_EMAIL', 'rahulseth3988@gmail.com')),
-    password: env('E2E_BUYER_PASSWORD', env('E2E_BUYER_MERCHANT_PASSWORD', 'Jhx82ndc9g@')),
+    email: env('QA_BUYER_EMAIL', env('E2E_BUYER_EMAIL', env('E2E_BUYER_MERCHANT_EMAIL'))),
+    password: env('QA_BUYER_PASSWORD', env('E2E_BUYER_PASSWORD', env('E2E_BUYER_MERCHANT_PASSWORD'))),
   },
   merchant: {
-    email: env('E2E_MERCHANT_EMAIL', env('E2E_BUYER_MERCHANT_EMAIL', 'rahulseth3988@gmail.com')),
-    password: env('E2E_MERCHANT_PASSWORD', env('E2E_BUYER_MERCHANT_PASSWORD', 'Jhx82ndc9g@')),
+    email: env('QA_MERCHANT_EMAIL', env('E2E_MERCHANT_EMAIL', env('E2E_BUYER_MERCHANT_EMAIL'))),
+    password: env('QA_MERCHANT_PASSWORD', env('E2E_MERCHANT_PASSWORD', env('E2E_BUYER_MERCHANT_PASSWORD'))),
   },
   admin: {
-    email: env('E2E_ADMIN_EMAIL', 'jebdekho@gmail.com'),
-    password: env('E2E_ADMIN_PASSWORD', 'Rahulrashiseth@1302'),
+    email: env('QA_ADMIN_EMAIL', env('E2E_ADMIN_EMAIL')),
+    password: env('QA_ADMIN_PASSWORD', env('E2E_ADMIN_PASSWORD')),
   },
   qaReportsDir: env('QA_REPORTS_DIR', 'qa-reports'),
   testProductName: 'QA TEST PRODUCT - DELETE AFTER TEST',

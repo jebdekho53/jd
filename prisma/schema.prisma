@@ -249,6 +249,14 @@ enum MerchantDocumentType {
 }
 
 enum MerchantOnboardingStepKey {
+  VERIFY
+  BUSINESS
+  STORE
+  LOCATION
+  DELIVERY
+  CATEGORIES
+  GST_PAN
+  BANK
   PERSONAL_DETAILS
   BUSINESS_DETAILS
   STORE_DETAILS
