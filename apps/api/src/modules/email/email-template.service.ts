@@ -44,7 +44,7 @@ export class EmailTemplateService {
         <img src="${EMAIL_LOGO_URL}" alt="JebDekho" />
       </div>
       <div class="content">${bodyHtml}</div>
-      <div class="footer">© ${new Date().getFullYear()} JebDekho · Compare prices. Save more.</div>
+      <div class="footer">This is an automated message from JebDekho. For help, contact support@jebdekho.com.</div>
     </div>
   </div>
 </body>
@@ -121,6 +121,44 @@ export class EmailTemplateService {
       <p>Team JebDekho</p>`;
     const text = `Your order ${orderNumber} has been delivered. Rate your order: ${reviewUrl}`;
     return { subject, html: this.layout(subject, body, 'Your order was delivered'), text };
+  }
+
+  eventNotice(data: {
+    subject: string;
+    heading: string;
+    lines: string[];
+    referenceLabel?: string;
+    referenceValue?: string;
+    actionLabel?: string;
+    actionUrl?: string;
+  }): { subject: string; html: string; text: string } {
+    const reference =
+      data.referenceLabel && data.referenceValue
+        ? `<p><strong>${this.escape(data.referenceLabel)}:</strong> ${this.escape(data.referenceValue)}</p>`
+        : '';
+    const lines = data.lines.map((line) => `<p>${this.escape(line)}</p>`).join('');
+    const action =
+      data.actionLabel && data.actionUrl
+        ? `<a class="btn" href="${this.escape(data.actionUrl)}">${this.escape(data.actionLabel)}</a>`
+        : '';
+    const body = `
+      <p><strong>${this.escape(data.heading)}</strong></p>
+      ${reference}
+      ${lines}
+      ${action}
+      <p>Team JebDekho</p>`;
+    const text = [
+      data.heading,
+      data.referenceLabel && data.referenceValue
+        ? `${data.referenceLabel}: ${data.referenceValue}`
+        : undefined,
+      ...data.lines,
+      data.actionUrl ? `${data.actionLabel ?? 'Open'}: ${data.actionUrl}` : undefined,
+      'Team JebDekho',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+    return { subject: data.subject, html: this.layout(data.subject, body, data.heading), text };
   }
 
   passwordReset(resetUrl: string, expiresMinutes: number): { subject: string; html: string; text: string } {

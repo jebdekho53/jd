@@ -93,6 +93,14 @@ const mockVertical = {
   ensureStoreVerticalProfile: jest.fn(),
   ensureStoreBusinessTypesFromApplication: jest.fn(),
 };
+const mockSupportTickets = { createTicket: jest.fn().mockResolvedValue({}) };
+const mockMarketingEvents = { track: jest.fn() };
+const mockAudit = { log: jest.fn() };
+const mockEmailNotifications = {
+  sendWelcomeEmail: jest.fn(),
+  sendMerchantApplicationReceived: jest.fn(),
+  sendAdminNewMerchantApplication: jest.fn(),
+};
 
 describe('MerchantOnboardingService branding', () => {
   let service: MerchantOnboardingService;
@@ -105,12 +113,12 @@ describe('MerchantOnboardingService branding', () => {
         { provide: MerchantService, useValue: mockMerchant },
         { provide: StoreService, useValue: mockStore },
         { provide: AdminStoreService, useValue: {} },
-        { provide: AuditService, useValue: { log: jest.fn() } },
+        { provide: AuditService, useValue: mockAudit },
         { provide: MerchantApplicationRiskService, useValue: mockRisk },
         { provide: RiskEngineService, useValue: mockRiskEngine },
-        { provide: MarketingEventService, useValue: { track: jest.fn() } },
-        { provide: SupportTicketService, useValue: { createTicket: jest.fn().mockResolvedValue({}) } },
-        { provide: EmailNotificationService, useValue: { sendWelcomeEmail: jest.fn() } },
+        { provide: MarketingEventService, useValue: mockMarketingEvents },
+        { provide: SupportTicketService, useValue: mockSupportTickets },
+        { provide: EmailNotificationService, useValue: mockEmailNotifications },
         { provide: PasswordService, useValue: { hash: jest.fn() } },
         { provide: LocationDirectoryService, useValue: mockLocations },
         { provide: GeoService, useValue: mockGeo },
@@ -130,6 +138,16 @@ describe('MerchantOnboardingService branding', () => {
     );
     mockRisk.assess.mockResolvedValue({ riskScore: 10, riskFlags: [] });
     mockRiskEngine.getOrCreateProfile.mockResolvedValue({});
+    mockStore.createStore.mockResolvedValue({ id: 'store-1' });
+    mockStore.submitForReview.mockResolvedValue({});
+    mockMerchant.getProfile.mockResolvedValue({ id: 'mp-1' });
+    mockMerchant.createProfile.mockResolvedValue({ id: 'mp-1' });
+    mockMerchant.ensureMerchantRole.mockResolvedValue(undefined);
+    mockPrisma.merchantKyc.update.mockResolvedValue({});
+    mockPrisma.merchantProfile.update.mockResolvedValue({});
+    mockPrisma.merchantOnboardingStep.update.mockResolvedValue({});
+    mockMarketingEvents.track.mockResolvedValue(undefined);
+    mockAudit.log.mockResolvedValue(undefined);
   });
 
   describe('updateStep', () => {
@@ -286,6 +304,23 @@ describe('MerchantOnboardingService branding', () => {
 
       await expect(service.submitApplication('u-1')).rejects.toThrow(BadRequestException);
       expect(mockStore.createStore).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('submitApplication', () => {
+    it('creates merchant application workflow updates without opening a support ticket', async () => {
+      await service.submitApplication('u-1', '127.0.0.1');
+
+      expect(mockStore.createStore).toHaveBeenCalled();
+      expect(mockPrisma.merchantApplication.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            merchantProfileId: 'mp-1',
+            storeId: 'store-1',
+          }),
+        }),
+      );
+      expect(mockSupportTickets.createTicket).not.toHaveBeenCalled();
     });
   });
 });

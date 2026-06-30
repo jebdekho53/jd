@@ -163,7 +163,7 @@ export class ShadowfaxClient {
     }
     try {
       const path = shadowfaxEndpointsForMode(this.apiMode).health;
-      await this.http.request({
+      const response = await this.http.request({
         method: this.apiMode === 'flash' ? 'POST' : 'GET',
         url: path,
         data:
@@ -172,6 +172,13 @@ export class ShadowfaxClient {
             : undefined,
         validateStatus: () => true,
       });
+      if (response.status < 200 || response.status >= 400) {
+        return {
+          healthy: false,
+          latencyMs: Date.now() - started,
+          message: `Shadowfax health returned HTTP ${response.status}`,
+        };
+      }
       return { healthy: true, latencyMs: Date.now() - started };
     } catch (err) {
       return {

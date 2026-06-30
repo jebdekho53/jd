@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { LayoutDashboard, Map, Store, Users, TrendingUp, Wallet } from 'lucide-react';
+import { getAccessToken } from '@/lib/auth/session';
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -10,7 +12,12 @@ const NAV = [
   { href: '/finance', label: 'Finance', icon: Wallet },
 ];
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const accessToken = await getAccessToken();
+  if (!accessToken && process.env.FRANCHISE_DASHBOARD_ENABLED !== 'true') {
+    redirect('/');
+  }
+
   return (
     <div className="flex min-h-screen">
       <aside className="w-56 border-r border-slate-800 bg-slate-900 p-4">

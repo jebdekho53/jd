@@ -2,7 +2,7 @@ import type { Libraries } from '@react-google-maps/api';
 
 export const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 
-export const GOOGLE_MAPS_LIBRARIES: Libraries = ['places'];
+export const GOOGLE_MAPS_LIBRARIES: Libraries = ['places', 'marker'];
 
 export const DEFAULT_MAP_CENTER = { lat: 28.6139, lng: 77.209 } as const;
 

@@ -162,6 +162,53 @@ describe('ShadowfaxClient', () => {
     );
   });
 
+  it('runs serviceability without creating a shipment', async () => {
+    mockHttp.post.mockResolvedValue({ data: { charge: 45, eta_minutes: 30 }, status: 200 });
+    const client = new ShadowfaxClient(
+      config({
+        NODE_ENV: 'development',
+        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_TEST_TOKEN: 'test-token-123',
+      }),
+    );
+
+    await client.estimatePrice({
+      pickup_lat: 28.61,
+      pickup_lng: 77.2,
+      drop_lat: 28.62,
+      drop_lng: 77.21,
+    });
+
+    expect(mockHttp.post).toHaveBeenCalledWith(
+      '/v3/clients/serviceability/',
+      expect.objectContaining({
+        pickup_lat: 28.61,
+        drop_lng: 77.21,
+      }),
+    );
+    expect(mockHttp.post).not.toHaveBeenCalledWith('/v3/clients/orders/', expect.anything());
+  });
+
+  it('surfaces serviceability failures', async () => {
+    mockHttp.post.mockRejectedValue({ response: { status: 400, data: { message: 'bad request' } } });
+    const client = new ShadowfaxClient(
+      config({
+        NODE_ENV: 'development',
+        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_TEST_TOKEN: 'test-token-123',
+      }),
+    );
+
+    await expect(
+      client.estimatePrice({
+        pickup_lat: 28.61,
+        pickup_lng: 77.2,
+        drop_lat: 28.62,
+        drop_lng: 77.21,
+      }),
+    ).rejects.toThrow('Shadowfax API failed: bad request');
+  });
+
   it('does not build a double /api/api base URL', () => {
     new ShadowfaxClient(
       config({
@@ -173,6 +220,39 @@ describe('ShadowfaxClient', () => {
 
     expect(mockedAxios.create).toHaveBeenCalledWith(
       expect.objectContaining({ baseURL: 'https://dale.shadowfax.in/api' }),
+    );
+  });
+
+  it('reports healthy when health endpoint returns success', async () => {
+    mockHttp.request.mockResolvedValue({ status: 200, data: {} });
+    const client = new ShadowfaxClient(
+      config({
+        NODE_ENV: 'development',
+        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_TEST_TOKEN: 'test-token-123',
+      }),
+    );
+
+    await expect(client.healthCheck()).resolves.toEqual(
+      expect.objectContaining({ healthy: true }),
+    );
+  });
+
+  it('reports unhealthy when health endpoint returns an error status', async () => {
+    mockHttp.request.mockResolvedValue({ status: 503, data: {} });
+    const client = new ShadowfaxClient(
+      config({
+        NODE_ENV: 'development',
+        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_TEST_TOKEN: 'test-token-123',
+      }),
+    );
+
+    await expect(client.healthCheck()).resolves.toEqual(
+      expect.objectContaining({
+        healthy: false,
+        message: 'Shadowfax health returned HTTP 503',
+      }),
     );
   });
 });

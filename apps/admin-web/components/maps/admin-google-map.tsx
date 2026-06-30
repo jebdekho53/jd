@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
-import { GoogleMap, Marker, Circle } from '@react-google-maps/api';
+import { useMemo, useState } from 'react';
+import { GoogleMap, Circle } from '@react-google-maps/api';
 import { Loader2 } from 'lucide-react';
-import { useGoogleMaps } from '@jebdekho/google-maps';
+import { AdvancedMarker, useGoogleMaps } from '@jebdekho/google-maps';
 
 export interface AdminMapMarker {
   id: string;
@@ -49,6 +49,7 @@ export function AdminGoogleMap({
   defaultCenter,
 }: AdminGoogleMapProps) {
   const { isLoaded, loadError, isConfigured } = useGoogleMaps();
+  const [map, setMap] = useState<google.maps.Map | null>(null);
 
   const center = useMemo(() => {
     if (defaultCenter) return defaultCenter;
@@ -91,6 +92,8 @@ export function AdminGoogleMap({
         center={center}
         zoom={11}
         options={{ disableDefaultUI: true, zoomControl: true, fullscreenControl: true }}
+        onLoad={setMap}
+        onUnmount={() => setMap(null)}
       >
         {circles.map((c) => (
           <Circle
@@ -107,23 +110,13 @@ export function AdminGoogleMap({
           />
         ))}
         {markers.map((m) => (
-          <Marker
+          <AdvancedMarker
             key={m.id}
+            map={map}
             position={{ lat: m.lat, lng: m.lng }}
             title={m.title ?? m.label}
-            label={m.label ? { text: m.label, color: 'white', fontWeight: '700' } : undefined}
-            icon={
-              m.color
-                ? {
-                    path: google.maps.SymbolPath.CIRCLE,
-                    scale: 8,
-                    fillColor: m.color,
-                    fillOpacity: 1,
-                    strokeColor: '#ffffff',
-                    strokeWeight: 2,
-                  }
-                : undefined
-            }
+            label={m.label}
+            color={m.color}
           />
         ))}
       </GoogleMap>
