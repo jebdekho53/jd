@@ -63,6 +63,26 @@ const DOC_TO_STORE: Partial<Record<MerchantDocumentType, StoreDocumentType>> = {
   OTHER: StoreDocumentType.OTHER,
 };
 
+const CANONICAL_STEPS: MerchantOnboardingStepKey[] = [
+  MerchantOnboardingStepKey.VERIFY,
+  MerchantOnboardingStepKey.BUSINESS,
+  MerchantOnboardingStepKey.STORE,
+  MerchantOnboardingStepKey.LOCATION,
+  MerchantOnboardingStepKey.DELIVERY,
+  MerchantOnboardingStepKey.CATEGORIES,
+  MerchantOnboardingStepKey.GST_PAN,
+  MerchantOnboardingStepKey.BANK,
+  MerchantOnboardingStepKey.REVIEW,
+];
+
+const LEGACY_STEP_ALIASES: Partial<Record<MerchantOnboardingStepKey, MerchantOnboardingStepKey>> = {
+  [MerchantOnboardingStepKey.PERSONAL_DETAILS]: MerchantOnboardingStepKey.VERIFY,
+  [MerchantOnboardingStepKey.BUSINESS_DETAILS]: MerchantOnboardingStepKey.BUSINESS,
+  [MerchantOnboardingStepKey.STORE_DETAILS]: MerchantOnboardingStepKey.STORE,
+  [MerchantOnboardingStepKey.DOCUMENTS]: MerchantOnboardingStepKey.GST_PAN,
+  [MerchantOnboardingStepKey.BANK_DETAILS]: MerchantOnboardingStepKey.BANK,
+};
+
 type PickupAddressPayload = {
   addressLine1: string;
   addressLine2?: string;
@@ -78,14 +98,7 @@ type PickupAddressPayload = {
   formattedAddress?: string;
 };
 
-const ALL_STEPS: MerchantOnboardingStepKey[] = [
-  MerchantOnboardingStepKey.PERSONAL_DETAILS,
-  MerchantOnboardingStepKey.BUSINESS_DETAILS,
-  MerchantOnboardingStepKey.STORE_DETAILS,
-  MerchantOnboardingStepKey.DOCUMENTS,
-  MerchantOnboardingStepKey.BANK_DETAILS,
-  MerchantOnboardingStepKey.REVIEW,
-];
+const ALL_STEPS = CANONICAL_STEPS;
 
 @Injectable()
 export class MerchantOnboardingService {
@@ -290,28 +303,39 @@ export class MerchantOnboardingService {
   async updateStep(userId: string, dto: UpdateOnboardingStepDto, ipAddress?: string) {
     await this.getOrCreateApplication(userId);
     const app = await this.requireDraftApplication(userId);
+    const stepKey = this.normalizeStepKey(dto.stepKey);
+    const ownerName = dto.ownerName ?? dto.ownerFullName;
+    const ownerPhone = dto.ownerPhone ?? dto.contactMobile ?? dto.storePhone;
+    const ownerEmail = dto.ownerEmail ?? dto.storeEmail;
+    const businessName = dto.businessName ?? dto.legalName;
+    const gstNumber = dto.gstNumber ?? dto.gstin;
+    const panNumber = dto.panNumber ?? dto.pan;
+    const storeAddress = dto.storeAddress ?? dto.addressLine;
+    const locality = dto.locality ?? dto.area;
+    const deliveryRadiusKm = dto.deliveryRadiusKm ?? dto.deliveryRadius;
+    const deliveryCoveragePincodes = dto.deliveryCoveragePincodes ?? dto.deliveryPincodes;
     const data: Prisma.MerchantApplicationUpdateInput = {};
 
-    if (dto.ownerName) data.ownerName = dto.ownerName;
-    if (dto.ownerEmail) data.ownerEmail = dto.ownerEmail.trim().toLowerCase();
-    if (dto.ownerPhone) {
-      data.ownerPhone = dto.ownerPhone;
-      await this.syncUserPhoneIfNeeded(userId, dto.ownerPhone);
+    if (ownerName) data.ownerName = ownerName;
+    if (ownerEmail) data.ownerEmail = ownerEmail.trim().toLowerCase();
+    if (ownerPhone) {
+      data.ownerPhone = this.normalizeIndianPhone(ownerPhone);
+      await this.syncUserPhoneIfNeeded(userId, ownerPhone);
     }
-    if (dto.businessName) data.businessName = dto.businessName;
+    if (businessName) data.businessName = businessName;
     if (dto.businessType) data.businessType = dto.businessType;
     if (dto.businessTypes?.length) {
       await this.syncApplicationBusinessTypes(app.id, dto.businessTypes);
       if (!dto.businessType) data.businessType = dto.businessTypes[0];
     }
-    if (dto.gstNumber) {
-      const gst = normalizeGstin(dto.gstNumber);
+    if (gstNumber) {
+      const gst = normalizeGstin(gstNumber);
       data.gstNumber = gst;
       data.gstVerified = isValidGstin(gst);
     }
-    if (dto.panNumber) data.panNumber = dto.panNumber.toUpperCase();
+    if (panNumber) data.panNumber = panNumber.toUpperCase();
     if (dto.storeName) data.storeName = dto.storeName;
-    if (dto.storeAddress) data.storeAddress = dto.storeAddress;
+    if (storeAddress) data.storeAddress = storeAddress;
     if (dto.pickupAddress) {
       data.pickupAddress = dto.pickupAddress as unknown as Prisma.InputJsonValue;
     }
@@ -319,24 +343,24 @@ export class MerchantOnboardingService {
     if (dto.city) data.city = dto.city;
     if (dto.cityId) data.cityId = dto.cityId;
     if (dto.pincode) data.pincode = dto.pincode;
-    if (dto.locality) data.locality = dto.locality;
+    if (locality) data.locality = locality;
     if (dto.locationPincodeId) data.locationPincodeId = dto.locationPincodeId;
     if (dto.locationAreaId) data.locationAreaId = dto.locationAreaId;
     if (dto.locationCityId) data.locationCityId = dto.locationCityId;
     if (dto.latitude !== undefined) data.latitude = dto.latitude;
     if (dto.longitude !== undefined) data.longitude = dto.longitude;
-    if (dto.deliveryRadiusKm !== undefined) data.deliveryRadiusKm = dto.deliveryRadiusKm;
+    if (deliveryRadiusKm !== undefined) data.deliveryRadiusKm = deliveryRadiusKm;
     if (dto.storeLogoUrl) data.storeLogoUrl = dto.storeLogoUrl;
     if (dto.storeBannerUrl) data.storeBannerUrl = dto.storeBannerUrl;
-    if (dto.deliveryCoveragePincodes) {
-      data.deliveryCoveragePincodes = dto.deliveryCoveragePincodes;
+    if (deliveryCoveragePincodes) {
+      data.deliveryCoveragePincodes = deliveryCoveragePincodes;
     }
 
-    if (dto.password && dto.ownerEmail) {
+    if (dto.password && ownerEmail) {
       const passwordHash = await this.passwordService.hash(dto.password);
       await this.prisma.user.update({
         where: { id: userId },
-        data: { passwordHash, email: dto.ownerEmail.trim().toLowerCase(), emailVerified: true },
+        data: { passwordHash, email: ownerEmail.trim().toLowerCase(), emailVerified: true },
       });
     }
 
@@ -347,24 +371,22 @@ export class MerchantOnboardingService {
         include: this.applicationInclude(),
       });
 
-      await tx.merchantOnboardingStep.update({
-        where: { applicationId_stepKey: { applicationId: app.id, stepKey: dto.stepKey } },
-        data: { completed: true, completedAt: new Date() },
-      });
+      await this.saveBankPayloadIfComplete(tx, app, dto);
+      await this.markStepCompleted(tx, app.id, stepKey, dto);
 
       return result;
     });
 
-    if (dto.stepKey === MerchantOnboardingStepKey.BUSINESS_DETAILS && dto.businessName && dto.panNumber) {
+    if (stepKey === MerchantOnboardingStepKey.BUSINESS && businessName && panNumber) {
       try {
         await this.merchantService.getProfile(userId);
       } catch {
         await this.merchantService.createProfile(
           userId,
           {
-            businessName: dto.businessName,
-            gstNumber: dto.gstNumber,
-            panNumber: dto.panNumber!,
+            businessName,
+            gstNumber,
+            panNumber,
           },
           ipAddress,
         );
@@ -389,6 +411,13 @@ export class MerchantOnboardingService {
       },
       include: this.applicationInclude(),
     });
+
+    if (stepKey === MerchantOnboardingStepKey.REVIEW) {
+      this.assertSubmissionReady(withRisk);
+      if (dto.submittedForApproval) {
+        return this.submitApplication(userId, ipAddress);
+      }
+    }
 
     return this.formatApplication(withRisk);
   }
@@ -427,15 +456,10 @@ export class MerchantOnboardingService {
       });
     }
 
-    await this.prisma.merchantOnboardingStep.update({
-      where: {
-        applicationId_stepKey: {
-          applicationId: app.id,
-          stepKey: MerchantOnboardingStepKey.DOCUMENTS,
-        },
-      },
-      data: { completed: true, completedAt: new Date() },
-    });
+    await this.markStepKeysCompleted(app.id, [
+      MerchantOnboardingStepKey.GST_PAN,
+      MerchantOnboardingStepKey.DOCUMENTS,
+    ]);
 
     return this.getOrCreateApplication(userId);
   }
@@ -461,15 +485,10 @@ export class MerchantOnboardingService {
       },
     });
 
-    await this.prisma.merchantOnboardingStep.update({
-      where: {
-        applicationId_stepKey: {
-          applicationId: app.id,
-          stepKey: MerchantOnboardingStepKey.BANK_DETAILS,
-        },
-      },
-      data: { completed: true, completedAt: new Date() },
-    });
+    await this.markStepKeysCompleted(app.id, [
+      MerchantOnboardingStepKey.BANK,
+      MerchantOnboardingStepKey.BANK_DETAILS,
+    ]);
 
     return this.getOrCreateApplication(userId);
   }
@@ -921,8 +940,89 @@ export class MerchantOnboardingService {
     } satisfies Prisma.MerchantApplicationInclude;
   }
 
+  private normalizeStepKey(stepKey: MerchantOnboardingStepKey): MerchantOnboardingStepKey {
+    return LEGACY_STEP_ALIASES[stepKey] ?? stepKey;
+  }
+
+  private normalizeIndianPhone(phone: string) {
+    return phone.startsWith('+') ? phone : `+91${phone.replace(/\D/g, '')}`;
+  }
+
+  private async markStepCompleted(
+    tx: Prisma.TransactionClient,
+    applicationId: string,
+    stepKey: MerchantOnboardingStepKey,
+    dto: UpdateOnboardingStepDto,
+  ) {
+    const payload = JSON.parse(JSON.stringify(dto)) as Prisma.InputJsonValue;
+    const keys = new Set([stepKey, dto.stepKey]);
+
+    for (const key of keys) {
+      await tx.merchantOnboardingStep.upsert({
+        where: { applicationId_stepKey: { applicationId, stepKey: key } },
+        create: {
+          applicationId,
+          stepKey: key,
+          completed: true,
+          completedAt: new Date(),
+          data: payload,
+        },
+        update: {
+          completed: true,
+          completedAt: new Date(),
+          data: payload,
+        },
+      });
+    }
+  }
+
+  private async markStepKeysCompleted(applicationId: string, stepKeys: MerchantOnboardingStepKey[]) {
+    await this.prisma.$transaction(async (tx) => {
+      for (const stepKey of stepKeys) {
+        await tx.merchantOnboardingStep.upsert({
+          where: { applicationId_stepKey: { applicationId, stepKey } },
+          create: { applicationId, stepKey, completed: true, completedAt: new Date() },
+          update: { completed: true, completedAt: new Date() },
+        });
+      }
+    });
+  }
+
+  private async saveBankPayloadIfComplete(
+    tx: Prisma.TransactionClient,
+    app: Prisma.MerchantApplicationGetPayload<{ include: ReturnType<MerchantOnboardingService['applicationInclude']> }>,
+    dto: UpdateOnboardingStepDto,
+  ) {
+    const hasBankPayload = Boolean(
+      dto.accountHolderName || dto.accountNumber || dto.ifsc || dto.bankName,
+    );
+    if (!hasBankPayload) return;
+
+    const accountHolderName = dto.accountHolderName ?? app.bankAccount?.accountHolderName;
+    const accountNumber = dto.accountNumber ?? app.bankAccount?.accountNumber;
+    const ifsc = dto.ifsc ?? app.bankAccount?.ifsc;
+    if (!accountHolderName || !accountNumber || !ifsc) return;
+
+    await tx.merchantBankAccount.upsert({
+      where: { applicationId: app.id },
+      create: {
+        applicationId: app.id,
+        accountHolderName,
+        accountNumber,
+        ifsc: ifsc.toUpperCase(),
+        bankName: dto.bankName ?? app.bankAccount?.bankName,
+      },
+      update: {
+        accountHolderName,
+        accountNumber,
+        ifsc: ifsc.toUpperCase(),
+        bankName: dto.bankName ?? app.bankAccount?.bankName,
+      },
+    });
+  }
+
   private async syncUserPhoneIfNeeded(userId: string, ownerPhone: string) {
-    const normalized = ownerPhone.startsWith('+') ? ownerPhone : `+91${ownerPhone.replace(/\D/g, '')}`;
+    const normalized = this.normalizeIndianPhone(ownerPhone);
     if (!/^\+91[6-9]\d{9}$/.test(normalized)) {
       throw new BadRequestException('Enter a valid 10-digit Indian mobile number');
     }
