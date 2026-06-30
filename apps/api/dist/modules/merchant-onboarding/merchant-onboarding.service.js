@@ -41,14 +41,25 @@ const DOC_TO_STORE = {
     STORE_PHOTO: client_1.StoreDocumentType.OTHER,
     OTHER: client_1.StoreDocumentType.OTHER,
 };
-const ALL_STEPS = [
-    client_1.MerchantOnboardingStepKey.PERSONAL_DETAILS,
-    client_1.MerchantOnboardingStepKey.BUSINESS_DETAILS,
-    client_1.MerchantOnboardingStepKey.STORE_DETAILS,
-    client_1.MerchantOnboardingStepKey.DOCUMENTS,
-    client_1.MerchantOnboardingStepKey.BANK_DETAILS,
+const CANONICAL_STEPS = [
+    client_1.MerchantOnboardingStepKey.VERIFY,
+    client_1.MerchantOnboardingStepKey.BUSINESS,
+    client_1.MerchantOnboardingStepKey.STORE,
+    client_1.MerchantOnboardingStepKey.LOCATION,
+    client_1.MerchantOnboardingStepKey.DELIVERY,
+    client_1.MerchantOnboardingStepKey.CATEGORIES,
+    client_1.MerchantOnboardingStepKey.GST_PAN,
+    client_1.MerchantOnboardingStepKey.BANK,
     client_1.MerchantOnboardingStepKey.REVIEW,
 ];
+const LEGACY_STEP_ALIASES = {
+    [client_1.MerchantOnboardingStepKey.PERSONAL_DETAILS]: client_1.MerchantOnboardingStepKey.VERIFY,
+    [client_1.MerchantOnboardingStepKey.BUSINESS_DETAILS]: client_1.MerchantOnboardingStepKey.BUSINESS,
+    [client_1.MerchantOnboardingStepKey.STORE_DETAILS]: client_1.MerchantOnboardingStepKey.STORE,
+    [client_1.MerchantOnboardingStepKey.DOCUMENTS]: client_1.MerchantOnboardingStepKey.GST_PAN,
+    [client_1.MerchantOnboardingStepKey.BANK_DETAILS]: client_1.MerchantOnboardingStepKey.BANK,
+};
+const ALL_STEPS = CANONICAL_STEPS;
 let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnboardingService {
     constructor(prisma, merchantService, storeService, adminStoreService, audit, riskService, riskEngine, marketingEvents, supportTickets, emailNotifications, passwordService, locations, geo, geocoding, verticalService) {
         this.prisma = prisma;
@@ -228,17 +239,28 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
     async updateStep(userId, dto, ipAddress) {
         await this.getOrCreateApplication(userId);
         const app = await this.requireDraftApplication(userId);
+        const stepKey = this.normalizeStepKey(dto.stepKey);
+        const ownerName = dto.ownerName ?? dto.ownerFullName;
+        const ownerPhone = dto.ownerPhone ?? dto.contactMobile ?? dto.storePhone;
+        const ownerEmail = dto.ownerEmail ?? dto.storeEmail;
+        const businessName = dto.businessName ?? dto.legalName;
+        const gstNumber = dto.gstNumber ?? dto.gstin;
+        const panNumber = dto.panNumber ?? dto.pan;
+        const storeAddress = dto.storeAddress ?? dto.addressLine;
+        const locality = dto.locality ?? dto.area;
+        const deliveryRadiusKm = dto.deliveryRadiusKm ?? dto.deliveryRadius;
+        const deliveryCoveragePincodes = dto.deliveryCoveragePincodes ?? dto.deliveryPincodes;
         const data = {};
-        if (dto.ownerName)
-            data.ownerName = dto.ownerName;
-        if (dto.ownerEmail)
-            data.ownerEmail = dto.ownerEmail.trim().toLowerCase();
-        if (dto.ownerPhone) {
-            data.ownerPhone = dto.ownerPhone;
-            await this.syncUserPhoneIfNeeded(userId, dto.ownerPhone);
+        if (ownerName)
+            data.ownerName = ownerName;
+        if (ownerEmail)
+            data.ownerEmail = ownerEmail.trim().toLowerCase();
+        if (ownerPhone) {
+            data.ownerPhone = this.normalizeIndianPhone(ownerPhone);
+            await this.syncUserPhoneIfNeeded(userId, ownerPhone);
         }
-        if (dto.businessName)
-            data.businessName = dto.businessName;
+        if (businessName)
+            data.businessName = businessName;
         if (dto.businessType)
             data.businessType = dto.businessType;
         if (dto.businessTypes?.length) {
@@ -246,17 +268,17 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
             if (!dto.businessType)
                 data.businessType = dto.businessTypes[0];
         }
-        if (dto.gstNumber) {
-            const gst = (0, gst_validation_util_1.normalizeGstin)(dto.gstNumber);
+        if (gstNumber) {
+            const gst = (0, gst_validation_util_1.normalizeGstin)(gstNumber);
             data.gstNumber = gst;
             data.gstVerified = (0, gst_validation_util_1.isValidGstin)(gst);
         }
-        if (dto.panNumber)
-            data.panNumber = dto.panNumber.toUpperCase();
+        if (panNumber)
+            data.panNumber = panNumber.toUpperCase();
         if (dto.storeName)
             data.storeName = dto.storeName;
-        if (dto.storeAddress)
-            data.storeAddress = dto.storeAddress;
+        if (storeAddress)
+            data.storeAddress = storeAddress;
         if (dto.pickupAddress) {
             data.pickupAddress = dto.pickupAddress;
         }
@@ -268,8 +290,8 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
             data.cityId = dto.cityId;
         if (dto.pincode)
             data.pincode = dto.pincode;
-        if (dto.locality)
-            data.locality = dto.locality;
+        if (locality)
+            data.locality = locality;
         if (dto.locationPincodeId)
             data.locationPincodeId = dto.locationPincodeId;
         if (dto.locationAreaId)
@@ -280,20 +302,20 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
             data.latitude = dto.latitude;
         if (dto.longitude !== undefined)
             data.longitude = dto.longitude;
-        if (dto.deliveryRadiusKm !== undefined)
-            data.deliveryRadiusKm = dto.deliveryRadiusKm;
+        if (deliveryRadiusKm !== undefined)
+            data.deliveryRadiusKm = deliveryRadiusKm;
         if (dto.storeLogoUrl)
             data.storeLogoUrl = dto.storeLogoUrl;
         if (dto.storeBannerUrl)
             data.storeBannerUrl = dto.storeBannerUrl;
-        if (dto.deliveryCoveragePincodes) {
-            data.deliveryCoveragePincodes = dto.deliveryCoveragePincodes;
+        if (deliveryCoveragePincodes) {
+            data.deliveryCoveragePincodes = deliveryCoveragePincodes;
         }
-        if (dto.password && dto.ownerEmail) {
+        if (dto.password && ownerEmail) {
             const passwordHash = await this.passwordService.hash(dto.password);
             await this.prisma.user.update({
                 where: { id: userId },
-                data: { passwordHash, email: dto.ownerEmail.trim().toLowerCase(), emailVerified: true },
+                data: { passwordHash, email: ownerEmail.trim().toLowerCase(), emailVerified: true },
             });
         }
         const updated = await this.prisma.$transaction(async (tx) => {
@@ -302,21 +324,19 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
                 data,
                 include: this.applicationInclude(),
             });
-            await tx.merchantOnboardingStep.update({
-                where: { applicationId_stepKey: { applicationId: app.id, stepKey: dto.stepKey } },
-                data: { completed: true, completedAt: new Date() },
-            });
+            await this.saveBankPayloadIfComplete(tx, app, dto);
+            await this.markStepCompleted(tx, app.id, stepKey, dto);
             return result;
         });
-        if (dto.stepKey === client_1.MerchantOnboardingStepKey.BUSINESS_DETAILS && dto.businessName && dto.panNumber) {
+        if (stepKey === client_1.MerchantOnboardingStepKey.BUSINESS && businessName && panNumber) {
             try {
                 await this.merchantService.getProfile(userId);
             }
             catch {
                 await this.merchantService.createProfile(userId, {
-                    businessName: dto.businessName,
-                    gstNumber: dto.gstNumber,
-                    panNumber: dto.panNumber,
+                    businessName,
+                    gstNumber,
+                    panNumber,
                 }, ipAddress);
             }
         }
@@ -337,6 +357,12 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
             },
             include: this.applicationInclude(),
         });
+        if (stepKey === client_1.MerchantOnboardingStepKey.REVIEW) {
+            this.assertSubmissionReady(withRisk);
+            if (dto.submittedForApproval) {
+                return this.submitApplication(userId, ipAddress);
+            }
+        }
         return this.formatApplication(withRisk);
     }
     validateGst(gstNumber) {
@@ -371,15 +397,10 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
                 },
             });
         }
-        await this.prisma.merchantOnboardingStep.update({
-            where: {
-                applicationId_stepKey: {
-                    applicationId: app.id,
-                    stepKey: client_1.MerchantOnboardingStepKey.DOCUMENTS,
-                },
-            },
-            data: { completed: true, completedAt: new Date() },
-        });
+        await this.markStepKeysCompleted(app.id, [
+            client_1.MerchantOnboardingStepKey.GST_PAN,
+            client_1.MerchantOnboardingStepKey.DOCUMENTS,
+        ]);
         return this.getOrCreateApplication(userId);
     }
     async saveBankAccount(userId, dto) {
@@ -402,19 +423,27 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
                 bankName: dto.bankName,
             },
         });
-        await this.prisma.merchantOnboardingStep.update({
-            where: {
-                applicationId_stepKey: {
-                    applicationId: app.id,
-                    stepKey: client_1.MerchantOnboardingStepKey.BANK_DETAILS,
-                },
-            },
-            data: { completed: true, completedAt: new Date() },
-        });
+        await this.markStepKeysCompleted(app.id, [
+            client_1.MerchantOnboardingStepKey.BANK,
+            client_1.MerchantOnboardingStepKey.BANK_DETAILS,
+        ]);
         return this.getOrCreateApplication(userId);
     }
     async submitApplication(userId, ipAddress) {
-        const app = await this.requireDraftApplication(userId);
+        let app = await this.requireDraftApplication(userId);
+        if (!app.cityId && app.city && app.state && app.latitude != null && app.longitude != null) {
+            const city = await this.geo.findOrCreateOperationalCity({
+                name: app.city,
+                state: app.state,
+                latitude: app.latitude,
+                longitude: app.longitude,
+            });
+            app = await this.prisma.merchantApplication.update({
+                where: { id: app.id },
+                data: { cityId: city.id },
+                include: this.applicationInclude(),
+            });
+        }
         this.assertSubmissionReady(app);
         let profile = await this.prisma.merchantProfile.findUnique({ where: { userId } });
         if (!profile) {
@@ -784,8 +813,72 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
             },
         };
     }
+    normalizeStepKey(stepKey) {
+        return LEGACY_STEP_ALIASES[stepKey] ?? stepKey;
+    }
+    normalizeIndianPhone(phone) {
+        return phone.startsWith('+') ? phone : `+91${phone.replace(/\D/g, '')}`;
+    }
+    async markStepCompleted(tx, applicationId, stepKey, dto) {
+        const payload = JSON.parse(JSON.stringify(dto));
+        const keys = new Set([stepKey, dto.stepKey]);
+        for (const key of keys) {
+            await tx.merchantOnboardingStep.upsert({
+                where: { applicationId_stepKey: { applicationId, stepKey: key } },
+                create: {
+                    applicationId,
+                    stepKey: key,
+                    completed: true,
+                    completedAt: new Date(),
+                    data: payload,
+                },
+                update: {
+                    completed: true,
+                    completedAt: new Date(),
+                    data: payload,
+                },
+            });
+        }
+    }
+    async markStepKeysCompleted(applicationId, stepKeys) {
+        await this.prisma.$transaction(async (tx) => {
+            for (const stepKey of stepKeys) {
+                await tx.merchantOnboardingStep.upsert({
+                    where: { applicationId_stepKey: { applicationId, stepKey } },
+                    create: { applicationId, stepKey, completed: true, completedAt: new Date() },
+                    update: { completed: true, completedAt: new Date() },
+                });
+            }
+        });
+    }
+    async saveBankPayloadIfComplete(tx, app, dto) {
+        const hasBankPayload = Boolean(dto.accountHolderName || dto.accountNumber || dto.ifsc || dto.bankName);
+        if (!hasBankPayload)
+            return;
+        const accountHolderName = dto.accountHolderName ?? app.bankAccount?.accountHolderName;
+        const accountNumber = dto.accountNumber ?? app.bankAccount?.accountNumber;
+        const ifsc = dto.ifsc ?? app.bankAccount?.ifsc;
+        if (!accountHolderName || !accountNumber || !ifsc)
+            return;
+        await tx.merchantBankAccount.upsert({
+            where: { applicationId: app.id },
+            create: {
+                applicationId: app.id,
+                accountHolderName,
+                accountNumber,
+                ifsc: ifsc.toUpperCase(),
+                bankName: dto.bankName ?? app.bankAccount?.bankName,
+            },
+            update: {
+                accountHolderName,
+                accountNumber,
+                ifsc: ifsc.toUpperCase(),
+                bankName: dto.bankName ?? app.bankAccount?.bankName,
+            },
+        });
+    }
     async syncUserPhoneIfNeeded(userId, ownerPhone) {
-        const normalized = ownerPhone.startsWith('+') ? ownerPhone : `+91${ownerPhone.replace(/\D/g, '')}`;
+        const normalized = this.normalizeIndianPhone(ownerPhone);
         if (!/^\+91[6-9]\d{9}$/.test(normalized)) {
             throw new common_1.BadRequestException('Enter a valid 10-digit Indian mobile number');
         }

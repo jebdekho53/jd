@@ -15,8 +15,8 @@ const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 const client_1 = require("@prisma/client");
-const constants_1 = require("../../../common/constants");
 const emptyToUndefined = ({ value }) => typeof value === 'string' && value.trim() === '' ? undefined : value;
+const INDIAN_PHONE_OR_E164_REGEX = /^(?:\+91)?[6-9]\d{9}$/;
 class ResolveStoreLocationDto {
     static _OPENAPI_METADATA_FACTORY() {
         return { locality: { required: false, type: () => String }, city: { required: false, type: () => String }, state: { required: false, type: () => String }, pincode: { required: false, type: () => String, pattern: "/^\\d{6}$/" }, latitude: { required: true, type: () => Number, minimum: -90, maximum: 90 }, longitude: { required: true, type: () => Number, minimum: -180, maximum: 180 }, locationCityId: { required: false, type: () => String }, locationAreaId: { required: false, type: () => String } };
@@ -162,7 +162,7 @@ __decorate([
 ], PickupAddressDto.prototype, "formattedAddress", void 0);
 class UpdateOnboardingStepDto {
     static _OPENAPI_METADATA_FACTORY() {
-        return { stepKey: { required: true, type: () => Object }, ownerName: { required: false, type: () => String, minLength: 2, maxLength: 100 }, ownerEmail: { required: false, type: () => String }, ownerPhone: { required: false, type: () => String, pattern: "PHONE_E164_REGEX" }, password: { required: false, type: () => String, minLength: 8, maxLength: 72 }, businessName: { required: false, type: () => String, minLength: 2, maxLength: 150 }, businessType: { required: false, type: () => Object }, businessTypes: { required: false, type: () => [Object] }, gstNumber: { required: false, type: () => String, minLength: 15, maxLength: 15 }, panNumber: { required: false, type: () => String, pattern: "/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/" }, storeName: { required: false, type: () => String, minLength: 2, maxLength: 100 }, storeAddress: { required: false, type: () => String, minLength: 5, maxLength: 500 }, pickupAddress: { required: false, type: () => require("./merchant-onboarding.dto").PickupAddressDto }, state: { required: false, type: () => String }, city: { required: false, type: () => String }, cityId: { required: false, type: () => String }, pincode: { required: false, type: () => String, minLength: 6, maxLength: 6 }, locality: { required: false, type: () => String }, locationPincodeId: { required: false, type: () => String }, locationAreaId: { required: false, type: () => String }, locationCityId: { required: false, type: () => String }, latitude: { required: false, type: () => Number, minimum: -90, maximum: 90 }, longitude: { required: false, type: () => Number, minimum: -180, maximum: 180 }, deliveryRadiusKm: { required: false, type: () => Number, minimum: 1, maximum: 50 }, storeLogoUrl: { required: false, type: () => String }, storeBannerUrl: { required: false, type: () => String }, deliveryCoveragePincodes: { required: false, type: () => [String] } };
+        return { stepKey: { required: true, type: () => Object }, ownerName: { required: false, type: () => String, minLength: 2, maxLength: 100 }, ownerEmail: { required: false, type: () => String }, ownerPhone: { required: false, type: () => String, pattern: "INDIAN_PHONE_OR_E164_REGEX" }, contactMobile: { required: false, type: () => String, pattern: "INDIAN_PHONE_OR_E164_REGEX" }, ownerFullName: { required: false, type: () => String, minLength: 2, maxLength: 100 }, password: { required: false, type: () => String, minLength: 8, maxLength: 72 }, businessName: { required: false, type: () => String, minLength: 2, maxLength: 150 }, legalName: { required: false, type: () => String, minLength: 2, maxLength: 150 }, businessType: { required: false, type: () => Object }, businessTypes: { required: false, type: () => [Object] }, gstNumber: { required: false, type: () => String, minLength: 15, maxLength: 15 }, gstin: { required: false, type: () => String, minLength: 15, maxLength: 15 }, panNumber: { required: false, type: () => String, pattern: "/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/" }, pan: { required: false, type: () => String, pattern: "/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/" }, storeName: { required: false, type: () => String, minLength: 2, maxLength: 100 }, storeDescription: { required: false, type: () => String, minLength: 5, maxLength: 500 }, storeEmail: { required: false, type: () => String }, storePhone: { required: false, type: () => String, pattern: "INDIAN_PHONE_OR_E164_REGEX" }, storeAddress: { required: false, type: () => String, minLength: 5, maxLength: 500 }, addressLine: { required: false, type: () => String, minLength: 5, maxLength: 500 }, pickupAddress: { required: false, type: () => require("./merchant-onboarding.dto").PickupAddressDto }, state: { required: false, type: () => String }, city: { required: false, type: () => String }, cityId: { required: false, type: () => String }, pincode: { required: false, type: () => String, minLength: 6, maxLength: 6 }, locality: { required: false, type: () => String }, area: { required: false, type: () => String }, locationPincodeId: { required: false, type: () => String }, locationAreaId: { required: false, type: () => String }, locationCityId: { required: false, type: () => String }, latitude: { required: false, type: () => Number, minimum: -90, maximum: 90 }, longitude: { required: false, type: () => Number, minimum: -180, maximum: 180 }, deliveryRadiusKm: { required: false, type: () => Number, minimum: 1, maximum: 50 }, deliveryRadius: { required: false, type: () => Number, minimum: 1, maximum: 50 }, operationalCity: { required: false, type: () => String }, deliveryMethod: { required: false, type: () => String }, deliveryProvider: { required: false, type: () => String }, storeLogoUrl: { required: false, type: () => String }, storeBannerUrl: { required: false, type: () => String }, deliveryCoveragePincodes: { required: false, type: () => [String] }, deliveryPincodes: { required: false, type: () => [String] }, selectedCategories: { required: false, type: () => [String] }, categories: { required: false, type: () => [String] }, accountHolderName: { required: false, type: () => String }, accountNumber: { required: false, type: () => String, minLength: 8, maxLength: 20 }, ifsc: { required: false, type: () => String, pattern: "/^[A-Z]{4}0[A-Z0-9]{6}$/" }, bankName: { required: false, type: () => String }, branch: { required: false, type: () => String }, accountType: { required: false, type: () => String }, cancelledChequeUrl: { required: false, type: () => String }, declarationAccepted: { required: false, type: () => Boolean }, submittedForApproval: { required: false, type: () => Boolean } };
     }
 }
 exports.UpdateOnboardingStepDto = UpdateOnboardingStepDto;
@@ -187,9 +187,22 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.Matches)(constants_1.PHONE_E164_REGEX, { message: 'Phone must be in E.164 format' }),
+    (0, class_validator_1.Matches)(INDIAN_PHONE_OR_E164_REGEX, { message: 'Enter a valid 10-digit Indian mobile number' }),
     __metadata("design:type", String)
 ], UpdateOnboardingStepDto.prototype, "ownerPhone", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.Matches)(INDIAN_PHONE_OR_E164_REGEX, { message: 'Enter a valid 10-digit Indian mobile number' }),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "contactMobile", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(2, 100),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "ownerFullName", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ minLength: 8 }),
     (0, class_validator_1.IsOptional)(),
@@ -204,6 +217,13 @@ __decorate([
     (0, class_validator_1.Length)(2, 150),
     __metadata("design:type", String)
 ], UpdateOnboardingStepDto.prototype, "businessName", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(2, 150),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "legalName", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.MerchantBusinessType }),
     (0, class_validator_1.IsOptional)(),
@@ -228,9 +248,23 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(15, 15),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "gstin", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.Matches)(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, { message: 'Invalid PAN format' }),
     __metadata("design:type", String)
 ], UpdateOnboardingStepDto.prototype, "panNumber", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, { message: 'Invalid PAN format' }),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "pan", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),
@@ -244,7 +278,33 @@ __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.Length)(5, 500),
     __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "storeDescription", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEmail)(),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "storeEmail", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.Matches)(INDIAN_PHONE_OR_E164_REGEX, { message: 'Enter a valid 10-digit Indian mobile number' }),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "storePhone", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(5, 500),
+    __metadata("design:type", String)
 ], UpdateOnboardingStepDto.prototype, "storeAddress", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(5, 500),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "addressLine", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ type: PickupAddressDto }),
     (0, class_validator_1.IsOptional)(),
@@ -288,6 +348,12 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "area", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
 ], UpdateOnboardingStepDto.prototype, "locationPincodeId", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
@@ -326,6 +392,32 @@ __decorate([
     __metadata("design:type", Number)
 ], UpdateOnboardingStepDto.prototype, "deliveryRadiusKm", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(50),
+    __metadata("design:type", Number)
+], UpdateOnboardingStepDto.prototype, "deliveryRadius", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "operationalCity", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "deliveryMethod", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "deliveryProvider", void 0);
+__decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'https://cdn.example.com/logo.jpg' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsUrl)(),
@@ -344,6 +436,83 @@ __decorate([
     (0, class_validator_1.IsString)({ each: true }),
     __metadata("design:type", Array)
 ], UpdateOnboardingStepDto.prototype, "deliveryCoveragePincodes", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ type: [String] }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], UpdateOnboardingStepDto.prototype, "deliveryPincodes", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ type: [String] }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], UpdateOnboardingStepDto.prototype, "selectedCategories", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ type: [String] }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], UpdateOnboardingStepDto.prototype, "categories", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "accountHolderName", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(8, 20),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "accountNumber", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^[A-Z]{4}0[A-Z0-9]{6}$/, { message: 'Invalid IFSC format' }),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "ifsc", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "bankName", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "branch", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "accountType", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateOnboardingStepDto.prototype, "cancelledChequeUrl", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateOnboardingStepDto.prototype, "declarationAccepted", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateOnboardingStepDto.prototype, "submittedForApproval", void 0);
 class UploadMerchantDocumentDto {
     static _OPENAPI_METADATA_FACTORY() {
         return { documentType: { required: true, type: () => Object }, fileName: { required: true, type: () => String, minLength: 1, maxLength: 255 }, mimeType: { required: true, type: () => String, minLength: 1, maxLength: 100 }, fileUrl: { required: true, type: () => String, minLength: 10, maxLength: 5000000 } };
