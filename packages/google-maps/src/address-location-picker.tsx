@@ -41,7 +41,7 @@ export interface AddressLocationPickerProps {
 
 function fromParsed(address: ParsedGoogleAddress): AddressLocationValue {
   return {
-    locality: address.locality,
+    locality: address.locality || address.line1 || address.formattedAddress || 'Pinned location',
     city: address.city,
     state: address.state,
     pincode: address.pincode,
@@ -166,7 +166,7 @@ export function AddressLocationPicker({
         return;
       }
       onChange({
-        locality: value.locality ?? '',
+        locality: value.locality || 'Pinned location',
         city: value.city ?? '',
         state: value.state ?? '',
         pincode: '',
@@ -187,16 +187,20 @@ export function AddressLocationPicker({
       const parsed = await reverse(pos.lat, pos.lng);
       if (parsed) {
         applyParsed(parsed);
+        if (!hasValidPincode(parsed)) {
+          setGeocodeError('Could not detect pincode for this location. Enter pincode manually below.');
+        }
         return;
       }
       onChange({
-        locality: value.locality ?? 'Current location',
+        locality: value.locality || 'Current location',
         city: value.city ?? '',
         state: value.state ?? '',
         pincode: value.pincode ?? '',
         lat: pos.lat,
         lng: pos.lng,
       });
+      setGeocodeError('Could not resolve address for this location. Enter pincode manually below.');
     } catch (err) {
       setGpsError(err instanceof Error ? err.message : 'Could not get location');
     } finally {

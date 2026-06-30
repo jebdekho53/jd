@@ -134,9 +134,6 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
                 : ' Server geocoding is not configured (set GOOGLE_MAPS_API_KEY on API).';
             throw new common_1.BadRequestException(`A valid 6-digit pincode is required. Pin your store on the map or use GPS.${geocodeHint}`);
         }
-        if (!city || !state) {
-            throw new common_1.BadRequestException('City and state are required. Try search, GPS, or drag the map pin.');
-        }
         const mld = await this.locations.tryResolvePincode({
             pincode,
             locationCityId: dto.locationCityId,
@@ -144,6 +141,14 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
             latitude,
             longitude,
         });
+        if (mld.inMasterDirectory) {
+            city = city || mld.city;
+            state = state || mld.state;
+            locality = locality || mld.locality || mld.city;
+        }
+        if (!city || !state) {
+            throw new common_1.BadRequestException('City and state are required. Try search, GPS, or drag the map pin.');
+        }
         let cityId;
         let locationPincodeId;
         let locationAreaId;

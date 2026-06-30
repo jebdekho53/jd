@@ -73,12 +73,33 @@ let GeocodingCacheService = GeocodingCacheService_1 = class GeocodingCacheServic
         if (!/^\d{6}$/.test(pincode))
             return null;
         const cached = await this.redis.get(this.pincodeKey(pincode));
-        if (!cached)
+        if (cached) {
+            try {
+                return JSON.parse(cached);
+            }
+            catch {
+            }
+        }
+        if (!this.isConfigured())
             return null;
         try {
-            return JSON.parse(cached);
+            const { data } = await axios_1.default.get('https://maps.googleapis.com/maps/api/geocode/json', {
+                params: {
+                    address: `${pincode}, India`,
+                    components: `postal_code:${pincode}|country:IN`,
+                    key: this.apiKey,
+                    region: 'in',
+                },
+                timeout: 8000,
+            });
+            const parsed = (0, geocoding_util_1.parseGeocoderResponse)(data, 0, 0);
+            if (!parsed?.pincode)
+                return null;
+            await this.redis.set(this.pincodeKey(parsed.pincode), JSON.stringify(parsed), CACHE_TTL_SEC);
+            return parsed;
         }
-        catch {
+        catch (err) {
+            this.logger.warn({ pincode, err }, 'Pincode geocode failed');
             return null;
         }
     }

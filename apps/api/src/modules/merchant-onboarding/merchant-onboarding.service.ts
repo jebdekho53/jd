@@ -171,11 +171,6 @@ export class MerchantOnboardingService {
         `A valid 6-digit pincode is required. Pin your store on the map or use GPS.${geocodeHint}`,
       );
     }
-    if (!city || !state) {
-      throw new BadRequestException(
-        'City and state are required. Try search, GPS, or drag the map pin.',
-      );
-    }
 
     const mld = await this.locations.tryResolvePincode({
       pincode,
@@ -184,6 +179,18 @@ export class MerchantOnboardingService {
       latitude,
       longitude,
     });
+
+    if (mld.inMasterDirectory) {
+      city = city || mld.city;
+      state = state || mld.state;
+      locality = locality || mld.locality || mld.city;
+    }
+
+    if (!city || !state) {
+      throw new BadRequestException(
+        'City and state are required. Try search, GPS, or drag the map pin.',
+      );
+    }
 
     let cityId: string;
     let locationPincodeId: string | undefined;

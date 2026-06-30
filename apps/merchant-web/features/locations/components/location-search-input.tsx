@@ -38,6 +38,11 @@ export function LocationSearchInput({
   const [open, setOpen] = useState(false);
   const { data: results = [], isFetching } = useLocationSearch(query);
   const pinLookup = usePincodeLookup(pincode);
+  const queryPinLookup = usePincodeLookup(query);
+  const displayResults = /^\d{6}$/.test(query.trim()) && queryPinLookup.data?.length
+    ? queryPinLookup.data
+    : results;
+  const searching = isFetching || queryPinLookup.isFetching;
 
   useEffect(() => {
     setQuery(value);
@@ -76,15 +81,15 @@ export function LocationSearchInput({
       </div>
       {open && query.trim().length >= 2 && (
         <div className="absolute z-20 mt-1 max-h-52 w-full space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-          {isFetching && (
+          {searching && (
             <p className="px-3 py-2 text-xs text-slate-500">Searching…</p>
           )}
-          {!isFetching && results.length === 0 && (
+          {!searching && displayResults.length === 0 && (
             <p className="px-3 py-2 text-xs text-slate-500">
-              No matching locations in master directory.
+              No directory match. Enter a 6-digit pincode or use the map/current location.
             </p>
           )}
-          {results.map((item) => (
+          {displayResults.map((item) => (
             <button
               key={`${item.type}-${item.id}`}
               type="button"

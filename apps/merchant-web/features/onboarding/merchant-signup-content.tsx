@@ -93,9 +93,7 @@ function isLocationReadyForResolve(selection: LocationSelectionInput): boolean {
   return (
     Number.isFinite(selection.lat) &&
     Number.isFinite(selection.lng) &&
-    /^\d{6}$/.test(selection.pincode.trim()) &&
-    Boolean(selection.city.trim()) &&
-    Boolean(selection.state.trim())
+    /^\d{6}$/.test(selection.pincode.trim())
   );
 }
 
@@ -827,7 +825,7 @@ export function MerchantSignupContent() {
                     )}
                   </div>
                 )}
-                {form.locality && !/^\d{6}$/.test(form.pincode) && (
+                {form.locality && (!/^\d{6}$/.test(form.pincode) || !form.cityId) && (
                   <Input
                     label="Pincode"
                     placeholder="6-digit pincode"
@@ -837,13 +835,22 @@ export function MerchantSignupContent() {
                     onChange={(e) => {
                       const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
                       setForm((f) => ({ ...f, pincode: pin }));
+                      if (/^\d{6}$/.test(pin)) {
+                        applyLocationSelection({
+                          locality: form.locality,
+                          city: form.city,
+                          state: form.state,
+                          pincode: pin,
+                          lat: form.latitude,
+                          lng: form.longitude,
+                          locationPincodeId: form.locationPincodeId || undefined,
+                          locationAreaId: form.locationAreaId || undefined,
+                          locationCityId: form.locationCityId || undefined,
+                        });
+                      }
                     }}
                     onBlur={() => {
-                      if (
-                        /^\d{6}$/.test(form.pincode) &&
-                        form.city.trim() &&
-                        form.state.trim()
-                      ) {
+                      if (/^\d{6}$/.test(form.pincode)) {
                         applyLocationSelection({
                           locality: form.locality,
                           city: form.city,
