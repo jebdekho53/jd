@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Household">
+  <rect width="160" height="160" rx="34" fill="#f8fafc"/>
+  <path d="M53 63h54l-7 68H60L53 63Z" fill="#38bdf8"/>
+  <path d="M66 35h28l8 28H58l8-28Z" fill="#0ea5e9"/>
+  <path d="M64 85h32" stroke="#e0f2fe" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="105" cy="43" r="8" fill="#86efac"/>
+  <circle cx="118" cy="31" r="5" fill="#bbf7d0"/>
+</svg>

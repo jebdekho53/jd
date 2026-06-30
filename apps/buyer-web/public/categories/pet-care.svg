@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Pet care">
+  <rect width="160" height="160" rx="34" fill="#fff7ed"/>
+  <circle cx="80" cy="91" r="28" fill="#fb923c"/>
+  <circle cx="54" cy="66" r="14" fill="#fdba74"/>
+  <circle cx="106" cy="66" r="14" fill="#fdba74"/>
+  <circle cx="62" cy="102" r="10" fill="#ffedd5"/>
+  <circle cx="98" cy="102" r="10" fill="#ffedd5"/>
+  <circle cx="80" cy="78" r="8" fill="#7c2d12"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Grocery">
+  <rect width="160" height="160" rx="34" fill="#ecfdf5"/>
+  <path d="M42 64h76l-9 64H51L42 64Z" fill="#22c55e"/>
+  <path d="M60 64c0-16 8-27 20-27s20 11 20 27" fill="none" stroke="#166534" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="64" cy="91" r="10" fill="#f97316"/>
+  <circle cx="86" cy="101" r="11" fill="#f43f5e"/>
+  <path d="M97 80c9-10 18-10 25-3-4 10-14 13-25 3Z" fill="#86efac"/>
+</svg>

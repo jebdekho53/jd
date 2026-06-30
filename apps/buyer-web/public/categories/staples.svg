@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Staples">
+  <rect width="160" height="160" rx="34" fill="#fefce8"/>
+  <path d="M49 45h62l10 86H39l10-86Z" fill="#facc15"/>
+  <path d="M58 58h44l6 55H52l6-55Z" fill="#fef3c7"/>
+  <path d="M66 82h28M63 97h34" stroke="#a16207" stroke-width="7" stroke-linecap="round"/>
+  <path d="M80 27c-12 12-13 23 0 35 13-12 12-23 0-35Z" fill="#84cc16"/>
+</svg>

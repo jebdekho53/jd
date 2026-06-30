@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Fruits">
+  <rect width="160" height="160" rx="34" fill="#ecfdf3"/>
+  <circle cx="59" cy="84" r="31" fill="#fb7185"/>
+  <circle cx="95" cy="91" r="35" fill="#f97316"/>
+  <path d="M77 42c12-16 29-17 42-9-6 15-24 20-42 9Z" fill="#16a34a"/>
+  <path d="M79 44c-8 9-10 21-7 32" fill="none" stroke="#166534" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="48" cy="73" r="6" fill="#fff7ed" opacity=".8"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="Snacks">
+  <rect width="160" height="160" rx="34" fill="#fff7ed"/>
+  <path d="M50 38h60l10 91H40l10-91Z" fill="#f97316"/>
+  <path d="M59 54h42l5 47H54l5-47Z" fill="#fed7aa"/>
+  <circle cx="70" cy="78" r="9" fill="#fb923c"/>
+  <circle cx="91" cy="88" r="11" fill="#ea580c"/>
+  <path d="M52 39c9 10 47 10 56 0" fill="none" stroke="#fdba74" stroke-width="7"/>
+</svg>

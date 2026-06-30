@@ -2,43 +2,141 @@ import { StaticPageLayout } from '@/components/common/static-page-layout';
 import { createPageMetadata } from '@/lib/seo/metadata';
 
 export const metadata = createPageMetadata({
-  title: 'Privacy policy',
-  description: 'JebDekho privacy policy — how we collect, use, and protect your data.',
+  title: 'Privacy Policy | JebDekho',
+  description:
+    'Learn how JebDekho collects, uses, stores, and protects your personal information while using our hyperlocal marketplace.',
   path: '/privacy',
 });
 
 export default function PrivacyPage() {
   return (
-    <StaticPageLayout title="Privacy policy" subtitle="Last updated: June 2026">
+    <StaticPageLayout
+      title="Privacy Policy"
+      subtitle="Last updated: June 2026"
+    >
       <p>
-        JebDekho (&quot;we&quot;, &quot;us&quot;) respects your privacy. This policy explains what
-        information we collect and how we use it when you use our buyer web application and services.
+        At <strong>JebDekho</strong>, we value your privacy and are committed to
+        protecting your personal information. This Privacy Policy explains how
+        we collect, use, store, and safeguard your information when you use our
+        website, mobile applications, and related services.
       </p>
-      <h2>Information we collect</h2>
+
+      <p>
+        JebDekho is owned and operated by{' '}
+        <strong>UrbanMove Services Private Limited</strong>.
+      </p>
+
+      <h2>1. Information We Collect</h2>
+
       <ul>
-        <li>Phone number and profile information for account creation</li>
-        <li>Delivery addresses you save</li>
-        <li>Order history and payment status</li>
-        <li>Device and usage data for security and analytics</li>
-        <li>Location data to show nearby stores (with your consent)</li>
+        <li>Name, mobile number, and account details.</li>
+        <li>Delivery addresses and saved locations.</li>
+        <li>Order history and purchase information.</li>
+        <li>Payment status and transaction details.</li>
+        <li>Device information, browser type, and IP address.</li>
+        <li>Location data (only with your permission).</li>
+        <li>Customer support conversations and feedback.</li>
       </ul>
-      <h2>How we use your information</h2>
+
+      <h2>2. How We Use Your Information</h2>
+
+      <ul>
+        <li>Process and deliver your orders.</li>
+        <li>Show nearby stores and available products.</li>
+        <li>Provide customer support.</li>
+        <li>Send order confirmations and delivery updates.</li>
+        <li>Detect fraud and improve platform security.</li>
+        <li>Improve our products and services.</li>
+        <li>Comply with legal and regulatory obligations.</li>
+      </ul>
+
+      <h2>3. Location Information</h2>
+
       <p>
-        We use your data to process orders, show relevant stores and products, prevent fraud,
-        improve our services, and communicate order updates.
+        With your permission, we use your location to display nearby stores,
+        estimate delivery times, and improve search accuracy. You can disable
+        location access anytime through your device settings.
       </p>
-      <h2>Data sharing</h2>
+
+      <h2>4. Payments</h2>
+
       <p>
-        We share order and delivery details with merchant partners fulfilling your order and
-        payment processors (e.g. Razorpay) for online payments. We do not sell your personal data.
+        Online payments are securely processed through trusted payment partners.
+        JebDekho does not store your complete credit card, debit card, or UPI
+        credentials on its servers.
       </p>
-      <h2>Your rights</h2>
+
+      <h2>5. Information Sharing</h2>
+
+      <p>We only share information when necessary, including:</p>
+
+      <ul>
+        <li>Verified merchants fulfilling your order.</li>
+        <li>Delivery partners handling your shipment.</li>
+        <li>Payment gateways for transaction processing.</li>
+        <li>Government authorities when legally required.</li>
+      </ul>
+
       <p>
-        You may request access, correction, or deletion of your data by contacting
-        support@jebdekho.com.
+        <strong>We never sell your personal information.</strong>
       </p>
-      <h2>Contact</h2>
-      <p>Questions about privacy? Email support@jebdekho.com.</p>
+
+      <h2>6. Cookies & Analytics</h2>
+
+      <p>
+        We use cookies and similar technologies to remember your preferences,
+        improve website performance, analyze usage patterns, and enhance your
+        shopping experience.
+      </p>
+
+      <h2>7. Data Security</h2>
+
+      <p>
+        We use industry-standard security measures including encryption, secure
+        authentication, access controls, and continuous monitoring to help
+        protect your personal information.
+      </p>
+
+      <h2>8. Data Retention</h2>
+
+      <p>
+        We retain your information only for as long as necessary to provide our
+        services, comply with legal requirements, resolve disputes, and enforce
+        our policies.
+      </p>
+
+      <h2>9. Your Rights</h2>
+
+      <ul>
+        <li>Access your personal information.</li>
+        <li>Update or correct your information.</li>
+        <li>Request deletion of your account where applicable.</li>
+        <li>Withdraw permissions such as location access.</li>
+        <li>Contact us regarding privacy concerns.</li>
+      </ul>
+
+      <h2>10. Children&apos;s Privacy</h2>
+
+      <p>
+        JebDekho is not intended for children under the age permitted by
+        applicable law. We do not knowingly collect personal information from
+        children.
+      </p>
+
+      <h2>11. Changes to This Policy</h2>
+
+      <p>
+        We may update this Privacy Policy from time to time. Any changes will be
+        published on this page with an updated revision date.
+      </p>
+
+      <h2>12. Contact Us</h2>
+
+      <p>
+        If you have questions about this Privacy Policy or how your data is
+        handled, please contact us at{' '}
+        <strong>support@jebdekho.com</strong>.
+      </p>
     </StaticPageLayout>
   );
 }

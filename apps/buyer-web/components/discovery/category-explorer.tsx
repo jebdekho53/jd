@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CategoryItem } from '@/types/buyer';
+import { resolveCategoryImage } from '@/lib/category-images';
 
 const FALLBACK_CATEGORIES = [
   { id: 'grocery', name: 'Grocery', slug: 'grocery', icon: ShoppingBasket },
@@ -84,16 +85,23 @@ export function CategoryExplorer({ categories = [], className, showAll = false }
       {display.map((cat) => {
         const Icon = getIcon(cat.slug);
         const href = `/categories/${cat.slug}`;
+        const image = resolveCategoryImage(cat);
         return (
           <Link
             key={cat.id}
             href={href}
             role="listitem"
-            className="group flex flex-col items-center gap-2 rounded-2xl border border-transparent bg-card p-3 text-center shadow-card transition hover:border-primary/20 card-hover"
+            className="group flex min-h-[118px] flex-col items-center gap-2 rounded-2xl border border-border/50 bg-card p-2.5 text-center shadow-card transition hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:p-3"
           >
-            <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-cream-3 text-primary transition group-hover:bg-primary/10">
-              {cat.imageUrl ? (
-                <Image src={cat.imageUrl} alt="" fill className="object-cover" sizes="48px" />
+            <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-cream-3 text-primary transition group-hover:bg-primary/10 sm:h-[72px] sm:w-[72px]">
+              {image ? (
+                <Image
+                  src={image}
+                  alt={cat.name}
+                  fill
+                  className="object-cover"
+                  sizes="72px"
+                />
               ) : (
                 <Icon className="h-5 w-5" aria-hidden />
               )}
@@ -130,16 +138,23 @@ export function CategoryRail({ categories = [], className }: CategoryExplorerPro
       {display.map((cat) => {
         const Icon = getIcon(cat.slug);
         const href = `/categories/${cat.slug}`;
+        const image = resolveCategoryImage(cat);
         return (
           <Link
             key={cat.id}
             href={href}
             role="listitem"
-            className="flex w-[72px] shrink-0 snap-start flex-col items-center gap-1.5"
+            className="group flex w-[82px] shrink-0 snap-start flex-col items-center gap-1.5 rounded-2xl p-1 transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-card shadow-card overflow-hidden relative">
-              {cat.imageUrl ? (
-                <Image src={cat.imageUrl} alt="" fill className="object-cover" sizes="56px" />
+            <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-card shadow-card transition group-hover:shadow-elevated">
+              {image ? (
+                <Image
+                  src={image}
+                  alt={cat.name}
+                  fill
+                  className="object-cover"
+                  sizes="64px"
+                />
               ) : (
                 <Icon className="h-6 w-6 text-primary" aria-hidden />
               )}
