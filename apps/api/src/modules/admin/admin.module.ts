@@ -10,6 +10,8 @@ import { AdminProductService } from './admin-product.service';
 import { AdminAiProductUsageController } from './admin-ai-product-usage.controller';
 import { AdminAiProductUsageService } from './admin-ai-product-usage.service';
 import { AdminMerchantAiWalletController } from './admin-merchant-ai-wallet.controller';
+import { AdminUserController } from './admin-user.controller';
+import { AdminUserService } from './admin-user.service';
 import { StoreModule } from '../store/store.module';
 import { StoreVerticalModule } from '../store-vertical/store-vertical.module';
 import { BuyerModule } from '../buyer/buyer.module';
@@ -25,6 +27,7 @@ import { ProductModule } from '../product/product.module';
     AdminProductController,
     AdminAiProductUsageController,
     AdminMerchantAiWalletController,
+    AdminUserController,
   ],
   providers: [
     AdminStoreService,
@@ -32,6 +35,7 @@ import { ProductModule } from '../product/product.module';
     AdminMediaService,
     AdminProductService,
     AdminAiProductUsageService,
+    AdminUserService,
   ],
   exports: [
     AdminStoreService,
@@ -39,6 +43,7 @@ import { ProductModule } from '../product/product.module';
     AdminMediaService,
     AdminProductService,
     AdminAiProductUsageService,
+    AdminUserService,
   ],
 })
 export class AdminModule {}

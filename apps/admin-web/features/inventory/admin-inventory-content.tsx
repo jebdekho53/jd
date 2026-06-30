@@ -19,7 +19,7 @@ interface InventoryRow {
 }
 
 export function AdminInventoryContent() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin', 'inventory'],
     queryFn: async () => {
       const res = await adminFetch<{ success: boolean; data: { items: InventoryRow[] } }>(
@@ -34,6 +34,13 @@ export function AdminInventoryContent() {
       <p className="text-sm text-slate-500">Read-only audit view of inventory across all stores.</p>
       {isLoading ? (
         <p className="text-sm text-slate-500">Loading…</p>
+      ) : isError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {(error as Error)?.message || 'Could not load inventory.'}{' '}
+          <button type="button" onClick={() => refetch()} className="underline">
+            Retry
+          </button>
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="min-w-full text-sm">
@@ -75,7 +82,10 @@ export function AdminInventoryContent() {
                       '—'
                     )}
                   </td>
-                  <td className="px-4 py-2">{row.stockLevel}</td>
+                  <td className="px-4 py-2">
+                    <span className="block">{row.stockLevel.replace(/_/g, ' ')}</span>
+                    <span className="text-xs text-slate-500">{row.status.replace(/_/g, ' ')}</span>
+                  </td>
                 </tr>
               ))}
             </tbody>

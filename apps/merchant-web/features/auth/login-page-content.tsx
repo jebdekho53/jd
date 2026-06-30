@@ -21,13 +21,19 @@ export function LoginPageContent() {
   const notMerchantError = searchParams.get('error') === 'not_merchant';
 
   const prefilledEmail = searchParams.get('email')?.trim() ?? '';
+  const resolveNextPath = (computedPath: string) => {
+    const next = searchParams.get('next');
+    if (!next) return computedPath;
+    if (computedPath === '/dashboard' && next.startsWith('/onboarding')) return computedPath;
+    return next;
+  };
 
   useEffect(() => {
     const u = session ?? storedUser;
     if (!u) return;
     void (async () => {
       const { path } = await resolveMerchantEntryRoute(u);
-      router.replace(searchParams.get('next') ?? path);
+      router.replace(resolveNextPath(path));
     })();
   }, [session, storedUser, router, searchParams]);
 
@@ -40,7 +46,7 @@ export function LoginPageContent() {
   const handleVerified = async (result: VerifyOtpResult) => {
     const { path, toast: entryToast } = await resolveMerchantEntryRoute(result.user);
     if (entryToast) toast(entryToast.message, entryToast.tone);
-    router.replace(searchParams.get('next') ?? path);
+    router.replace(resolveNextPath(path));
   };
 
   return (
