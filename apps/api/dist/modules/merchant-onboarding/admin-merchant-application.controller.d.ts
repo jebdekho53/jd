@@ -21,6 +21,7 @@ export declare class AdminMerchantApplicationController {
                 panNumber: string | null;
                 storeName: string | null;
                 storeAddress: string | null;
+                pickupAddress: import("@prisma/client/runtime/library").JsonValue;
                 state: string | null;
                 city: string | null;
                 cityId: string | null;
@@ -112,6 +113,7 @@ export declare class AdminMerchantApplicationController {
             panNumber: string | null;
             storeName: string | null;
             storeAddress: string | null;
+            pickupAddress: import("@prisma/client/runtime/library").JsonValue;
             state: string | null;
             city: string | null;
             cityId: string | null;
@@ -201,6 +203,7 @@ export declare class AdminMerchantApplicationController {
             panNumber: string | null;
             storeName: string | null;
             storeAddress: string | null;
+            pickupAddress: import("@prisma/client/runtime/library").JsonValue;
             state: string | null;
             city: string | null;
             cityId: string | null;
@@ -290,6 +293,7 @@ export declare class AdminMerchantApplicationController {
             panNumber: string | null;
             storeName: string | null;
             storeAddress: string | null;
+            pickupAddress: import("@prisma/client/runtime/library").JsonValue;
             state: string | null;
             city: string | null;
             cityId: string | null;
@@ -379,6 +383,7 @@ export declare class AdminMerchantApplicationController {
             panNumber: string | null;
             storeName: string | null;
             storeAddress: string | null;
+            pickupAddress: import("@prisma/client/runtime/library").JsonValue;
             state: string | null;
             city: string | null;
             cityId: string | null;
@@ -468,6 +473,7 @@ export declare class AdminMerchantApplicationController {
             panNumber: string | null;
             storeName: string | null;
             storeAddress: string | null;
+            pickupAddress: import("@prisma/client/runtime/library").JsonValue;
             state: string | null;
             city: string | null;
             cityId: string | null;
@@ -557,6 +563,7 @@ export declare class AdminMerchantApplicationController {
             panNumber: string | null;
             storeName: string | null;
             storeAddress: string | null;
+            pickupAddress: import("@prisma/client/runtime/library").JsonValue;
             state: string | null;
             city: string | null;
             cityId: string | null;

@@ -76,6 +76,72 @@ export class ResolveStoreLocationDto {
   locationAreaId?: string;
 }
 
+export class PickupAddressDto {
+  @ApiProperty()
+  @IsString()
+  @Length(8, 200)
+  addressLine1: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 200)
+  addressLine2?: string;
+
+  @ApiProperty()
+  @IsString()
+  @Length(2, 120)
+  locality: string;
+
+  @ApiProperty()
+  @IsString()
+  @Length(3, 120)
+  landmark: string;
+
+  @ApiProperty()
+  @IsString()
+  @Length(2, 100)
+  city: string;
+
+  @ApiProperty()
+  @IsString()
+  @Length(2, 100)
+  state: string;
+
+  @ApiProperty()
+  @Matches(/^\d{6}$/, { message: 'Pincode must be 6 digits' })
+  pincode: string;
+
+  @ApiProperty()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude: number;
+
+  @ApiProperty()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 300)
+  pickupInstructions?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  googlePlaceId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 500)
+  formattedAddress?: string;
+}
+
 export class UpdateOnboardingStepDto {
   @ApiProperty({ enum: MerchantOnboardingStepKey })
   @IsEnum(MerchantOnboardingStepKey)
@@ -143,6 +209,12 @@ export class UpdateOnboardingStepDto {
   @IsString()
   @Length(5, 500)
   storeAddress?: string;
+
+  @ApiPropertyOptional({ type: PickupAddressDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PickupAddressDto)
+  pickupAddress?: PickupAddressDto;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -9,6 +9,20 @@ export declare class ResolveStoreLocationDto {
     locationCityId?: string;
     locationAreaId?: string;
 }
+export declare class PickupAddressDto {
+    addressLine1: string;
+    addressLine2?: string;
+    locality: string;
+    landmark: string;
+    city: string;
+    state: string;
+    pincode: string;
+    latitude: number;
+    longitude: number;
+    pickupInstructions?: string;
+    googlePlaceId?: string;
+    formattedAddress?: string;
+}
 export declare class UpdateOnboardingStepDto {
     stepKey: MerchantOnboardingStepKey;
     ownerName?: string;
@@ -22,6 +36,7 @@ export declare class UpdateOnboardingStepDto {
     panNumber?: string;
     storeName?: string;
     storeAddress?: string;
+    pickupAddress?: PickupAddressDto;
     state?: string;
     city?: string;
     cityId?: string;

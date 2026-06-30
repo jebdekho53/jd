@@ -21,6 +21,20 @@ export interface MerchantApplication {
   panNumber?: string | null;
   storeName?: string | null;
   storeAddress?: string | null;
+  pickupAddress?: {
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    locality?: string | null;
+    landmark?: string | null;
+    city?: string | null;
+    state?: string | null;
+    pincode?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    pickupInstructions?: string | null;
+    googlePlaceId?: string | null;
+    formattedAddress?: string | null;
+  } | null;
   state?: string | null;
   city?: string | null;
   cityId?: string | null;

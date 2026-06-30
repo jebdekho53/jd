@@ -84,6 +84,10 @@ type LocationSelectionInput = {
   pincode: string;
   lat: number;
   lng: number;
+  line1?: string;
+  line2?: string;
+  formattedAddress?: string;
+  googlePlaceId?: string;
   locationPincodeId?: string;
   locationAreaId?: string;
   locationCityId?: string;
@@ -95,6 +99,19 @@ function isLocationReadyForResolve(selection: LocationSelectionInput): boolean {
     Number.isFinite(selection.lng) &&
     /^\d{6}$/.test(selection.pincode.trim())
   );
+}
+
+function normalizeAddressPart(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function isBroadPickupAddress(addressLine1: string, locality: string, city: string): boolean {
+  const line = normalizeAddressPart(addressLine1);
+  if (!line) return false;
+  return [locality, city]
+    .map(normalizeAddressPart)
+    .filter(Boolean)
+    .some((part) => line === part);
 }
 
 export function MerchantSignupContent() {
@@ -128,6 +145,11 @@ export function MerchantSignupContent() {
     panNumber: '',
     storeName: '',
     storeAddress: '',
+    addressLine2: '',
+    landmark: '',
+    pickupInstructions: '',
+    googlePlaceId: '',
+    formattedAddress: '',
     locality: '',
     state: '',
     city: '',
@@ -190,6 +212,7 @@ export function MerchantSignupContent() {
   }, [router]);
 
   const hydrateFromApplication = (app: MerchantApplication) => {
+    const pickup = app.pickupAddress;
     const types =
       app.businessTypes?.length
         ? app.businessTypes
@@ -206,17 +229,22 @@ export function MerchantSignupContent() {
       gstValid: app.gstVerified ?? f.gstValid,
       panNumber: app.panNumber ?? f.panNumber,
       storeName: app.storeName ?? f.storeName,
-      storeAddress: app.storeAddress ?? f.storeAddress,
-      state: app.state ?? f.state,
-      city: app.city ?? f.city,
+      storeAddress: pickup?.addressLine1 ?? app.storeAddress ?? f.storeAddress,
+      addressLine2: pickup?.addressLine2 ?? f.addressLine2,
+      landmark: pickup?.landmark ?? f.landmark,
+      pickupInstructions: pickup?.pickupInstructions ?? f.pickupInstructions,
+      googlePlaceId: pickup?.googlePlaceId ?? f.googlePlaceId,
+      formattedAddress: pickup?.formattedAddress ?? f.formattedAddress,
+      state: pickup?.state ?? app.state ?? f.state,
+      city: pickup?.city ?? app.city ?? f.city,
       cityId: app.cityId ?? f.cityId,
-      locality: app.locality ?? f.locality,
-      pincode: app.pincode ?? f.pincode,
+      locality: pickup?.locality ?? app.locality ?? f.locality,
+      pincode: pickup?.pincode ?? app.pincode ?? f.pincode,
       locationPincodeId: app.locationPincodeId ?? f.locationPincodeId,
       locationAreaId: app.locationAreaId ?? f.locationAreaId,
       locationCityId: app.locationCityId ?? f.locationCityId,
-      latitude: app.latitude ?? f.latitude,
-      longitude: app.longitude ?? f.longitude,
+      latitude: pickup?.latitude ?? app.latitude ?? f.latitude,
+      longitude: pickup?.longitude ?? app.longitude ?? f.longitude,
       deliveryRadiusKm: app.deliveryRadiusKm ?? f.deliveryRadiusKm,
       deliveryCoverageInput: Array.isArray(app.deliveryCoveragePincodes)
         ? (app.deliveryCoveragePincodes as string[]).filter((p) => p !== app.pincode).join(', ')
@@ -326,29 +354,32 @@ export function MerchantSignupContent() {
     setStep(3);
   };
 
+  const getPickupAddressIssues = () => {
+    const issues: string[] = [];
+    if (form.storeAddress.trim().length < 8) {
+      issues.push('shop/building/street address');
+    }
+    if (isBroadPickupAddress(form.storeAddress, form.locality, form.city)) {
+      issues.push('specific shop/building details');
+    }
+    if (!form.locality.trim()) issues.push('locality');
+    if (form.landmark.trim().length < 3) issues.push('landmark');
+    if (!form.city.trim()) issues.push('city');
+    if (!form.state.trim()) issues.push('state');
+    if (!/^\d{6}$/.test(form.pincode.trim())) issues.push('6-digit pincode');
+    if (form.latitude == null || form.longitude == null) issues.push('map pin');
+    if (!form.cityId) issues.push('resolved city');
+    return issues;
+  };
+
   const nextFromLocation = () => {
     if (resolvingLocation) {
       toast('Resolving location…', 'info');
       return;
     }
-    if (!form.storeAddress.trim()) {
-      toast('Store address is required', 'error');
-      return;
-    }
-    if (!/^\d{6}$/.test(form.pincode.trim())) {
-      toast('Select a location on the map to get a valid pincode', 'error');
-      return;
-    }
-    if (!form.city.trim() || !form.state.trim()) {
-      toast('Complete location using search, GPS, or map pin', 'error');
-      return;
-    }
-    if (form.latitude == null || form.longitude == null) {
-      toast('Pin your store on the map or use GPS', 'error');
-      return;
-    }
-    if (!form.cityId) {
-      toast('Location is still resolving — pick the pin again', 'error');
+    const issues = getPickupAddressIssues();
+    if (issues.length) {
+      toast(`Complete pickup address: ${issues.join(', ')}`, 'error');
       return;
     }
     setStep(4);
@@ -398,14 +429,10 @@ export function MerchantSignupContent() {
   };
 
   const saveStoreDetails = async () => {
+    const pickupIssues = getPickupAddressIssues();
     if (
       !form.storeName.trim() ||
-      !form.storeAddress.trim() ||
-      !form.cityId ||
-      !form.pincode.trim() ||
-      !/^\d{6}$/.test(form.pincode.trim()) ||
-      form.latitude == null ||
-      form.longitude == null ||
+      pickupIssues.length > 0 ||
       !form.storeLogoUrl ||
       !form.storeBannerUrl
     ) {
@@ -419,6 +446,20 @@ export function MerchantSignupContent() {
         stepKey: 'STORE_DETAILS',
         storeName: form.storeName.trim(),
         storeAddress: form.storeAddress.trim(),
+        pickupAddress: {
+          addressLine1: form.storeAddress.trim(),
+          addressLine2: form.addressLine2.trim() || undefined,
+          locality: form.locality.trim(),
+          landmark: form.landmark.trim(),
+          city: city?.name ?? (form.operationalCityName || form.city),
+          state: form.state.trim(),
+          pincode: form.pincode.trim(),
+          latitude: form.latitude,
+          longitude: form.longitude,
+          pickupInstructions: form.pickupInstructions.trim() || undefined,
+          googlePlaceId: form.googlePlaceId || undefined,
+          formattedAddress: form.formattedAddress || undefined,
+        },
         locality: form.locality,
         state: form.state,
         city: city?.name ?? (form.operationalCityName || form.city),
@@ -460,6 +501,9 @@ export function MerchantSignupContent() {
       pincode,
       latitude: selection.lat,
       longitude: selection.lng,
+      googlePlaceId: selection.googlePlaceId ?? f.googlePlaceId,
+      formattedAddress: selection.formattedAddress ?? f.formattedAddress,
+      addressLine2: selection.line2 ?? f.addressLine2,
       locationPincodeId: selection.locationPincodeId ?? '',
       locationAreaId: selection.locationAreaId ?? '',
       locationCityId: selection.locationCityId ?? '',
@@ -766,20 +810,27 @@ export function MerchantSignupContent() {
             {!booting && step === 3 && (
               <div className="space-y-4">
                 <StepHeader
-                  title="Store location"
-                  subtitle="Search, use GPS, or pin your store on the map"
+                  title="Pickup address"
+                  subtitle="Add the exact shop address delivery partners will use for pickup"
                 />
                 <Input
-                  label="Store address"
-                  placeholder="Building, street, landmark"
+                  label="Shop / Building / Floor / Street address line 1"
+                  placeholder="Example: E-110, Ground Floor, Windsor Street"
                   value={form.storeAddress}
                   onChange={(e) => setForm({ ...form, storeAddress: e.target.value })}
                 />
+                <Input
+                  label="Address line 2 (optional)"
+                  placeholder="Market, complex, lane, or nearby gate"
+                  value={form.addressLine2}
+                  onChange={(e) => setForm({ ...form, addressLine2: e.target.value })}
+                />
                 <MerchantAddressPicker
-                  searchLabel="Search on map"
+                  searchLabel="Search exact store address on Google"
                   mapHeightClassName="h-56 sm:h-72"
                   masterValue={form.locality}
                   masterPincode={form.pincode}
+                  showSelectionSummary={false}
                   value={{
                     locality: form.locality,
                     city: form.city,
@@ -787,6 +838,8 @@ export function MerchantSignupContent() {
                     pincode: form.pincode,
                     lat: form.latitude,
                     lng: form.longitude,
+                    formattedAddress: form.formattedAddress,
+                    googlePlaceId: form.googlePlaceId,
                   }}
                   onChange={(selection) => {
                     void applyLocationSelection({
@@ -796,12 +849,50 @@ export function MerchantSignupContent() {
                       pincode: selection.pincode,
                       lat: selection.lat,
                       lng: selection.lng,
+                      line1: selection.line1,
+                      line2: selection.line2,
+                      formattedAddress: selection.formattedAddress,
+                      googlePlaceId: selection.googlePlaceId,
                       locationPincodeId: selection.locationPincodeId,
                       locationAreaId: selection.locationAreaId,
                       locationCityId: selection.locationCityId,
                     });
                   }}
-                  onLine1Suggestion={(line1) => setForm((f) => ({ ...f, storeAddress: line1 }))}
+                  onLine1Suggestion={(line1) => setForm((f) => (
+                    f.storeAddress.trim() ? f : { ...f, storeAddress: line1 }
+                  ))}
+                />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input
+                    label="Locality / Area"
+                    placeholder="Raj Nagar Extension"
+                    value={form.locality}
+                    onChange={(e) => setForm({ ...form, locality: e.target.value })}
+                  />
+                  <Input
+                    label="Landmark"
+                    placeholder="Near main gate, bank, school, etc."
+                    value={form.landmark}
+                    onChange={(e) => setForm({ ...form, landmark: e.target.value })}
+                  />
+                  <Input
+                    label="City"
+                    placeholder="Ghaziabad"
+                    value={form.city}
+                    onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  />
+                  <Input
+                    label="State"
+                    placeholder="Uttar Pradesh"
+                    value={form.state}
+                    onChange={(e) => setForm({ ...form, state: e.target.value })}
+                  />
+                </div>
+                <Input
+                  label="Pickup instructions (optional)"
+                  placeholder="Call before pickup, enter from back gate, etc."
+                  value={form.pickupInstructions}
+                  onChange={(e) => setForm({ ...form, pickupInstructions: e.target.value })}
                 />
                 <p className="text-xs text-slate-500">
                   Allow location access when prompted, or drag the pin to your exact storefront.
@@ -811,19 +902,6 @@ export function MerchantSignupContent() {
                     <Spinner className="h-3 w-3" />
                     Resolving location…
                   </p>
-                )}
-                {form.locality && !resolvingLocation && (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                    <p>
-                      {form.locality} · {form.city}, {form.state}
-                      {form.pincode ? ` · ${form.pincode}` : ''}
-                    </p>
-                    {!/^\d{6}$/.test(form.pincode) && (
-                      <p className="mt-1 text-xs text-amber-700">
-                        Pincode not detected from map — enter it below or search your area.
-                      </p>
-                    )}
-                  </div>
                 )}
                 {form.locality && (!/^\d{6}$/.test(form.pincode) || !form.cityId) && (
                   <Input
@@ -866,13 +944,39 @@ export function MerchantSignupContent() {
                     }}
                   />
                 )}
+                {isBroadPickupAddress(form.storeAddress, form.locality, form.city) && (
+                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    This looks like a broad area. Please add shop number, building name, street, and landmark.
+                  </p>
+                )}
+                {form.locality && !/^\d{6}$/.test(form.pincode) && !resolvingLocation && (
+                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    We couldn't detect the exact address automatically. Please enter your pickup address manually.
+                  </p>
+                )}
                 {form.locality && /^\d{6}$/.test(form.pincode) && form.expansionArea && !resolvingLocation && (
                   <p className="text-xs text-amber-700">
                     Expansion area — delivery subject to approval after signup
                   </p>
                 )}
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                  <p className="font-semibold text-slate-900">Pickup address preview</p>
+                  <p className="mt-2">{form.storeAddress || 'Shop/building/street address pending'}</p>
+                  {form.addressLine2 && <p>{form.addressLine2}</p>}
+                  <p>{[form.locality, form.landmark && `Landmark: ${form.landmark}`].filter(Boolean).join(' · ') || 'Locality and landmark pending'}</p>
+                  <p>{[form.city, form.state, form.pincode].filter(Boolean).join(', ') || 'City, state, and pincode pending'}</p>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Coordinates: {Number.isFinite(form.latitude) ? form.latitude.toFixed(6) : 'pending'}, {Number.isFinite(form.longitude) ? form.longitude.toFixed(6) : 'pending'}
+                  </p>
+                </div>
+                {getPickupAddressIssues().length > 0 && (
+                  <p className="text-xs text-slate-500">
+                    To continue, add: {getPickupAddressIssues().join(', ')}.
+                  </p>
+                )}
                 <NavButtons
                   saving={resolvingLocation}
+                  disabled={getPickupAddressIssues().length > 0}
                   onBack={() => setStep(2)}
                   onNext={nextFromLocation}
                 />
@@ -1105,11 +1209,13 @@ function StepHeader({ title, subtitle }: { title: string; subtitle: string }) {
 
 function NavButtons({
   saving,
+  disabled = false,
   onBack,
   onNext,
   nextLabel = 'Continue',
 }: {
   saving: boolean;
+  disabled?: boolean;
   onBack: () => void;
   onNext: () => void;
   nextLabel?: string;
@@ -1119,7 +1225,7 @@ function NavButtons({
       <Button variant="secondary" onClick={onBack}>
         <ChevronLeft className="mr-1 h-4 w-4" /> Back
       </Button>
-      <Button className="flex-1" loading={saving} onClick={onNext}>
+      <Button className="flex-1" loading={saving} disabled={disabled} onClick={onNext}>
         {nextLabel}
       </Button>
     </div>

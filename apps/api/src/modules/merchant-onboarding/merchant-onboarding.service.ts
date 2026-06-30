@@ -63,6 +63,21 @@ const DOC_TO_STORE: Partial<Record<MerchantDocumentType, StoreDocumentType>> = {
   OTHER: StoreDocumentType.OTHER,
 };
 
+type PickupAddressPayload = {
+  addressLine1: string;
+  addressLine2?: string;
+  locality: string;
+  landmark: string;
+  city: string;
+  state: string;
+  pincode: string;
+  latitude: number;
+  longitude: number;
+  pickupInstructions?: string;
+  googlePlaceId?: string;
+  formattedAddress?: string;
+};
+
 const ALL_STEPS: MerchantOnboardingStepKey[] = [
   MerchantOnboardingStepKey.PERSONAL_DETAILS,
   MerchantOnboardingStepKey.BUSINESS_DETAILS,
@@ -297,6 +312,9 @@ export class MerchantOnboardingService {
     if (dto.panNumber) data.panNumber = dto.panNumber.toUpperCase();
     if (dto.storeName) data.storeName = dto.storeName;
     if (dto.storeAddress) data.storeAddress = dto.storeAddress;
+    if (dto.pickupAddress) {
+      data.pickupAddress = dto.pickupAddress as unknown as Prisma.InputJsonValue;
+    }
     if (dto.state) data.state = dto.state;
     if (dto.city) data.city = dto.city;
     if (dto.cityId) data.cityId = dto.cityId;
@@ -477,14 +495,21 @@ export class MerchantOnboardingService {
 
     let storeId = app.storeId;
     if (!storeId) {
+      const pickupAddress = this.getPickupAddress(app.pickupAddress);
+      const line2 = [
+        pickupAddress?.addressLine2,
+        pickupAddress?.landmark ? `Landmark: ${pickupAddress.landmark}` : undefined,
+        pickupAddress?.pickupInstructions ? `Pickup: ${pickupAddress.pickupInstructions}` : undefined,
+      ].filter(Boolean).join(' · ') || undefined;
       const storeDto: CreateStoreDto = {
         name: app.storeName!,
         phone: app.ownerPhone!,
         email: app.ownerEmail!,
-        line1: app.storeAddress!,
-        pincode: app.pincode!,
-        latitude: app.latitude!,
-        longitude: app.longitude!,
+        line1: pickupAddress?.addressLine1 ?? app.storeAddress!,
+        line2,
+        pincode: pickupAddress?.pincode ?? app.pincode!,
+        latitude: pickupAddress?.latitude ?? app.latitude!,
+        longitude: pickupAddress?.longitude ?? app.longitude!,
         cityId: app.cityId!,
         locationPincodeId: app.locationPincodeId ?? undefined,
         locationAreaId: app.locationAreaId ?? undefined,
@@ -950,7 +975,9 @@ export class MerchantOnboardingService {
     if (!app.businessType) missing.push('businessType');
     if (!app.panNumber) missing.push('panNumber');
     if (!app.storeName) missing.push('storeName');
-    if (!app.storeAddress) missing.push('storeAddress');
+    const pickupAddress = this.getPickupAddress(app.pickupAddress);
+    if (!pickupAddress?.addressLine1 && !app.storeAddress) missing.push('storeAddress');
+    if (!pickupAddress?.landmark) missing.push('landmark');
     if (!app.cityId) missing.push('cityId');
     if (!app.pincode) missing.push('pincode');
     if (app.latitude == null) missing.push('latitude');
@@ -1031,6 +1058,7 @@ export class MerchantOnboardingService {
       panNumber: app.panNumber,
       storeName: app.storeName,
       storeAddress: app.storeAddress,
+      pickupAddress: app.pickupAddress,
       state: app.state,
       city: app.city,
       cityId: app.cityId,
@@ -1060,6 +1088,24 @@ export class MerchantOnboardingService {
       createdAt: app.createdAt,
       updatedAt: app.updatedAt,
     };
+  }
+
+  private getPickupAddress(value: Prisma.JsonValue | null): PickupAddressPayload | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const candidate = value as Partial<PickupAddressPayload>;
+    if (
+      typeof candidate.addressLine1 !== 'string' ||
+      typeof candidate.locality !== 'string' ||
+      typeof candidate.landmark !== 'string' ||
+      typeof candidate.city !== 'string' ||
+      typeof candidate.state !== 'string' ||
+      typeof candidate.pincode !== 'string' ||
+      typeof candidate.latitude !== 'number' ||
+      typeof candidate.longitude !== 'number'
+    ) {
+      return null;
+    }
+    return candidate as PickupAddressPayload;
   }
 
   private async sendSubmissionNotifications(

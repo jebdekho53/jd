@@ -822,6 +822,7 @@ model MerchantApplication {
   panNumber         String?                   @map("pan_number")
   storeName         String?                   @map("store_name")
   storeAddress      String?                   @map("store_address") @db.Text
+  pickupAddress     Json?                     @map("pickup_address")
   state             String?
   city              String?
   cityId            String?                   @map("city_id")

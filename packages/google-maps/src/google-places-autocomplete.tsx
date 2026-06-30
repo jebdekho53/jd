@@ -56,7 +56,12 @@ export function GooglePlacesAutocomplete({
           onPlaceChanged={handlePlaceChanged}
           options={{
             componentRestrictions: { country: 'in' },
-            fields: ['address_components', 'geometry', 'formatted_address', 'name'],
+            bounds: new google.maps.LatLngBounds(
+              { lat: 28.32, lng: 76.84 },
+              { lat: 28.9, lng: 77.75 },
+            ),
+            strictBounds: false,
+            fields: ['address_components', 'geometry', 'formatted_address', 'name', 'place_id'],
           }}
         >
           <div className="relative">

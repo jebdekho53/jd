@@ -257,6 +257,9 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
             data.storeName = dto.storeName;
         if (dto.storeAddress)
             data.storeAddress = dto.storeAddress;
+        if (dto.pickupAddress) {
+            data.pickupAddress = dto.pickupAddress;
+        }
         if (dto.state)
             data.state = dto.state;
         if (dto.city)
@@ -425,14 +428,21 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
         }
         let storeId = app.storeId;
         if (!storeId) {
+            const pickupAddress = this.getPickupAddress(app.pickupAddress);
+            const line2 = [
+                pickupAddress?.addressLine2,
+                pickupAddress?.landmark ? `Landmark: ${pickupAddress.landmark}` : undefined,
+                pickupAddress?.pickupInstructions ? `Pickup: ${pickupAddress.pickupInstructions}` : undefined,
+            ].filter(Boolean).join(' · ') || undefined;
             const storeDto = {
                 name: app.storeName,
                 phone: app.ownerPhone,
                 email: app.ownerEmail,
-                line1: app.storeAddress,
-                pincode: app.pincode,
-                latitude: app.latitude,
-                longitude: app.longitude,
+                line1: pickupAddress?.addressLine1 ?? app.storeAddress,
+                line2,
+                pincode: pickupAddress?.pincode ?? app.pincode,
+                latitude: pickupAddress?.latitude ?? app.latitude,
+                longitude: pickupAddress?.longitude ?? app.longitude,
                 cityId: app.cityId,
                 locationPincodeId: app.locationPincodeId ?? undefined,
                 locationAreaId: app.locationAreaId ?? undefined,
@@ -826,8 +836,11 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
             missing.push('panNumber');
         if (!app.storeName)
             missing.push('storeName');
-        if (!app.storeAddress)
+        const pickupAddress = this.getPickupAddress(app.pickupAddress);
+        if (!pickupAddress?.addressLine1 && !app.storeAddress)
             missing.push('storeAddress');
+        if (!pickupAddress?.landmark)
+            missing.push('landmark');
         if (!app.cityId)
             missing.push('cityId');
         if (!app.pincode)
@@ -906,6 +919,7 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
             panNumber: app.panNumber,
             storeName: app.storeName,
             storeAddress: app.storeAddress,
+            pickupAddress: app.pickupAddress,
             state: app.state,
             city: app.city,
             cityId: app.cityId,
@@ -935,6 +949,22 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
             createdAt: app.createdAt,
             updatedAt: app.updatedAt,
         };
+    }
+    getPickupAddress(value) {
+        if (!value || typeof value !== 'object' || Array.isArray(value))
+            return null;
+        const candidate = value;
+        if (typeof candidate.addressLine1 !== 'string' ||
+            typeof candidate.locality !== 'string' ||
+            typeof candidate.landmark !== 'string' ||
+            typeof candidate.city !== 'string' ||
+            typeof candidate.state !== 'string' ||
+            typeof candidate.pincode !== 'string' ||
+            typeof candidate.latitude !== 'number' ||
+            typeof candidate.longitude !== 'number') {
+            return null;
+        }
+        return candidate;
     }
     async sendSubmissionNotifications(userId, email, _phone, businessName) {
         if (email) {

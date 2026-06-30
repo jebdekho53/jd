@@ -53,6 +53,7 @@ export declare class MerchantOnboardingService {
         panNumber: string | null;
         storeName: string | null;
         storeAddress: string | null;
+        pickupAddress: Prisma.JsonValue;
         state: string | null;
         city: string | null;
         cityId: string | null;
@@ -154,6 +155,7 @@ export declare class MerchantOnboardingService {
         panNumber: string | null;
         storeName: string | null;
         storeAddress: string | null;
+        pickupAddress: Prisma.JsonValue;
         state: string | null;
         city: string | null;
         cityId: string | null;
@@ -245,6 +247,7 @@ export declare class MerchantOnboardingService {
         panNumber: string | null;
         storeName: string | null;
         storeAddress: string | null;
+        pickupAddress: Prisma.JsonValue;
         state: string | null;
         city: string | null;
         cityId: string | null;
@@ -331,6 +334,7 @@ export declare class MerchantOnboardingService {
         panNumber: string | null;
         storeName: string | null;
         storeAddress: string | null;
+        pickupAddress: Prisma.JsonValue;
         state: string | null;
         city: string | null;
         cityId: string | null;
@@ -417,6 +421,7 @@ export declare class MerchantOnboardingService {
         panNumber: string | null;
         storeName: string | null;
         storeAddress: string | null;
+        pickupAddress: Prisma.JsonValue;
         state: string | null;
         city: string | null;
         cityId: string | null;
@@ -537,6 +542,7 @@ export declare class MerchantOnboardingService {
             panNumber: string | null;
             storeName: string | null;
             storeAddress: string | null;
+            pickupAddress: Prisma.JsonValue;
             state: string | null;
             city: string | null;
             cityId: string | null;
@@ -625,6 +631,7 @@ export declare class MerchantOnboardingService {
         panNumber: string | null;
         storeName: string | null;
         storeAddress: string | null;
+        pickupAddress: Prisma.JsonValue;
         state: string | null;
         city: string | null;
         cityId: string | null;
@@ -711,6 +718,7 @@ export declare class MerchantOnboardingService {
         panNumber: string | null;
         storeName: string | null;
         storeAddress: string | null;
+        pickupAddress: Prisma.JsonValue;
         state: string | null;
         city: string | null;
         cityId: string | null;
@@ -797,6 +805,7 @@ export declare class MerchantOnboardingService {
         panNumber: string | null;
         storeName: string | null;
         storeAddress: string | null;
+        pickupAddress: Prisma.JsonValue;
         state: string | null;
         city: string | null;
         cityId: string | null;
@@ -883,6 +892,7 @@ export declare class MerchantOnboardingService {
         panNumber: string | null;
         storeName: string | null;
         storeAddress: string | null;
+        pickupAddress: Prisma.JsonValue;
         state: string | null;
         city: string | null;
         cityId: string | null;
@@ -969,6 +979,7 @@ export declare class MerchantOnboardingService {
         panNumber: string | null;
         storeName: string | null;
         storeAddress: string | null;
+        pickupAddress: Prisma.JsonValue;
         state: string | null;
         city: string | null;
         cityId: string | null;
@@ -1055,6 +1066,7 @@ export declare class MerchantOnboardingService {
         panNumber: string | null;
         storeName: string | null;
         storeAddress: string | null;
+        pickupAddress: Prisma.JsonValue;
         state: string | null;
         city: string | null;
         cityId: string | null;
@@ -1134,5 +1146,6 @@ export declare class MerchantOnboardingService {
     private syncApplicationBusinessTypes;
     private toVerticalBusinessType;
     private formatApplication;
+    private getPickupAddress;
     private sendSubmissionNotifications;
 }

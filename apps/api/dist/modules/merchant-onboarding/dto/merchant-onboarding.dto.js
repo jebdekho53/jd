@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ScheduleCallDto = exports.RequestApplicationChangesDto = exports.RequestApplicationDocumentsDto = exports.RejectApplicationDto = exports.ListMerchantApplicationsDto = exports.FranchiseLeadDto = exports.ValidateGstDto = exports.SaveBankAccountDto = exports.UploadMerchantDocumentDto = exports.UpdateOnboardingStepDto = exports.ResolveStoreLocationDto = void 0;
+exports.ScheduleCallDto = exports.RequestApplicationChangesDto = exports.RequestApplicationDocumentsDto = exports.RejectApplicationDto = exports.ListMerchantApplicationsDto = exports.FranchiseLeadDto = exports.ValidateGstDto = exports.SaveBankAccountDto = exports.UploadMerchantDocumentDto = exports.UpdateOnboardingStepDto = exports.PickupAddressDto = exports.ResolveStoreLocationDto = void 0;
 const openapi = require("@nestjs/swagger");
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
@@ -78,9 +78,91 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], ResolveStoreLocationDto.prototype, "locationAreaId", void 0);
+class PickupAddressDto {
+    static _OPENAPI_METADATA_FACTORY() {
+        return { addressLine1: { required: true, type: () => String, minLength: 8, maxLength: 200 }, addressLine2: { required: false, type: () => String, minLength: 0, maxLength: 200 }, locality: { required: true, type: () => String, minLength: 2, maxLength: 120 }, landmark: { required: true, type: () => String, minLength: 3, maxLength: 120 }, city: { required: true, type: () => String, minLength: 2, maxLength: 100 }, state: { required: true, type: () => String, minLength: 2, maxLength: 100 }, pincode: { required: true, type: () => String, pattern: "/^\\d{6}$/" }, latitude: { required: true, type: () => Number, minimum: -90, maximum: 90 }, longitude: { required: true, type: () => Number, minimum: -180, maximum: 180 }, pickupInstructions: { required: false, type: () => String, minLength: 0, maxLength: 300 }, googlePlaceId: { required: false, type: () => String }, formattedAddress: { required: false, type: () => String, minLength: 0, maxLength: 500 } };
+    }
+}
+exports.PickupAddressDto = PickupAddressDto;
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(8, 200),
+    __metadata("design:type", String)
+], PickupAddressDto.prototype, "addressLine1", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(0, 200),
+    __metadata("design:type", String)
+], PickupAddressDto.prototype, "addressLine2", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(2, 120),
+    __metadata("design:type", String)
+], PickupAddressDto.prototype, "locality", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(3, 120),
+    __metadata("design:type", String)
+], PickupAddressDto.prototype, "landmark", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(2, 100),
+    __metadata("design:type", String)
+], PickupAddressDto.prototype, "city", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(2, 100),
+    __metadata("design:type", String)
+], PickupAddressDto.prototype, "state", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_validator_1.Matches)(/^\d{6}$/, { message: 'Pincode must be 6 digits' }),
+    __metadata("design:type", String)
+], PickupAddressDto.prototype, "pincode", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(-90),
+    (0, class_validator_1.Max)(90),
+    __metadata("design:type", Number)
+], PickupAddressDto.prototype, "latitude", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(-180),
+    (0, class_validator_1.Max)(180),
+    __metadata("design:type", Number)
+], PickupAddressDto.prototype, "longitude", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(0, 300),
+    __metadata("design:type", String)
+], PickupAddressDto.prototype, "pickupInstructions", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], PickupAddressDto.prototype, "googlePlaceId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(0, 500),
+    __metadata("design:type", String)
+], PickupAddressDto.prototype, "formattedAddress", void 0);
 class UpdateOnboardingStepDto {
     static _OPENAPI_METADATA_FACTORY() {
-        return { stepKey: { required: true, type: () => Object }, ownerName: { required: false, type: () => String, minLength: 2, maxLength: 100 }, ownerEmail: { required: false, type: () => String }, ownerPhone: { required: false, type: () => String, pattern: "PHONE_E164_REGEX" }, password: { required: false, type: () => String, minLength: 8, maxLength: 72 }, businessName: { required: false, type: () => String, minLength: 2, maxLength: 150 }, businessType: { required: false, type: () => Object }, businessTypes: { required: false, type: () => [Object] }, gstNumber: { required: false, type: () => String, minLength: 15, maxLength: 15 }, panNumber: { required: false, type: () => String, pattern: "/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/" }, storeName: { required: false, type: () => String, minLength: 2, maxLength: 100 }, storeAddress: { required: false, type: () => String, minLength: 5, maxLength: 500 }, state: { required: false, type: () => String }, city: { required: false, type: () => String }, cityId: { required: false, type: () => String }, pincode: { required: false, type: () => String, minLength: 6, maxLength: 6 }, locality: { required: false, type: () => String }, locationPincodeId: { required: false, type: () => String }, locationAreaId: { required: false, type: () => String }, locationCityId: { required: false, type: () => String }, latitude: { required: false, type: () => Number, minimum: -90, maximum: 90 }, longitude: { required: false, type: () => Number, minimum: -180, maximum: 180 }, deliveryRadiusKm: { required: false, type: () => Number, minimum: 1, maximum: 50 }, storeLogoUrl: { required: false, type: () => String }, storeBannerUrl: { required: false, type: () => String }, deliveryCoveragePincodes: { required: false, type: () => [String] } };
+        return { stepKey: { required: true, type: () => Object }, ownerName: { required: false, type: () => String, minLength: 2, maxLength: 100 }, ownerEmail: { required: false, type: () => String }, ownerPhone: { required: false, type: () => String, pattern: "PHONE_E164_REGEX" }, password: { required: false, type: () => String, minLength: 8, maxLength: 72 }, businessName: { required: false, type: () => String, minLength: 2, maxLength: 150 }, businessType: { required: false, type: () => Object }, businessTypes: { required: false, type: () => [Object] }, gstNumber: { required: false, type: () => String, minLength: 15, maxLength: 15 }, panNumber: { required: false, type: () => String, pattern: "/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/" }, storeName: { required: false, type: () => String, minLength: 2, maxLength: 100 }, storeAddress: { required: false, type: () => String, minLength: 5, maxLength: 500 }, pickupAddress: { required: false, type: () => require("./merchant-onboarding.dto").PickupAddressDto }, state: { required: false, type: () => String }, city: { required: false, type: () => String }, cityId: { required: false, type: () => String }, pincode: { required: false, type: () => String, minLength: 6, maxLength: 6 }, locality: { required: false, type: () => String }, locationPincodeId: { required: false, type: () => String }, locationAreaId: { required: false, type: () => String }, locationCityId: { required: false, type: () => String }, latitude: { required: false, type: () => Number, minimum: -90, maximum: 90 }, longitude: { required: false, type: () => Number, minimum: -180, maximum: 180 }, deliveryRadiusKm: { required: false, type: () => Number, minimum: 1, maximum: 50 }, storeLogoUrl: { required: false, type: () => String }, storeBannerUrl: { required: false, type: () => String }, deliveryCoveragePincodes: { required: false, type: () => [String] } };
     }
 }
 exports.UpdateOnboardingStepDto = UpdateOnboardingStepDto;
@@ -163,6 +245,13 @@ __decorate([
     (0, class_validator_1.Length)(5, 500),
     __metadata("design:type", String)
 ], UpdateOnboardingStepDto.prototype, "storeAddress", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ type: PickupAddressDto }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateNested)(),
+    (0, class_transformer_1.Type)(() => PickupAddressDto),
+    __metadata("design:type", PickupAddressDto)
+], UpdateOnboardingStepDto.prototype, "pickupAddress", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),

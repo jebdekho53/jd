@@ -29,6 +29,7 @@ interface MerchantAddressPickerProps {
   masterPincode?: string;
   directorySearchLabel?: string;
   showDirectoryFallback?: boolean;
+  showSelectionSummary?: boolean;
 }
 
 export function MerchantAddressPicker({
@@ -43,6 +44,7 @@ export function MerchantAddressPicker({
   masterPincode,
   directorySearchLabel = "Can't find on map? Search directory",
   showDirectoryFallback = true,
+  showSelectionSummary = true,
 }: MerchantAddressPickerProps) {
   return (
     <AddressLocationPicker
@@ -53,6 +55,7 @@ export function MerchantAddressPicker({
       searchLabel={searchLabel}
       mapHeightClassName={mapHeightClassName}
       outlineButtonClassName="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-brand-200 bg-brand-50 text-sm font-medium text-brand-800 transition hover:bg-brand-100 disabled:opacity-60"
+      showSelectionSummary={showSelectionSummary}
       onReverseGeocode={reverseGeocodeCached}
       onRequestLocation={async () => {
         const { requestBrowserLocation } = await import('@/lib/geolocation');

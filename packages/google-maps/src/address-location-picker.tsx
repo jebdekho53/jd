@@ -19,6 +19,8 @@ export interface AddressLocationValue {
   lng: number;
   line1?: string;
   line2?: string;
+  formattedAddress?: string;
+  googlePlaceId?: string;
   locationPincodeId?: string;
   locationAreaId?: string;
   locationCityId?: string;
@@ -37,6 +39,7 @@ export interface AddressLocationPickerProps {
   onReverseGeocode?: (lat: number, lng: number) => Promise<ParsedGoogleAddress | null>;
   buttonClassName?: string;
   outlineButtonClassName?: string;
+  showSelectionSummary?: boolean;
 }
 
 function fromParsed(address: ParsedGoogleAddress): AddressLocationValue {
@@ -49,6 +52,8 @@ function fromParsed(address: ParsedGoogleAddress): AddressLocationValue {
     lng: address.lng,
     line1: address.line1,
     line2: address.line2,
+    formattedAddress: address.formattedAddress,
+    googlePlaceId: address.googlePlaceId,
   };
 }
 
@@ -87,6 +92,7 @@ export function AddressLocationPicker({
   onReverseGeocode,
   buttonClassName = 'inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium',
   outlineButtonClassName,
+  showSelectionSummary = true,
 }: AddressLocationPickerProps) {
   const { isConfigured } = useGoogleMaps();
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -247,7 +253,7 @@ export function AddressLocationPicker({
         {locationButton}
         {mapPicker}
         {combinedError ? <p className="text-sm text-red-600">{combinedError}</p> : null}
-        {value.locality && (
+        {showSelectionSummary && value.locality && (
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
             <p>
               {value.locality}
@@ -276,7 +282,7 @@ export function AddressLocationPicker({
 
       {fallback}
 
-      {value.locality && (
+      {showSelectionSummary && value.locality && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
           <p>
             {value.locality}

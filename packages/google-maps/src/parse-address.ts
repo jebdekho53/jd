@@ -9,6 +9,7 @@ export interface ParsedGoogleAddress {
   pincode: string;
   lat: number;
   lng: number;
+  googlePlaceId?: string;
 }
 
 type AddressComponent = google.maps.GeocoderAddressComponent;
@@ -76,12 +77,16 @@ export function parsePlaceResult(place: google.maps.places.PlaceResult): ParsedG
   const location = place.geometry?.location;
   if (!components?.length || !location) return null;
 
-  return parseAddressComponents(
+  const parsed = parseAddressComponents(
     components,
     location.lat(),
     location.lng(),
     place.formatted_address ?? place.name,
   );
+  return {
+    ...parsed,
+    googlePlaceId: place.place_id,
+  };
 }
 
 export function parseGeocoderResult(result: google.maps.GeocoderResult): ParsedGoogleAddress | null {
