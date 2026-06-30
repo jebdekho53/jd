@@ -7,21 +7,25 @@ function stepDone(app: MerchantApplication, key: string): boolean {
   return app.steps?.find((s) => s.stepKey === key)?.completed ?? false;
 }
 
-/** Map saved application data to the visual signup wizard step (1–8). Step 0 is account creation. */
+function anyStepDone(app: MerchantApplication, keys: string[]): boolean {
+  return keys.some((key) => stepDone(app, key));
+}
+
+/** Map saved application data to the visual onboarding wizard step (1–8). Step 0 is account creation. */
 export function inferSignupWizardStep(app: MerchantApplication): number {
-  const personalDone = stepDone(app, 'PERSONAL_DETAILS') || Boolean(app.ownerName?.trim());
-  const businessDone = stepDone(app, 'BUSINESS_DETAILS') || Boolean(app.businessName?.trim());
+  const personalDone =
+    anyStepDone(app, ['VERIFY', 'PERSONAL_DETAILS']) || Boolean(app.ownerName?.trim());
+  const businessDone =
+    anyStepDone(app, ['BUSINESS', 'BUSINESS_DETAILS']) || Boolean(app.businessName?.trim());
   if (!personalDone || !businessDone) return 1;
 
-  if (!stepDone(app, 'STORE_DETAILS')) {
-    if (!app.storeName?.trim() || !app.storeLogoUrl || !app.storeBannerUrl) return 2;
-    if (!app.storeAddress?.trim() || !app.pincode) return 3;
-    if (app.deliveryRadiusKm == null) return 4;
-    return 5;
-  }
+  if (!anyStepDone(app, ['STORE', 'STORE_DETAILS']) || !app.storeName?.trim()) return 2;
+  if (!anyStepDone(app, ['LOCATION', 'STORE_DETAILS']) || !app.storeAddress?.trim() || !app.pincode) return 3;
+  if (!anyStepDone(app, ['DELIVERY', 'STORE_DETAILS']) || app.deliveryRadiusKm == null) return 4;
+  if (!anyStepDone(app, ['CATEGORIES']) && !app.businessTypes?.length) return 5;
 
-  if (!stepDone(app, 'DOCUMENTS') && (app.documents?.length ?? 0) < 2) return 6;
-  if (!stepDone(app, 'BANK_DETAILS') && !app.bankAccount) return 7;
+  if (!anyStepDone(app, ['GST_PAN', 'DOCUMENTS']) && (app.documents?.length ?? 0) < 2) return 6;
+  if (!anyStepDone(app, ['BANK', 'BANK_DETAILS']) && !app.bankAccount) return 7;
 
   return 8;
 }
@@ -53,17 +57,27 @@ export async function resolveMerchantEntryRoute(user: AuthUser): Promise<{
       return { path: '/dashboard', toast: { message: 'Signed in successfully!', tone: 'success' } };
     }
 
-    if (status.hasApplication && status.status && status.status !== 'DRAFT') {
-      return { path: '/onboarding', toast: { message: 'Signed in successfully!', tone: 'success' } };
+    if (status.hasApplication && status.status && !['DRAFT', 'REJECTED'].includes(status.status)) {
+      return {
+        path: '/onboarding/status',
+        toast: { message: 'Signed in successfully!', tone: 'success' },
+      };
+    }
+
+    if (status.hasApplication) {
+      return {
+        path: '/onboarding',
+        toast: { message: 'Signed in successfully!', tone: 'success' },
+      };
     }
 
     return {
-      path: '/signup',
+      path: '/onboarding',
       toast: { message: 'Welcome back — continue your merchant application.', tone: 'info' },
     };
   } catch {
     return {
-      path: '/signup',
+      path: '/onboarding',
       toast: { message: 'Welcome back — continue your merchant application.', tone: 'info' },
     };
   }

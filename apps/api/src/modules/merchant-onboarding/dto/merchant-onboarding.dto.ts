@@ -22,10 +22,10 @@ import {
   MerchantOnboardingStepKey,
   VerticalBusinessType,
 } from '@prisma/client';
-import { PHONE_E164_REGEX } from '../../../common/constants';
 
 const emptyToUndefined = ({ value }: { value: unknown }) =>
   typeof value === 'string' && value.trim() === '' ? undefined : value;
+const INDIAN_PHONE_OR_E164_REGEX = /^(?:\+91)?[6-9]\d{9}$/;
 
 export class ResolveStoreLocationDto {
   @ApiPropertyOptional()
@@ -160,8 +160,19 @@ export class UpdateOnboardingStepDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @Matches(PHONE_E164_REGEX, { message: 'Phone must be in E.164 format' })
+  @Matches(INDIAN_PHONE_OR_E164_REGEX, { message: 'Enter a valid 10-digit Indian mobile number' })
   ownerPhone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Matches(INDIAN_PHONE_OR_E164_REGEX, { message: 'Enter a valid 10-digit Indian mobile number' })
+  contactMobile?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(2, 100)
+  ownerFullName?: string;
 
   @ApiPropertyOptional({ minLength: 8 })
   @IsOptional()
@@ -174,6 +185,12 @@ export class UpdateOnboardingStepDto {
   @IsString()
   @Length(2, 150)
   businessName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(2, 150)
+  legalName?: string;
 
   @ApiPropertyOptional({ enum: MerchantBusinessType })
   @IsOptional()
@@ -195,8 +212,20 @@ export class UpdateOnboardingStepDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @Length(15, 15)
+  gstin?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   @Matches(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, { message: 'Invalid PAN format' })
   panNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, { message: 'Invalid PAN format' })
+  pan?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -208,7 +237,29 @@ export class UpdateOnboardingStepDto {
   @IsOptional()
   @IsString()
   @Length(5, 500)
+  storeDescription?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsEmail()
+  storeEmail?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Matches(INDIAN_PHONE_OR_E164_REGEX, { message: 'Enter a valid 10-digit Indian mobile number' })
+  storePhone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(5, 500)
   storeAddress?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(5, 500)
+  addressLine?: string;
 
   @ApiPropertyOptional({ type: PickupAddressDto })
   @IsOptional()
@@ -241,6 +292,11 @@ export class UpdateOnboardingStepDto {
   @IsOptional()
   @IsString()
   locality?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  area?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -278,6 +334,28 @@ export class UpdateOnboardingStepDto {
   @Max(50)
   deliveryRadiusKm?: number;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(50)
+  deliveryRadius?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  operationalCity?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  deliveryMethod?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  deliveryProvider?: string;
+
   @ApiPropertyOptional({ example: 'https://cdn.example.com/logo.jpg' })
   @IsOptional()
   @IsUrl()
@@ -293,6 +371,71 @@ export class UpdateOnboardingStepDto {
   @IsArray()
   @IsString({ each: true })
   deliveryCoveragePincodes?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  deliveryPincodes?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  selectedCategories?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  categories?: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  accountHolderName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(8, 20)
+  accountNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Z]{4}0[A-Z0-9]{6}$/, { message: 'Invalid IFSC format' })
+  ifsc?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  bankName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  branch?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  accountType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  cancelledChequeUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  declarationAccepted?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  submittedForApproval?: boolean;
 }
 
 export class UploadMerchantDocumentDto {

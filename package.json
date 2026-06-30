@@ -35,7 +35,14 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report",
-    "qa:jebdekho": "playwright test tests/e2e"
+    "qa:jebdekho": "playwright test tests/e2e",
+    "qa:e2e": "playwright test --project=production-qa-chromium",
+    "qa:e2e:headed": "playwright test --project=production-qa-chromium --headed",
+    "qa:e2e:debug": "PWDEBUG=1 playwright test --project=production-qa-chromium --debug",
+    "qa:mutation": "playwright test --project=production-mutation-chromium",
+    "qa:mutation:headed": "playwright test --project=production-mutation-chromium --headed",
+    "qa:mutation:debug": "PWDEBUG=1 playwright test --project=production-mutation-chromium --debug",
+    "qa:report": "playwright show-report qa-reports/playwright-html"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

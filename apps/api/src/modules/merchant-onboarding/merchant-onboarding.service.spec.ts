@@ -34,8 +34,21 @@ const COMPLETE_APP = {
   panNumber: 'ABCDE1234F',
   storeName: 'Store',
   storeAddress: '123 Street',
+  pickupAddress: {
+    addressLine1: '123 Street',
+    locality: 'Connaught Place',
+    landmark: 'Near Metro',
+    city: 'New Delhi',
+    state: 'Delhi',
+    pincode: '110001',
+    latitude: 28.6,
+    longitude: 77.2,
+  },
   cityId: 'city-1',
+  state: 'Delhi',
+  city: 'New Delhi',
   pincode: '110001',
+  locality: 'Connaught Place',
   latitude: 28.6,
   longitude: 77.2,
   storeLogoUrl: LOGO,
@@ -52,7 +65,8 @@ const mockPrisma = {
     findFirst: jest.fn(),
     update: jest.fn(),
   },
-  merchantOnboardingStep: { update: jest.fn() },
+  merchantOnboardingStep: { update: jest.fn(), upsert: jest.fn() },
+  merchantBankAccount: { upsert: jest.fn() },
   merchantProfile: { findUnique: jest.fn(), update: jest.fn() },
   merchantKyc: { update: jest.fn() },
   store: { update: jest.fn() },
@@ -108,15 +122,59 @@ describe('MerchantOnboardingService branding', () => {
     service = module.get(MerchantOnboardingService);
     jest.clearAllMocks();
     mockPrisma.merchantApplication.findFirst.mockResolvedValue(COMPLETE_APP);
+    mockPrisma.merchantApplication.update.mockResolvedValue(COMPLETE_APP);
+    mockPrisma.merchantOnboardingStep.upsert.mockResolvedValue({});
+    mockPrisma.merchantBankAccount.upsert.mockResolvedValue({});
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => unknown) =>
+      fn(mockPrisma),
+    );
     mockRisk.assess.mockResolvedValue({ riskScore: 10, riskFlags: [] });
     mockRiskEngine.getOrCreateProfile.mockResolvedValue({});
   });
 
   describe('updateStep', () => {
-    it('persists storeLogoUrl and storeBannerUrl on STORE_DETAILS', async () => {
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => unknown) =>
-        fn(mockPrisma),
+    it.each([
+      MerchantOnboardingStepKey.VERIFY,
+      MerchantOnboardingStepKey.BUSINESS,
+      MerchantOnboardingStepKey.STORE,
+      MerchantOnboardingStepKey.LOCATION,
+      MerchantOnboardingStepKey.DELIVERY,
+      MerchantOnboardingStepKey.CATEGORIES,
+      MerchantOnboardingStepKey.GST_PAN,
+      MerchantOnboardingStepKey.BANK,
+      MerchantOnboardingStepKey.REVIEW,
+    ])('accepts wizard step %s', async (stepKey) => {
+      await service.updateStep('u-1', { stepKey });
+
+      expect(mockPrisma.merchantOnboardingStep.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { applicationId_stepKey: { applicationId: COMPLETE_APP.id, stepKey } },
+        }),
       );
+    });
+
+    it.each([
+      [MerchantOnboardingStepKey.PERSONAL_DETAILS, MerchantOnboardingStepKey.VERIFY],
+      [MerchantOnboardingStepKey.BUSINESS_DETAILS, MerchantOnboardingStepKey.BUSINESS],
+      [MerchantOnboardingStepKey.STORE_DETAILS, MerchantOnboardingStepKey.STORE],
+      [MerchantOnboardingStepKey.DOCUMENTS, MerchantOnboardingStepKey.GST_PAN],
+      [MerchantOnboardingStepKey.BANK_DETAILS, MerchantOnboardingStepKey.BANK],
+    ])('maps legacy alias %s to %s', async (alias, canonical) => {
+      await service.updateStep('u-1', { stepKey: alias });
+
+      expect(mockPrisma.merchantOnboardingStep.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { applicationId_stepKey: { applicationId: COMPLETE_APP.id, stepKey: canonical } },
+        }),
+      );
+      expect(mockPrisma.merchantOnboardingStep.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { applicationId_stepKey: { applicationId: COMPLETE_APP.id, stepKey: alias } },
+        }),
+      );
+    });
+
+    it('persists storeLogoUrl and storeBannerUrl on STORE_DETAILS', async () => {
       mockPrisma.merchantApplication.update.mockResolvedValue({
         ...COMPLETE_APP,
         storeLogoUrl: LOGO,
@@ -140,6 +198,52 @@ describe('MerchantOnboardingService branding', () => {
           }),
         }),
       );
+    });
+
+    it('merges partial step payloads without clearing previous store fields', async () => {
+      await service.updateStep('u-1', {
+        stepKey: MerchantOnboardingStepKey.STORE,
+        storeName: 'QA Grocery Dairy Store',
+      });
+
+      expect(mockPrisma.merchantApplication.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ storeName: 'QA Grocery Dairy Store' }),
+        }),
+      );
+
+      mockPrisma.merchantApplication.update.mockClear();
+
+      await service.updateStep('u-1', {
+        stepKey: MerchantOnboardingStepKey.DELIVERY,
+        deliveryRadiusKm: 5,
+      });
+
+      expect(mockPrisma.merchantApplication.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.not.objectContaining({ storeName: expect.anything() }),
+        }),
+      );
+      expect(mockPrisma.merchantApplication.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ deliveryRadiusKm: 5 }),
+        }),
+      );
+    });
+
+    it('validates the full application only on REVIEW', async () => {
+      mockPrisma.merchantApplication.update.mockResolvedValue({
+        ...COMPLETE_APP,
+        storeName: null,
+      });
+
+      await expect(
+        service.updateStep('u-1', { stepKey: MerchantOnboardingStepKey.DELIVERY, deliveryRadiusKm: 5 }),
+      ).resolves.toBeDefined();
+
+      await expect(
+        service.updateStep('u-1', { stepKey: MerchantOnboardingStepKey.REVIEW }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
