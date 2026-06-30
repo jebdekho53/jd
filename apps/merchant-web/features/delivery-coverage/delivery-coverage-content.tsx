@@ -3,12 +3,21 @@
 import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MapPin, Plus, Trash2, Upload } from 'lucide-react';
-import { GoogleStoreMap, useGoogleMaps } from '@jebdekho/google-maps';
+import { GoogleStoreMap, useGoogleMaps, type AddressLocationValue } from '@jebdekho/google-maps';
 import { useStoreStore } from '@/store/store-store';
 import { MerchantAddressPicker } from '@/components/google-maps/merchant-address-picker';
-import { merchantFetch } from '@/services/api/merchant-client';
+import { ApiError, merchantFetch } from '@/services/api/merchant-client';
 import { useStoreQuery } from '@/hooks/use-stores';
 import { Button } from '@/design-system/primitives';
+import {
+  DUPLICATE_COVERAGE_MESSAGE,
+  friendlyCoverageErrorMessage,
+  getCoverageAddState,
+  normalizeCoveragePincode,
+  parseUniqueCoveragePincodes,
+  splitCoveragePincodes,
+  updateCoverageSelectionFromMap,
+} from '@/lib/delivery-coverage/coverage-selection';
 
 interface DeliveryArea {
   id: string;
@@ -30,6 +39,8 @@ export function DeliveryCoverageContent() {
   const [search, setSearch] = useState('');
   const [bulkInput, setBulkInput] = useState('');
   const [pickerPincode, setPickerPincode] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<Partial<AddressLocationValue> | null>(null);
+  const [coverageMessage, setCoverageMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const { data: storeDetail } = useStoreQuery(storeId ?? '');
   const storeLat = storeDetail?.latitude ?? 28.6139;
   const storeLng = storeDetail?.longitude ?? 77.209;
@@ -46,13 +57,56 @@ export function DeliveryCoverageContent() {
     },
   });
 
+  const { data: allCoverageData } = useQuery({
+    queryKey: ['merchant', 'delivery-coverage', storeId, 'all'],
+    enabled: Boolean(storeId),
+    queryFn: async () => {
+      const res = await merchantFetch<{ success: boolean; data: { items: DeliveryArea[]; coverageCount: number; maxAreas: number } }>(
+        `/api/merchant/stores/${storeId}/delivery-coverage?limit=200`,
+      );
+      return res.data;
+    },
+  });
+
+  const existingAreas = allCoverageData?.items ?? data?.items ?? [];
+  const existingPincodes = useMemo(
+    () => new Set(existingAreas.map((area) => area.pincode)),
+    [existingAreas],
+  );
+  const selectedPincode = normalizeCoveragePincode(pickerPincode || selectedLocation?.pincode);
+  const selectedAddState = useMemo(
+    () => getCoverageAddState(selectedPincode, existingPincodes),
+    [existingPincodes, selectedPincode],
+  );
+  const selectedArea = selectedPincode
+    ? existingAreas.find((area) => area.pincode === selectedPincode)
+    : undefined;
+  const selectedLabel =
+    selectedLocation?.locality ||
+    [selectedArea?.city, selectedArea?.state].filter(Boolean).join(', ') ||
+    (selectedLocation?.lat != null && selectedLocation.lng != null
+      ? `${selectedLocation.lat.toFixed(5)}, ${selectedLocation.lng.toFixed(5)}`
+      : '');
+
   const addMutation = useMutation({
     mutationFn: (pincode: string) =>
       merchantFetch(`/api/merchant/stores/${storeId}/delivery-coverage`, {
         method: 'POST',
         body: JSON.stringify({ pincode }),
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['merchant', 'delivery-coverage', storeId] }),
+    onMutate: () => setCoverageMessage(null),
+    onSuccess: (_data, pincode) => {
+      setCoverageMessage({ type: 'success', text: `${pincode} added to delivery coverage.` });
+      setPickerPincode('');
+      setSelectedLocation(null);
+      qc.invalidateQueries({ queryKey: ['merchant', 'delivery-coverage', storeId] });
+    },
+    onError: (err) => {
+      const status = err instanceof ApiError ? err.status : 0;
+      const fallback = err instanceof Error ? err.message : undefined;
+      setCoverageMessage({ type: 'error', text: friendlyCoverageErrorMessage(status, fallback) });
+      if (status === 409) qc.invalidateQueries({ queryKey: ['merchant', 'delivery-coverage', storeId] });
+    },
   });
 
   const bulkMutation = useMutation({
@@ -63,7 +117,14 @@ export function DeliveryCoverageContent() {
       }),
     onSuccess: () => {
       setBulkInput('');
+      setCoverageMessage({ type: 'success', text: 'Delivery coverage updated.' });
       qc.invalidateQueries({ queryKey: ['merchant', 'delivery-coverage', storeId] });
+    },
+    onError: (err) => {
+      const status = err instanceof ApiError ? err.status : 0;
+      const fallback = err instanceof Error ? err.message : undefined;
+      setCoverageMessage({ type: 'error', text: friendlyCoverageErrorMessage(status, fallback) });
+      if (status === 409) qc.invalidateQueries({ queryKey: ['merchant', 'delivery-coverage', storeId] });
     },
   });
 
@@ -82,10 +143,70 @@ export function DeliveryCoverageContent() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['merchant', 'delivery-coverage', storeId] }),
   });
 
-  const bulkPincodes = useMemo(
-    () => bulkInput.split(/[\s,]+/).map((p) => p.trim()).filter((p) => /^\d{6}$/.test(p)),
-    [bulkInput],
+  const bulkPincodes = useMemo(() => parseUniqueCoveragePincodes(bulkInput), [bulkInput]);
+  const bulkSplit = useMemo(
+    () => splitCoveragePincodes(bulkPincodes, existingPincodes),
+    [bulkPincodes, existingPincodes],
   );
+
+  const handleCoverageSelection = (selection: AddressLocationValue) => {
+    const next = updateCoverageSelectionFromMap(
+      {
+        locality: selectedLocation?.locality,
+        city: selectedLocation?.city,
+        state: selectedLocation?.state,
+        pincode: selectedLocation?.pincode,
+        lat: selectedLocation?.lat,
+        lng: selectedLocation?.lng,
+      },
+      selection,
+    );
+    setSelectedLocation(next);
+    setPickerPincode(next.pincode);
+    const nextState = getCoverageAddState(next.pincode, existingPincodes);
+    if (nextState.alreadyAdded) {
+      setCoverageMessage({ type: 'info', text: DUPLICATE_COVERAGE_MESSAGE });
+      setSearch(nextState.pincode);
+    } else if (nextState.isValid) {
+      setCoverageMessage(null);
+    } else {
+      setCoverageMessage({
+        type: 'info',
+        text: 'Could not detect pincode for this location. Enter pincode manually to add coverage.',
+      });
+    }
+  };
+
+  const handleManualPincodeChange = (pincode: string) => {
+    const normalized = pincode.replace(/\D/g, '').slice(0, 6);
+    setPickerPincode(normalized);
+    setSelectedLocation((current) => ({
+      locality: current?.locality ?? '',
+      city: current?.city ?? '',
+      state: current?.state ?? '',
+      lat: current?.lat ?? storeLat,
+      lng: current?.lng ?? storeLng,
+      pincode: normalized,
+    }));
+    const nextState = getCoverageAddState(normalized, existingPincodes);
+    if (nextState.alreadyAdded) {
+      setCoverageMessage({ type: 'info', text: DUPLICATE_COVERAGE_MESSAGE });
+      setSearch(nextState.pincode);
+    } else {
+      setCoverageMessage(null);
+    }
+  };
+
+  const handleAddSelected = () => {
+    if (!selectedAddState.canAdd) {
+      if (selectedAddState.alreadyAdded) {
+        setCoverageMessage({ type: 'info', text: DUPLICATE_COVERAGE_MESSAGE });
+        setSearch(selectedAddState.pincode);
+      }
+      return;
+    }
+    addMutation.mutate(selectedAddState.pincode);
+  };
 
   if (!storeId) {
     return <p className="text-sm text-slate-500">Select a store from the sidebar.</p>;
@@ -113,20 +234,67 @@ export function DeliveryCoverageContent() {
           <h3 className="font-medium flex items-center gap-2"><MapPin className="h-4 w-4" /> Add pincode</h3>
           <MerchantAddressPicker
             searchLabel="Search area to add pincode"
-            value={{ pincode: pickerPincode, locality: '', city: '', state: '', lat: storeLat, lng: storeLng }}
-            onChange={(selection) => {
-              if (selection.pincode && /^\d{6}$/.test(selection.pincode)) {
-                setPickerPincode(selection.pincode);
-                addMutation.mutate(selection.pincode);
-              }
+            value={{
+              pincode: pickerPincode,
+              locality: selectedLocation?.locality ?? '',
+              city: selectedLocation?.city ?? '',
+              state: selectedLocation?.state ?? '',
+              lat: selectedLocation?.lat ?? storeLat,
+              lng: selectedLocation?.lng ?? storeLng,
             }}
+            onChange={handleCoverageSelection}
             onMasterSelect={(item) => {
-              if (item.pincode) {
-                setPickerPincode(item.pincode);
-                addMutation.mutate(item.pincode);
+              if (item.pincode && existingPincodes.has(item.pincode)) {
+                setCoverageMessage({ type: 'info', text: DUPLICATE_COVERAGE_MESSAGE });
+                setSearch(item.pincode);
               }
             }}
+            masterPincode={pickerPincode}
           />
+          <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"
+                aria-label="Selected delivery pincode"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="Enter pincode manually"
+                value={pickerPincode}
+                onChange={(e) => handleManualPincodeChange(e.target.value)}
+              />
+              <Button
+                type="button"
+                disabled={!selectedAddState.canAdd || addMutation.isPending}
+                onClick={handleAddSelected}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add pincode
+              </Button>
+            </div>
+            {selectedPincode ? (
+              <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                <span>Selected: PIN {selectedPincode}{selectedLabel ? ` · ${selectedLabel}` : ''}</span>
+                {selectedAddState.alreadyAdded ? (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                    Already added
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+            {coverageMessage ? (
+              <p
+                className={
+                  coverageMessage.type === 'error'
+                    ? 'text-sm text-red-600'
+                    : coverageMessage.type === 'success'
+                      ? 'text-sm text-emerald-700'
+                      : 'text-sm text-amber-700'
+                }
+              >
+                {coverageMessage.text}
+              </p>
+            ) : null}
+          </div>
         </div>
         <div className="rounded-xl border bg-white p-4 space-y-3">
           <h3 className="font-medium">Bulk add</h3>
@@ -137,13 +305,16 @@ export function DeliveryCoverageContent() {
             value={bulkInput}
             onChange={(e) => setBulkInput(e.target.value)}
           />
+          <p className="text-xs text-slate-500">
+            {bulkSplit.alreadyAdded.length} already added, {bulkSplit.readyToAdd.length} ready to add
+          </p>
           <Button
             type="button"
-            disabled={bulkPincodes.length === 0 || bulkMutation.isPending}
-            onClick={() => bulkMutation.mutate(bulkPincodes)}
+            disabled={bulkSplit.readyToAdd.length === 0 || bulkMutation.isPending}
+            onClick={() => bulkMutation.mutate(bulkSplit.readyToAdd)}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Add {bulkPincodes.length} pincodes
+            Add {bulkSplit.readyToAdd.length} pincodes
           </Button>
         </div>
       </div>
@@ -198,7 +369,10 @@ export function DeliveryCoverageContent() {
             {isLoading ? (
               <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Loading…</td></tr>
             ) : (data?.items ?? []).map((area) => (
-              <tr key={area.id} className="border-t">
+              <tr
+                key={area.id}
+                className={area.pincode === selectedPincode ? 'border-t bg-amber-50' : 'border-t'}
+              >
                 <td className="px-4 py-3 font-medium">{area.pincode}</td>
                 <td className="px-4 py-3">{area.city ?? '—'}</td>
                 <td className="px-4 py-3">{area.deliveryFee ?? '—'}</td>

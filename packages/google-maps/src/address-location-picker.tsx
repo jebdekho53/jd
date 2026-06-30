@@ -169,7 +169,7 @@ export function AddressLocationPicker({
         locality: value.locality ?? '',
         city: value.city ?? '',
         state: value.state ?? '',
-        pincode: value.pincode ?? '',
+        pincode: '',
         lat: coords.lat,
         lng: coords.lng,
       });
