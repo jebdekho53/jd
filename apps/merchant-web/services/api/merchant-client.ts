@@ -54,7 +54,14 @@ export async function merchantFetch<T>(path: string, init?: RequestInit): Promis
 
   if (res.status === 401 && path !== '/api/auth/me') {
     useAuthStore.getState().clearSession();
-    throw new ApiError('Session expired. Please log in again.', 401);
+    const raw = (body as { message?: string | string[] })?.message;
+    const backendMessage = Array.isArray(raw) ? raw.join(', ') : raw;
+    throw new ApiError(
+      path.startsWith('/api/auth/') && backendMessage
+        ? backendMessage
+        : 'Session expired. Please log in again.',
+      401,
+    );
   }
 
   if (!res.ok) {

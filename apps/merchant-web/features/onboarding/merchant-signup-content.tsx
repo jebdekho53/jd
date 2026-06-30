@@ -75,6 +75,7 @@ const STEP_KEYS = [
 ] as const;
 
 const RESOLVE_DEBOUNCE_MS = 400;
+const EDITABLE_APPLICATION_STATUSES = new Set(['DRAFT', 'REJECTED']);
 
 type LocationSelectionInput = {
   locality: string;
@@ -175,6 +176,10 @@ export function MerchantSignupContent() {
         setContactPhone(identity.contactPhone);
 
         const app = await fetchApplication();
+        if (!EDITABLE_APPLICATION_STATUSES.has(app.status)) {
+          router.replace('/onboarding');
+          return;
+        }
         hydrateFromApplication(app);
         const wizardStep = Math.max(1, inferSignupWizardStep(app));
         setStep(wizardStep);
@@ -251,6 +256,11 @@ export function MerchantSignupContent() {
     }
 
     if (app) {
+      if (!EDITABLE_APPLICATION_STATUSES.has(app.status)) {
+        router.replace('/onboarding');
+        toast('Signed in successfully!', 'success');
+        return;
+      }
       hydrateFromApplication(app);
       setStep(Math.max(1, inferSignupWizardStep(app)));
     } else {
