@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { GoogleMap, Marker } from '@react-google-maps/api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { GoogleMap } from '@react-google-maps/api';
 import { Loader2, MapPin } from 'lucide-react';
 import { useGoogleMaps } from './google-maps-context';
 import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from './constants';
 import { cn } from './cn';
+import { AdvancedMarker } from './advanced-marker';
 
 export interface MapPickerPosition {
   lat: number;
@@ -41,6 +42,7 @@ export function GoogleMapPicker({
 }: GoogleMapPickerProps) {
   const { isLoaded, loadError } = useGoogleMaps();
   const mapRef = useRef<google.maps.Map | null>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
 
   const center = useMemo(
     () =>
@@ -63,9 +65,9 @@ export function GoogleMapPicker({
   );
 
   const handleMarkerDragEnd = useCallback(
-    (event: google.maps.MapMouseEvent) => {
-      if (disabled || !event.latLng) return;
-      onPositionChange({ lat: event.latLng.lat(), lng: event.latLng.lng() });
+    (next: google.maps.LatLngLiteral) => {
+      if (disabled) return;
+      onPositionChange(next);
     },
     [disabled, onPositionChange],
   );
@@ -115,13 +117,19 @@ export function GoogleMapPicker({
           onClick={handleMapClick}
           onLoad={(map) => {
             mapRef.current = map;
+            setMap(map);
+          }}
+          onUnmount={() => {
+            mapRef.current = null;
+            setMap(null);
           }}
         >
-          <Marker
+          <AdvancedMarker
+            map={map}
             position={center}
             draggable={!disabled}
             onDragEnd={handleMarkerDragEnd}
-            animation={google.maps.Animation.DROP}
+            color="#2563eb"
           />
         </GoogleMap>
       </div>

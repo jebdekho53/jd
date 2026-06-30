@@ -42,7 +42,10 @@
     "qa:mutation": "playwright test --project=production-mutation-chromium",
     "qa:mutation:headed": "playwright test --project=production-mutation-chromium --headed",
     "qa:mutation:debug": "PWDEBUG=1 playwright test --project=production-mutation-chromium --debug",
-    "qa:report": "playwright show-report qa-reports/playwright-html"
+    "qa:report": "playwright show-report qa-reports/playwright-html",
+    "shadowfax:health": "tsx scripts/shadowfax-runtime.ts health",
+    "shadowfax:serviceability": "tsx scripts/shadowfax-runtime.ts serviceability",
+    "shadowfax:test-shipment": "tsx scripts/shadowfax-runtime.ts test-shipment"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
@@ -61,11 +64,5 @@
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
   },
-  "packageManager": "pnpm@9.15.0",
-  "pnpm": {
-    "overrides": {
-      "@types/react": "~19.1.17",
-      "@types/react-dom": "~19.1.11"
-    }
-  }
+  "packageManager": "pnpm@9.15.0"
 }

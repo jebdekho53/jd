@@ -70,7 +70,11 @@ const mockReservation = {
 const mockAudit = { log: jest.fn() };
 const mockDomainEvents = { emit: jest.fn() };
 const mockStatusHistory = { transition: jest.fn() };
-const mockEmailNotifications = { sendOrderConfirmation: jest.fn().mockResolvedValue(undefined) };
+const mockEmailNotifications = {
+  sendOrderConfirmation: jest.fn().mockResolvedValue(undefined),
+  sendBuyerPaymentSuccess: jest.fn().mockResolvedValue(undefined),
+  sendBuyerPaymentFailed: jest.fn().mockResolvedValue(undefined),
+};
 
 const buildCheckout = (overrides = {}) => ({
   id: CHECKOUT_ID,

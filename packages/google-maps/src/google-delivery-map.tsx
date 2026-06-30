@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
-import { GoogleMap, Marker, Polyline } from '@react-google-maps/api';
+import { useMemo, useState } from 'react';
+import { GoogleMap, Polyline } from '@react-google-maps/api';
 import { Loader2 } from 'lucide-react';
 import { useGoogleMaps } from './google-maps-context';
 import { DEFAULT_MAP_ZOOM } from './constants';
+import { AdvancedMarker } from './advanced-marker';
 
 export interface DeliveryMapPoint {
   lat: number;
@@ -32,6 +33,7 @@ export function GoogleDeliveryMap({
   heightClassName = 'h-56 sm:h-72',
 }: GoogleDeliveryMapProps) {
   const { isLoaded, loadError } = useGoogleMaps();
+  const [map, setMap] = useState<google.maps.Map | null>(null);
 
   const center = useMemo(() => {
     const pts = [store, customer, ...(rider ? [rider] : [])];
@@ -72,11 +74,13 @@ export function GoogleDeliveryMap({
         center={center}
         zoom={DEFAULT_MAP_ZOOM}
         options={{ disableDefaultUI: true, zoomControl: true, fullscreenControl: true }}
+        onLoad={setMap}
+        onUnmount={() => setMap(null)}
       >
-        <Marker position={store} label={{ text: 'S', color: 'white', fontWeight: '700' }} />
-        <Marker position={customer} label={{ text: 'C', color: 'white', fontWeight: '700' }} />
+        <AdvancedMarker map={map} position={store} label="S" color="#2563eb" />
+        <AdvancedMarker map={map} position={customer} label="C" color="#16a34a" />
         {rider?.lat != null && rider.lng != null && (
-          <Marker position={{ lat: rider.lat, lng: rider.lng }} label={{ text: 'D', color: 'white', fontWeight: '700' }} />
+          <AdvancedMarker map={map} position={{ lat: rider.lat, lng: rider.lng }} label="D" color="#f97316" />
         )}
         <Polyline path={path} options={{ strokeColor: '#6366f1', strokeWeight: 4, strokeOpacity: 0.8 }} />
       </GoogleMap>

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EmailDeliveryStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { EMAIL_TEMPLATE } from './email.constants';
 import { EmailService } from './email.service';
@@ -11,6 +12,7 @@ export class EmailNotificationService {
   private readonly buyerSiteUrl: string;
   private readonly adminSiteUrl: string;
   private readonly merchantSiteUrl: string;
+  private readonly adminEmail?: string;
 
   constructor(
     private readonly email: EmailService,
@@ -21,6 +23,7 @@ export class EmailNotificationService {
     this.buyerSiteUrl = configService.get<string>('BUYER_SITE_URL', 'https://jebdekho.com');
     this.adminSiteUrl = configService.get<string>('ADMIN_URL', 'https://admin.jebdekho.com');
     this.merchantSiteUrl = configService.get<string>('MERCHANT_URL', 'https://merchant.jebdekho.com');
+    this.adminEmail = configService.get<string>('ADMIN_EMAIL')?.trim().toLowerCase();
   }
 
   async sendOtpEmail(to: string, code: string, expiresInSeconds: number): Promise<void> {
@@ -104,6 +107,84 @@ export class EmailNotificationService {
     });
   }
 
+  async sendBuyerPaymentSuccess(orderId: string): Promise<void> {
+    const ctx = await this.getBuyerOrderContext(orderId);
+    if (!ctx) return;
+    const tpl = this.templates.eventNotice({
+      subject: `Payment Successful - ${ctx.orderNumber}`,
+      heading: 'Your payment was successful.',
+      referenceLabel: 'Order Number',
+      referenceValue: ctx.orderNumber,
+      lines: ['We have received your payment and your order is being processed.'],
+    });
+    await this.safeSend({ to: ctx.to, ...tpl, templateCode: EMAIL_TEMPLATE.PAYMENT_SUCCESS, metadata: { orderNumber: ctx.orderNumber } });
+  }
+
+  async sendBuyerPaymentFailed(orderId: string): Promise<void> {
+    const ctx = await this.getBuyerOrderContext(orderId);
+    if (!ctx) return;
+    const tpl = this.templates.eventNotice({
+      subject: `Payment Failed - ${ctx.orderNumber}`,
+      heading: 'Your payment could not be completed.',
+      referenceLabel: 'Order Number',
+      referenceValue: ctx.orderNumber,
+      lines: ['Please try again or choose another payment method. Your order will not move ahead until payment succeeds.'],
+    });
+    await this.safeSend({ to: ctx.to, ...tpl, templateCode: EMAIL_TEMPLATE.PAYMENT_FAILED, metadata: { orderNumber: ctx.orderNumber } });
+  }
+
+  async sendBuyerMerchantAccepted(orderId: string): Promise<void> {
+    const ctx = await this.getBuyerOrderContext(orderId);
+    if (!ctx) return;
+    const tpl = this.templates.eventNotice({
+      subject: `Merchant Accepted Your Order - ${ctx.orderNumber}`,
+      heading: 'The merchant accepted your order.',
+      referenceLabel: 'Order Number',
+      referenceValue: ctx.orderNumber,
+      lines: ['Your order is being prepared. We will notify you when delivery is assigned.'],
+    });
+    await this.safeSend({ to: ctx.to, ...tpl, templateCode: EMAIL_TEMPLATE.MERCHANT_ACCEPTED, metadata: { orderNumber: ctx.orderNumber } });
+  }
+
+  async sendBuyerMerchantRejectedOrCancelled(orderId: string, reason = 'The merchant could not fulfill this order.'): Promise<void> {
+    const ctx = await this.getBuyerOrderContext(orderId);
+    if (!ctx) return;
+    const tpl = this.templates.eventNotice({
+      subject: `Order Cancelled - ${ctx.orderNumber}`,
+      heading: 'Your order was cancelled.',
+      referenceLabel: 'Order Number',
+      referenceValue: ctx.orderNumber,
+      lines: [reason, 'If a payment was captured, the refund process will be started automatically.'],
+    });
+    await this.safeSend({ to: ctx.to, ...tpl, templateCode: EMAIL_TEMPLATE.ORDER_REJECTED, metadata: { orderNumber: ctx.orderNumber } });
+  }
+
+  async sendBuyerDeliveryAssigned(orderId: string): Promise<void> {
+    const ctx = await this.getBuyerOrderContext(orderId);
+    if (!ctx) return;
+    const tpl = this.templates.eventNotice({
+      subject: `Delivery Assigned - ${ctx.orderNumber}`,
+      heading: 'A delivery partner has been assigned.',
+      referenceLabel: 'Order Number',
+      referenceValue: ctx.orderNumber,
+      lines: ['Your order will be picked up soon.'],
+    });
+    await this.safeSend({ to: ctx.to, ...tpl, templateCode: EMAIL_TEMPLATE.DELIVERY_ASSIGNED, metadata: { orderNumber: ctx.orderNumber, deliveryState: 'assigned' } });
+  }
+
+  async sendBuyerPickedUpOrOutForDelivery(orderId: string): Promise<void> {
+    const ctx = await this.getBuyerOrderContext(orderId);
+    if (!ctx) return;
+    const tpl = this.templates.eventNotice({
+      subject: `Order Out For Delivery - ${ctx.orderNumber}`,
+      heading: 'Your order is on the way.',
+      referenceLabel: 'Order Number',
+      referenceValue: ctx.orderNumber,
+      lines: ['The delivery partner has picked up your order and is heading to you.'],
+    });
+    await this.safeSend({ to: ctx.to, ...tpl, templateCode: EMAIL_TEMPLATE.DELIVERY_ASSIGNED, metadata: { orderNumber: ctx.orderNumber, deliveryState: 'picked_up' } });
+  }
+
   async sendSupportTicketCreated(ticketId: string): Promise<void> {
     const ticket = await this.prisma.supportTicket.findUnique({
       where: { id: ticketId },
@@ -151,6 +232,19 @@ export class EmailNotificationService {
       templateCode: EMAIL_TEMPLATE.REFUND,
       metadata: { orderId, orderNumber: order.orderNumber },
     });
+  }
+
+  async sendRefundInitiated(orderId: string): Promise<void> {
+    const ctx = await this.getBuyerOrderContext(orderId);
+    if (!ctx) return;
+    const tpl = this.templates.eventNotice({
+      subject: `Refund Initiated - ${ctx.orderNumber}`,
+      heading: 'Your refund has been initiated.',
+      referenceLabel: 'Order Number',
+      referenceValue: ctx.orderNumber,
+      lines: ['We will notify you once the refund is completed by the payment partner.'],
+    });
+    await this.safeSend({ to: ctx.to, ...tpl, templateCode: EMAIL_TEMPLATE.REFUND_INITIATED, metadata: { orderNumber: ctx.orderNumber } });
   }
 
   async sendGstInvoiceEmail(
@@ -252,12 +346,150 @@ export class EmailNotificationService {
     });
   }
 
+  async sendMerchantApplicationReceived(to: string, businessName: string): Promise<void> {
+    const tpl = this.templates.eventNotice({
+      subject: 'JebDekho merchant application received',
+      heading: 'We received your merchant application.',
+      referenceLabel: 'Business',
+      referenceValue: businessName,
+      lines: ['Our team will review your details and documents. We will email you with the next update.'],
+    });
+    await this.safeSend({ to, ...tpl, templateCode: EMAIL_TEMPLATE.MERCHANT_APPLICATION_RECEIVED, metadata: { businessName } });
+  }
+
+  async sendMerchantMoreDocumentsRequired(to: string, businessName: string): Promise<void> {
+    const tpl = this.templates.eventNotice({
+      subject: 'More documents required for your JebDekho application',
+      heading: 'We need more information to continue your review.',
+      referenceLabel: 'Business',
+      referenceValue: businessName,
+      lines: ['Please check your merchant dashboard and upload the requested documents.'],
+    });
+    await this.safeSend({ to, ...tpl, templateCode: EMAIL_TEMPLATE.MERCHANT_MORE_DOCS_REQUIRED, metadata: { businessName } });
+  }
+
+  async sendMerchantNewOrder(orderId: string): Promise<void> {
+    const ctx = await this.getMerchantOrderContext(orderId);
+    if (!ctx) return;
+    const tpl = this.templates.eventNotice({
+      subject: `New Order Received - ${ctx.orderNumber}`,
+      heading: 'You have a new order.',
+      referenceLabel: 'Order Number',
+      referenceValue: ctx.orderNumber,
+      lines: ['Please accept or reject the order from your merchant dashboard.'],
+    });
+    await this.safeSend({ to: ctx.to, ...tpl, templateCode: EMAIL_TEMPLATE.MERCHANT_NEW_ORDER, metadata: { orderNumber: ctx.orderNumber } });
+  }
+
+  async sendMerchantOrderCancelled(orderId: string): Promise<void> {
+    const ctx = await this.getMerchantOrderContext(orderId);
+    if (!ctx) return;
+    const tpl = this.templates.eventNotice({
+      subject: `Order Cancelled - ${ctx.orderNumber}`,
+      heading: 'An order was cancelled.',
+      referenceLabel: 'Order Number',
+      referenceValue: ctx.orderNumber,
+      lines: ['No further preparation is required for this order.'],
+    });
+    await this.safeSend({ to: ctx.to, ...tpl, templateCode: EMAIL_TEMPLATE.MERCHANT_ORDER_CANCELLED, metadata: { orderNumber: ctx.orderNumber } });
+  }
+
+  async sendMerchantSettlementInitiated(to: string, settlementReference: string, amount: string): Promise<void> {
+    const tpl = this.templates.eventNotice({
+      subject: `Settlement Initiated - ${settlementReference}`,
+      heading: 'Your settlement has been initiated.',
+      referenceLabel: 'Settlement Reference',
+      referenceValue: settlementReference,
+      lines: [`Amount: ${amount}`, 'We will notify you once the settlement is completed.'],
+    });
+    await this.safeSend({ to, ...tpl, templateCode: EMAIL_TEMPLATE.MERCHANT_SETTLEMENT_INITIATED, metadata: { settlementReference } });
+  }
+
+  async sendMerchantSettlementCompleted(to: string, settlementReference: string, amount: string): Promise<void> {
+    const tpl = this.templates.eventNotice({
+      subject: `Settlement Completed - ${settlementReference}`,
+      heading: 'Your settlement has been completed.',
+      referenceLabel: 'Settlement Reference',
+      referenceValue: settlementReference,
+      lines: [`Amount: ${amount}`, 'The settlement should reflect in your registered bank account as per banking timelines.'],
+    });
+    await this.safeSend({ to, ...tpl, templateCode: EMAIL_TEMPLATE.MERCHANT_SETTLEMENT_COMPLETED, metadata: { settlementReference } });
+  }
+
+  async sendAdminNewMerchantApplication(businessName: string, ownerEmail?: string): Promise<void> {
+    await this.sendAdminNotice(EMAIL_TEMPLATE.ADMIN_NEW_MERCHANT_APPLICATION, 'New merchant application', 'A new merchant application was submitted.', [
+      `Business: ${businessName}`,
+      ownerEmail ? `Owner Email: ${ownerEmail}` : 'Owner Email: not provided',
+    ]);
+  }
+
+  async sendAdminMerchantDocumentsSubmitted(businessName: string): Promise<void> {
+    await this.sendAdminNotice(EMAIL_TEMPLATE.ADMIN_DOCUMENTS_SUBMITTED, 'Merchant documents submitted', 'Merchant documents were submitted for review.', [`Business: ${businessName}`]);
+  }
+
+  async sendAdminRefundRequest(orderNumber: string, amount: string): Promise<void> {
+    await this.sendAdminNotice(EMAIL_TEMPLATE.ADMIN_REFUND_REQUEST, `Refund request raised - ${orderNumber}`, 'A refund request was raised.', [`Order Number: ${orderNumber}`, `Amount: ${amount}`]);
+  }
+
+  async sendAdminDeliveryFailedOrDelayed(orderNumber: string): Promise<void> {
+    await this.sendAdminNotice(EMAIL_TEMPLATE.ADMIN_DELIVERY_FAILED_DELAYED, `Delivery issue - ${orderNumber}`, 'A delivery has failed or is delayed.', [`Order Number: ${orderNumber}`]);
+  }
+
+  async sendAdminRepeatedPaymentFailure(paymentReference: string): Promise<void> {
+    await this.sendAdminNotice(EMAIL_TEMPLATE.ADMIN_REPEATED_PAYMENT_FAILURE, `Repeated payment failure - ${paymentReference}`, 'Repeated payment failures were detected.', [`Payment Reference: ${paymentReference}`]);
+  }
+
+  async sendAdminSupportTicketCreated(ticketNumber: string): Promise<void> {
+    await this.sendAdminNotice(EMAIL_TEMPLATE.ADMIN_SUPPORT_TICKET_CREATED, `Support ticket created - ${ticketNumber}`, 'A support ticket was created.', [`Ticket Number: ${ticketNumber}`]);
+  }
+
   private async safeSend(input: Parameters<EmailService['send']>[0]): Promise<void> {
     try {
+      if (await this.alreadyQueuedOrSent(input)) return;
       await this.email.send(input);
     } catch (err) {
       this.logger.error({ err, to: input.to, template: input.templateCode }, 'Email notification failed');
     }
+  }
+
+  private async sendAdminNotice(templateCode: typeof EMAIL_TEMPLATE[keyof typeof EMAIL_TEMPLATE], subject: string, heading: string, lines: string[]): Promise<void> {
+    if (!this.adminEmail) return;
+    const tpl = this.templates.eventNotice({ subject, heading, lines });
+    await this.safeSend({ to: this.adminEmail, ...tpl, templateCode, metadata: { subject } });
+  }
+
+  private async alreadyQueuedOrSent(input: Parameters<EmailService['send']>[0]): Promise<boolean> {
+    if (!input.templateCode) return false;
+    const existing = await this.prisma.emailLog.findFirst({
+      where: {
+        recipient: input.to,
+        subject: input.subject,
+        templateCode: input.templateCode,
+        status: { in: [EmailDeliveryStatus.PENDING, EmailDeliveryStatus.SENT] },
+      },
+      select: { id: true },
+    });
+    return Boolean(existing);
+  }
+
+  private async getBuyerOrderContext(orderId: string): Promise<{ to: string; orderNumber: string } | null> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { buyerProfile: { include: { user: { select: { email: true } } } } },
+    });
+    const to = order?.buyerProfile.user.email;
+    return order && to ? { to, orderNumber: order.orderNumber } : null;
+  }
+
+  private async getMerchantOrderContext(orderId: string): Promise<{ to: string; orderNumber: string } | null> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        store: { include: { merchantProfile: { include: { user: { select: { email: true } } } } } },
+      },
+    });
+    const to = order?.store?.merchantProfile?.user?.email;
+    return order && to ? { to, orderNumber: order.orderNumber } : null;
   }
 
   private formatAddress(raw: unknown): string {

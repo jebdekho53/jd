@@ -42,7 +42,7 @@ describe('OrderRefundService', () => {
         { provide: LedgerService, useValue: { recordRefund: jest.fn() } },
         { provide: RewardService, useValue: { refundWalletForOrder: jest.fn() } },
         { provide: CreditNoteService, useValue: { createForRefund: jest.fn() } },
-        { provide: EmailNotificationService, useValue: { sendRefundProcessed: jest.fn() } },
+        { provide: EmailNotificationService, useValue: { sendRefundInitiated: jest.fn(), sendRefundProcessed: jest.fn() } },
         { provide: AuditService, useValue: { log: jest.fn() } },
         { provide: DomainEventsService, useValue: { emit: jest.fn() } },
         { provide: FinanceAlertService, useValue: { raiseRefundFailed: jest.fn() } },

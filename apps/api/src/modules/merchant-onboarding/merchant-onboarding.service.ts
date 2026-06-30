@@ -638,17 +638,6 @@ export class MerchantOnboardingService {
         storeId,
         metadata: { applicationId: app.id, riskScore: risk.riskScore },
       }),
-      this.supportTickets.createTicket(
-        {
-          requesterUserId: userId,
-          actorType: SupportActorType.MERCHANT,
-          categoryCode: 'MERCHANT_ONBOARDING',
-          subject: `New merchant application: ${app.businessName}`,
-          description: `Store application submitted for ${app.storeName}. Risk score: ${risk.riskScore}.`,
-          channel: 'IN_APP',
-        },
-        ipAddress,
-      ),
       this.sendSubmissionNotifications(userId, app.ownerEmail, app.ownerPhone, app.businessName!),
       this.audit.log({
         actorId: userId,
@@ -1228,8 +1217,9 @@ export class MerchantOnboardingService {
     businessName: string,
   ) {
     if (email) {
-      void this.emailNotifications.sendWelcomeEmail(email, businessName);
+      void this.emailNotifications.sendMerchantApplicationReceived(email, businessName);
     }
+    void this.emailNotifications.sendAdminNewMerchantApplication(businessName, email ?? undefined);
     this.logger.log({ userId, businessName }, 'Merchant application submitted — SMS/WhatsApp via CRM orchestrator');
   }
 }

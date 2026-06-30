@@ -28,8 +28,7 @@ export class DeliveryDispatchService {
 
   /**
    * Called as soon as payment is confirmed (COD checkout or online payment success).
-   * Grocery: dispatches to Shadowfax when configured.
-   * Food: never dispatches here — food uses dispatchAfterReadyForPickup only.
+   * Third-party delivery waits for merchant acceptance so unaccepted orders never create shipments.
    */
   async dispatchAfterOrderPlaced(orderId: string): Promise<DispatchResult> {
     const order = await this.prisma.order.findUnique({
@@ -39,13 +38,7 @@ export class DeliveryDispatchService {
     if (order?.orderVertical === OrderVertical.FOOD) {
       return null;
     }
-
-    if (useOwnFleetDispatch(this.config)) {
-      // Own-fleet riders are assigned when the merchant marks READY_FOR_PICKUP.
-      return null;
-    }
-
-    return this.dispatchViaProvider(orderId, 'order placed');
+    return null;
   }
 
   /**

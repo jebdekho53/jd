@@ -409,6 +409,9 @@ export class PaymentService {
     void this.emailNotifications.sendOrderConfirmation(payment.order.id).catch((err) => {
       this.logger.error({ err, orderId: payment.order.id }, 'Order confirmation email failed (webhook)');
     });
+    void this.emailNotifications.sendBuyerPaymentSuccess(payment.order.id).catch((err) => {
+      this.logger.error({ err, orderId: payment.order.id }, 'Payment success email failed (webhook)');
+    });
     this.scheduleRiderDispatch(payment.order.id);
   }
 
@@ -461,6 +464,9 @@ export class PaymentService {
     );
 
     void this.orderCache.invalidateAll(payment.order.id);
+    void this.emailNotifications.sendBuyerPaymentFailed(payment.order.id).catch((err) => {
+      this.logger.error({ err, orderId: payment.order.id }, 'Payment failed email failed (webhook)');
+    });
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

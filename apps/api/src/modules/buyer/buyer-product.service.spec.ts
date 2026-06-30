@@ -17,7 +17,9 @@ const PRODUCT = {
   storeId: 's-1',
   description: null,
   brand: 'Amul',
-  imageUrls: [],
+  imageUrls: ['https://cdn.jebdekho.com/products/amul-milk.jpg'],
+  hsnCodeId: 'hsn-1',
+  taxCategory: 'GOODS',
   basePrice: { toNumber: () => 49 },
   mrp: { toNumber: () => 59 },
   unit: 'piece',
@@ -38,6 +40,7 @@ const PRODUCT = {
     {
       id: 'v-1',
       name: 'Default',
+      status: 'ACTIVE',
       price: { toNumber: () => 49 },
       mrp: { toNumber: () => 59 },
       weightGrams: null,

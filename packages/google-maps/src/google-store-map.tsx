@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
-import { GoogleMap, Marker } from '@react-google-maps/api';
+import { useMemo, useState } from 'react';
+import { GoogleMap } from '@react-google-maps/api';
 import { Loader2 } from 'lucide-react';
 import { useGoogleMaps } from './google-maps-context';
 import { DEFAULT_MAP_ZOOM } from './constants';
 import { cn } from './cn';
+import { AdvancedMarker } from './advanced-marker';
 export interface StoreMapPin {
   id: string;
   name: string;
@@ -33,6 +34,7 @@ export function GoogleStoreMap({
   selectedStoreId,
 }: GoogleStoreMapProps) {
   const { isLoaded, loadError } = useGoogleMaps();
+  const [map, setMap] = useState<google.maps.Map | null>(null);
 
   const center = useMemo(
     () => ({ lat: buyerLat, lng: buyerLng }),
@@ -79,33 +81,25 @@ export function GoogleStoreMap({
           streetViewControl: false,
           mapTypeControl: false,
         }}
+        onLoad={setMap}
+        onUnmount={() => setMap(null)}
       >
-        <Marker
+        <AdvancedMarker
+          map={map}
           position={center}
           title="You"
-          icon={{
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: '#16a34a',
-            fillOpacity: 1,
-            strokeColor: '#ffffff',
-            strokeWeight: 2,
-          }}
+          label="Y"
+          color="#16a34a"
         />
         {stores.map((store) => (
-          <Marker
+          <AdvancedMarker
             key={store.id}
+            map={map}
             position={{ lat: store.lat, lng: store.lng }}
             title={store.name}
             onClick={() => onSelectStore?.(store)}
-            icon={{
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: selectedStoreId === store.id ? 9 : 7,
-              fillColor: 'hsl(142 76% 36%)',
-              fillOpacity: 1,
-              strokeColor: '#ffffff',
-              strokeWeight: 2,
-            }}
+            label={selectedStoreId === store.id ? 'S' : undefined}
+            color={selectedStoreId === store.id ? '#15803d' : '#16a34a'}
           />
         ))}
       </GoogleMap>
