@@ -4,6 +4,21 @@ import { qaConfig } from '../test-config';
 import { attachPageMonitoring } from './monitoring';
 import { dismissOverlays } from './safe-click';
 
+const RATE_LIMIT_MESSAGE = 'Rate limited. Wait 10 minutes or refresh storageState.';
+
+async function failOnRateLimit(page: Page, action: () => Promise<void>): Promise<void> {
+  const rateLimit = page
+    .waitForResponse((response) => response.status() === 429, { timeout: 10_000 })
+    .then(() => {
+      throw new Error(RATE_LIMIT_MESSAGE);
+    })
+    .catch((err) => {
+      if (err instanceof Error && err.message === RATE_LIMIT_MESSAGE) throw err;
+    });
+
+  await Promise.race([action(), rateLimit]);
+}
+
 export async function loginAsBuyer(page: Page): Promise<void> {
   attachPageMonitoring(page, { app: 'buyer', action: 'buyer-login' });
   await page.goto(`${qaConfig.buyerUrl}/login`);
@@ -18,9 +33,10 @@ export async function loginAsBuyer(page: Page): Promise<void> {
   const password = page.getByLabel('Password').or(page.locator('input[type="password"]')).first();
   await email.fill(qaConfig.buyer.email);
   await password.fill(qaConfig.buyer.password);
-  await page.getByRole('button', { name: /^login$/i }).click();
-
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 30_000 });
+  await failOnRateLimit(page, async () => {
+    await page.getByRole('button', { name: /^login$/i }).click();
+    await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 30_000 });
+  });
   await expect(page).not.toHaveURL(/\/login/);
 }
 
@@ -33,9 +49,10 @@ export async function loginAsMerchant(page: Page): Promise<void> {
   const password = page.getByLabel('Password').or(page.locator('input[type="password"]')).first();
   await email.fill(qaConfig.merchant.email);
   await password.fill(qaConfig.merchant.password);
-  await page.getByRole('button', { name: /verify.*sign in|sign in/i }).click();
-
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 45_000 });
+  await failOnRateLimit(page, async () => {
+    await page.getByRole('button', { name: /verify.*sign in|sign in/i }).click();
+    await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 45_000 });
+  });
 }
 
 export async function loginAsAdmin(page: Page): Promise<void> {
@@ -57,9 +74,10 @@ export async function loginAsAdmin(page: Page): Promise<void> {
   const password = page.getByLabel('Password').or(page.locator('input[type="password"]')).first();
   await email.fill(qaConfig.admin.email);
   await password.fill(qaConfig.admin.password);
-  await page.getByRole('button', { name: /sign in/i }).click();
-
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 60_000 });
+  await failOnRateLimit(page, async () => {
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 60_000 });
+  });
 }
 
 export async function logoutBuyer(page: Page): Promise<void> {

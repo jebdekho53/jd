@@ -527,7 +527,7 @@ export async function listReviews(params?: {
   if (params?.status) qs.set('status', params.status);
   if (params?.page) qs.set('page', String(params.page));
   if (params?.limit) qs.set('limit', String(params.limit));
-  if (params?.search) qs.set('search', params.search);
+  if (params?.search) qs.set('q', params.search);
   const suffix = qs.size ? `?${qs.toString()}` : '';
   const res = await adminFetch<ApiResponse<AdminReviewListItem[]>>(`/api/admin/reviews${suffix}`);
   return { data: res.data, meta: res.meta as { total: number } | undefined };

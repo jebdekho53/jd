@@ -16,7 +16,6 @@ exports.AdminStoreReviewController = void 0;
 const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
-const client_1 = require("@prisma/client");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const permissions_guard_1 = require("../../common/guards/permissions.guard");
@@ -30,8 +29,8 @@ let AdminStoreReviewController = class AdminStoreReviewController {
     constructor(service) {
         this.service = service;
     }
-    async list(dto, status) {
-        const result = await this.service.listAdminReviews({ ...dto, status });
+    async list(dto) {
+        const result = await this.service.listAdminReviews(dto);
         return {
             success: true,
             data: result.reviews,
@@ -66,9 +65,8 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'List reviews for moderation' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, common_1.Query)()),
-    __param(1, (0, common_1.Query)('status')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [store_review_dto_1.ListStoreReviewsDto, String]),
+    __metadata("design:paramtypes", [store_review_dto_1.ListStoreReviewsDto]),
     __metadata("design:returntype", Promise)
 ], AdminStoreReviewController.prototype, "list", null);
 __decorate([

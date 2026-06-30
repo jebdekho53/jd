@@ -3,10 +3,12 @@ import { qaConfig } from '../test-config';
 import { attachPageMonitoring } from '../helpers/monitoring';
 import { loginAsBuyer } from '../helpers/auth';
 import { addFinding, recordManualVerification } from '../helpers/report-writer';
+import { resetServiceWorkerAndCaches } from '../helpers/service-worker';
 
 test.describe('Buyer — Checkout (safe flow)', () => {
   test.beforeEach(async ({ page }) => {
     attachPageMonitoring(page, { app: 'buyer', action: 'checkout' });
+    await resetServiceWorkerAndCaches(page);
   });
 
   test('address validation without placing order', async ({ page }) => {
@@ -73,12 +75,12 @@ test.describe('Buyer — Checkout (safe flow)', () => {
   });
 
   test('checkout page requires cart items', async ({ page }) => {
-    await page.goto(`${qaConfig.buyerUrl}/checkout`);
+    await page.goto(`${qaConfig.buyerUrl}/checkout`, { waitUntil: 'domcontentloaded' });
     await preparePage(page);
     const url = page.url();
-    const body = await page.locator('body').innerText();
-    const redirectedOrEmpty =
-      url.includes('/cart') || url.includes('/login') || /empty|add items|no items/i.test(body);
-    expect(redirectedOrEmpty || body.length > 0).toBeTruthy();
+    const meaningfulCheckoutUi = page
+      .getByText(/your cart needs items|empty|add items|continue shopping|login required|sign in/i)
+      .first();
+    expect(url.includes('/cart') || url.includes('/login') || await meaningfulCheckoutUi.isVisible()).toBeTruthy();
   });
 });

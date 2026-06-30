@@ -2,14 +2,28 @@ import { test, expect, preparePage } from '../fixtures/qa-fixture';
 import { qaConfig } from '../test-config';
 import { safeClick, assertNoServerError, dismissOverlays } from '../helpers/safe-click';
 import { attachPageMonitoring } from '../helpers/monitoring';
+import { resetServiceWorkerAndCaches } from '../helpers/service-worker';
+
+async function safeGoto(page: import('@playwright/test').Page, url: string) {
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+  } catch (err) {
+    if (String(err).includes('NS_BINDING_ABORTED')) {
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      return;
+    }
+    throw err;
+  }
+}
 
 test.describe('Buyer — Public Homepage', () => {
   test.beforeEach(async ({ page }) => {
     attachPageMonitoring(page, { app: 'buyer', action: 'homepage' });
+    await resetServiceWorkerAndCaches(page);
   });
 
   test('loads homepage with header, search, cart, and profile', async ({ page }) => {
-    await page.goto(qaConfig.buyerUrl);
+    await safeGoto(page, qaConfig.buyerUrl);
     await preparePage(page);
     await expect(page).toHaveTitle(/jebdekho|compare prices|save more/i);
 
@@ -24,28 +38,32 @@ test.describe('Buyer — Public Homepage', () => {
   });
 
   test('nav links load without 404/500', async ({ page }) => {
-    await page.goto(qaConfig.buyerUrl);
+    await safeGoto(page, qaConfig.buyerUrl);
     await preparePage(page);
 
-    const navLinks = page.locator('header a[href], nav a[href]').filter({ hasText: /.+/ });
-    const count = Math.min(await navLinks.count(), 12);
+    const hrefs = await page
+      .locator('header a[href], nav a[href]')
+      .evaluateAll((links) =>
+        links
+          .map((link) => ({
+            href: link.getAttribute('href') ?? '',
+            label: (link.textContent ?? '').trim(),
+          }))
+          .filter((link) => link.href && !link.href.startsWith('mailto:') && !link.href.startsWith('tel:')),
+      );
 
-    for (let i = 0; i < count; i++) {
-      await page.goto(qaConfig.buyerUrl);
+    for (const { href, label } of hrefs.slice(0, 12)) {
+      await safeGoto(page, qaConfig.buyerUrl);
       await dismissOverlays(page);
-      const link = navLinks.nth(i);
-      const label = (await link.innerText()).trim() || (await link.getAttribute('href')) || `link-${i}`;
-      const href = await link.getAttribute('href');
-      if (!href || href.startsWith('mailto:') || href.startsWith('tel:')) continue;
-
-      const clicked = await safeClick(link, {
+      const target = new URL(href, qaConfig.buyerUrl).toString();
+      const clicked = await safeClick(page.locator(`a[href="${href}"]`).first(), {
         app: 'buyer',
         sourcePage: qaConfig.buyerUrl,
-        label,
+        label: label || href,
       });
-      if (!clicked) continue;
+      if (!clicked) await safeGoto(page, target);
 
-      await page.waitForLoadState('domcontentloaded');
+      await page.waitForLoadState('domcontentloaded').catch(() => undefined);
       await assertNoServerError(page);
       const status = page.url();
       expect(status).not.toMatch(/404|500/);

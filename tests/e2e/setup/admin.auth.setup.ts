@@ -1,12 +1,9 @@
 import { test as setup } from '@playwright/test';
-import * as fs from 'fs';
-import * as path from 'path';
 import { loginAsAdmin } from '../helpers/auth';
-
-const authFile = path.resolve(process.cwd(), 'qa-reports', '.auth', 'admin.json');
+import { authStatePath, ensureAuthDir } from '../helpers/storage-state';
 
 setup('authenticate admin', async ({ page }) => {
-  fs.mkdirSync(path.dirname(authFile), { recursive: true });
+  ensureAuthDir();
   await loginAsAdmin(page);
-  await page.context().storageState({ path: authFile });
+  await page.context().storageState({ path: authStatePath('admin') });
 });

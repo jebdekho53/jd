@@ -33,6 +33,10 @@ export default defineConfig({
   },
   projects: [
     {
+      name: 'setup-buyer',
+      testMatch: /setup\/buyer\.auth\.setup\.ts/,
+    },
+    {
       name: 'setup-merchant',
       testMatch: /setup\/merchant\.auth\.setup\.ts/,
     },
@@ -47,13 +51,14 @@ export default defineConfig({
         /(buyer|rbac|api)\/.*\.spec\.ts/,
         /(buyer-prod|merchant-prod|admin-prod|navigation-audit|api-network-audit)\.spec\.ts/,
       ],
+      dependencies: ['setup-buyer', 'setup-merchant', 'setup-admin'],
     },
     {
       name: 'chromium-merchant',
       use: {
         ...devices['Desktop Chrome'],
         baseURL: process.env.E2E_MERCHANT_URL ?? 'https://merchant.jebdekho.com',
-        storageState: 'qa-reports/.auth/merchant.json',
+        storageState: 'playwright/.auth/merchant.json',
       },
       testMatch: /merchant\/.*\.spec\.ts/,
       dependencies: ['setup-merchant'],
@@ -63,7 +68,7 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         baseURL: process.env.E2E_ADMIN_URL ?? 'https://admin.jebdekho.com',
-        storageState: 'qa-reports/.auth/admin.json',
+        storageState: 'playwright/.auth/admin.json',
       },
       testMatch: /admin\/.*\.spec\.ts/,
       dependencies: ['setup-admin'],

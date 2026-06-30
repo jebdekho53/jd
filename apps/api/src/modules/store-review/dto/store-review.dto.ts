@@ -1,6 +1,7 @@
 import {
   ArrayMaxSize,
   IsArray,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -10,6 +11,8 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ReviewStatus } from '@prisma/client';
 
 export class CreateStoreReviewDto {
   @IsInt()
@@ -114,17 +117,20 @@ export class ModerateReviewDto {
 
 export class ListStoreReviewsDto {
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number = 1;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(50)
   limit?: number = 20;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(5)
@@ -133,4 +139,8 @@ export class ListStoreReviewsDto {
   @IsOptional()
   @IsString()
   q?: string;
+
+  @IsOptional()
+  @IsEnum(ReviewStatus)
+  status?: ReviewStatus;
 }

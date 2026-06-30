@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { RefreshCw } from 'lucide-react';
 import { Button, Card } from '@/design-system/primitives';
 import { useToast } from '@/design-system/primitives';
+import { BackButton } from '@/components/navigation/back-button';
 import {
   fetchKitchenQueue,
   updateKitchenOrderStatus,
@@ -86,6 +87,7 @@ export function KitchenDisplayContent({ storeId }: { storeId: string }) {
           <p className="text-slate-400">New → Preparing → Ready · auto-refreshes every 10s</p>
         </div>
         <div className="flex items-center gap-3">
+          <BackButton fallbackHref="/orders" className="border-slate-600 text-white hover:bg-slate-800" />
           <div className="rounded-xl bg-slate-800 px-4 py-2 text-center">
             <p className="text-xs uppercase text-slate-400">Completed today</p>
             <p className="text-2xl font-bold">{data?.completed ?? 0}</p>

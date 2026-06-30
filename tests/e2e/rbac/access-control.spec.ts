@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { qaConfig } from '../test-config';
-import { clearAuthState, loginAsBuyer, loginAsMerchant, loginAsAdmin } from '../helpers/auth';
+import { clearAuthState } from '../helpers/auth';
 import { checkProtectedRoute, expectNoInfiniteRedirect } from '../helpers/rbac';
 import { attachPageMonitoring } from '../helpers/monitoring';
+import { newRolePage } from '../helpers/storage-state';
 
 test.describe('RBAC — Anonymous', () => {
   test.beforeEach(async ({ context }) => {
@@ -47,10 +48,9 @@ test.describe('RBAC — Anonymous', () => {
 });
 
 test.describe('RBAC — Buyer', () => {
-  test('buyer cannot access merchant or admin dashboards', async ({ page, context }) => {
+  test('buyer cannot access merchant or admin dashboards', async ({ browser }) => {
+    const page = await newRolePage(browser, 'buyer');
     attachPageMonitoring(page, { app: 'rbac', action: 'rbac-buyer' });
-    await clearAuthState(context);
-    await loginAsBuyer(page);
 
     const merchant = await checkProtectedRoute(page, {
       role: 'buyer',
@@ -69,14 +69,14 @@ test.describe('RBAC — Buyer', () => {
     expect(merchant.pass || merchant.actual.includes('login')).toBeTruthy();
     expect(admin.pass || admin.actual.includes('login') || admin.actual.includes('denied')).toBeTruthy();
     await expectNoInfiniteRedirect(page);
+    await page.context().close();
   });
 });
 
 test.describe('RBAC — Merchant', () => {
-  test('merchant cannot access admin dashboard', async ({ page, context }) => {
+  test('merchant cannot access admin dashboard', async ({ browser }) => {
+    const page = await newRolePage(browser, 'merchant');
     attachPageMonitoring(page, { app: 'rbac', action: 'rbac-merchant' });
-    await clearAuthState(context);
-    await loginAsMerchant(page);
 
     const admin = await checkProtectedRoute(page, {
       role: 'merchant',
@@ -86,14 +86,14 @@ test.describe('RBAC — Merchant', () => {
     });
 
     expect(admin.pass || admin.actual.includes('login') || admin.actual.includes('denied')).toBeTruthy();
+    await page.context().close();
   });
 });
 
 test.describe('RBAC — Admin', () => {
-  test('admin can access admin dashboard', async ({ page, context }) => {
+  test('admin can access admin dashboard', async ({ browser }) => {
+    const page = await newRolePage(browser, 'admin');
     attachPageMonitoring(page, { app: 'rbac', action: 'rbac-admin' });
-    await clearAuthState(context);
-    await loginAsAdmin(page);
 
     await page.goto(`${qaConfig.adminUrl}/dashboard`);
     await page.waitForLoadState('domcontentloaded');
@@ -102,5 +102,6 @@ test.describe('RBAC — Admin', () => {
     const body = await page.locator('body').innerText();
     expect(body).not.toMatch(/stack trace|internal server error/i);
     expect(page.url()).not.toMatch(/access_token|refresh_token/);
+    await page.context().close();
   });
 });

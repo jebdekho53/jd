@@ -2,10 +2,12 @@ import { test, expect, preparePage } from '../fixtures/qa-fixture';
 import { qaConfig } from '../test-config';
 import { attachPageMonitoring, assertNoHorizontalScroll } from '../helpers/monitoring';
 import { assertNoServerError } from '../helpers/safe-click';
+import { resetServiceWorkerAndCaches } from '../helpers/service-worker';
 
 test.describe('Mobile — Buyer key flows', () => {
   test.beforeEach(async ({ page }) => {
     attachPageMonitoring(page, { app: 'buyer-mobile', action: 'mobile' });
+    await resetServiceWorkerAndCaches(page);
   });
 
   test('homepage — no horizontal scroll, nav visible', async ({ page }) => {
@@ -43,8 +45,9 @@ test.describe('Mobile — Buyer key flows', () => {
     await preparePage(page);
     await page.waitForTimeout(1_500);
     await assertNoHorizontalScroll(page);
-    const visible = await page.locator('body').isVisible();
-    expect(visible).toBeTruthy();
+    await expect(
+      page.getByText(/checkout|cart needs items|empty|continue shopping|login required|sign in/i).first(),
+    ).toBeVisible();
   });
 });
 

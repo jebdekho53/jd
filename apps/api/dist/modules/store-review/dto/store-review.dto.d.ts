@@ -1,3 +1,4 @@
+import { ReviewStatus } from '@prisma/client';
 export declare class CreateStoreReviewDto {
     rating: number;
     storeExperience: number;
@@ -30,4 +31,5 @@ export declare class ListStoreReviewsDto {
     limit?: number;
     rating?: number;
     q?: string;
+    status?: ReviewStatus;
 }

@@ -1,11 +1,10 @@
-import { ReviewStatus } from '@prisma/client';
 import { RequestUser } from '../../common/types';
 import { StoreReviewService } from './store-review.service';
 import { ListStoreReviewsDto, ModerateReviewDto } from './dto/store-review.dto';
 export declare class AdminStoreReviewController {
     private readonly service;
     constructor(service: StoreReviewService);
-    list(dto: ListStoreReviewsDto, status?: ReviewStatus): Promise<{
+    list(dto: ListStoreReviewsDto): Promise<{
         success: boolean;
         data: {
             id: any;

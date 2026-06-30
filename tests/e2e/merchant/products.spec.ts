@@ -46,4 +46,11 @@ test.describe('Merchant — Products & Inventory', () => {
     await expect(page.locator('body')).not.toBeEmpty();
     addFinding('merchant', 'Inventory page loaded');
   });
+
+  test('AI usage and billing has a back button', async ({ page }) => {
+    await page.goto('/products');
+    await preparePage(page);
+    await page.getByRole('button', { name: /AI Usage & Billing/i }).click();
+    await expect(page.getByRole('button', { name: /^back$/i })).toBeVisible();
+  });
 });

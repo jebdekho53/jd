@@ -10,7 +10,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ReviewStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -35,9 +34,8 @@ export class AdminStoreReviewController {
   @ApiOperation({ summary: 'List reviews for moderation' })
   async list(
     @Query() dto: ListStoreReviewsDto,
-    @Query('status') status?: ReviewStatus,
   ) {
-    const result = await this.service.listAdminReviews({ ...dto, status });
+    const result = await this.service.listAdminReviews(dto);
     return {
       success: true,
       data: result.reviews,

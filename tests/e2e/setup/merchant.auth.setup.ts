@@ -1,12 +1,9 @@
 import { test as setup } from '@playwright/test';
-import * as fs from 'fs';
-import * as path from 'path';
 import { loginAsMerchant } from '../helpers/auth';
-
-const authFile = path.resolve(process.cwd(), 'qa-reports', '.auth', 'merchant.json');
+import { authStatePath, ensureAuthDir } from '../helpers/storage-state';
 
 setup('authenticate merchant', async ({ page }) => {
-  fs.mkdirSync(path.dirname(authFile), { recursive: true });
+  ensureAuthDir();
   await loginAsMerchant(page);
-  await page.context().storageState({ path: authFile });
+  await page.context().storageState({ path: authStatePath('merchant') });
 });

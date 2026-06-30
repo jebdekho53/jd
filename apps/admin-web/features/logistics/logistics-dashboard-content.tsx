@@ -4,6 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { Activity, RefreshCw, Truck, AlertTriangle } from 'lucide-react';
 import { adminFetch } from '@/services/api/admin-client';
 import { Button, Spinner } from '@/design-system';
+import { BackButton } from '@/components/navigation/back-button';
 import { OpsMapOverlay } from '@/features/maps/ops-map-overlay';
 import { useOperationsMapQuery } from '@/features/maps/use-operations-map';
 import { useGoogleMaps } from '@jebdekho/google-maps';
@@ -80,6 +81,7 @@ export function LogisticsDashboardContent() {
           <p className="text-sm text-slate-500">Third-party delivery operations — Shadowfax primary</p>
         </div>
         <div className="flex gap-2">
+          <BackButton fallbackHref="/dashboard" />
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className="h-4 w-4" /> Refresh
           </Button>

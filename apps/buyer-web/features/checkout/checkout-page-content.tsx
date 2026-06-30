@@ -16,7 +16,8 @@ import { WalletCheckoutPanel } from '@/features/checkout/components/wallet-check
 import { RazorpayButton } from '@/features/checkout/components/razorpay-button';
 import { PayerContactForm } from '@/features/checkout/components/payer-contact-form';
 import { PwaPaymentBanner } from '@/components/pwa/pwa-payment-banner';
-import { ActionBar, Button, Spinner } from '@/design-system/primitives';
+import { ActionBar, Button, ButtonLink, Spinner } from '@/design-system/primitives';
+import { CartEmpty } from '@/features/cart/components/cart-empty';
 import { useCartQuery } from '@/hooks/use-cart';
 import { formatCurrency } from '@/lib/utils';
 import { getDefaultSavedDeliveryAddress, isDeliveryAddressComplete } from '@/lib/saved-delivery-address';
@@ -122,9 +123,6 @@ export function CheckoutPageContent() {
   useEffect(() => {
     if (!checkoutReady || authLoading || isLoading) return;
     if (!isAuthenticated) return;
-    if (!cart || cart.items.length === 0) {
-      router.replace('/cart');
-    }
   }, [checkoutReady, authLoading, isLoading, isAuthenticated, cart, router]);
 
   const handlePlaceOrder = async () => {
@@ -202,7 +200,27 @@ export function CheckoutPageContent() {
     );
   }
 
-  if (!cart || cart.items.length === 0) return null;
+  if (!cart || cart.items.length === 0) {
+    return (
+      <AuthGuard>
+        <PageShell>
+          <div className="space-y-5">
+            <div>
+              <h1 className="text-xl font-bold tracking-tight md:text-2xl">Checkout</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Your cart needs items before checkout can continue.
+              </p>
+            </div>
+            <CartEmpty />
+            <div className="flex flex-wrap gap-2">
+              <ButtonLink href="/cart" variant="outline">Open cart</ButtonLink>
+              <ButtonLink href="/">Continue shopping</ButtonLink>
+            </div>
+          </div>
+        </PageShell>
+      </AuthGuard>
+    );
+  }
 
   const onlinePayReady = paymentMethod !== 'RAZORPAY' || Boolean(payerContact);
   const codBlocked =
@@ -314,7 +332,16 @@ export function CheckoutPageContent() {
                         </button>
                       </div>
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="space-y-3">
+                      <CheckoutRequirementsHint
+                        items={['Add a delivery address to continue checkout']}
+                      />
+                      <Button variant="outline" onClick={() => setStep('address')}>
+                        Add address
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {step === 'payment' && (

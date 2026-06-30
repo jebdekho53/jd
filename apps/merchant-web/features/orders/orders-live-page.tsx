@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { RefreshCw } from 'lucide-react';
 import { Button, Card } from '@/design-system/primitives';
+import { BackButton } from '@/components/navigation/back-button';
 import { OrderStatusBadge } from './components/order-status-badge';
 import { OrderSlaBadge } from './components/order-sla-badge';
 import { useOrdersQuery } from '@/hooks/use-orders';
@@ -28,6 +29,7 @@ export function OrdersLivePageContent() {
           <p className="text-slate-400">{currentStore?.name ?? 'All stores'} · refreshes every 15s</p>
         </div>
         <div className="flex gap-2">
+          <BackButton fallbackHref="/orders" className="border-slate-600 text-white hover:bg-slate-800" />
           <Link href="/orders">
             <Button variant="outline" size="sm" className="border-slate-600 text-white hover:bg-slate-800">
               Pipeline view

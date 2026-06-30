@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Plus, Search, AlertTriangle } from 'lucide-react';
 import { Button, Card, Input } from '@/design-system/primitives';
+import { BackButton } from '@/components/navigation/back-button';
 import { ProductTable } from './components/product-table';
 import { ProductFormModal } from './components/product-form-modal';
 import { AddProductModeSelector, type AddProductMode } from './components/add-product-mode-selector';
@@ -18,6 +19,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import type { Product } from '@/types/product';
 import type { AiChargeReceipt } from '@/services/products/product-creation-api';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
 import {
   countIncompleteProducts,
@@ -28,6 +30,7 @@ import {
 type ProductsTab = 'catalog' | 'ai-billing';
 
 export function ProductsPageContent() {
+  const router = useRouter();
   const { currentStore } = useStoreStore();
   const { isMenuStore, isLoading: catalogLoading } = useStoreCatalogKind(currentStore?.id);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -103,9 +106,14 @@ export function ProductsPageContent() {
           <h1 className="text-xl font-bold text-slate-900">Products</h1>
           <p className="text-sm text-slate-500">{currentStore.name}</p>
         </div>
-        <Button onClick={() => setModeSelectorOpen(true)}>
-          <Plus className="h-4 w-4" /> Add Product
-        </Button>
+        <div className="flex items-center gap-2">
+          {activeTab === 'ai-billing' && (
+            <BackButton fallbackHref="/products" />
+          )}
+          <Button onClick={() => setModeSelectorOpen(true)}>
+            <Plus className="h-4 w-4" /> Add Product
+          </Button>
+        </div>
       </div>
 
       <div className="mb-4">
@@ -120,7 +128,10 @@ export function ProductsPageContent() {
           <button
             key={id}
             type="button"
-            onClick={() => setActiveTab(id)}
+            onClick={() => {
+              setActiveTab(id);
+              if (id === 'catalog') router.replace('/products', { scroll: false });
+            }}
             className={cn(
               'px-4 py-2 text-sm font-medium transition',
               activeTab === id

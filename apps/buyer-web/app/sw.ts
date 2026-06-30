@@ -27,10 +27,34 @@ const CACHE_PREFIX = `jebdekho-${APP_VERSION}`;
 const cacheName = (suffix: string) => runtimeCacheName(suffix, APP_VERSION);
 
 const sameOrigin = ({ url }: { url: URL }) => url.origin === self.location.origin;
+const isPrivateOrRscRequest = ({ request, url }: { request: Request; url: URL }) =>
+  url.searchParams.has('_rsc') ||
+  request.headers.has('RSC') ||
+  request.headers.get('Next-Router-Prefetch') === '1' ||
+  url.pathname.startsWith('/api/') ||
+  url.pathname.startsWith('/_next/data/');
+
+const isCacheableRuntimeRequest = (options: { request: Request; url: URL }) =>
+  !isPrivateOrRscRequest(options);
+
+const safeDefaultCache = defaultCache.map((entry) => {
+  const matcher = entry.matcher;
+  return {
+    ...entry,
+    matcher: (options: Parameters<Extract<typeof matcher, (...args: never[]) => unknown>>[0]) =>
+      isCacheableRuntimeRequest(options) &&
+      (typeof matcher === 'function'
+        ? matcher(options)
+        : typeof matcher === 'string'
+          ? options.url.href === matcher || options.url.pathname === matcher
+          : matcher.test(options.url.href)),
+  };
+});
 
 const runtimeCaching = [
   {
     matcher: ({ request, url }: { request: Request; url: URL }) =>
+      isCacheableRuntimeRequest({ request, url }) &&
       sameOrigin({ url }) &&
       request.method === 'GET' &&
       request.destination === 'document' &&
@@ -48,6 +72,7 @@ const runtimeCaching = [
   },
   {
     matcher: ({ request, url }: { request: Request; url: URL }) =>
+      isCacheableRuntimeRequest({ request, url }) &&
       sameOrigin({ url }) &&
       request.method === 'GET' &&
       request.destination === 'document' &&
@@ -65,7 +90,8 @@ const runtimeCaching = [
     }),
   },
   {
-    matcher: ({ request }: { request: Request }) =>
+    matcher: ({ request, url }: { request: Request; url: URL }) =>
+      isCacheableRuntimeRequest({ request, url }) &&
       request.method === 'GET' && request.destination === 'image',
     handler: new StaleWhileRevalidate({
       cacheName: cacheName('images'),
@@ -95,6 +121,7 @@ const runtimeCaching = [
   },
   {
     matcher: ({ request, url }: { request: Request; url: URL }) =>
+      isCacheableRuntimeRequest({ request, url }) &&
       sameOrigin({ url }) &&
       request.method === 'GET' &&
       /\.(?:js|css)$/i.test(url.pathname),
@@ -112,6 +139,7 @@ const runtimeCaching = [
   },
   {
     matcher: ({ request, url }: { request: Request; url: URL }) =>
+      isCacheableRuntimeRequest({ request, url }) &&
       sameOrigin({ url }) &&
       request.method === 'GET' &&
       (url.pathname === '/manifest.webmanifest' ||
@@ -121,7 +149,7 @@ const runtimeCaching = [
       plugins: [new CacheableResponsePlugin({ statuses: [0, 200] })],
     }),
   },
-  ...defaultCache,
+  ...safeDefaultCache,
 ];
 
 const serwist = new Serwist({

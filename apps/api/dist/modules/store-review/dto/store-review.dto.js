@@ -12,6 +12,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ListStoreReviewsDto = exports.ModerateReviewDto = exports.ReportReviewDto = exports.MerchantReplyDto = exports.UpdateStoreReviewDto = exports.CreateStoreReviewDto = void 0;
 const openapi = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
+const client_1 = require("@prisma/client");
 class CreateStoreReviewDto {
     static _OPENAPI_METADATA_FACTORY() {
         return { rating: { required: true, type: () => Number, minimum: 1, maximum: 5 }, storeExperience: { required: true, type: () => Number, minimum: 1, maximum: 5 }, deliveryExperience: { required: true, type: () => Number, minimum: 1, maximum: 5 }, productQuality: { required: true, type: () => Number, minimum: 1, maximum: 5 }, title: { required: false, type: () => String, maxLength: 120 }, review: { required: false, type: () => String, maxLength: 2000 }, images: { required: false, type: () => [String] } };
@@ -156,18 +158,20 @@ class ListStoreReviewsDto {
         this.limit = 20;
     }
     static _OPENAPI_METADATA_FACTORY() {
-        return { page: { required: false, type: () => Number, default: 1, minimum: 1 }, limit: { required: false, type: () => Number, default: 20, minimum: 1, maximum: 50 }, rating: { required: false, type: () => Number, minimum: 1, maximum: 5 }, q: { required: false, type: () => String } };
+        return { page: { required: false, type: () => Number, default: 1, minimum: 1 }, limit: { required: false, type: () => Number, default: 20, minimum: 1, maximum: 50 }, rating: { required: false, type: () => Number, minimum: 1, maximum: 5 }, q: { required: false, type: () => String }, status: { required: false, type: () => Object } };
     }
 }
 exports.ListStoreReviewsDto = ListStoreReviewsDto;
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], ListStoreReviewsDto.prototype, "page", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
     (0, class_validator_1.Max)(50),
@@ -175,6 +179,7 @@ __decorate([
 ], ListStoreReviewsDto.prototype, "limit", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
     (0, class_validator_1.Max)(5),
@@ -185,4 +190,9 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], ListStoreReviewsDto.prototype, "q", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(client_1.ReviewStatus),
+    __metadata("design:type", String)
+], ListStoreReviewsDto.prototype, "status", void 0);
 //# sourceMappingURL=store-review.dto.js.map
