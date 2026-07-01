@@ -30,11 +30,12 @@ async function searchHsn(q: string): Promise<HsnOption[]> {
 export function HsnPicker({ value, selectedOption, onChange, error, required }: HsnPickerProps) {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<HsnOption | null>(null);
+  const normalizedQuery = query.trim();
 
   const { data: options = [], isFetching } = useQuery({
-    queryKey: ['merchant', 'hsn', query],
-    queryFn: () => searchHsn(query),
-    enabled: query.trim().length >= 2,
+    queryKey: ['merchant', 'hsn', normalizedQuery],
+    queryFn: () => searchHsn(normalizedQuery),
+    enabled: normalizedQuery.length >= 2,
   });
 
   useEffect(() => {
@@ -52,6 +53,15 @@ export function HsnPicker({ value, selectedOption, onChange, error, required }: 
       if (match) setSelected(match);
     });
   }, [value, selected?.id, selectedOption]);
+
+  useEffect(() => {
+    if (selected || !/^\d{4}(\d{2}){0,2}$/.test(normalizedQuery)) return;
+    const exact = options.find((option) => option.code === normalizedQuery);
+    if (!exact) return;
+    setSelected(exact);
+    setQuery('');
+    onChange(exact);
+  }, [normalizedQuery, onChange, options, selected]);
 
   return (
     <div className="space-y-2">
