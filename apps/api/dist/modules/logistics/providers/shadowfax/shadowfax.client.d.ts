@@ -30,6 +30,7 @@ export type ShadowfaxPaymentMode = 'COD' | 'PREPAID';
 export interface ShadowfaxProductPayload {
     product_name: string;
     name: string;
+    sku_name: string;
     description: string;
     sku?: string;
     hsn_code?: string;

@@ -116,6 +116,9 @@ let MerchantGstController = class MerchantGstController {
     async hsn(q) {
         return { success: true, data: await this.config.listHsnCodes(q) };
     }
+    async ensureHsn(dto) {
+        return { success: true, data: await this.config.ensureHsnCode(dto.code, dto.gstSlab, dto.description) };
+    }
     async updateProductTax(user, productId, dto) {
         const store = await this.prisma.store.findFirst({
             where: { merchantProfile: { userId: user.id }, isActive: true },
@@ -178,6 +181,15 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], MerchantGstController.prototype, "hsn", null);
+__decorate([
+    (0, common_1.Post)('hsn'),
+    (0, swagger_1.ApiOperation)({ summary: 'Register (or fetch) an HSN code entered by the merchant' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [compliance_dto_1.EnsureHsnCodeDto]),
+    __metadata("design:returntype", Promise)
+], MerchantGstController.prototype, "ensureHsn", null);
 __decorate([
     (0, common_1.Patch)('products/:productId/tax'),
     openapi.ApiResponse({ status: 200, type: Object }),

@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SyncTdsTcsDto = exports.UpdateProductTaxDto = exports.ExportComplianceQueryDto = exports.ListComplianceQueryDto = void 0;
+exports.SyncTdsTcsDto = exports.EnsureHsnCodeDto = exports.UpdateProductTaxDto = exports.ExportComplianceQueryDto = exports.ListComplianceQueryDto = void 0;
 const openapi = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const client_1 = require("@prisma/client");
@@ -85,6 +85,27 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Boolean)
 ], UpdateProductTaxDto.prototype, "taxInclusive", void 0);
+class EnsureHsnCodeDto {
+    static _OPENAPI_METADATA_FACTORY() {
+        return { code: { required: true, type: () => String, pattern: "/^\\d{4}(\\d{2}){0,2}$/" }, gstSlab: { required: true, type: () => Object }, description: { required: false, type: () => String } };
+    }
+}
+exports.EnsureHsnCodeDto = EnsureHsnCodeDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.Matches)(/^\d{4}(\d{2}){0,2}$/, { message: 'HSN code must be numeric and 4, 6, or 8 digits' }),
+    __metadata("design:type", String)
+], EnsureHsnCodeDto.prototype, "code", void 0);
+__decorate([
+    (0, class_validator_1.IsEnum)(client_1.GstSlab),
+    __metadata("design:type", String)
+], EnsureHsnCodeDto.prototype, "gstSlab", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], EnsureHsnCodeDto.prototype, "description", void 0);
 class SyncTdsTcsDto {
     static _OPENAPI_METADATA_FACTORY() {
         return { periodMonth: { required: true, type: () => String, pattern: "/^\\d{4}-\\d{2}$/" } };
