@@ -160,6 +160,7 @@ export const validationSchema = Joi.object({
   SHADOWFAX_TEST_TOKEN: Joi.string().empty('').optional(),
   SHADOWFAX_PRODUCTION_TOKEN: Joi.string().empty('').optional(),
   SHADOWFAX_WEBHOOK_SECRET: Joi.string().empty('').optional(),
+  SHADOWFAX_PREALLOCATED_AWBS: Joi.string().empty('').optional(),
 
   WEB_PUSH_PUBLIC_KEY: Joi.string().empty('').optional(),
   WEB_PUSH_PRIVATE_KEY: Joi.string().empty('').optional(),

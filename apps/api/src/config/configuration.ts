@@ -139,6 +139,7 @@ export function getConfig(configService: ConfigService) {
         testToken: configService.get<string>('SHADOWFAX_TEST_TOKEN', ''),
         productionToken: configService.get<string>('SHADOWFAX_PRODUCTION_TOKEN', ''),
         webhookSecret: configService.get<string>('SHADOWFAX_WEBHOOK_SECRET', ''),
+        preallocatedAwbs: configService.get<string>('SHADOWFAX_PREALLOCATED_AWBS', ''),
       },
     },
 

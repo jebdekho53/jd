@@ -40,6 +40,13 @@ function shipmentInput(): CreateShipmentInput {
   };
 }
 
+function shipmentInputWithAwb(): CreateShipmentInput {
+  return {
+    ...shipmentInput(),
+    awbNumber: 'SF10000001JEB',
+  };
+}
+
 describe('ShadowfaxProvider', () => {
   let provider: ShadowfaxProvider;
 
@@ -71,6 +78,41 @@ describe('ShadowfaxProvider', () => {
         }),
       }),
     );
+  });
+
+  it('sends preallocated AWB and uses it when Shadowfax success response omits an identifier', async () => {
+    shadowfaxClient.createShipment.mockResolvedValueOnce({
+      message: 'Success',
+      data: {
+        status: 'new',
+      },
+    });
+
+    const result = await provider.createShipment(shipmentInputWithAwb());
+
+    expect(result.externalShipmentId).toBe('SF10000001JEB');
+    expect(result.trackingNumber).toBe('SF10000001JEB');
+    expect(shadowfaxClient.createShipment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order_details: expect.objectContaining({
+          awb_number: 'SF10000001JEB',
+        }),
+      }),
+    );
+  });
+
+  it('does not mask Shadowfax failure bodies with a preallocated AWB fallback', async () => {
+    shadowfaxClient.createShipment.mockResolvedValueOnce({
+      message: 'Failure',
+      errors: 'Invalid AWB',
+    });
+
+    await expect(provider.createShipment(shipmentInputWithAwb())).rejects.toMatchObject({
+      name: 'LogisticsProviderError',
+      providerType: DeliveryProviderType.SHADOWFAX,
+      code: 'SHADOWFAX_CREATE_FAILED',
+      providerMessage: 'Failure: Invalid AWB',
+    } satisfies Partial<LogisticsProviderError>);
   });
 
   it('maps nested marketplace create responses inside data arrays', async () => {
