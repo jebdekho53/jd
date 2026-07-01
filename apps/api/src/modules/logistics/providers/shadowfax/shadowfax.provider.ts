@@ -418,6 +418,9 @@ export class ShadowfaxProvider implements ILogisticsProvider {
       return {
         product_name: name,
         name,
+        // Shadowfax requires a non-null sku_name in product_details; fall back
+        // to the item name when the product has no SKU set.
+        sku_name: item.sku?.trim() || name,
         description: name,
         sku: item.sku,
         hsn_code: item.hsnCode,
@@ -450,6 +453,7 @@ export class ShadowfaxProvider implements ILogisticsProvider {
     if (!payload.product_details?.length) missing.push('product_details');
     payload.product_details?.forEach((item, index) => {
       if (!item.product_name) missing.push(`product_details.${index}.product_name`);
+      if (!item.sku_name) missing.push(`product_details.${index}.sku_name`);
       if (!positiveInteger(item.quantity, 0)) missing.push(`product_details.${index}.quantity`);
       if (!positiveAmount(item.product_value, 0)) missing.push(`product_details.${index}.product_value`);
       if (!positiveAmount(item.item_value, 0)) missing.push(`product_details.${index}.item_value`);
