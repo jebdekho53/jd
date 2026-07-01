@@ -74,6 +74,84 @@ describe('ShadowfaxClient', () => {
     );
   });
 
+  it('does not send malformed Token-prefixed env values to Shadowfax', async () => {
+    const client = new ShadowfaxClient(
+      config({
+        NODE_ENV: 'production',
+        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_API_MODE: 'v3_marketplace',
+        SHADOWFAX_PRODUCTION_TOKEN: 'Token raw-token-123',
+      }),
+    );
+
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: undefined,
+        }),
+      }),
+    );
+    await expect(client.createShipment(payload())).rejects.toThrow(
+      'Shadowfax token env must contain the raw token only',
+    );
+    expect(mockHttp.post).not.toHaveBeenCalled();
+  });
+
+  it('does not send bare Token env values to Shadowfax', async () => {
+    const client = new ShadowfaxClient(
+      config({
+        NODE_ENV: 'production',
+        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_API_MODE: 'v3_marketplace',
+        SHADOWFAX_PRODUCTION_TOKEN: 'Token',
+      }),
+    );
+
+    await expect(client.createShipment(payload())).rejects.toThrow(
+      'Shadowfax token env must contain the raw token only',
+    );
+    expect(mockHttp.post).not.toHaveBeenCalled();
+  });
+
+  it('uses production token for production marketplace even when a test token exists', () => {
+    new ShadowfaxClient(
+      config({
+        NODE_ENV: 'production',
+        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_API_MODE: 'v3_marketplace',
+        SHADOWFAX_TEST_TOKEN: 'test-token-123',
+        SHADOWFAX_PRODUCTION_TOKEN: 'prod-token-123',
+      }),
+    );
+
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Token prod-token-123',
+        }),
+      }),
+    );
+  });
+
+  it('falls back to production token for staging modes when test token is missing', () => {
+    new ShadowfaxClient(
+      config({
+        NODE_ENV: 'production',
+        SHADOWFAX_API_URL: 'https://hlbackend.staging.shadowfax.in',
+        SHADOWFAX_API_MODE: 'hl_staging',
+        SHADOWFAX_PRODUCTION_TOKEN: 'prod-token-123',
+      }),
+    );
+
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Token prod-token-123',
+        }),
+      }),
+    );
+  });
+
   it('uses Dale create endpoint for the verified production Dale host', async () => {
     const client = new ShadowfaxClient(
       config({
