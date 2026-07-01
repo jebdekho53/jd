@@ -23,6 +23,18 @@ describe('parseShadowfaxAwbPool', () => {
     expect(awbs[awbs.length - 1]).toBe('SF10010000JEB');
   });
 
+  it('supports reverse AWB ranges when R prefix is explicitly allowed', () => {
+    const awbs = parseShadowfaxAwbPool('R10000001JEB-R10010000JEB', ['R']);
+
+    expect(awbs).toHaveLength(10_000);
+    expect(awbs[0]).toBe('R10000001JEB');
+    expect(awbs[awbs.length - 1]).toBe('R10010000JEB');
+  });
+
+  it('does not mix reverse AWBs into the forward SF pool by default', () => {
+    expect(parseShadowfaxAwbPool('R10000001JEB-R10010000JEB')).toEqual([]);
+  });
+
   it('ignores invalid or mismatched ranges', () => {
     expect(parseShadowfaxAwbPool('SF10000002JEB-SF10000001JEB SF1ABC-SF02ABC bad')).toEqual([]);
   });
