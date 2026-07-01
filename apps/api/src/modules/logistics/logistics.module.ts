@@ -8,6 +8,7 @@ import { OwnFleetProvider } from './providers/own-fleet/own-fleet.provider';
 import { LogisticsProviderRegistry } from './logistics-provider.registry';
 import { DeliveryOrchestratorService } from './delivery-orchestrator.service';
 import { DeliveryDispatchService } from './delivery-dispatch.service';
+import { ShipmentTrackingScheduler } from './shipment-tracking.scheduler';
 import { ShadowfaxWebhookService } from './webhooks/shadowfax-webhook.service';
 import { LogisticsWebhookController } from './webhooks/logistics-webhook.controller';
 import { MerchantLogisticsController } from './merchant-logistics.controller';
@@ -30,6 +31,7 @@ import { AdminLogisticsController } from './admin-logistics.controller';
     LogisticsProviderRegistry,
     DeliveryOrchestratorService,
     DeliveryDispatchService,
+    ShipmentTrackingScheduler,
     ShadowfaxWebhookService,
   ],
   exports: [DeliveryDispatchService, DeliveryOrchestratorService, LogisticsProviderRegistry],
