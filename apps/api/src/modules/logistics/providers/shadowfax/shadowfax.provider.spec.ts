@@ -217,6 +217,23 @@ describe('ShadowfaxProvider', () => {
     } satisfies Partial<LogisticsProviderError>);
   });
 
+  it('surfaces the full Shadowfax body when failure response has no string error', async () => {
+    shadowfaxClient.createShipment.mockResolvedValueOnce({
+      message: 'Failure',
+      validation_errors: {
+        product_details: ['Product value is required'],
+      },
+      request_id: 'sfx-request-1',
+    });
+
+    await expect(provider.createShipment(shipmentInputWithAwb())).rejects.toMatchObject({
+      name: 'LogisticsProviderError',
+      providerType: DeliveryProviderType.SHADOWFAX,
+      code: 'SHADOWFAX_CREATE_FAILED',
+      providerMessage: expect.stringContaining('"product_details":["Product value is required"]'),
+    } satisfies Partial<LogisticsProviderError>);
+  });
+
   it('maps nested marketplace create responses inside data arrays', async () => {
     shadowfaxClient.createShipment.mockResolvedValueOnce({
       message: 'Success',
