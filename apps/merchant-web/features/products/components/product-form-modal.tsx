@@ -284,7 +284,10 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         preparedFoodPolicy: returnPolicy.preparedFoodPolicy || undefined,
       };
       if (editProduct) {
-        await updateMutation.mutateAsync(payload);
+        // Stock is managed via a dedicated inventory endpoint, so the product
+        // update DTO rejects these fields — strip them on the edit path.
+        const { quantity: _quantity, lowStockThreshold: _lowStockThreshold, ...updatePayload } = payload;
+        await updateMutation.mutateAsync(updatePayload);
         toast('Product updated!', 'success');
       } else {
         await createMutation.mutateAsync(payload);
