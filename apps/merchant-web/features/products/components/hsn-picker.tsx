@@ -56,11 +56,14 @@ export function HsnPicker({ value, selectedOption, onChange, error, required }: 
 
   useEffect(() => {
     if (selected || !/^\d{4}(\d{2}){0,2}$/.test(normalizedQuery)) return;
-    const exact = options.find((option) => option.code === normalizedQuery);
-    if (!exact) return;
-    setSelected(exact);
+    const numericMatches = options.filter((option) => /^\d{4}(\d{2}){0,2}$/.test(option.code));
+    const match =
+      options.find((option) => option.code === normalizedQuery) ??
+      (numericMatches.length === 1 ? numericMatches[0] : null);
+    if (!match) return;
+    setSelected(match);
     setQuery('');
-    onChange(exact);
+    onChange(match);
   }, [normalizedQuery, onChange, options, selected]);
 
   return (
