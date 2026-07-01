@@ -3,6 +3,7 @@ import { ShadowfaxClient } from './shadowfax.client';
 export declare class ShadowfaxProvider implements ILogisticsProvider {
     private readonly client;
     readonly type: "SHADOWFAX";
+    private readonly logger;
     constructor(client: ShadowfaxClient);
     createShipment(input: CreateShipmentInput): Promise<ShipmentResult>;
     cancelShipment(externalShipmentId: string, reason?: string): Promise<void>;
@@ -17,4 +18,9 @@ export declare class ShadowfaxProvider implements ILogisticsProvider {
     }>;
     healthCheck(): Promise<ProviderHealthResult>;
     private toAddress;
+    private toCreatePayload;
+    private resolveAmounts;
+    private toProductDetails;
+    private missingMarketplaceFields;
+    private payloadKeys;
 }

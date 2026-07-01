@@ -374,6 +374,16 @@ export declare class MerchantProcurementController {
                 vendorProductId: string;
                 vendorOrderId: string;
             }[];
+            shipment: {
+                id: string;
+                status: import("@prisma/client").$Enums.VendorShipmentStatus;
+                createdAt: Date;
+                deliveredAt: Date | null;
+                trackingNumber: string | null;
+                shippedAt: Date | null;
+                carrier: string | null;
+                vendorOrderId: string;
+            } | null;
             invoice: {
                 id: string;
                 status: import("@prisma/client").$Enums.VendorInvoiceStatus;
@@ -384,16 +394,6 @@ export declare class MerchantProcurementController {
                 paidAt: Date | null;
                 invoiceNumber: string;
                 dueDate: Date | null;
-                vendorOrderId: string;
-            } | null;
-            shipment: {
-                id: string;
-                status: import("@prisma/client").$Enums.VendorShipmentStatus;
-                createdAt: Date;
-                deliveredAt: Date | null;
-                trackingNumber: string | null;
-                shippedAt: Date | null;
-                carrier: string | null;
                 vendorOrderId: string;
             } | null;
         } & {

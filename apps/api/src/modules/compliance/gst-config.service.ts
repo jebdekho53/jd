@@ -38,6 +38,36 @@ export class GstConfigService {
     });
   }
 
+  /**
+   * Resolve a merchant-entered HSN code to a reference row, creating it if it
+   * does not exist yet. This lets merchants register any valid HSN code
+   * themselves instead of being limited to a pre-seeded lookup table. If the
+   * code already exists it is returned as-is (its slab is authoritative and
+   * shared); the per-product GST slab is stored separately on the product.
+   */
+  async ensureHsnCode(rawCode: string, gstSlab: GstSlab, description?: string) {
+    const code = rawCode?.trim() ?? '';
+    if (!isValidHsnCode(code)) {
+      throw new BadRequestException('HSN code must be numeric and 4, 6, or 8 digits');
+    }
+    const existing = await this.prisma.hSNCode.findUnique({ where: { code } });
+    if (existing) {
+      if (!existing.isActive) {
+        return this.prisma.hSNCode.update({ where: { code }, data: { isActive: true } });
+      }
+      return existing;
+    }
+    const cleanedDescription = description?.trim();
+    return this.prisma.hSNCode.create({
+      data: {
+        code,
+        description: cleanedDescription && cleanedDescription.length > 0 ? cleanedDescription : `HSN ${code}`,
+        defaultGstSlab: gstSlab,
+        isActive: true,
+      },
+    });
+  }
+
   async updateProductTax(
     productId: string,
     storeId: string,

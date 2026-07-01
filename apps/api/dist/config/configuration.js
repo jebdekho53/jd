@@ -94,6 +94,8 @@ function getConfig(configService) {
                 testToken: configService.get('SHADOWFAX_TEST_TOKEN', ''),
                 productionToken: configService.get('SHADOWFAX_PRODUCTION_TOKEN', ''),
                 webhookSecret: configService.get('SHADOWFAX_WEBHOOK_SECRET', ''),
+                preallocatedAwbs: configService.get('SHADOWFAX_PREALLOCATED_AWBS', ''),
+                preallocatedReverseAwbs: configService.get('SHADOWFAX_PREALLOCATED_REVERSE_AWBS', ''),
             },
         },
         buyerSiteUrl: configService.get('BUYER_SITE_URL', 'https://jebdekho.com'),

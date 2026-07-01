@@ -5,6 +5,7 @@ import {
   Header,
   Param,
   Patch,
+  Post,
   Query,
   Res,
   UseGuards,
@@ -22,7 +23,7 @@ import { ComplianceService } from './compliance.service';
 import { GstConfigService } from './gst-config.service';
 import { ComplianceExportService } from './compliance-export.service';
 import { InvoiceEngineService } from './invoice-engine.service';
-import { ExportComplianceQueryDto, ListComplianceQueryDto, UpdateProductTaxDto } from './dto/compliance.dto';
+import { EnsureHsnCodeDto, ExportComplianceQueryDto, ListComplianceQueryDto, UpdateProductTaxDto } from './dto/compliance.dto';
 
 @ApiTags(Tags.MERCHANTS)
 @ApiBearerAuth('access-token')
@@ -142,6 +143,12 @@ export class MerchantGstController {
   @Get('hsn')
   async hsn(@Query('q') q?: string) {
     return { success: true, data: await this.config.listHsnCodes(q) };
+  }
+
+  @Post('hsn')
+  @ApiOperation({ summary: 'Register (or fetch) an HSN code entered by the merchant' })
+  async ensureHsn(@Body() dto: EnsureHsnCodeDto) {
+    return { success: true, data: await this.config.ensureHsnCode(dto.code, dto.gstSlab, dto.description) };
   }
 
   @Patch('products/:productId/tax')

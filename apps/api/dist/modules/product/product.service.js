@@ -23,6 +23,7 @@ const inventory_cache_service_1 = require("../inventory/inventory-cache.service"
 const product_compliance_util_1 = require("../../common/utils/product-compliance.util");
 const product_return_policy_fields_util_1 = require("../../common/utils/product-return-policy-fields.util");
 const safe_external_url_util_1 = require("../../common/utils/safe-external-url.util");
+const hsn_code_util_1 = require("./hsn-code.util");
 let ProductService = ProductService_1 = class ProductService {
     constructor(prisma, merchantService, audit, domainEvents, storeCategoryAccess, inventoryService, inventoryCache) {
         this.prisma = prisma;
@@ -207,6 +208,7 @@ let ProductService = ProductService_1 = class ProductService {
                 include: {
                     variants: { include: { inventory: true }, orderBy: { isDefault: 'desc' } },
                     category: { select: { id: true, name: true, slug: true } },
+                    hsnCodeRef: { select: { id: true, code: true, description: true, defaultGstSlab: true } },
                 },
                 orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
                 skip,
@@ -503,24 +505,26 @@ let ProductService = ProductService_1 = class ProductService {
         return product;
     }
     async validateProductTaxCompliance(storeId, categoryId, dto, existingProduct) {
-        if (!categoryId)
-            return;
-        const category = await this.prisma.category.findUnique({
-            where: { id: categoryId },
-            select: { slug: true, name: true },
-        });
+        const effectiveHsnCodeId = dto.hsnCodeId === undefined ? existingProduct?.hsnCodeId : dto.hsnCodeId;
+        if (!effectiveHsnCodeId?.trim()) {
+            throw new common_1.BadRequestException('HSN code is required for every product');
+        }
+        await this.assertActiveHsnCode(effectiveHsnCodeId.trim());
+        let category = null;
+        if (categoryId) {
+            category = await this.prisma.category.findUnique({
+                where: { id: categoryId },
+                select: { slug: true, name: true },
+            });
+        }
         if (!category)
             return;
         const taxCat = dto.taxCategory ?? 'GOODS';
         if (taxCat === 'EXEMPT' || taxCat === 'NIL_RATED')
             return;
-        const needsHsn = (0, product_compliance_util_1.isHsnRequiredCategory)(category);
-        const needsFssai = (0, product_compliance_util_1.isFssaiRequiredCategory)(category);
-        if (!needsHsn && !needsFssai)
+        const needsFssai = (0, product_compliance_util_1.isFssaiRequiredCategory)({ slug: category.slug ?? '', name: category.name });
+        if (!needsFssai)
             return;
-        if (needsHsn && !dto.hsnCodeId) {
-            throw new common_1.BadRequestException('HSN code is required for this product category');
-        }
         if (needsFssai) {
             const fssai = dto.fssaiLicense?.trim() ||
                 existingProduct?.fssaiLicense?.trim() ||
@@ -531,6 +535,18 @@ let ProductService = ProductService_1 = class ProductService {
             if (!dto.fssaiLicense?.trim()) {
                 dto.fssaiLicense = fssai;
             }
+        }
+    }
+    async assertActiveHsnCode(hsnCodeId) {
+        const hsn = await this.prisma.hSNCode.findFirst({
+            where: { id: hsnCodeId, isActive: true },
+            select: { code: true },
+        });
+        if (!hsn) {
+            throw new common_1.BadRequestException('Selected HSN code is invalid or inactive');
+        }
+        if (!(0, hsn_code_util_1.isValidHsnCode)(hsn.code)) {
+            throw new common_1.BadRequestException('HSN code must be numeric and 4, 6, or 8 digits');
         }
     }
     async findStoreFssaiLicense(storeId) {

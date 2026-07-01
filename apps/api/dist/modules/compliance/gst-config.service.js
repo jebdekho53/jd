@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GstConfigService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../database/prisma.service");
+const hsn_code_util_1 = require("../product/hsn-code.util");
 let GstConfigService = class GstConfigService {
     constructor(prisma) {
         this.prisma = prisma;
@@ -23,13 +24,19 @@ let GstConfigService = class GstConfigService {
         return this.prisma.taxJurisdiction.findMany({ where: { isActive: true }, orderBy: { stateName: 'asc' } });
     }
     async listHsnCodes(query) {
+        const normalizedQuery = query?.trim();
+        const numericPrefixCodes = normalizedQuery && /^\d{4}(\d{2}){0,2}$/.test(normalizedQuery)
+            ? [normalizedQuery, normalizedQuery.slice(0, 6), normalizedQuery.slice(0, 4)]
+                .filter((code, index, all) => code.length >= 4 && all.indexOf(code) === index)
+            : [];
         return this.prisma.hSNCode.findMany({
-            where: query
+            where: normalizedQuery
                 ? {
                     isActive: true,
                     OR: [
-                        { code: { contains: query } },
-                        { description: { contains: query, mode: 'insensitive' } },
+                        ...(numericPrefixCodes.length > 0 ? [{ code: { in: numericPrefixCodes } }] : []),
+                        { code: { contains: normalizedQuery } },
+                        { description: { contains: normalizedQuery, mode: 'insensitive' } },
                     ],
                 }
                 : { isActive: true },
@@ -43,10 +50,26 @@ let GstConfigService = class GstConfigService {
         });
         if (!product)
             return null;
+        const effectiveHsnCodeId = data.hsnCodeId === undefined ? product.hsnCodeId : data.hsnCodeId;
+        if (!effectiveHsnCodeId?.trim()) {
+            throw new common_1.BadRequestException('HSN code is required for every product');
+        }
+        if (data.hsnCodeId !== undefined) {
+            const hsn = await this.prisma.hSNCode.findFirst({
+                where: { id: data.hsnCodeId.trim(), isActive: true },
+                select: { code: true },
+            });
+            if (!hsn) {
+                throw new common_1.BadRequestException('Selected HSN code is invalid or inactive');
+            }
+            if (!(0, hsn_code_util_1.isValidHsnCode)(hsn.code)) {
+                throw new common_1.BadRequestException('HSN code must be numeric and 4, 6, or 8 digits');
+            }
+        }
         return this.prisma.product.update({
             where: { id: productId },
             data: {
-                hsnCodeId: data.hsnCodeId,
+                hsnCodeId: data.hsnCodeId?.trim(),
                 gstSlab: data.gstSlab,
                 taxCategory: data.taxCategory,
                 taxInclusive: data.taxInclusive,

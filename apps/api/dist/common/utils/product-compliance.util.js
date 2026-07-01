@@ -44,11 +44,8 @@ function hasProductBuyerComplianceGaps(input) {
         return true;
     if (!input.categoryId || !input.category)
         return true;
-    const taxCategory = input.taxCategory ?? 'GOODS';
-    if (isTaxComplianceCategory(input.category, taxCategory) &&
-        !input.hsnCodeId) {
+    if (!input.hsnCodeId)
         return true;
-    }
     if (isFssaiRequiredCategory(input.category)) {
         const onProduct = input.fssaiLicense?.trim();
         const inherited = input.storeFssaiLicense?.trim();

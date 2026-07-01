@@ -3,19 +3,46 @@ import { type ShadowfaxApiMode } from './shadowfax.endpoints';
 export interface ShadowfaxCreatePayload {
     order_details: {
         client_order_id: string;
+        awb_number?: string;
         order_value?: number;
+        product_value?: number;
+        declared_value?: number;
+        invoice_value?: number;
+        payable_amount?: number;
+        cod_amount?: number;
+        weight?: number;
+        actual_weight?: number;
+        length?: number;
+        breadth?: number;
+        height?: number;
         paid: boolean;
         payment_mode?: ShadowfaxPaymentMode;
         pickup_details: ShadowfaxAddressPayload;
         drop_details: ShadowfaxAddressPayload;
-        order_items?: Array<{
-            name: string;
-            quantity: number;
-            price?: number;
-        }>;
+        order_items?: ShadowfaxProductPayload[];
     };
+    customer_details?: ShadowfaxAddressPayload;
+    pickup_details?: ShadowfaxAddressPayload;
+    rts_details?: ShadowfaxAddressPayload;
+    product_details?: ShadowfaxProductPayload[];
 }
 export type ShadowfaxPaymentMode = 'COD' | 'PREPAID';
+export interface ShadowfaxProductPayload {
+    product_name: string;
+    name: string;
+    description: string;
+    sku?: string;
+    hsn_code?: string;
+    quantity: number;
+    price: number;
+    unit_price: number;
+    value: number;
+    item_value: number;
+    product_value: number;
+    tax?: number;
+    discount?: number;
+    weight?: number;
+}
 export interface ShadowfaxFlashCreatePayload {
     pickup_details: Record<string, unknown>;
     drop_details: Record<string, unknown>;
@@ -39,6 +66,7 @@ export declare class ShadowfaxClient {
     private readonly http;
     private readonly apiUrl;
     private readonly token;
+    private readonly tokenConfigError;
     private readonly apiMode;
     private readonly creditsKey;
     private readonly createOrderEndpoint;
@@ -63,6 +91,8 @@ export declare class ShadowfaxClient {
         message?: string;
     }>;
     private authHeader;
+    private resolveToken;
+    private validateRawToken;
     private withPaymentMode;
     private paymentModeForPayload;
     private isDebugLoggingEnabled;

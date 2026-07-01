@@ -90,6 +90,8 @@ export declare function getDemoConfig(configService: ConfigService): {
             readonly testToken: string;
             readonly productionToken: string;
             readonly webhookSecret: string;
+            readonly preallocatedAwbs: string;
+            readonly preallocatedReverseAwbs: string;
         };
     };
     readonly buyerSiteUrl: string;

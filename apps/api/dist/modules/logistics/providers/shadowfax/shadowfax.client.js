@@ -30,16 +30,9 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
         this.createOrderEndpoint = (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).createOrder;
         this.debugPayloads = this.isDebugLoggingEnabled();
         const nodeEnv = config.get('NODE_ENV', 'development');
-        this.token =
-            this.apiMode === 'dale_staging' || this.apiMode === 'hl_staging'
-                ? (config.get('SHADOWFAX_TEST_TOKEN', '') ?? '').trim()
-                : this.apiMode === 'dale_production'
-                    ? (config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '').trim()
-                    : nodeEnv === 'production'
-                        ? (config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '').trim()
-                        : (config.get('SHADOWFAX_TEST_TOKEN', '') ??
-                            config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ??
-                            '').trim();
+        const tokenResolution = this.resolveToken(nodeEnv);
+        this.token = tokenResolution.token;
+        this.tokenConfigError = tokenResolution.error;
         this.creditsKey = config.get('SHADOWFAX_CREDITS_KEY', '') ?? '';
         this.http = axios_1.default.create({
             baseURL: this.apiUrl || undefined,
@@ -53,14 +46,18 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
             baseUrl: this.apiUrl || '(not set)',
             apiMode: this.apiMode,
             createOrderEndpoint: this.createOrderEndpoint,
-            tokenPresent: Boolean(this.token),
+            tokenPresent: Boolean(this.token) && !this.tokenConfigError,
+            tokenConfigValid: !this.tokenConfigError,
         }, 'Shadowfax configuration resolved');
+        if (this.tokenConfigError) {
+            this.logger.error({ apiMode: this.apiMode, tokenConfigValid: false }, this.tokenConfigError);
+        }
     }
     getApiMode() {
         return this.apiMode;
     }
     isConfigured() {
-        if (!this.apiUrl || !this.token)
+        if (!this.apiUrl || !this.token || this.tokenConfigError)
             return false;
         if (this.apiMode === 'flash' && !this.creditsKey)
             return false;
@@ -113,7 +110,7 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
                 },
             });
         }
-        return this.request('POST', (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).serviceability, payload);
+        return this.request('GET', this.daleServiceabilityPath(payload.pincode));
     }
     async healthCheck() {
         const started = Date.now();
@@ -127,9 +124,11 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
             const isDaleMode = this.apiMode === 'dale_staging' || this.apiMode === 'dale_production';
             const path = isDaleMode
                 ? this.daleServiceabilityPath()
-                : (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).health;
+                : this.apiMode === 'v3_marketplace' || this.apiMode === 'v3_warehouse'
+                    ? this.daleServiceabilityPath()
+                    : (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).health;
             const response = await this.http.request({
-                method: isDaleMode ? 'GET' : this.apiMode === 'legacy' || this.apiMode === 'hl_staging' ? 'PUT' : this.apiMode === 'flash' ? 'POST' : 'GET',
+                method: isDaleMode || this.apiMode === 'v3_marketplace' || this.apiMode === 'v3_warehouse' ? 'GET' : this.apiMode === 'legacy' || this.apiMode === 'hl_staging' ? 'PUT' : this.apiMode === 'flash' ? 'POST' : 'GET',
                 url: path,
                 data: this.apiMode === 'legacy' || this.apiMode === 'hl_staging'
                     ? this.legacyServiceabilityPayload({ pickup_lat: 28.61, pickup_lng: 77.2, drop_lat: 28.62, drop_lng: 77.21 })
@@ -156,12 +155,39 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
         }
     }
     authHeader() {
+        if (this.tokenConfigError)
+            return undefined;
         if (!this.token)
             return undefined;
         if (this.apiMode === 'flash') {
             return this.token;
         }
         return `Token ${this.token}`;
+    }
+    resolveToken(nodeEnv) {
+        const productionToken = (this.config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '').trim();
+        const testToken = (this.config.get('SHADOWFAX_TEST_TOKEN', '') ?? '').trim();
+        const isStagingMode = this.apiMode === 'dale_staging' || this.apiMode === 'hl_staging';
+        const token = isStagingMode
+            ? testToken || productionToken
+            : nodeEnv === 'production'
+                ? productionToken
+                : testToken || productionToken;
+        return {
+            token,
+            error: this.validateRawToken(token),
+        };
+    }
+    validateRawToken(token) {
+        if (!token)
+            return null;
+        if (/^Bearer(?:\s|$)/i.test(token) || /^Token(?:\s|$)/i.test(token)) {
+            return 'Shadowfax token env must contain the raw token only, without "Token " or "Bearer " prefix.';
+        }
+        if (/\s/.test(token)) {
+            return 'Shadowfax token env must not contain whitespace.';
+        }
+        return null;
     }
     withPaymentMode(payload) {
         const paymentMode = payload.order_details.payment_mode ?? this.paymentModeForPayload(payload);
@@ -276,9 +302,10 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
     }
     async request(method, path, body, attempt = 1) {
         if (!this.isConfigured()) {
-            throw new logistics_errors_1.LogisticsProviderError(this.apiMode === 'flash'
-                ? 'Shadowfax Flash is not configured (SHADOWFAX_API_URL, token, SHADOWFAX_CREDITS_KEY)'
-                : 'Shadowfax API is not configured (SHADOWFAX_API_URL / token)', client_1.DeliveryProviderType.SHADOWFAX, 'NOT_CONFIGURED', false);
+            throw new logistics_errors_1.LogisticsProviderError(this.tokenConfigError ??
+                (this.apiMode === 'flash'
+                    ? 'Shadowfax Flash is not configured (SHADOWFAX_API_URL, token, SHADOWFAX_CREDITS_KEY)'
+                    : 'Shadowfax API is not configured (SHADOWFAX_API_URL / token)'), client_1.DeliveryProviderType.SHADOWFAX, 'NOT_CONFIGURED', false);
         }
         (0, shadowfax_url_util_1.assertSupportedShadowfaxPath)(this.apiMode, path);
         const requestTarget = (0, shadowfax_url_util_1.shadowfaxRequestTarget)(this.apiUrl, path);
@@ -294,7 +321,7 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
                     method,
                     requestTarget,
                     apiMode: this.apiMode,
-                    body: (0, mask_sensitive_util_1.maskSensitivePayload)(body),
+                    payloadKeys: payloadKeySummary(body),
                 }, 'Shadowfax API request payload');
             }
             const response = method === 'GET'
@@ -345,5 +372,26 @@ function summarizeProviderBody(body) {
     if (Array.isArray(msg))
         return msg.join('; ').slice(0, 300);
     return JSON.stringify((0, mask_sensitive_util_1.maskSensitivePayload)(body)).slice(0, 300);
+}
+function payloadKeySummary(value) {
+    if (!value || typeof value !== 'object')
+        return typeof value;
+    if (Array.isArray(value)) {
+        const first = value[0];
+        return {
+            type: 'array',
+            count: value.length,
+            itemKeys: first && typeof first === 'object' && !Array.isArray(first)
+                ? Object.keys(first).sort()
+                : [],
+        };
+    }
+    const row = value;
+    return Object.fromEntries(Object.entries(row).map(([key, val]) => [
+        key,
+        val && typeof val === 'object'
+            ? payloadKeySummary(val)
+            : typeof val,
+    ]));
 }
 //# sourceMappingURL=shadowfax.client.js.map

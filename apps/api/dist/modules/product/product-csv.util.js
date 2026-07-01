@@ -108,10 +108,11 @@ function buildProductCsvTemplate() {
         '# 1. Fill one row per product. Do not change column headers.',
         '# 2. category/subcategory must match your approved store categories.',
         '# 3. sellingPrice is required. mrp must be >= sellingPrice if provided.',
-        '# 4. gstSlab: ZERO | FIVE | TWELVE | EIGHTEEN | TWENTY_EIGHT (or 0,5,12,18,28)',
-        '# 5. imageUrl is optional — must be a valid http(s) URL. Leave blank to use placeholder.',
-        '# 6. Duplicate SKU or same name+brand+unit will be rejected.',
-        '# 7. Lines starting with # are ignored.',
+        '# 4. hsnCode is required — use an active numeric 4, 6, or 8 digit HSN code.',
+        '# 5. gstSlab: ZERO | FIVE | TWELVE | EIGHTEEN | TWENTY_EIGHT (or 0,5,12,18,28)',
+        '# 6. imageUrl is optional — must be a valid http(s) URL. Leave blank to use placeholder.',
+        '# 7. Duplicate SKU or same name+brand+unit will be rejected.',
+        '# 8. Lines starting with # are ignored.',
         '#',
     ];
     const examples = [
