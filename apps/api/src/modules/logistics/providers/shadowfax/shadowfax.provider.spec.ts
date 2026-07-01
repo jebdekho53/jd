@@ -37,6 +37,37 @@ function shipmentInput(): CreateShipmentInput {
       lng: 77.45,
     },
     codAmount: 99,
+    amounts: {
+      subtotal: 100,
+      discountAmount: 1,
+      deliveryFee: 0,
+      taxAmount: 0,
+      totalAmount: 99,
+      payableAmount: 99,
+      productValue: 99,
+      declaredValue: 99,
+      invoiceValue: 99,
+      codAmount: 99,
+    },
+    package: {
+      weightGrams: 500,
+      lengthCm: 10,
+      breadthCm: 10,
+      heightCm: 10,
+    },
+    items: [
+      {
+        name: 'Fresh Apples 1 kg',
+        sku: 'APL-1KG',
+        hsnCode: '08081000',
+        quantity: 1,
+        unitPrice: 100,
+        totalPrice: 100,
+        tax: 0,
+        discount: 0,
+        weightGrams: 500,
+      },
+    ],
   };
 }
 
@@ -75,7 +106,78 @@ describe('ShadowfaxProvider', () => {
           client_order_id: 'JD-20260701-TEST',
           paid: false,
           payment_mode: 'COD',
+          order_value: 99,
+          product_value: 99,
+          declared_value: 99,
+          invoice_value: 99,
+          payable_amount: 99,
+          cod_amount: 99,
+          weight: 500,
+          length: 10,
         }),
+        customer_details: expect.objectContaining({ pincode: '201003' }),
+        pickup_details: expect.objectContaining({ pincode: '201003' }),
+        rts_details: expect.objectContaining({ pincode: '201003' }),
+        product_details: [
+          expect.objectContaining({
+            product_name: 'Fresh Apples 1 kg',
+            sku: 'APL-1KG',
+            hsn_code: '08081000',
+            quantity: 1,
+            product_value: 100,
+            item_value: 100,
+            unit_price: 100,
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('uses safe positive minimum product value when order amount data is zero', async () => {
+    shadowfaxClient.createShipment.mockResolvedValueOnce({
+      awb_number: 'SFMIN123',
+      status: 'new',
+    });
+
+    const input = {
+      ...shipmentInput(),
+      codAmount: undefined,
+      amounts: {
+        subtotal: 0,
+        discountAmount: 0,
+        deliveryFee: 0,
+        taxAmount: 0,
+        totalAmount: 0,
+        payableAmount: 0,
+        productValue: 0,
+        declaredValue: 0,
+        invoiceValue: 0,
+        codAmount: 0,
+      },
+      items: [],
+    };
+
+    await provider.createShipment(input);
+
+    expect(shadowfaxClient.createShipment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order_details: expect.objectContaining({
+          paid: true,
+          payment_mode: 'PREPAID',
+          order_value: 1,
+          product_value: 1,
+          declared_value: 1,
+          invoice_value: 1,
+          payable_amount: 1,
+          cod_amount: 0,
+        }),
+        product_details: [
+          expect.objectContaining({
+            product_name: 'JebDekho order',
+            product_value: 1,
+            item_value: 1,
+          }),
+        ],
       }),
     );
   });
