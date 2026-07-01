@@ -90,6 +90,10 @@ export function ProductCsvImportModal({ storeId, open, onClose }: Props) {
         <p className="text-sm text-slate-500">
           Bulk upload products using the template. Validation and import are free — no AI charges apply.
         </p>
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          HSN code is required for every row. Use an active numeric 4, 6, or 8 digit HSN code in the
+          <span className="font-mono"> hsnCode</span> column.
+        </p>
 
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={handleDownloadTemplate}>

@@ -14,6 +14,7 @@ export interface HsnOption {
 
 interface HsnPickerProps {
   value?: string;
+  selectedOption?: HsnOption | null;
   onChange: (hsn: HsnOption | null) => void;
   error?: string;
   required?: boolean;
@@ -26,7 +27,7 @@ async function searchHsn(q: string): Promise<HsnOption[]> {
   return res.data;
 }
 
-export function HsnPicker({ value, onChange, error, required }: HsnPickerProps) {
+export function HsnPicker({ value, selectedOption, onChange, error, required }: HsnPickerProps) {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<HsnOption | null>(null);
 
@@ -41,12 +42,16 @@ export function HsnPicker({ value, onChange, error, required }: HsnPickerProps) 
       setSelected(null);
       return;
     }
+    if (selectedOption?.id === value) {
+      setSelected(selectedOption);
+      return;
+    }
     if (selected?.id === value) return;
     searchHsn(value).then((rows) => {
       const match = rows.find((r) => r.id === value) ?? rows[0];
       if (match) setSelected(match);
     });
-  }, [value, selected?.id]);
+  }, [value, selected?.id, selectedOption]);
 
   return (
     <div className="space-y-2">
@@ -61,6 +66,9 @@ export function HsnPicker({ value, onChange, error, required }: HsnPickerProps) 
         }}
         error={error}
       />
+      <p className="text-xs text-slate-500">
+        HSN code is required for GST compliance and shipping labels.
+      </p>
       {isFetching && <p className="text-xs text-slate-500">Searching HSN codes…</p>}
       {!selected && options.length > 0 && (
         <ul className="max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-white text-sm shadow-sm">

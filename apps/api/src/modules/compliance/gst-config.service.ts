@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { GstSlab } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { isValidHsnCode } from '../product/hsn-code.util';
 
 @Injectable()
 export class GstConfigService {
@@ -45,10 +46,28 @@ export class GstConfigService {
     });
     if (!product) return null;
 
+    const effectiveHsnCodeId =
+      data.hsnCodeId === undefined ? product.hsnCodeId : data.hsnCodeId;
+    if (!effectiveHsnCodeId?.trim()) {
+      throw new BadRequestException('HSN code is required for every product');
+    }
+    if (data.hsnCodeId !== undefined) {
+      const hsn = await this.prisma.hSNCode.findFirst({
+        where: { id: data.hsnCodeId.trim(), isActive: true },
+        select: { code: true },
+      });
+      if (!hsn) {
+        throw new BadRequestException('Selected HSN code is invalid or inactive');
+      }
+      if (!isValidHsnCode(hsn.code)) {
+        throw new BadRequestException('HSN code must be numeric and 4, 6, or 8 digits');
+      }
+    }
+
     return this.prisma.product.update({
       where: { id: productId },
       data: {
-        hsnCodeId: data.hsnCodeId,
+        hsnCodeId: data.hsnCodeId?.trim(),
         gstSlab: data.gstSlab,
         taxCategory: data.taxCategory,
         taxInclusive: data.taxInclusive,

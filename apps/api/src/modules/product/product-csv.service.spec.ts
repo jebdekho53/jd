@@ -48,15 +48,17 @@ describe('ProductCsvService', () => {
       { id: 'cat-1', name: 'Dairy', children: [{ id: 'sub-1', name: 'Milk' }] },
     ]);
     mockPrisma.product.findMany.mockResolvedValue([]);
+    mockPrisma.hSNCode.findFirst.mockResolvedValue({ id: 'hsn-0401', code: '0401' });
   });
 
   it('uses imageUrl from CSV when valid', async () => {
     const header =
       'name,brand,category,subcategory,sku,unit,mrp,sellingPrice,stock,description,tags,hsnCode,gstSlab,fssaiLicense,ingredients,shelfLife,countryOfOrigin,manufacturerName,storageInstructions,imageUrl,isActive';
-    const row =
-      'Img Product,Brand,Dairy,Milk,SKU-IMG,piece,59,49,10,,,,,,,,,,,https://cdn.example.com/p.jpg,true';
+    const row = [
+      'Img Product', 'Brand', 'Dairy', 'Milk', 'SKU-IMG', 'piece', '59', '49', '10',
+      '', '', '0401', 'FIVE', '', '', '', '', '', '', 'https://cdn.example.com/p.jpg', 'true',
+    ].join(',');
     const csv = `${header}\n${row}`;
-    mockPrisma.hSNCode.findFirst.mockResolvedValue(null);
 
     const result = await service.validateCsv('u-1', 's-1', csv);
     const row0 = result.rows[0];
@@ -68,8 +70,10 @@ describe('ProductCsvService', () => {
   it('falls back to placeholder when imageUrl missing', async () => {
     const header =
       'name,brand,category,subcategory,sku,unit,mrp,sellingPrice,stock,description,tags,hsnCode,gstSlab,fssaiLicense,ingredients,shelfLife,countryOfOrigin,manufacturerName,storageInstructions,imageUrl,isActive';
-    const row =
-      'No Img,Brand,Dairy,Milk,SKU-NOIMG,piece,59,49,10,,,,,,,,,,,,true';
+    const row = [
+      'No Img', 'Brand', 'Dairy', 'Milk', 'SKU-NOIMG', 'piece', '59', '49', '10',
+      '', '', '0401', 'FIVE', '', '', '', '', '', '', '', 'true',
+    ].join(',');
     const csv = `${header}\n${row}`;
 
     const result = await service.validateCsv('u-1', 's-1', csv);
@@ -81,8 +85,10 @@ describe('ProductCsvService', () => {
   it('rejects invalid imageUrl', async () => {
     const header =
       'name,brand,category,subcategory,sku,unit,mrp,sellingPrice,stock,description,tags,hsnCode,gstSlab,fssaiLicense,ingredients,shelfLife,countryOfOrigin,manufacturerName,storageInstructions,imageUrl,isActive';
-    const row =
-      'Bad Img,Brand,Dairy,Milk,SKU-BAD,piece,59,49,10,,,,,,,,,,,not-a-url,true';
+    const row = [
+      'Bad Img', 'Brand', 'Dairy', 'Milk', 'SKU-BAD', 'piece', '59', '49', '10',
+      '', '', '0401', 'FIVE', '', '', '', '', '', '', 'not-a-url', 'true',
+    ].join(',');
     const csv = `${header}\n${row}`;
 
     const result = await service.validateCsv('u-1', 's-1', csv);
@@ -96,12 +102,28 @@ describe('ProductCsvService', () => {
     ]);
     const header =
       'name,brand,category,subcategory,sku,unit,mrp,sellingPrice,stock,description,tags,hsnCode,gstSlab,fssaiLicense,ingredients,shelfLife,countryOfOrigin,manufacturerName,storageInstructions,imageUrl,isActive';
-    const row =
-      'New Product,Brand,Dairy,Milk,DUP-SKU,piece,59,49,10,,,,,,,,,,,https://cdn.example.com/p.jpg,true';
+    const row = [
+      'New Product', 'Brand', 'Dairy', 'Milk', 'DUP-SKU', 'piece', '59', '49', '10',
+      '', '', '0401', 'FIVE', '', '', '', '', '', '', 'https://cdn.example.com/p.jpg', 'true',
+    ].join(',');
     const csv = `${header}\n${row}`;
 
     const result = await service.validateCsv('u-1', 's-1', csv);
     expect(result.rows[0].valid).toBe(false);
     expect(result.rows[0].errors.some((e) => e.includes('Duplicate SKU'))).toBe(true);
+  });
+
+  it('marks rows without HSN invalid', async () => {
+    const header =
+      'name,brand,category,subcategory,sku,unit,mrp,sellingPrice,stock,description,tags,hsnCode,gstSlab,fssaiLicense,ingredients,shelfLife,countryOfOrigin,manufacturerName,storageInstructions,imageUrl,isActive';
+    const row = [
+      'Missing HSN', 'Brand', 'Dairy', 'Milk', 'SKU-NO-HSN', 'piece', '59', '49', '10',
+      '', '', '', 'FIVE', '', '', '', '', '', '', 'https://cdn.example.com/p.jpg', 'true',
+    ].join(',');
+    const csv = `${header}\n${row}`;
+
+    const result = await service.validateCsv('u-1', 's-1', csv);
+    expect(result.rows[0].valid).toBe(false);
+    expect(result.rows[0].errors).toContain('hsnCode is required');
   });
 });

@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Max, Min, ValidateIf } from 'class-validator';
 import { GstSlab } from '@prisma/client';
 import { Type } from 'class-transformer';
 
@@ -28,8 +28,9 @@ export class ExportComplianceQueryDto extends ListComplianceQueryDto {
 }
 
 export class UpdateProductTaxDto {
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined)
   @IsString()
+  @IsNotEmpty()
   hsnCodeId?: string;
 
   @IsOptional()

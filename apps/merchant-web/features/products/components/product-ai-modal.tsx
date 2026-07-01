@@ -16,6 +16,7 @@ import {
   type AiChargeReceipt,
 } from '@/services/products/product-creation-api';
 import { AiWalletRechargeModal } from './ai-wallet-recharge-modal';
+import { HsnPicker, type HsnOption } from './hsn-picker';
 
 const AI_UNAVAILABLE_MSG =
   'AI product add is temporarily unavailable. Manual and CSV upload are still free.';
@@ -42,6 +43,8 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
   const [quantity, setQuantity] = useState('0');
   const [parentCategoryId, setParentCategoryId] = useState('');
   const [subCategoryId, setSubCategoryId] = useState('');
+  const [hsn, setHsn] = useState<HsnOption | null>(null);
+  const [hsnError, setHsnError] = useState<string | null>(null);
   const { data: categories } = useApprovedCategoriesQuery(storeId);
 
   const { data: availability, isLoading: availabilityLoading } = useQuery({
@@ -72,6 +75,7 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
   const confirmMutation = useMutation({
     mutationFn: (publish: boolean) => {
       if (!analysis) throw new Error('No analysis');
+      if (!hsn) throw new Error('HSN code is required for every product');
       const categoryId = subCategoryId || parentCategoryId || undefined;
       return confirmAiProduct(storeId, analysis.id, {
         name,
@@ -82,6 +86,8 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
         mrp: mrp ? Number(mrp) : undefined,
         unit,
         quantity: Number(quantity) || 0,
+        hsnCodeId: hsn.id,
+        gstSlab: hsn.defaultGstSlab,
         publish,
       });
     },
@@ -100,6 +106,8 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
       qc.invalidateQueries({ queryKey: ['merchant', 'ai-wallet'] });
       qc.invalidateQueries({ queryKey: ['merchant', 'ai-availability', storeId] });
       setAnalysis(null);
+      setHsn(null);
+      setHsnError(null);
       onClose();
     },
     onError: (e: Error) => toast(e.message, 'error'),
@@ -119,6 +127,8 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
       return;
     }
     setAnalysis(null);
+    setHsn(null);
+    setHsnError(null);
     onClose();
   };
 
@@ -155,7 +165,11 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
   }, [categories]);
 
   useEffect(() => {
-    if (!open) setAnalysis(null);
+    if (!open) {
+      setAnalysis(null);
+      setHsn(null);
+      setHsnError(null);
+    }
   }, [open]);
 
   const subcategories = categories?.find((c) => c.id === parentCategoryId)?.children ?? [];
@@ -293,6 +307,16 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
                     ))}
                   </Select>
                 )}
+                <HsnPicker
+                  value={hsn?.id}
+                  selectedOption={hsn}
+                  required
+                  error={hsnError ?? undefined}
+                  onChange={(next) => {
+                    setHsn(next);
+                    setHsnError(null);
+                  }}
+                />
               </div>
             </div>
           )}
@@ -303,8 +327,15 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
               <>
                 <Button
                   variant="outline"
-                  disabled={confirmMutation.isPending || !name || !basePrice || insufficientBalance}
-                  onClick={() => confirmMutation.mutate(false)}
+                  disabled={confirmMutation.isPending || !name || !basePrice || !hsn || insufficientBalance}
+                  onClick={() => {
+                    if (!hsn) {
+                      setHsnError('HSN code is required for every product');
+                      toast('Select an HSN code for GST compliance and shipping', 'error');
+                      return;
+                    }
+                    confirmMutation.mutate(false);
+                  }}
                 >
                   Save as Draft — ₹1.50
                 </Button>
@@ -313,17 +344,27 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
                     confirmMutation.isPending ||
                     !name ||
                     !basePrice ||
+                    !hsn ||
                     publishBlocked ||
                     insufficientBalance
                   }
                   title={
                     insufficientBalance
                       ? 'Recharge AI wallet to continue'
+                      : !hsn
+                        ? 'Select an HSN code before saving'
                       : publishBlocked
                         ? 'Cannot publish — save as draft only'
                         : undefined
                   }
-                  onClick={() => confirmMutation.mutate(true)}
+                  onClick={() => {
+                    if (!hsn) {
+                      setHsnError('HSN code is required for every product');
+                      toast('Select an HSN code for GST compliance and shipping', 'error');
+                      return;
+                    }
+                    confirmMutation.mutate(true);
+                  }}
                 >
                   Publish Product — ₹1.50
                 </Button>

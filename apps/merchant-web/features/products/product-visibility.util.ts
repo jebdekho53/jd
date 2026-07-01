@@ -99,14 +99,13 @@ export function getProductVisibilityGaps(
   taxCategory: string = product.taxCategory ?? 'GOODS',
   storeFssaiLicense?: string | null,
 ): ProductVisibilityGap[] {
+  void taxCategory;
   const gaps: ProductVisibilityGap[] = [];
   if (isBrokenProductImageUrl(product.imageUrls[0])) gaps.push('image');
   if (!product.categoryId) gaps.push('category');
 
   const cat = product.category;
-  if (cat && requiresHsnForCategory({ slug: cat.slug, name: cat.name }, taxCategory)) {
-    if (!product.hsnCodeRef?.id && !product.hsnCodeId) gaps.push('hsn');
-  }
+  if (!product.hsnCodeRef?.id && !product.hsnCodeId) gaps.push('hsn');
   if (cat && requiresFssaiForCategory({ slug: cat.slug, name: cat.name })) {
     const onProduct = product.fssaiLicense?.trim();
     const inherited = storeFssaiLicense?.trim();

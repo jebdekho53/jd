@@ -20,6 +20,7 @@ import {
   ProductCsvRawRow,
 } from './product-csv.util';
 import { DEFAULT_MISSING_PRODUCT_IMAGE_URL } from './product-ai.constants';
+import { isValidHsnCode, normalizeHsnCode } from './hsn-code.util';
 
 export interface ValidatedCsvRow {
   rowNumber: number;
@@ -206,11 +207,16 @@ export class ProductCsvService {
       }
 
       let hsnCodeId: string | undefined;
-      if (v.hsnCode?.trim()) {
+      const hsnCode = normalizeHsnCode(v.hsnCode);
+      if (!hsnCode) {
+        errors.push('hsnCode is required');
+      } else if (!isValidHsnCode(hsnCode)) {
+        errors.push('hsnCode must be numeric and 4, 6, or 8 digits');
+      } else {
         const hsn = await this.prisma.hSNCode.findFirst({
-          where: { code: v.hsnCode.trim(), isActive: true },
+          where: { code: hsnCode, isActive: true },
         });
-        if (!hsn) errors.push(`hsnCode "${v.hsnCode}" not found`);
+        if (!hsn) errors.push(`hsnCode "${hsnCode}" not found`);
         else hsnCodeId = hsn.id;
       }
 
@@ -271,7 +277,7 @@ export class ProductCsvService {
         stock,
         description: v.description?.trim(),
         tags,
-        hsnCode: v.hsnCode?.trim(),
+        hsnCode,
         gstSlab: gstSlab ?? v.gstSlab?.trim(),
         fssaiLicense: v.fssaiLicense?.trim(),
         imageUrl: v.imageUrl?.trim() || undefined,
@@ -300,7 +306,7 @@ export class ProductCsvService {
           manufacturerName: v.manufacturerName?.trim(),
           fssaiLicense: v.fssaiLicense?.trim(),
           storageInstructions: v.storageInstructions?.trim(),
-          hsnCodeId,
+          hsnCodeId: hsnCodeId!,
           gstSlab,
         };
       }

@@ -60,6 +60,7 @@ const PRODUCT = {
   imageUrls: ['https://cdn.example.com/milk.jpg'],
   variants: [{ ...VARIANT, inventory: INVENTORY }],
   category: null,
+  hsnCodeId: 'hsn-0401',
 };
 
 const mockPrisma = {
@@ -68,6 +69,7 @@ const mockPrisma = {
   inventory: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn(), findUniqueOrThrow: jest.fn() },
   productSearchIndex: { upsert: jest.fn(), updateMany: jest.fn() },
   category: { findUnique: jest.fn() },
+  hSNCode: { findFirst: jest.fn() },
   store: { findFirst: jest.fn() },
   $transaction: jest.fn(),
 };
@@ -93,6 +95,7 @@ describe('ProductService', () => {
     }).compile();
     service = module.get<ProductService>(ProductService);
     jest.clearAllMocks();
+    mockPrisma.hSNCode.findFirst.mockResolvedValue({ code: '0401' });
   });
 
   // ── createProduct ─────────────────────────────────────────────────────────
@@ -117,6 +120,7 @@ describe('ProductService', () => {
         basePrice: 49,
         mrp: 59,
         imageUrls: ['https://cdn.example.com/milk.jpg'],
+        hsnCodeId: 'hsn-0401',
       });
 
       expect(mockPrisma.product.create).toHaveBeenCalled();
@@ -135,6 +139,7 @@ describe('ProductService', () => {
           basePrice: 100,
           mrp: 50,
           imageUrls: [SAMPLE_IMAGE],
+          hsnCodeId: 'hsn-0401',
         }),
       ).rejects.toThrow(BadRequestException);
     });
@@ -148,6 +153,7 @@ describe('ProductService', () => {
           name: 'Test',
           basePrice: 10,
           imageUrls: [SAMPLE_IMAGE],
+          hsnCodeId: 'hsn-0401',
         }),
       ).rejects.toThrow(ForbiddenException);
     });
@@ -194,25 +200,33 @@ describe('ProductService', () => {
       );
     });
 
-    it('requires HSN for regulated grocery categories', async () => {
+    it('requires HSN for every product', async () => {
       mockMerchant.requireMerchantProfile.mockResolvedValue(MERCHANT_PROFILE);
       mockPrisma.store.findFirst.mockResolvedValue(STORE);
       mockPrisma.product.findFirst.mockResolvedValue(null);
-      mockPrisma.category.findUnique.mockResolvedValue({
-        id: 'c-dairy',
-        slug: 'dairy',
-        name: 'Dairy',
-        storeId: null,
-        scope: 'GLOBAL',
-      });
-      mockCategoryAccess.assertProductCategoryAllowed.mockResolvedValue(undefined);
+      mockPrisma.category.findUnique.mockResolvedValue(null);
 
       await expect(
         service.createProduct('u-1', 's-1', {
           name: 'Milk',
           basePrice: 49,
           imageUrls: [SAMPLE_IMAGE],
-          categoryId: 'c-dairy',
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects inactive or unknown HSN references', async () => {
+      mockMerchant.requireMerchantProfile.mockResolvedValue(MERCHANT_PROFILE);
+      mockPrisma.store.findFirst.mockResolvedValue(STORE);
+      mockPrisma.product.findFirst.mockResolvedValue(null);
+      mockPrisma.hSNCode.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createProduct('u-1', 's-1', {
+          name: 'Milk',
+          basePrice: 49,
+          imageUrls: [SAMPLE_IMAGE],
+          hsnCodeId: 'hsn-missing',
         }),
       ).rejects.toThrow(BadRequestException);
     });

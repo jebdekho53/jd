@@ -96,7 +96,7 @@ export interface CreateProductPayload {
   storageInstructions?: string;
   disclaimer?: string;
   taxInclusive?: boolean;
-  hsnCodeId?: string;
+  hsnCodeId: string;
   gstSlab?: string;
   taxCategory?: 'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED';
 }

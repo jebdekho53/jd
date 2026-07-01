@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsEnum,
   IsNumber,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUrl,
@@ -103,10 +104,10 @@ export class ConfirmAiProductDto {
   @IsString()
   storageInstructions?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty({ description: 'Required HSN code reference ID for GST compliance and logistics' })
   @IsString()
-  hsnCodeId?: string;
+  @IsNotEmpty()
+  hsnCodeId!: string;
 
   @ApiPropertyOptional({ enum: GstSlab })
   @IsOptional()

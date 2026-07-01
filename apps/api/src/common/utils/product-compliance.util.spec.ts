@@ -52,4 +52,17 @@ describe('product-compliance.util', () => {
       }),
     ).toBe(false);
   });
+
+  it('flags buyer compliance gaps when any product is missing HSN', () => {
+    expect(
+      hasProductBuyerComplianceGaps({
+        imageUrls: ['https://api.jebdekho.com/uploads/product/x.jpg'],
+        categoryId: 'cat-1',
+        category: { slug: 'electronics', name: 'Electronics' },
+        hsnCodeId: null,
+        fssaiLicense: null,
+        taxCategory: 'GOODS',
+      }),
+    ).toBe(true);
+  });
 });

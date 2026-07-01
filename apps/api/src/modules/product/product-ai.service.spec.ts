@@ -162,6 +162,7 @@ describe('ProductAiService', () => {
       service.confirmAnalysis('u-1', 's-1', 'a-1', {
         name: 'Milk',
         basePrice: 49,
+        hsnCodeId: 'hsn-0401',
         publish: true,
       }),
     ).rejects.toThrow(BadRequestException);
@@ -181,6 +182,7 @@ describe('ProductAiService', () => {
     const result = await service.confirmAnalysis('u-1', 's-1', 'a-1', {
       name: 'Milk',
       basePrice: 49,
+      hsnCodeId: 'hsn-0401',
       publish: false,
     });
 
@@ -201,6 +203,7 @@ describe('ProductAiService', () => {
     const result = await service.confirmAnalysis('u-1', 's-1', 'a-1', {
       name: 'Milk',
       basePrice: 49,
+      hsnCodeId: 'hsn-0401',
       publish: true,
     });
 
@@ -221,6 +224,7 @@ describe('ProductAiService', () => {
         brand: 'Amul',
         unit: 'piece',
         basePrice: 49,
+        hsnCodeId: 'hsn-0401',
         publish: true,
       }),
     ).rejects.toThrow(BadRequestException);
@@ -280,6 +284,7 @@ describe('ProductAiService', () => {
       service.confirmAnalysis('u-1', 's-1', 'a-1', {
         name: 'Whey Protein',
         basePrice: 1999,
+        hsnCodeId: 'hsn-2106',
         publish: true,
       }),
     ).rejects.toThrow(BadRequestException);
@@ -309,6 +314,7 @@ describe('ProductAiService', () => {
     const result = await service.confirmAnalysis('u-1', 's-1', 'a-1', {
       name: 'Whey Protein',
       basePrice: 1999,
+      hsnCodeId: 'hsn-2106',
       publish: false,
     });
 
