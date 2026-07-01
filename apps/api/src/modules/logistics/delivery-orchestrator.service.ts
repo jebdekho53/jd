@@ -29,6 +29,7 @@ import { maskSensitivePayload } from './utils/mask-sensitive.util';
 import { isDispatchPaymentCleared } from '../order/merchant-order-visibility.util';
 import { OrderDeliveredHandlerService } from '../order/order-delivered-handler.service';
 import { isDispatchEligibleOrderStatus } from './utils/dispatch-eligibility.util';
+import { parseShadowfaxAwbPool } from './providers/shadowfax/shadowfax-awb-pool.util';
 
 const PROVIDER_NAMES: Record<DeliveryProviderType, string> = {
   [DeliveryProviderType.SHADOWFAX]: 'Shadowfax',
@@ -640,16 +641,7 @@ export class DeliveryOrchestratorService {
   }
 
   private shadowfaxPreallocatedAwbs(): string[] {
-    const raw = this.config.get<string>('SHADOWFAX_PREALLOCATED_AWBS', '') ?? '';
-    const seen = new Set<string>();
-    return raw
-      .split(/[\s,]+/)
-      .map((value) => value.trim().toUpperCase())
-      .filter((value) => {
-        if (!/^SF[A-Z0-9]+$/.test(value) || seen.has(value)) return false;
-        seen.add(value);
-        return true;
-      });
+    return parseShadowfaxAwbPool(this.config.get<string>('SHADOWFAX_PREALLOCATED_AWBS', ''));
   }
 
   private async resolvePayerContact(
