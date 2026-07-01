@@ -16,13 +16,20 @@ export class GstConfigService {
   }
 
   async listHsnCodes(query?: string) {
+    const normalizedQuery = query?.trim();
+    const numericPrefixCodes =
+      normalizedQuery && /^\d{4}(\d{2}){0,2}$/.test(normalizedQuery)
+        ? [normalizedQuery, normalizedQuery.slice(0, 6), normalizedQuery.slice(0, 4)]
+            .filter((code, index, all) => code.length >= 4 && all.indexOf(code) === index)
+        : [];
     return this.prisma.hSNCode.findMany({
-      where: query
+      where: normalizedQuery
         ? {
             isActive: true,
             OR: [
-              { code: { contains: query } },
-              { description: { contains: query, mode: 'insensitive' } },
+              ...(numericPrefixCodes.length > 0 ? [{ code: { in: numericPrefixCodes } }] : []),
+              { code: { contains: normalizedQuery } },
+              { description: { contains: normalizedQuery, mode: 'insensitive' } },
             ],
           }
         : { isActive: true },
