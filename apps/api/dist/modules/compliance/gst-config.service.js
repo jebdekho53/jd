@@ -44,6 +44,28 @@ let GstConfigService = class GstConfigService {
             take: 100,
         });
     }
+    async ensureHsnCode(rawCode, gstSlab, description) {
+        const code = rawCode?.trim() ?? '';
+        if (!(0, hsn_code_util_1.isValidHsnCode)(code)) {
+            throw new common_1.BadRequestException('HSN code must be numeric and 4, 6, or 8 digits');
+        }
+        const existing = await this.prisma.hSNCode.findUnique({ where: { code } });
+        if (existing) {
+            if (!existing.isActive) {
+                return this.prisma.hSNCode.update({ where: { code }, data: { isActive: true } });
+            }
+            return existing;
+        }
+        const cleanedDescription = description?.trim();
+        return this.prisma.hSNCode.create({
+            data: {
+                code,
+                description: cleanedDescription && cleanedDescription.length > 0 ? cleanedDescription : `HSN ${code}`,
+                defaultGstSlab: gstSlab,
+                isActive: true,
+            },
+        });
+    }
     async updateProductTax(productId, storeId, data) {
         const product = await this.prisma.product.findFirst({
             where: { id: productId, storeId },

@@ -357,6 +357,7 @@ let ShadowfaxProvider = ShadowfaxProvider_1 = class ShadowfaxProvider {
             return {
                 product_name: name,
                 name,
+                sku_name: item.sku?.trim() || name,
                 description: name,
                 sku: item.sku,
                 hsn_code: item.hsnCode,
@@ -400,6 +401,8 @@ let ShadowfaxProvider = ShadowfaxProvider_1 = class ShadowfaxProvider {
         payload.product_details?.forEach((item, index) => {
             if (!item.product_name)
                 missing.push(`product_details.${index}.product_name`);
+            if (!item.sku_name)
+                missing.push(`product_details.${index}.sku_name`);
             if (!positiveInteger(item.quantity, 0))
                 missing.push(`product_details.${index}.quantity`);
             if (!positiveAmount(item.product_value, 0))

@@ -29,6 +29,14 @@ export declare class GstConfigService {
         isActive: boolean;
         defaultGstSlab: import("@prisma/client").$Enums.GstSlab;
     }[]>;
+    ensureHsnCode(rawCode: string, gstSlab: GstSlab, description?: string): Promise<{
+        id: string;
+        createdAt: Date;
+        description: string;
+        code: string;
+        isActive: boolean;
+        defaultGstSlab: import("@prisma/client").$Enums.GstSlab;
+    }>;
     updateProductTax(productId: string, storeId: string, data: {
         hsnCodeId?: string;
         gstSlab?: GstSlab;

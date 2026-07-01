@@ -5,7 +5,7 @@ import { ComplianceService } from './compliance.service';
 import { GstConfigService } from './gst-config.service';
 import { ComplianceExportService } from './compliance-export.service';
 import { InvoiceEngineService } from './invoice-engine.service';
-import { ExportComplianceQueryDto, ListComplianceQueryDto, UpdateProductTaxDto } from './dto/compliance.dto';
+import { EnsureHsnCodeDto, ExportComplianceQueryDto, ListComplianceQueryDto, UpdateProductTaxDto } from './dto/compliance.dto';
 export declare class MerchantGstController {
     private readonly prisma;
     private readonly compliance;
@@ -79,6 +79,17 @@ export declare class MerchantGstController {
             isActive: boolean;
             defaultGstSlab: import("@prisma/client").$Enums.GstSlab;
         }[];
+    }>;
+    ensureHsn(dto: EnsureHsnCodeDto): Promise<{
+        success: boolean;
+        data: {
+            id: string;
+            createdAt: Date;
+            description: string;
+            code: string;
+            isActive: boolean;
+            defaultGstSlab: import("@prisma/client").$Enums.GstSlab;
+        };
     }>;
     updateProductTax(user: RequestUser, productId: string, dto: UpdateProductTaxDto): Promise<{
         success: boolean;

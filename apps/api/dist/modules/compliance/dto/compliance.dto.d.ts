@@ -13,6 +13,11 @@ export declare class UpdateProductTaxDto {
     taxCategory?: 'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED';
     taxInclusive?: boolean;
 }
+export declare class EnsureHsnCodeDto {
+    code: string;
+    gstSlab: GstSlab;
+    description?: string;
+}
 export declare class SyncTdsTcsDto {
     periodMonth: string;
 }

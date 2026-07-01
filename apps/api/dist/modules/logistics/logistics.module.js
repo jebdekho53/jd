@@ -17,6 +17,7 @@ const own_fleet_provider_1 = require("./providers/own-fleet/own-fleet.provider")
 const logistics_provider_registry_1 = require("./logistics-provider.registry");
 const delivery_orchestrator_service_1 = require("./delivery-orchestrator.service");
 const delivery_dispatch_service_1 = require("./delivery-dispatch.service");
+const shipment_tracking_scheduler_1 = require("./shipment-tracking.scheduler");
 const shadowfax_webhook_service_1 = require("./webhooks/shadowfax-webhook.service");
 const logistics_webhook_controller_1 = require("./webhooks/logistics-webhook.controller");
 const merchant_logistics_controller_1 = require("./merchant-logistics.controller");
@@ -42,6 +43,7 @@ exports.LogisticsModule = LogisticsModule = __decorate([
             logistics_provider_registry_1.LogisticsProviderRegistry,
             delivery_orchestrator_service_1.DeliveryOrchestratorService,
             delivery_dispatch_service_1.DeliveryDispatchService,
+            shipment_tracking_scheduler_1.ShipmentTrackingScheduler,
             shadowfax_webhook_service_1.ShadowfaxWebhookService,
         ],
         exports: [delivery_dispatch_service_1.DeliveryDispatchService, delivery_orchestrator_service_1.DeliveryOrchestratorService, logistics_provider_registry_1.LogisticsProviderRegistry],
