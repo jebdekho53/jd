@@ -10,6 +10,7 @@ import type {
   ShipmentResult,
   TrackShipmentResult,
 } from '../../interfaces/logistics-provider.interface';
+import { LogisticsProviderError } from '../../errors/logistics.errors';
 import { mapShadowfaxStatus } from '../../mappers/shadowfax-status.mapper';
 import { ShadowfaxClient } from './shadowfax.client';
 
@@ -30,6 +31,79 @@ function asNumber(value: unknown): number | undefined {
   return undefined;
 }
 
+function findNumberByKeys(value: unknown, keys: string[]): number | undefined {
+  const seen = new Set<unknown>();
+  const queue: unknown[] = [value];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || seen.has(current)) continue;
+    seen.add(current);
+
+    if (Array.isArray(current)) {
+      queue.push(...current);
+      continue;
+    }
+
+    if (typeof current !== 'object') continue;
+    const row = current as Record<string, unknown>;
+    for (const key of keys) {
+      const found = asNumber(row[key]);
+      if (found != null) return found;
+    }
+    queue.push(...Object.values(row));
+  }
+
+  return undefined;
+}
+
+function findStringByKeys(value: unknown, keys: string[]): string | undefined {
+  const seen = new Set<unknown>();
+  const queue: unknown[] = [value];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || seen.has(current)) continue;
+    seen.add(current);
+
+    if (Array.isArray(current)) {
+      queue.push(...current);
+      continue;
+    }
+
+    if (typeof current !== 'object') continue;
+    const row = current as Record<string, unknown>;
+    for (const key of keys) {
+      const found = asString(row[key]);
+      if (found) return found;
+    }
+    queue.push(...Object.values(row));
+  }
+
+  return undefined;
+}
+
+function primaryResponseRecord(raw: Record<string, unknown>): Record<string, unknown> {
+  const candidates = [
+    raw.data,
+    raw.result,
+    raw.results,
+    raw.response,
+    raw.order,
+    raw.shipment,
+    raw,
+  ];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      const first = candidate.find((item) => item && typeof item === 'object');
+      if (first) return asRecord(first);
+    }
+    const row = asRecord(candidate);
+    if (Object.keys(row).length > 0) return row;
+  }
+  return {};
+}
+
 @Injectable()
 export class ShadowfaxProvider implements ILogisticsProvider {
   readonly type = DeliveryProviderType.SHADOWFAX;
@@ -48,27 +122,43 @@ export class ShadowfaxProvider implements ILogisticsProvider {
       },
     });
 
-    const data = asRecord(raw.data ?? raw);
+    const data = primaryResponseRecord(raw);
+    const awbNumber = findStringByKeys(raw, ['awb_number', 'awbNumber', 'awb', 'AWB']);
+    const shadowfaxOrderId = findStringByKeys(raw, ['sfx_order_id', 'sfxOrderId', 'shadowfax_order_id']);
+    const shipmentId = findStringByKeys(raw, ['shipment_id', 'shipmentId', 'id']);
+    const trackingId = findStringByKeys(raw, ['tracking_id', 'trackingId', 'tracking_number', 'trackingNumber']);
     const externalShipmentId =
-      asString(data.shipment_id) ??
-      asString(data.sfx_order_id) ??
-      asString(data.id) ??
-      asString(data.awb_number) ??
+      awbNumber ??
+      shadowfaxOrderId ??
+      shipmentId ??
+      trackingId ??
       '';
     const trackingNumber =
-      asString(data.awb_number) ??
-      asString(data.tracking_id) ??
-      asString(data.sfx_order_id) ??
+      awbNumber ??
+      trackingId ??
+      shadowfaxOrderId ??
       externalShipmentId;
-    const providerStatus = asString(data.status) ?? 'new';
-    const etaMins = asNumber(data.estimated_delivery_time) ?? asNumber(data.eta_minutes);
+    if (!externalShipmentId) {
+      throw new LogisticsProviderError(
+        'Shadowfax create order response did not include AWB/tracking identifier',
+        DeliveryProviderType.SHADOWFAX,
+        'MISSING_SHIPMENT_IDENTIFIER',
+        false,
+        undefined,
+        { providerMessage: 'Missing awb_number/tracking_id/sfx_order_id in Shadowfax response' },
+      );
+    }
+    const providerStatus =
+      findStringByKeys(raw, ['status_id', 'status']) ??
+      'new';
+    const etaMins = findNumberByKeys(raw, ['estimated_delivery_time', 'eta_minutes']);
 
     return {
       externalShipmentId,
       trackingNumber,
       estimatedEtaMins: etaMins,
       estimatedArrivalAt: etaMins ? new Date(Date.now() + etaMins * 60_000) : undefined,
-      deliveryCost: asNumber(data.delivery_charge) ?? asNumber(data.charge),
+      deliveryCost: findNumberByKeys(raw, ['delivery_charge', 'charge']),
       providerStatus,
       normalizedStatus: mapShadowfaxStatus(providerStatus),
       driverName: asString(data.rider_name) ?? asString(asRecord(data.rider).name),
