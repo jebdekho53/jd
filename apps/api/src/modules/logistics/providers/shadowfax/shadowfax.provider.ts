@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DeliveryProviderType, ShipmentProviderStatus } from '@prisma/client';
 import type {
   CreateShipmentInput,
@@ -12,7 +12,7 @@ import type {
 } from '../../interfaces/logistics-provider.interface';
 import { LogisticsProviderError } from '../../errors/logistics.errors';
 import { mapShadowfaxStatus } from '../../mappers/shadowfax-status.mapper';
-import { ShadowfaxClient } from './shadowfax.client';
+import { ShadowfaxClient, type ShadowfaxCreatePayload, type ShadowfaxProductPayload } from './shadowfax.client';
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
@@ -29,6 +29,16 @@ function asNumber(value: unknown): number | undefined {
     return Number.isFinite(n) ? n : undefined;
   }
   return undefined;
+}
+
+function positiveAmount(value: number | null | undefined, fallback = 1): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return fallback;
+  return Number(value.toFixed(2));
+}
+
+function positiveInteger(value: number | null | undefined, fallback = 1): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return fallback;
+  return Math.max(fallback, Math.round(value));
 }
 
 function findNumberByKeys(value: unknown, keys: string[]): number | undefined {
@@ -120,21 +130,34 @@ function shadowfaxFailureMessage(raw: Record<string, unknown>): string | undefin
 @Injectable()
 export class ShadowfaxProvider implements ILogisticsProvider {
   readonly type = DeliveryProviderType.SHADOWFAX;
+  private readonly logger = new Logger(ShadowfaxProvider.name);
 
   constructor(private readonly client: ShadowfaxClient) {}
 
   async createShipment(input: CreateShipmentInput): Promise<ShipmentResult> {
-    const raw = await this.client.createShipment({
-      order_details: {
-        client_order_id: input.orderNumber,
-        awb_number: input.awbNumber,
-        paid: !input.codAmount,
-        payment_mode: input.codAmount ? 'COD' : 'PREPAID',
-        order_value: input.codAmount,
-        pickup_details: this.toAddress(input.pickup),
-        drop_details: this.toAddress(input.dropoff),
+    const payload = this.toCreatePayload(input);
+    const missingFields = this.missingMarketplaceFields(payload);
+    this.logger.log(
+      {
+        orderId: input.orderId,
+        payloadKeys: this.payloadKeys(payload),
+        productCount: payload.product_details?.length ?? 0,
+        missingFields,
       },
-    });
+      'Shadowfax marketplace create payload prepared',
+    );
+    if (missingFields.length > 0) {
+      throw new LogisticsProviderError(
+        `Shadowfax payload missing required fields: ${missingFields.join(', ')}`,
+        DeliveryProviderType.SHADOWFAX,
+        'SHADOWFAX_PAYLOAD_INVALID',
+        false,
+        undefined,
+        { providerMessage: `Missing required fields: ${missingFields.join(', ')}` },
+      );
+    }
+
+    const raw = await this.client.createShipment(payload);
 
     const failureMessage = shadowfaxFailureMessage(raw);
     if (failureMessage) {
@@ -297,6 +320,138 @@ export class ShadowfaxProvider implements ILogisticsProvider {
       pincode: addr.pincode,
       latitude: addr.lat,
       longitude: addr.lng,
+    };
+  }
+
+  private toCreatePayload(input: CreateShipmentInput): ShadowfaxCreatePayload {
+    const pickup = this.toAddress(input.pickup);
+    const dropoff = this.toAddress(input.dropoff);
+    const amounts = this.resolveAmounts(input);
+    const productDetails = this.toProductDetails(input, amounts.productValue);
+    const pkg = {
+      weightGrams: positiveInteger(input.package?.weightGrams ?? input.weightGrams, 500),
+      lengthCm: positiveInteger(input.package?.lengthCm, 10),
+      breadthCm: positiveInteger(input.package?.breadthCm, 10),
+      heightCm: positiveInteger(input.package?.heightCm, 10),
+    };
+    const isCod = amounts.codAmount > 0;
+
+    return {
+      order_details: {
+        client_order_id: input.orderNumber,
+        awb_number: input.awbNumber,
+        paid: !isCod,
+        payment_mode: isCod ? 'COD' : 'PREPAID',
+        order_value: amounts.invoiceValue,
+        product_value: amounts.productValue,
+        declared_value: amounts.declaredValue,
+        invoice_value: amounts.invoiceValue,
+        payable_amount: amounts.payableAmount,
+        cod_amount: amounts.codAmount,
+        weight: pkg.weightGrams,
+        actual_weight: pkg.weightGrams,
+        length: pkg.lengthCm,
+        breadth: pkg.breadthCm,
+        height: pkg.heightCm,
+        pickup_details: pickup,
+        drop_details: dropoff,
+        order_items: productDetails,
+      },
+      customer_details: dropoff,
+      pickup_details: pickup,
+      rts_details: pickup,
+      product_details: productDetails,
+    };
+  }
+
+  private resolveAmounts(input: CreateShipmentInput): {
+    productValue: number;
+    declaredValue: number;
+    invoiceValue: number;
+    payableAmount: number;
+    codAmount: number;
+  } {
+    const lineValue = input.items?.reduce((sum, item) => sum + positiveAmount(item.totalPrice), 0) ?? 0;
+    const productValue = positiveAmount(input.amounts?.productValue || lineValue || input.amounts?.subtotal || input.amounts?.totalAmount || input.codAmount);
+    const invoiceValue = positiveAmount(input.amounts?.invoiceValue || input.amounts?.totalAmount || productValue);
+    return {
+      productValue,
+      declaredValue: positiveAmount(input.amounts?.declaredValue || productValue),
+      invoiceValue,
+      payableAmount: positiveAmount(input.amounts?.payableAmount || invoiceValue),
+      codAmount: Number(Math.max(0, input.amounts?.codAmount ?? input.codAmount ?? 0).toFixed(2)),
+    };
+  }
+
+  private toProductDetails(input: CreateShipmentInput, fallbackValue: number): ShadowfaxProductPayload[] {
+    const items = input.items?.length
+      ? input.items
+      : [{
+        name: 'JebDekho order',
+        quantity: 1,
+        unitPrice: fallbackValue,
+        totalPrice: fallbackValue,
+        weightGrams: input.package?.weightGrams ?? input.weightGrams,
+      }];
+
+    return items.map((item, index) => {
+      const quantity = positiveInteger(item.quantity);
+      const totalValue = positiveAmount(item.totalPrice || item.unitPrice * quantity || fallbackValue);
+      const unitValue = positiveAmount(item.unitPrice || totalValue / quantity || fallbackValue);
+      const name = item.name.trim() || `JebDekho item ${index + 1}`;
+      return {
+        product_name: name,
+        name,
+        description: name,
+        sku: item.sku,
+        hsn_code: item.hsnCode,
+        quantity,
+        price: unitValue,
+        unit_price: unitValue,
+        value: totalValue,
+        item_value: totalValue,
+        product_value: totalValue,
+        tax: item.tax,
+        discount: item.discount,
+        weight: positiveInteger(item.weightGrams ?? input.package?.weightGrams ?? input.weightGrams, 500),
+      };
+    });
+  }
+
+  private missingMarketplaceFields(payload: ShadowfaxCreatePayload): string[] {
+    const missing: string[] = [];
+    const order = payload.order_details;
+    if (!order.client_order_id) missing.push('order_details.client_order_id');
+    if (!positiveAmount(order.order_value, 0)) missing.push('order_details.order_value');
+    if (!positiveAmount(order.product_value, 0)) missing.push('order_details.product_value');
+    if (!positiveAmount(order.declared_value, 0)) missing.push('order_details.declared_value');
+    if (!positiveAmount(order.invoice_value, 0)) missing.push('order_details.invoice_value');
+    if (!positiveAmount(order.payable_amount, 0)) missing.push('order_details.payable_amount');
+    if (!order.payment_mode) missing.push('order_details.payment_mode');
+    if (!payload.customer_details) missing.push('customer_details');
+    if (!payload.pickup_details) missing.push('pickup_details');
+    if (!payload.rts_details) missing.push('rts_details');
+    if (!payload.product_details?.length) missing.push('product_details');
+    payload.product_details?.forEach((item, index) => {
+      if (!item.product_name) missing.push(`product_details.${index}.product_name`);
+      if (!positiveInteger(item.quantity, 0)) missing.push(`product_details.${index}.quantity`);
+      if (!positiveAmount(item.product_value, 0)) missing.push(`product_details.${index}.product_value`);
+      if (!positiveAmount(item.item_value, 0)) missing.push(`product_details.${index}.item_value`);
+    });
+    return missing;
+  }
+
+  private payloadKeys(payload: ShadowfaxCreatePayload): Record<string, unknown> {
+    return {
+      topLevel: Object.keys(payload).sort(),
+      order_details: Object.keys(payload.order_details).sort(),
+      customer_details: payload.customer_details ? Object.keys(payload.customer_details).sort() : [],
+      pickup_details: payload.pickup_details ? Object.keys(payload.pickup_details).sort() : [],
+      rts_details: payload.rts_details ? Object.keys(payload.rts_details).sort() : [],
+      product_details: {
+        count: payload.product_details?.length ?? 0,
+        itemKeys: payload.product_details?.[0] ? Object.keys(payload.product_details[0]).sort() : [],
+      },
     };
   }
 }

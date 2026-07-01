@@ -20,6 +20,35 @@ export interface CreateShipmentInput {
   dropoff: ShipmentAddress;
   codAmount?: number;
   weightGrams?: number;
+  amounts?: {
+    subtotal: number;
+    discountAmount: number;
+    deliveryFee: number;
+    taxAmount: number;
+    totalAmount: number;
+    payableAmount: number;
+    productValue: number;
+    declaredValue: number;
+    invoiceValue: number;
+    codAmount: number;
+  };
+  package?: {
+    weightGrams: number;
+    lengthCm: number;
+    breadthCm: number;
+    heightCm: number;
+  };
+  items?: Array<{
+    name: string;
+    sku?: string;
+    hsnCode?: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    tax?: number;
+    discount?: number;
+    weightGrams?: number;
+  }>;
   notes?: string;
 }
 

@@ -21,15 +21,46 @@ export interface ShadowfaxCreatePayload {
     client_order_id: string;
     awb_number?: string;
     order_value?: number;
+    product_value?: number;
+    declared_value?: number;
+    invoice_value?: number;
+    payable_amount?: number;
+    cod_amount?: number;
+    weight?: number;
+    actual_weight?: number;
+    length?: number;
+    breadth?: number;
+    height?: number;
     paid: boolean;
     payment_mode?: ShadowfaxPaymentMode;
     pickup_details: ShadowfaxAddressPayload;
     drop_details: ShadowfaxAddressPayload;
-    order_items?: Array<{ name: string; quantity: number; price?: number }>;
+    order_items?: ShadowfaxProductPayload[];
   };
+  customer_details?: ShadowfaxAddressPayload;
+  pickup_details?: ShadowfaxAddressPayload;
+  rts_details?: ShadowfaxAddressPayload;
+  product_details?: ShadowfaxProductPayload[];
 }
 
 export type ShadowfaxPaymentMode = 'COD' | 'PREPAID';
+
+export interface ShadowfaxProductPayload {
+  product_name: string;
+  name: string;
+  description: string;
+  sku?: string;
+  hsn_code?: string;
+  quantity: number;
+  price: number;
+  unit_price: number;
+  value: number;
+  item_value: number;
+  product_value: number;
+  tax?: number;
+  discount?: number;
+  weight?: number;
+}
 
 export interface ShadowfaxFlashCreatePayload {
   pickup_details: Record<string, unknown>;
@@ -417,7 +448,7 @@ export class ShadowfaxClient {
             method,
             requestTarget,
             apiMode: this.apiMode,
-            body: maskSensitivePayload(body),
+            payloadKeys: payloadKeySummary(body),
           },
           'Shadowfax API request payload',
         );
@@ -480,4 +511,27 @@ function summarizeProviderBody(body: unknown): string {
   if (typeof msg === 'string') return msg.slice(0, 300);
   if (Array.isArray(msg)) return msg.join('; ').slice(0, 300);
   return JSON.stringify(maskSensitivePayload(body)).slice(0, 300);
+}
+
+function payloadKeySummary(value: unknown): unknown {
+  if (!value || typeof value !== 'object') return typeof value;
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return {
+      type: 'array',
+      count: value.length,
+      itemKeys: first && typeof first === 'object' && !Array.isArray(first)
+        ? Object.keys(first as Record<string, unknown>).sort()
+        : [],
+    };
+  }
+  const row = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.entries(row).map(([key, val]) => [
+      key,
+      val && typeof val === 'object'
+        ? payloadKeySummary(val)
+        : typeof val,
+    ]),
+  );
 }

@@ -47,6 +47,16 @@ function asString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+function asMoney(value: Prisma.Decimal | number | string | null | undefined): number {
+  if (value == null) return 0;
+  const n = Number(value);
+  return Number.isFinite(n) ? Number(n.toFixed(2)) : 0;
+}
+
+function positiveMoney(value: number, fallback = 1): number {
+  return Number(Math.max(fallback, value).toFixed(2));
+}
+
 function findStringByKeys(value: unknown, keys: string[]): string | undefined {
   const seen = new Set<unknown>();
   const queue: unknown[] = [value];
@@ -563,6 +573,23 @@ export class DeliveryOrchestratorService {
             city: { select: { name: true } },
           },
         },
+        items: {
+          include: {
+            product: {
+              select: {
+                weightGrams: true,
+                hsnCodeRef: { select: { code: true } },
+              },
+            },
+            variant: {
+              select: {
+                sku: true,
+                weightGrams: true,
+              },
+            },
+          },
+        },
+        foodItems: true,
       },
     });
     if (!order) throw new NotFoundException('Order not found');
@@ -571,6 +598,47 @@ export class DeliveryOrchestratorService {
     const payerContact = await this.resolvePayerContact(orderId);
     const codAmount =
       order.paymentMethod === 'COD' ? Number(order.totalAmount) : undefined;
+    const groceryItems = order.items.map((item) => {
+      const unitPrice = asMoney(item.unitPrice);
+      const totalPrice = positiveMoney(asMoney(item.totalPrice) || unitPrice * item.quantity);
+      return {
+        name: [item.productName, item.variantName].filter(Boolean).join(' ').trim() || 'JebDekho item',
+        sku: item.sku || item.variant.sku || undefined,
+        hsnCode: item.product.hsnCodeRef?.code,
+        quantity: Math.max(1, item.quantity),
+        unitPrice: positiveMoney(unitPrice),
+        totalPrice,
+        tax: asMoney(item.tax),
+        discount: asMoney(item.discount),
+        weightGrams: item.variant.weightGrams ?? item.product.weightGrams ?? undefined,
+      };
+    });
+    const foodItems = order.foodItems.map((item) => {
+      const unitPrice = asMoney(item.unitPrice);
+      const totalPrice = positiveMoney(asMoney(item.totalPrice) || unitPrice * item.quantity);
+      return {
+        name: [item.itemName, item.variantName].filter(Boolean).join(' ').trim() || 'JebDekho food item',
+        sku: `FOOD-${item.menuItemId}`,
+        quantity: Math.max(1, item.quantity),
+        unitPrice: positiveMoney(unitPrice),
+        totalPrice,
+        tax: asMoney(item.tax),
+        discount: asMoney(item.discount),
+        weightGrams: undefined,
+      };
+    });
+    const shipmentItems = [...groceryItems, ...foodItems];
+    const itemValue = shipmentItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const subtotal = asMoney(order.subtotal);
+    const totalAmount = positiveMoney(asMoney(order.totalAmount));
+    const productValue = positiveMoney(totalAmount || itemValue || subtotal);
+    const packageWeight = Math.max(
+      500,
+      shipmentItems.reduce(
+        (sum, item) => sum + (item.weightGrams ?? 0) * item.quantity,
+        0,
+      ),
+    );
 
     return {
       orderId: order.id,
@@ -598,6 +666,34 @@ export class DeliveryOrchestratorService {
         lng: order.deliveryLng,
       },
       codAmount,
+      weightGrams: packageWeight,
+      amounts: {
+        subtotal,
+        discountAmount: asMoney(order.discountAmount),
+        deliveryFee: asMoney(order.deliveryFee),
+        taxAmount: asMoney(order.taxAmount),
+        totalAmount,
+        payableAmount: totalAmount,
+        productValue,
+        declaredValue: productValue,
+        invoiceValue: totalAmount,
+        codAmount: order.paymentMethod === 'COD' ? totalAmount : 0,
+      },
+      package: {
+        weightGrams: packageWeight,
+        lengthCm: 10,
+        breadthCm: 10,
+        heightCm: 10,
+      },
+      items: shipmentItems.length > 0
+        ? shipmentItems
+        : [{
+          name: 'JebDekho order',
+          quantity: 1,
+          unitPrice: productValue,
+          totalPrice: productValue,
+          weightGrams: packageWeight,
+        }],
     };
   }
 
