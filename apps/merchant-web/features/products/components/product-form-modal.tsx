@@ -181,16 +181,6 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         disclaimer: editProduct.disclaimer ?? '',
         taxInclusive: editProduct.taxInclusive ?? false,
       });
-      if (editProduct.hsnCodeRef) {
-        setHsn({
-          id: editProduct.hsnCodeRef.id,
-          code: editProduct.hsnCodeRef.code,
-          description: editProduct.hsnCodeRef.description,
-          defaultGstSlab: editProduct.hsnCodeRef.defaultGstSlab,
-        });
-      } else {
-        setHsn(null);
-      }
       setTaxCategory((editProduct.taxCategory as typeof taxCategory) ?? 'GOODS');
       setReturnPolicy({
         isReturnable: editProduct.isReturnable ?? false,
@@ -214,11 +204,26 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         unit: 'piece',
         imageUrl: '',
       });
-      setHsn(null);
       setTaxCategory('GOODS');
       setReturnPolicy(DEFAULT_RETURN_POLICY);
     }
   }, [editProduct, reset, open, categories]);
+
+  // Initialise the HSN selection only when the modal (re)opens or the edited
+  // product changes. Keeping this separate from the category-driven reset above
+  // prevents an async `categories` refetch from wiping a user's HSN selection.
+  useEffect(() => {
+    if (editProduct?.hsnCodeRef) {
+      setHsn({
+        id: editProduct.hsnCodeRef.id,
+        code: editProduct.hsnCodeRef.code,
+        description: editProduct.hsnCodeRef.description,
+        defaultGstSlab: editProduct.hsnCodeRef.defaultGstSlab,
+      });
+    } else {
+      setHsn(null);
+    }
+  }, [editProduct, open]);
 
   useEffect(() => {
     if (!open || !needsFssai || !storeDefaultFssai) return;
