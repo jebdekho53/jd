@@ -52,3 +52,4 @@ tests/e2e/.env.qa.local
 # Misc
 *.tsbuildinfo
 apps/api/dist/
+.env.production
