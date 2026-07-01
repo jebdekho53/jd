@@ -56,6 +56,7 @@ export function RazorpayButton({
   const verifyPayment = useVerifyPaymentMutation();
   const syncPayment = useSyncPaymentMutation();
   const { toast } = useToast();
+  const payFlowActiveRef = useRef(false);
 
   useEffect(() => {
     loadRazorpayScript();
@@ -99,8 +100,12 @@ export function RazorpayButton({
   );
 
   const handlePay = useCallback(async () => {
+    if (payFlowActiveRef.current) return;
+    payFlowActiveRef.current = true;
+
     const loaded = await loadRazorpayScript();
     if (!loaded) {
+      payFlowActiveRef.current = false;
       toast('Could not load payment gateway. Check your connection and try again.', 'error');
       onFailure?.('Script load failed');
       return;
@@ -110,6 +115,7 @@ export function RazorpayButton({
     try {
       orderData = await createOrder.mutateAsync(checkoutId);
     } catch {
+      payFlowActiveRef.current = false;
       toast('Failed to create payment order. Please try again.', 'error');
       return;
     }
@@ -138,10 +144,21 @@ export function RazorpayButton({
             callback_url: razorpayCallbackUrl(),
           }
         : {
-            handler: confirmPayment,
+            handler: async (response: {
+              razorpay_order_id: string;
+              razorpay_payment_id: string;
+              razorpay_signature: string;
+            }) => {
+              try {
+                await confirmPayment(response);
+              } finally {
+                payFlowActiveRef.current = false;
+              }
+            },
           }),
       modal: {
         ondismiss: () => {
+          payFlowActiveRef.current = false;
           if (!standalone) toast('Payment cancelled', 'info');
         },
         ...(standalone ? {} : { confirm_close: true }),
