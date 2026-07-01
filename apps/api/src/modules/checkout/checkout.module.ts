@@ -47,8 +47,6 @@ export class CheckoutModule implements NestModule {
         { path: 'buyer/food-checkout/razorpay/create-order/:checkoutId', method: RequestMethod.POST },
         { path: 'buyer/food-checkout/razorpay/verify', method: RequestMethod.POST },
         { path: 'buyer/food-checkout/razorpay/sync/:checkoutId', method: RequestMethod.POST },
-        { path: 'payments/razorpay/create-order', method: RequestMethod.POST },
-        { path: 'payments/razorpay/verify', method: RequestMethod.POST },
       );
   }
 }
