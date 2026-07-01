@@ -28,7 +28,7 @@ let CheckoutModule = class CheckoutModule {
     configure(consumer) {
         consumer
             .apply(idempotency_middleware_1.IdempotencyMiddleware)
-            .forRoutes({ path: 'buyer/checkout', method: common_1.RequestMethod.POST }, { path: 'buyer/checkout/cod', method: common_1.RequestMethod.POST }, { path: 'buyer/food-checkout', method: common_1.RequestMethod.POST }, { path: 'buyer/food-checkout/cod', method: common_1.RequestMethod.POST }, { path: 'buyer/food-checkout/razorpay/create-order/:checkoutId', method: common_1.RequestMethod.POST }, { path: 'buyer/food-checkout/razorpay/verify', method: common_1.RequestMethod.POST }, { path: 'buyer/food-checkout/razorpay/sync/:checkoutId', method: common_1.RequestMethod.POST }, { path: 'payments/razorpay/create-order', method: common_1.RequestMethod.POST }, { path: 'payments/razorpay/verify', method: common_1.RequestMethod.POST });
+            .forRoutes({ path: 'buyer/checkout', method: common_1.RequestMethod.POST }, { path: 'buyer/checkout/cod', method: common_1.RequestMethod.POST }, { path: 'buyer/food-checkout', method: common_1.RequestMethod.POST }, { path: 'buyer/food-checkout/cod', method: common_1.RequestMethod.POST }, { path: 'buyer/food-checkout/razorpay/create-order/:checkoutId', method: common_1.RequestMethod.POST }, { path: 'buyer/food-checkout/razorpay/verify', method: common_1.RequestMethod.POST }, { path: 'buyer/food-checkout/razorpay/sync/:checkoutId', method: common_1.RequestMethod.POST });
     }
 };
 exports.CheckoutModule = CheckoutModule;

@@ -50,6 +50,7 @@ export declare class ProductService {
     resolveDefaultVariantId(productId: string): Promise<string>;
     fetchProductWithRelations(productId: string, storeId?: string): Promise<ProductWithRelations>;
     private validateProductTaxCompliance;
+    private assertActiveHsnCode;
     findStoreFssaiLicense(storeId: string): Promise<string | null>;
     private assertStoreOwnership;
     private assertSkuUnique;

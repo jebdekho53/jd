@@ -18,7 +18,9 @@ export declare class DeliveryOrchestratorService {
     private readonly config;
     private readonly logger;
     constructor(prisma: PrismaService, registry: LogisticsProviderRegistry, domainEvents: DomainEventsService, statusHistory: OrderStatusHistoryService, orderCache: OrderCacheService, events: EventEmitter2, orderDelivered: OrderDeliveredHandlerService, config: ConfigService);
-    dispatchShipment(orderId: string, attempt?: number): Promise<{
+    dispatchShipment(orderId: string, attempt?: number, options?: {
+        allowAssignedRepair?: boolean;
+    }): Promise<{
         shipmentId: string;
         deliveryId: string;
         trackingNumber: string;
@@ -30,6 +32,7 @@ export declare class DeliveryOrchestratorService {
         trackingNumber: string;
         estimatedEtaMins: number | null;
     }>;
+    private repairShipmentIdentifierFromRawResponse;
     cancelShipment(orderId: string, reason?: string): Promise<void>;
     syncShipmentTracking(orderId: string): Promise<void>;
     applyStatusUpdate(shipmentId: string, providerStatus: string, normalizedStatus: ShipmentProviderStatus, extras?: {
@@ -47,6 +50,8 @@ export declare class DeliveryOrchestratorService {
     private orderStatusForShipment;
     private ensureProviderRecord;
     private buildShipmentInput;
+    private allocateShadowfaxAwb;
+    private shadowfaxPreallocatedAwbs;
     private resolvePayerContact;
     getDashboardStats(): Promise<{
         activeProvider: import("@prisma/client").$Enums.DeliveryProviderType;

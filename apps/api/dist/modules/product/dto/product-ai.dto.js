@@ -28,7 +28,7 @@ __decorate([
 ], AnalyzeProductImageDto.prototype, "dataUrl", void 0);
 class ConfirmAiProductDto {
     static _OPENAPI_METADATA_FACTORY() {
-        return { name: { required: true, type: () => String, minLength: 2, maxLength: 200 }, description: { required: false, type: () => String }, brand: { required: false, type: () => String }, sku: { required: false, type: () => String }, categoryId: { required: false, type: () => String }, basePrice: { required: true, type: () => Number, minimum: 0 }, mrp: { required: false, type: () => Number, minimum: 0 }, unit: { required: false, type: () => String }, quantity: { required: false, type: () => Number, minimum: 0 }, tags: { required: false, type: () => [String] }, ingredients: { required: false, type: () => String }, shelfLife: { required: false, type: () => String }, countryOfOrigin: { required: false, type: () => String }, manufacturerName: { required: false, type: () => String }, fssaiLicense: { required: false, type: () => String }, storageInstructions: { required: false, type: () => String }, hsnCodeId: { required: false, type: () => String }, gstSlab: { required: false, type: () => Object }, taxCategory: { required: false, type: () => Object }, confirmReturnPolicy: { required: false, type: () => Boolean }, publish: { required: true, type: () => Boolean } };
+        return { name: { required: true, type: () => String, minLength: 2, maxLength: 200 }, description: { required: false, type: () => String }, brand: { required: false, type: () => String }, sku: { required: false, type: () => String }, categoryId: { required: false, type: () => String }, basePrice: { required: true, type: () => Number, minimum: 0 }, mrp: { required: false, type: () => Number, minimum: 0 }, unit: { required: false, type: () => String }, quantity: { required: false, type: () => Number, minimum: 0 }, tags: { required: false, type: () => [String] }, ingredients: { required: false, type: () => String }, shelfLife: { required: false, type: () => String }, countryOfOrigin: { required: false, type: () => String }, manufacturerName: { required: false, type: () => String }, fssaiLicense: { required: false, type: () => String }, storageInstructions: { required: false, type: () => String }, hsnCodeId: { required: true, type: () => String }, gstSlab: { required: false, type: () => Object }, taxCategory: { required: false, type: () => Object }, confirmReturnPolicy: { required: false, type: () => Boolean }, publish: { required: true, type: () => Boolean } };
     }
 }
 exports.ConfirmAiProductDto = ConfirmAiProductDto;
@@ -132,9 +132,9 @@ __decorate([
     __metadata("design:type", String)
 ], ConfirmAiProductDto.prototype, "storageInstructions", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)(),
-    (0, class_validator_1.IsOptional)(),
+    (0, swagger_1.ApiProperty)({ description: 'Required HSN code reference ID for GST compliance and logistics' }),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], ConfirmAiProductDto.prototype, "hsnCodeId", void 0);
 __decorate([

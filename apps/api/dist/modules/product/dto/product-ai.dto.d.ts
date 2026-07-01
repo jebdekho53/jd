@@ -19,7 +19,7 @@ export declare class ConfirmAiProductDto {
     manufacturerName?: string;
     fssaiLicense?: string;
     storageInstructions?: string;
-    hsnCodeId?: string;
+    hsnCodeId: string;
     gstSlab?: GstSlab;
     taxCategory?: 'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED';
     confirmReturnPolicy?: boolean;

@@ -21,6 +21,7 @@ const product_service_1 = require("./product.service");
 const product_duplicate_service_1 = require("./product-duplicate.service");
 const product_csv_util_1 = require("./product-csv.util");
 const product_ai_constants_1 = require("./product-ai.constants");
+const hsn_code_util_1 = require("./hsn-code.util");
 const GST_SLAB_MAP = {
     ZERO: client_1.GstSlab.ZERO,
     '0': client_1.GstSlab.ZERO,
@@ -164,12 +165,19 @@ let ProductCsvService = ProductCsvService_1 = class ProductCsvService {
                 errors.push('imageUrl must be a valid http(s) URL');
             }
             let hsnCodeId;
-            if (v.hsnCode?.trim()) {
+            const hsnCode = (0, hsn_code_util_1.normalizeHsnCode)(v.hsnCode);
+            if (!hsnCode) {
+                errors.push('hsnCode is required');
+            }
+            else if (!(0, hsn_code_util_1.isValidHsnCode)(hsnCode)) {
+                errors.push('hsnCode must be numeric and 4, 6, or 8 digits');
+            }
+            else {
                 const hsn = await this.prisma.hSNCode.findFirst({
-                    where: { code: v.hsnCode.trim(), isActive: true },
+                    where: { code: hsnCode, isActive: true },
                 });
                 if (!hsn)
-                    errors.push(`hsnCode "${v.hsnCode}" not found`);
+                    errors.push(`hsnCode "${hsnCode}" not found`);
                 else
                     hsnCodeId = hsn.id;
             }
@@ -227,7 +235,7 @@ let ProductCsvService = ProductCsvService_1 = class ProductCsvService {
                 stock,
                 description: v.description?.trim(),
                 tags,
-                hsnCode: v.hsnCode?.trim(),
+                hsnCode,
                 gstSlab: gstSlab ?? v.gstSlab?.trim(),
                 fssaiLicense: v.fssaiLicense?.trim(),
                 imageUrl: v.imageUrl?.trim() || undefined,
@@ -255,7 +263,7 @@ let ProductCsvService = ProductCsvService_1 = class ProductCsvService {
                     manufacturerName: v.manufacturerName?.trim(),
                     fssaiLicense: v.fssaiLicense?.trim(),
                     storageInstructions: v.storageInstructions?.trim(),
-                    hsnCodeId,
+                    hsnCodeId: hsnCodeId,
                     gstSlab,
                 };
             }

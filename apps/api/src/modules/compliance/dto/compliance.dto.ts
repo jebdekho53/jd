@@ -45,6 +45,20 @@ export class UpdateProductTaxDto {
   taxInclusive?: boolean;
 }
 
+export class EnsureHsnCodeDto {
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\d{4}(\d{2}){0,2}$/, { message: 'HSN code must be numeric and 4, 6, or 8 digits' })
+  code!: string;
+
+  @IsEnum(GstSlab)
+  gstSlab!: GstSlab;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
 export class SyncTdsTcsDto {
   @Matches(/^\d{4}-\d{2}$/)
   periodMonth: string;

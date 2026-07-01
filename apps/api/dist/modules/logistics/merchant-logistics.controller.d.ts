@@ -19,9 +19,9 @@ export declare class MerchantLogisticsController {
                 description: string | null;
                 lat: number | null;
                 lng: number | null;
+                shipmentId: string;
                 providerStatus: string | null;
                 normalizedStatus: import("@prisma/client").$Enums.ShipmentProviderStatus;
-                shipmentId: string;
                 rawPayload: import("@prisma/client/runtime/library").JsonValue | null;
             }[];
         } & {
@@ -35,8 +35,8 @@ export declare class MerchantLogisticsController {
             deliveredAt: Date | null;
             providerType: import("@prisma/client").$Enums.DeliveryProviderType;
             deliveryId: string | null;
-            externalShipmentId: string | null;
             trackingNumber: string | null;
+            externalShipmentId: string | null;
             estimatedEtaMins: number | null;
             providerStatus: string | null;
             rawResponse: import("@prisma/client/runtime/library").JsonValue | null;

@@ -36,7 +36,7 @@ export declare class CreateProductDto {
     storageInstructions?: string;
     disclaimer?: string;
     taxInclusive?: boolean;
-    hsnCodeId?: string;
+    hsnCodeId: string;
     gstSlab?: GstSlab;
     taxCategory?: 'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED';
     isReturnable?: boolean;

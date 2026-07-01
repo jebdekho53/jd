@@ -83,6 +83,8 @@ export declare function getConfig(configService: ConfigService): {
             readonly testToken: string;
             readonly productionToken: string;
             readonly webhookSecret: string;
+            readonly preallocatedAwbs: string;
+            readonly preallocatedReverseAwbs: string;
         };
     };
     readonly buyerSiteUrl: string;

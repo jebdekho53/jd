@@ -17,6 +17,16 @@ export declare class VendorPortalController {
                 vendorProductId: string;
                 vendorOrderId: string;
             }[];
+            shipment: {
+                id: string;
+                status: import("@prisma/client").$Enums.VendorShipmentStatus;
+                createdAt: Date;
+                deliveredAt: Date | null;
+                trackingNumber: string | null;
+                shippedAt: Date | null;
+                carrier: string | null;
+                vendorOrderId: string;
+            } | null;
             invoice: {
                 id: string;
                 status: import("@prisma/client").$Enums.VendorInvoiceStatus;
@@ -27,16 +37,6 @@ export declare class VendorPortalController {
                 paidAt: Date | null;
                 invoiceNumber: string;
                 dueDate: Date | null;
-                vendorOrderId: string;
-            } | null;
-            shipment: {
-                id: string;
-                status: import("@prisma/client").$Enums.VendorShipmentStatus;
-                createdAt: Date;
-                deliveredAt: Date | null;
-                trackingNumber: string | null;
-                shippedAt: Date | null;
-                carrier: string | null;
                 vendorOrderId: string;
             } | null;
         } & {
@@ -87,6 +87,16 @@ export declare class VendorPortalController {
     deliver(user: RequestUser, id: string): Promise<{
         success: boolean;
         data: ({
+            shipment: {
+                id: string;
+                status: import("@prisma/client").$Enums.VendorShipmentStatus;
+                createdAt: Date;
+                deliveredAt: Date | null;
+                trackingNumber: string | null;
+                shippedAt: Date | null;
+                carrier: string | null;
+                vendorOrderId: string;
+            } | null;
             invoice: {
                 id: string;
                 status: import("@prisma/client").$Enums.VendorInvoiceStatus;
@@ -97,16 +107,6 @@ export declare class VendorPortalController {
                 paidAt: Date | null;
                 invoiceNumber: string;
                 dueDate: Date | null;
-                vendorOrderId: string;
-            } | null;
-            shipment: {
-                id: string;
-                status: import("@prisma/client").$Enums.VendorShipmentStatus;
-                createdAt: Date;
-                deliveredAt: Date | null;
-                trackingNumber: string | null;
-                shippedAt: Date | null;
-                carrier: string | null;
                 vendorOrderId: string;
             } | null;
         } & {
