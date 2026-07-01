@@ -168,7 +168,7 @@ export class ShadowfaxClient {
         },
       });
     }
-    return this.request('POST', shadowfaxEndpointsForMode(this.apiMode).serviceability, payload);
+    return this.request('GET', this.daleServiceabilityPath(payload.pincode));
   }
 
   async healthCheck(): Promise<{ healthy: boolean; latencyMs: number; message?: string }> {
@@ -184,9 +184,11 @@ export class ShadowfaxClient {
       const isDaleMode = this.apiMode === 'dale_staging' || this.apiMode === 'dale_production';
       const path = isDaleMode
         ? this.daleServiceabilityPath()
-        : shadowfaxEndpointsForMode(this.apiMode).health;
+        : this.apiMode === 'v3_marketplace' || this.apiMode === 'v3_warehouse'
+          ? this.daleServiceabilityPath()
+          : shadowfaxEndpointsForMode(this.apiMode).health;
       const response = await this.http.request({
-        method: isDaleMode ? 'GET' : this.apiMode === 'legacy' || this.apiMode === 'hl_staging' ? 'PUT' : this.apiMode === 'flash' ? 'POST' : 'GET',
+        method: isDaleMode || this.apiMode === 'v3_marketplace' || this.apiMode === 'v3_warehouse' ? 'GET' : this.apiMode === 'legacy' || this.apiMode === 'hl_staging' ? 'PUT' : this.apiMode === 'flash' ? 'POST' : 'GET',
         url: path,
         data:
           this.apiMode === 'legacy' || this.apiMode === 'hl_staging'

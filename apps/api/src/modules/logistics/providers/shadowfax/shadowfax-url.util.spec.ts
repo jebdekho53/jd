@@ -56,6 +56,8 @@ describe('shadowfax-url.util', () => {
   it('selects marketplace and warehouse endpoints', () => {
     expect(shadowfaxEndpointsForMode('v3_marketplace').createOrder).toBe('/v3/clients/orders/');
     expect(shadowfaxEndpointsForMode('v3_warehouse').createOrder).toBe('/v3/clients/shipments/');
+    expect(shadowfaxEndpointsForMode('v3_marketplace').serviceability).toBe('/v1/clients/serviceability/');
+    expect(shadowfaxEndpointsForMode('v3_warehouse').serviceability).toBe('/v1/clients/serviceability/');
   });
 
   it('formats request target as host + path only', () => {

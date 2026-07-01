@@ -40,13 +40,15 @@ if [[ "$mode" == "flash" ]]; then
   base="${base%/api}"
   serviceability_path="/order/serviceability/"
   create_path="/order/create/"
+  serviceability_method="POST"
 else
   base="${base%/api/api}"
   base="${base%/api/v3}"
   base="${base%/v3}"
   base="${base%/api}"
   base="${base}/api"
-  serviceability_path="/v3/clients/serviceability/"
+  serviceability_path="/v1/clients/serviceability/"
+  serviceability_method="GET"
   if [[ "$mode" == "v3_warehouse" ]]; then
     create_path="/v3/clients/shipments/"
   else
@@ -73,7 +75,12 @@ if [[ "$token" =~ [[:space:]] ]]; then
   exit 1
 fi
 
-url="${base}${serviceability_path}"
+serviceability_pincodes="${SHADOWFAX_SERVICEABILITY_PINCODE:-${SHADOWFAX_TEST_DROPOFF_PINCODE:-560016}}"
+if [[ "$serviceability_method" == "GET" ]]; then
+  url="${base}${serviceability_path}?service=customer_delivery&page=1&count=10&pincodes=${serviceability_pincodes}"
+else
+  url="${base}${serviceability_path}"
+fi
 create_url="${base}${create_path}"
 payload="$(cat <<JSON
 {
@@ -95,19 +102,30 @@ echo "Resolved create order endpoint=${create_path}"
 echo "Resolved create order URL=${create_url}"
 echo "Token present=yes token=$(mask "$token")"
 echo ""
-echo "POST ${url}"
-echo "Request body:"
-echo "$payload"
+echo "${serviceability_method} ${url}"
+if [[ "$serviceability_method" == "POST" ]]; then
+  echo "Request body:"
+  echo "$payload"
+fi
 echo ""
 
 tmp_body="$(mktemp)"
-status="$(
-  curl -sS -o "$tmp_body" -w "%{http_code}" \
-    -X POST "$url" \
-    -H "Authorization: Token ${token}" \
-    -H "Content-Type: application/json" \
-    -d "$payload" || true
-)"
+if [[ "$serviceability_method" == "GET" ]]; then
+  status="$(
+    curl -sS -o "$tmp_body" -w "%{http_code}" \
+      -X GET "$url" \
+      -H "Authorization: Token ${token}" \
+      -H "Content-Type: application/json" || true
+  )"
+else
+  status="$(
+    curl -sS -o "$tmp_body" -w "%{http_code}" \
+      -X POST "$url" \
+      -H "Authorization: Token ${token}" \
+      -H "Content-Type: application/json" \
+      -d "$payload" || true
+  )"
+fi
 
 echo "HTTP ${status}"
 echo "Response body:"

@@ -245,6 +245,31 @@ describe('ShadowfaxClient', () => {
     );
   });
 
+  it('uses documented v1 serviceability endpoint for marketplace mode', async () => {
+    const client = new ShadowfaxClient(
+      config({
+        NODE_ENV: 'production',
+        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_API_MODE: 'v3_marketplace',
+        SHADOWFAX_PRODUCTION_TOKEN: 'raw-token-123',
+        SHADOWFAX_TEST_PINCODE: '560016',
+      }),
+    );
+
+    await client.estimatePrice({
+      pickup_lat: 28.61,
+      pickup_lng: 77.2,
+      drop_lat: 28.62,
+      drop_lng: 77.21,
+      pincode: '560016',
+    });
+
+    expect(mockHttp.get).toHaveBeenCalledWith(
+      '/v1/clients/serviceability/?service=customer_delivery&page=1&count=10&pincodes=560016',
+    );
+    expect(mockHttp.post).not.toHaveBeenCalledWith('/v3/clients/serviceability/', expect.anything());
+  });
+
   it('runs Dale serviceability with the verified GET pincode endpoint without creating a shipment', async () => {
     const client = new ShadowfaxClient(
       config({
