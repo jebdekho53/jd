@@ -114,15 +114,23 @@ function primaryResponseRecord(raw: Record<string, unknown>): Record<string, unk
   return {};
 }
 
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '[unserializable Shadowfax response]';
+  }
+}
+
 function shadowfaxFailureMessage(raw: Record<string, unknown>): string | undefined {
   const message = findStringByKeys(raw, ['message', 'detail']);
   const errors = findStringByKeys(raw, ['errors', 'error']);
   const success = raw.success;
   if (typeof success === 'boolean' && !success) {
-    return errors ?? message ?? 'Shadowfax returned unsuccessful response';
+    return errors ?? message ?? `Shadowfax returned unsuccessful response: ${safeJson(raw)}`;
   }
   if (message?.trim().toLowerCase() === 'failure') {
-    return errors ? `${message}: ${errors}` : message;
+    return errors ? `${message}: ${errors}` : `${message}: ${safeJson(raw)}`;
   }
   return undefined;
 }
@@ -161,6 +169,14 @@ export class ShadowfaxProvider implements ILogisticsProvider {
 
     const failureMessage = shadowfaxFailureMessage(raw);
     if (failureMessage) {
+      this.logger.error(
+        {
+          orderId: input.orderId,
+          providerMessage: failureMessage,
+          shadowfaxResponse: raw,
+        },
+        'Shadowfax marketplace create returned failure response',
+      );
       throw new LogisticsProviderError(
         `Shadowfax API failed: ${failureMessage}`,
         DeliveryProviderType.SHADOWFAX,
