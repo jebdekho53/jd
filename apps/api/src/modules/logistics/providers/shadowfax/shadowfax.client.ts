@@ -55,6 +55,7 @@ export class ShadowfaxClient {
   private readonly http: AxiosInstance;
   private readonly apiUrl: string;
   private readonly token: string;
+  private readonly tokenConfigError: string | null;
   private readonly apiMode: ShadowfaxApiMode;
   private readonly creditsKey: string;
   private readonly createOrderEndpoint: string;
@@ -70,16 +71,9 @@ export class ShadowfaxClient {
     this.createOrderEndpoint = shadowfaxEndpointsForMode(this.apiMode).createOrder;
     this.debugPayloads = this.isDebugLoggingEnabled();
     const nodeEnv = config.get<string>('NODE_ENV', 'development');
-    this.token =
-      this.apiMode === 'dale_staging' || this.apiMode === 'hl_staging'
-        ? (config.get<string>('SHADOWFAX_TEST_TOKEN', '') ?? '').trim()
-        : this.apiMode === 'dale_production'
-          ? (config.get<string>('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '').trim()
-          : nodeEnv === 'production'
-          ? (config.get<string>('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '').trim()
-          : (config.get<string>('SHADOWFAX_TEST_TOKEN', '') ??
-            config.get<string>('SHADOWFAX_PRODUCTION_TOKEN', '') ??
-            '').trim();
+    const tokenResolution = this.resolveToken(nodeEnv);
+    this.token = tokenResolution.token;
+    this.tokenConfigError = tokenResolution.error;
     this.creditsKey = config.get<string>('SHADOWFAX_CREDITS_KEY', '') ?? '';
     this.http = axios.create({
       baseURL: this.apiUrl || undefined,
@@ -94,10 +88,17 @@ export class ShadowfaxClient {
         baseUrl: this.apiUrl || '(not set)',
         apiMode: this.apiMode,
         createOrderEndpoint: this.createOrderEndpoint,
-        tokenPresent: Boolean(this.token),
+        tokenPresent: Boolean(this.token) && !this.tokenConfigError,
+        tokenConfigValid: !this.tokenConfigError,
       },
       'Shadowfax configuration resolved',
     );
+    if (this.tokenConfigError) {
+      this.logger.error(
+        { apiMode: this.apiMode, tokenConfigValid: false },
+        this.tokenConfigError,
+      );
+    }
   }
 
   getApiMode(): ShadowfaxApiMode {
@@ -105,7 +106,7 @@ export class ShadowfaxClient {
   }
 
   isConfigured(): boolean {
-    if (!this.apiUrl || !this.token) return false;
+    if (!this.apiUrl || !this.token || this.tokenConfigError) return false;
     if (this.apiMode === 'flash' && !this.creditsKey) return false;
     return true;
   }
@@ -213,11 +214,39 @@ export class ShadowfaxClient {
   }
 
   private authHeader(): string | undefined {
+    if (this.tokenConfigError) return undefined;
     if (!this.token) return undefined;
     if (this.apiMode === 'flash') {
       return this.token;
     }
     return `Token ${this.token}`;
+  }
+
+  private resolveToken(nodeEnv: string): { token: string; error: string | null } {
+    const productionToken = (this.config.get<string>('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '').trim();
+    const testToken = (this.config.get<string>('SHADOWFAX_TEST_TOKEN', '') ?? '').trim();
+    const isStagingMode = this.apiMode === 'dale_staging' || this.apiMode === 'hl_staging';
+    const token = isStagingMode
+      ? testToken || productionToken
+      : nodeEnv === 'production'
+        ? productionToken
+        : testToken || productionToken;
+
+    return {
+      token,
+      error: this.validateRawToken(token),
+    };
+  }
+
+  private validateRawToken(token: string): string | null {
+    if (!token) return null;
+    if (/^Bearer(?:\s|$)/i.test(token) || /^Token(?:\s|$)/i.test(token)) {
+      return 'Shadowfax token env must contain the raw token only, without "Token " or "Bearer " prefix.';
+    }
+    if (/\s/.test(token)) {
+      return 'Shadowfax token env must not contain whitespace.';
+    }
+    return null;
   }
 
   private withPaymentMode(payload: ShadowfaxCreatePayload): ShadowfaxCreatePayload {
@@ -357,9 +386,10 @@ export class ShadowfaxClient {
   ): Promise<Record<string, unknown>> {
     if (!this.isConfigured()) {
       throw new LogisticsProviderError(
-        this.apiMode === 'flash'
+        this.tokenConfigError ??
+        (this.apiMode === 'flash'
           ? 'Shadowfax Flash is not configured (SHADOWFAX_API_URL, token, SHADOWFAX_CREDITS_KEY)'
-          : 'Shadowfax API is not configured (SHADOWFAX_API_URL / token)',
+          : 'Shadowfax API is not configured (SHADOWFAX_API_URL / token)'),
         DeliveryProviderType.SHADOWFAX,
         'NOT_CONFIGURED',
         false,

@@ -64,8 +64,12 @@ if [[ -z "$token" ]]; then
   echo "ERROR: SHADOWFAX_PRODUCTION_TOKEN or SHADOWFAX_TEST_TOKEN is not set"
   exit 1
 fi
-if [[ "$token" == Token\ * ]]; then
-  echo "ERROR: token env must contain the raw token only, without 'Token ' prefix"
+if [[ "$token" =~ ^[Tt]oken([[:space:]]|$) ]] || [[ "$token" =~ ^[Bb]earer([[:space:]]|$) ]]; then
+  echo "ERROR: token env must contain the raw token only, without 'Token ' or 'Bearer ' prefix"
+  exit 1
+fi
+if [[ "$token" =~ [[:space:]] ]]; then
+  echo "ERROR: token env must not contain whitespace"
   exit 1
 fi
 
