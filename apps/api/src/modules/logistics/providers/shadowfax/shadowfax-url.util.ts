@@ -9,6 +9,10 @@ export function resolveShadowfaxApiMode(
   explicitMode?: string | null,
 ): ShadowfaxApiMode {
   const mode = (explicitMode ?? '').trim().toLowerCase();
+  if (mode === 'dale_staging' || mode === 'staging') return 'dale_staging';
+  if (mode === 'dale_production' || mode === 'production' || mode === 'prod') return 'dale_production';
+  if (mode === 'hl_staging') return 'hl_staging';
+  if (mode === 'legacy' || mode === 'hl_marketplace' || mode === 'v2') return 'legacy';
   if (mode === 'flash' || mode === 'hyperlocal' || mode === 'hl') return 'flash';
   if (mode === 'v3_warehouse' || mode === 'warehouse') return 'v3_warehouse';
   if (mode === 'v3_marketplace' || mode === 'marketplace' || mode === 'ecommerce' || mode === 'v3') {
@@ -16,6 +20,18 @@ export function resolveShadowfaxApiMode(
   }
 
   const host = apiUrl.toLowerCase();
+  if (host.includes('dale.staging.shadowfax.in')) {
+    return 'dale_staging';
+  }
+  if (host.includes('dale.shadowfax.in')) {
+    return 'dale_production';
+  }
+  if (host.includes('hlbackend.staging.shadowfax.in')) {
+    return 'hl_staging';
+  }
+  if (host.includes('api.shadowfax.in')) {
+    return 'legacy';
+  }
   if (
     host.includes('flash-api.shadowfax') ||
     host.includes('hlbackend') ||
@@ -32,6 +48,12 @@ export function normalizeShadowfaxApiBase(
 ): string {
   let base = apiUrl.trim().replace(/\/$/, '');
   if (!base) return '';
+  if (mode === 'dale_staging' || mode === 'dale_production' || mode === 'legacy' || mode === 'hl_staging') {
+    return base
+      .replace(/\/api\/v2\/?$/i, '')
+      .replace(/\/api\/v1\/?$/i, '')
+      .replace(/\/api\/?$/i, '');
+  }
   if (mode === 'flash') return base.replace(/\/api\/v3\/?$/i, '').replace(/\/api\/?$/i, '');
 
   // V3 docs define base URL as https://dale.shadowfax.in/api.
@@ -72,7 +94,7 @@ export function maskShadowfaxToken(token: string): string {
 }
 
 export function assertSupportedShadowfaxPath(mode: ShadowfaxApiMode, path: string): void {
-  if (mode === 'flash') return;
+  if (mode === 'flash' || mode === 'dale_staging' || mode === 'dale_production' || mode === 'legacy' || mode === 'hl_staging') return;
   if (path.includes('/api/')) {
     throw new Error(`Shadowfax endpoint path must be relative to /api base: ${path}`);
   }

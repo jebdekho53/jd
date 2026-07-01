@@ -308,6 +308,9 @@ let PaymentService = PaymentService_1 = class PaymentService {
         void this.emailNotifications.sendOrderConfirmation(payment.order.id).catch((err) => {
             this.logger.error({ err, orderId: payment.order.id }, 'Order confirmation email failed (webhook)');
         });
+        void this.emailNotifications.sendBuyerPaymentSuccess(payment.order.id).catch((err) => {
+            this.logger.error({ err, orderId: payment.order.id }, 'Payment success email failed (webhook)');
+        });
         this.scheduleRiderDispatch(payment.order.id);
     }
     async handlePaymentFailed(payload) {
@@ -345,6 +348,9 @@ let PaymentService = PaymentService_1 = class PaymentService {
         }
         await this.domainEvents.emit(client_1.DomainEventType.PAYMENT_FAILED, 'payment', payment.id, { orderId: payment.order.id, failureReason, source: 'webhook' }, { userId: payment.order.buyerProfileId, ipAddress: null });
         void this.orderCache.invalidateAll(payment.order.id);
+        void this.emailNotifications.sendBuyerPaymentFailed(payment.order.id).catch((err) => {
+            this.logger.error({ err, orderId: payment.order.id }, 'Payment failed email failed (webhook)');
+        });
     }
     async getBuyerContact(userId) {
         const buyerProfile = await this.prisma.buyerProfile.findUnique({

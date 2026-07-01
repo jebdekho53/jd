@@ -556,14 +556,6 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
                 storeId,
                 metadata: { applicationId: app.id, riskScore: risk.riskScore },
             }),
-            this.supportTickets.createTicket({
-                requesterUserId: userId,
-                actorType: client_1.SupportActorType.MERCHANT,
-                categoryCode: 'MERCHANT_ONBOARDING',
-                subject: `New merchant application: ${app.businessName}`,
-                description: `Store application submitted for ${app.storeName}. Risk score: ${risk.riskScore}.`,
-                channel: 'IN_APP',
-            }, ipAddress),
             this.sendSubmissionNotifications(userId, app.ownerEmail, app.ownerPhone, app.businessName),
             this.audit.log({
                 actorId: userId,
@@ -1061,8 +1053,9 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
     }
     async sendSubmissionNotifications(userId, email, _phone, businessName) {
         if (email) {
-            void this.emailNotifications.sendWelcomeEmail(email, businessName);
+            void this.emailNotifications.sendMerchantApplicationReceived(email, businessName);
         }
+        void this.emailNotifications.sendAdminNewMerchantApplication(businessName, email ?? undefined);
         this.logger.log({ userId, businessName }, 'Merchant application submitted — SMS/WhatsApp via CRM orchestrator');
     }
 };

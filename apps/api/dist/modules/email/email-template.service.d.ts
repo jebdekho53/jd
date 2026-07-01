@@ -30,6 +30,19 @@ export declare class EmailTemplateService {
         html: string;
         text: string;
     };
+    eventNotice(data: {
+        subject: string;
+        heading: string;
+        lines: string[];
+        referenceLabel?: string;
+        referenceValue?: string;
+        actionLabel?: string;
+        actionUrl?: string;
+    }): {
+        subject: string;
+        html: string;
+        text: string;
+    };
     passwordReset(resetUrl: string, expiresMinutes: number): {
         subject: string;
         html: string;

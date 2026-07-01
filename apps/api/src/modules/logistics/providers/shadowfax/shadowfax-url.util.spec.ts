@@ -20,20 +20,37 @@ describe('shadowfax-url.util', () => {
     );
   });
 
-  it('detects flash mode from hlbackend host', () => {
-    expect(
-      resolveShadowfaxApiMode('https://hlbackend.staging.shadowfax.in', ''),
-    ).toBe('flash');
+
+  it('detects verified Dale staging and production hosts', () => {
+    expect(resolveShadowfaxApiMode('https://dale.staging.shadowfax.in', '')).toBe('dale_staging');
+    expect(resolveShadowfaxApiMode('https://dale.shadowfax.in/api', '')).toBe('dale_production');
+    expect(resolveShadowfaxApiMode('https://api.shadowfax.in', 'staging')).toBe('dale_staging');
+    expect(resolveShadowfaxApiMode('https://api.shadowfax.in', 'production')).toBe('dale_production');
+    expect(normalizeShadowfaxApiBase('https://dale.staging.shadowfax.in/api/v1', 'dale_staging')).toBe('https://dale.staging.shadowfax.in');
+    expect(normalizeShadowfaxApiBase('https://dale.shadowfax.in/api', 'dale_production')).toBe('https://dale.shadowfax.in');
+    expect(shadowfaxEndpointsForMode('dale_staging').serviceability).toBe('/api/v1/clients/serviceability/');
   });
 
-  it('defaults v3 mode to marketplace for generic host', () => {
-    expect(resolveShadowfaxApiMode('https://dale.shadowfax.in/api', '')).toBe('v3_marketplace');
+  it('detects documented legacy and HL staging modes', () => {
+    expect(resolveShadowfaxApiMode('https://hlbackend.staging.shadowfax.in', '')).toBe('hl_staging');
+    expect(resolveShadowfaxApiMode('https://api.shadowfax.in', 'hl_staging')).toBe('hl_staging');
+    expect(normalizeShadowfaxApiBase('https://hlbackend.staging.shadowfax.in/api/v1', 'hl_staging')).toBe('https://hlbackend.staging.shadowfax.in');
+    expect(shadowfaxEndpointsForMode('hl_staging').serviceability).toBe('/api/v1/order-serviceability/');
+  });
+
+  it('detects documented legacy host and respects explicit legacy mode', () => {
+    expect(resolveShadowfaxApiMode('https://api.shadowfax.in', '')).toBe('legacy');
+    expect(resolveShadowfaxApiMode('https://dale.shadowfax.in/api', 'legacy')).toBe('legacy');
+    expect(normalizeShadowfaxApiBase('https://api.shadowfax.in/api/v1', 'legacy')).toBe('https://api.shadowfax.in');
+    expect(shadowfaxEndpointsForMode('legacy').serviceability).toBe('/api/v1/order-serviceability/');
   });
 
   it('respects explicit SHADOWFAX_API_MODE', () => {
     expect(resolveShadowfaxApiMode('https://api.shadowfax.in', 'flash')).toBe('flash');
     expect(resolveShadowfaxApiMode('https://api.shadowfax.in', 'v3_warehouse')).toBe('v3_warehouse');
     expect(resolveShadowfaxApiMode('https://api.shadowfax.in', 'v3_marketplace')).toBe('v3_marketplace');
+    expect(resolveShadowfaxApiMode('https://api.shadowfax.in', 'dale_staging')).toBe('dale_staging');
+    expect(resolveShadowfaxApiMode('https://api.shadowfax.in', 'dale_production')).toBe('dale_production');
   });
 
   it('selects marketplace and warehouse endpoints', () => {
@@ -45,6 +62,9 @@ describe('shadowfax-url.util', () => {
     expect(
       shadowfaxRequestTarget('https://dale.shadowfax.in/api', '/v3/clients/orders/'),
     ).toBe('dale.shadowfax.in/api/v3/clients/orders/');
+    expect(
+      shadowfaxRequestTarget('https://dale.shadowfax.in', '/api/v1/clients/serviceability/'),
+    ).toBe('dale.shadowfax.in/api/v1/clients/serviceability/');
   });
 
   it('does not create double /api/api request paths', () => {

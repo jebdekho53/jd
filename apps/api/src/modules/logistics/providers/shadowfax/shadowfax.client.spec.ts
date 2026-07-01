@@ -7,6 +7,7 @@ jest.mock('axios');
 const mockHttp = {
   get: jest.fn(),
   post: jest.fn(),
+  put: jest.fn(),
   request: jest.fn(),
 };
 
@@ -50,7 +51,9 @@ describe('ShadowfaxClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedAxios.create.mockReturnValue(mockHttp as any);
+    mockHttp.get.mockResolvedValue({ data: { results: [{ pincode: '110001', serviceable: true }] }, status: 200 });
     mockHttp.post.mockResolvedValue({ data: { data: { shipment_id: 'sfx-1' } }, status: 200 });
+    mockHttp.put.mockResolvedValue({ data: { serviceable: true, delivery_cost: 42 }, status: 200 });
   });
 
   it('sets Authorization header from raw production token', () => {
@@ -71,11 +74,11 @@ describe('ShadowfaxClient', () => {
     );
   });
 
-  it('uses marketplace create endpoint by default', async () => {
+  it('uses Dale create endpoint for the verified production Dale host', async () => {
     const client = new ShadowfaxClient(
       config({
         NODE_ENV: 'production',
-        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_API_URL: 'https://dale.shadowfax.in',
         SHADOWFAX_PRODUCTION_TOKEN: 'raw-token-123',
       }),
     );
@@ -85,10 +88,10 @@ describe('ShadowfaxClient', () => {
     await client.createShipment(requestPayload);
 
     expect(mockedAxios.create).toHaveBeenCalledWith(
-      expect.objectContaining({ baseURL: 'https://dale.shadowfax.in/api' }),
+      expect.objectContaining({ baseURL: 'https://dale.shadowfax.in' }),
     );
     expect(mockHttp.post).toHaveBeenCalledWith(
-      '/v3/clients/orders/',
+      '/api/v1/clients/seller-pickup-request/',
       expect.objectContaining({
         order_details: expect.objectContaining({ payment_mode: 'PREPAID' }),
       }),
@@ -122,6 +125,7 @@ describe('ShadowfaxClient', () => {
       config({
         NODE_ENV: 'production',
         SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_API_MODE: 'v3_marketplace',
         SHADOWFAX_PRODUCTION_TOKEN: 'raw-token-123',
       }),
     );
@@ -145,6 +149,7 @@ describe('ShadowfaxClient', () => {
         NODE_ENV: 'production',
         SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
         SHADOWFAX_PRODUCTION_TOKEN: 'raw-token-123',
+        SHADOWFAX_API_MODE: 'v3_marketplace',
       }),
     );
 
@@ -162,13 +167,49 @@ describe('ShadowfaxClient', () => {
     );
   });
 
-  it('runs serviceability without creating a shipment', async () => {
-    mockHttp.post.mockResolvedValue({ data: { charge: 45, eta_minutes: 30 }, status: 200 });
+  it('runs Dale serviceability with the verified GET pincode endpoint without creating a shipment', async () => {
     const client = new ShadowfaxClient(
       config({
         NODE_ENV: 'development',
-        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_API_URL: 'https://dale.staging.shadowfax.in',
+        SHADOWFAX_API_MODE: 'dale_staging',
         SHADOWFAX_TEST_TOKEN: 'test-token-123',
+        SHADOWFAX_TEST_PINCODE: '122001',
+      }),
+    );
+
+    await client.estimatePrice({
+      pickup_lat: 28.61,
+      pickup_lng: 77.2,
+      drop_lat: 28.62,
+      drop_lng: 77.21,
+      pincode: '122001',
+    });
+
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: 'https://dale.staging.shadowfax.in',
+        headers: expect.objectContaining({ Authorization: 'Token test-token-123' }),
+      }),
+    );
+    expect(mockHttp.get).toHaveBeenCalledWith(
+      '/api/v1/clients/serviceability/?service=customer_delivery&page=1&count=10&pincodes=122001',
+    );
+    expect(mockHttp.post).not.toHaveBeenCalledWith('/api/v1/clients/seller-pickup-request/', expect.anything());
+  });
+
+
+
+
+
+  it('uses test token and documented payload for HL staging serviceability', async () => {
+    const client = new ShadowfaxClient(
+      config({
+        NODE_ENV: 'production',
+        SHADOWFAX_API_URL: 'https://hlbackend.staging.shadowfax.in',
+        SHADOWFAX_API_MODE: 'hl_staging',
+        SHADOWFAX_TEST_TOKEN: 'test-token-123',
+        SHADOWFAX_PRODUCTION_TOKEN: 'prod-token-123',
       }),
     );
 
@@ -179,22 +220,68 @@ describe('ShadowfaxClient', () => {
       drop_lng: 77.21,
     });
 
-    expect(mockHttp.post).toHaveBeenCalledWith(
-      '/v3/clients/serviceability/',
+    expect(mockedAxios.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        pickup_lat: 28.61,
-        drop_lng: 77.21,
+        baseURL: 'https://hlbackend.staging.shadowfax.in',
+        headers: expect.objectContaining({ Authorization: 'Token test-token-123' }),
       }),
     );
-    expect(mockHttp.post).not.toHaveBeenCalledWith('/v3/clients/orders/', expect.anything());
+    expect(mockHttp.put).toHaveBeenCalledWith(
+      '/api/v1/order-serviceability/',
+      expect.objectContaining({
+        pickup_longitude: '77.2',
+        drop_latitude: '28.62',
+        drop_longitude: '77.21',
+        pickup_latitude: '28.61',
+        paid: 'true',
+        stage_of_check: 'pre_order',
+        order_value: 1,
+        rain_flag: false,
+        client_surge: 0,
+      }),
+    );
+  });
+
+  it('uses documented legacy serviceability endpoint without creating a shipment', async () => {
+    const client = new ShadowfaxClient(
+      config({
+        NODE_ENV: 'production',
+        SHADOWFAX_API_URL: 'https://api.shadowfax.in',
+        SHADOWFAX_API_MODE: 'legacy',
+        SHADOWFAX_PRODUCTION_TOKEN: 'raw-token-123',
+      }),
+    );
+
+    await client.estimatePrice({
+      pickup_lat: 28.61,
+      pickup_lng: 77.2,
+      drop_lat: 28.62,
+      drop_lng: 77.21,
+    });
+
+    expect(mockedAxios.create).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: 'https://api.shadowfax.in' }),
+    );
+    expect(mockHttp.put).toHaveBeenCalledWith(
+      '/api/v1/order-serviceability/',
+      expect.objectContaining({
+        pickup_latitude: '28.61',
+        pickup_longitude: '77.2',
+        drop_latitude: '28.62',
+        drop_longitude: '77.21',
+        stage_of_check: 'pre_order',
+      }),
+    );
+    expect(mockHttp.post).not.toHaveBeenCalledWith('/api/v2/orders/', expect.anything());
   });
 
   it('surfaces serviceability failures', async () => {
-    mockHttp.post.mockRejectedValue({ response: { status: 400, data: { message: 'bad request' } } });
+    mockHttp.get.mockRejectedValue({ response: { status: 400, data: { message: 'bad request' } } });
     const client = new ShadowfaxClient(
       config({
         NODE_ENV: 'development',
-        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_API_URL: 'https://dale.staging.shadowfax.in',
+        SHADOWFAX_API_MODE: 'dale_staging',
         SHADOWFAX_TEST_TOKEN: 'test-token-123',
       }),
     );
@@ -209,11 +296,12 @@ describe('ShadowfaxClient', () => {
     ).rejects.toThrow('Shadowfax API failed: bad request');
   });
 
-  it('does not build a double /api/api base URL', () => {
+  it('does not build a double /api/api base URL for explicit V3 mode', () => {
     new ShadowfaxClient(
       config({
         NODE_ENV: 'production',
         SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api/api',
+        SHADOWFAX_API_MODE: 'v3_marketplace',
         SHADOWFAX_PRODUCTION_TOKEN: 'raw-token-123',
       }),
     );
@@ -228,7 +316,8 @@ describe('ShadowfaxClient', () => {
     const client = new ShadowfaxClient(
       config({
         NODE_ENV: 'development',
-        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_API_URL: 'https://dale.staging.shadowfax.in',
+        SHADOWFAX_API_MODE: 'dale_staging',
         SHADOWFAX_TEST_TOKEN: 'test-token-123',
       }),
     );
@@ -243,7 +332,8 @@ describe('ShadowfaxClient', () => {
     const client = new ShadowfaxClient(
       config({
         NODE_ENV: 'development',
-        SHADOWFAX_API_URL: 'https://dale.shadowfax.in/api',
+        SHADOWFAX_API_URL: 'https://dale.staging.shadowfax.in',
+        SHADOWFAX_API_MODE: 'dale_staging',
         SHADOWFAX_TEST_TOKEN: 'test-token-123',
       }),
     );

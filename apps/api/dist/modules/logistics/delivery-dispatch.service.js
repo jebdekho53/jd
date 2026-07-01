@@ -34,10 +34,7 @@ let DeliveryDispatchService = DeliveryDispatchService_1 = class DeliveryDispatch
         if (order?.orderVertical === client_1.OrderVertical.FOOD) {
             return null;
         }
-        if ((0, logistics_config_util_1.useOwnFleetDispatch)(this.config)) {
-            return null;
-        }
-        return this.dispatchViaProvider(orderId, 'order placed');
+        return null;
     }
     async dispatchAfterReadyForPickup(orderId) {
         if ((0, logistics_config_util_1.useOwnFleetDispatch)(this.config)) {
