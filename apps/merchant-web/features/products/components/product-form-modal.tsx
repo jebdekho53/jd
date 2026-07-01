@@ -16,7 +16,6 @@ import {
   isBrokenProductImageUrl,
   resolveFormCategory,
   requiresFssaiForCategory,
-  requiresHsnForCategory,
   pickStoreFssaiLicense,
 } from '../product-visibility.util';
 import { ProductVisibilityNotice } from './product-visibility-notice';
@@ -125,7 +124,6 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
     [parentCategoryId, subCategoryId, approvedParents],
   );
 
-  const needsHsn = requiresHsnForCategory(selectedCategory, taxCategory);
   const needsFssai = requiresFssaiForCategory(selectedCategory);
 
   const storeDefaultFssai = useMemo(
@@ -235,9 +233,9 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
     setHsnError(null);
     setFssaiError(null);
 
-    if (needsHsn && !hsn) {
-      setHsnError('HSN code is required for this category');
-      toast('HSN code is required for food & grocery categories', 'error');
+    if (!hsn) {
+      setHsnError('HSN code is required for every product');
+      toast('Select an HSN code for GST compliance and shipping', 'error');
       return;
     }
     if (needsFssai) {
@@ -273,8 +271,8 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         categoryId,
         imageUrls: [imageUrl],
         taxInclusive: taxInclusive ?? false,
-        hsnCodeId: hsn?.id,
-        gstSlab: hsn?.defaultGstSlab,
+        hsnCodeId: hsn.id,
+        gstSlab: hsn.defaultGstSlab,
         taxCategory,
         ...(resolvedFssai ? { fssaiLicense: resolvedFssai } : {}),
         ...returnPolicy,
@@ -377,25 +375,22 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         </div>
 
         <details
-          open={needsHsn || needsFssai}
+          open
           className="rounded-lg border border-neutral-200 p-3"
         >
           <summary className="cursor-pointer text-sm font-semibold text-neutral-800">
-            Tax & HSN (GST compliance){needsHsn || needsFssai ? ' *' : ''}
+            Tax & HSN (GST compliance) *
           </summary>
           <div className="mt-3 space-y-3">
-            {(needsHsn || needsFssai) && (
-              <p className="text-xs text-amber-700">
-                {needsHsn && needsFssai && 'HSN and FSSAI are required for this category.'}
-                {needsHsn && !needsFssai && 'HSN is required for this category.'}
-                {needsFssai && !needsHsn && 'FSSAI is required for this category.'}
+            <p className="text-xs text-amber-700">
+              HSN is required for every product for GST compliance and shipping.
+              {needsFssai && ' FSSAI is also required for this category.'}
                 {needsFssai && storeDefaultFssai && (
                   <span className="block mt-1">
                     Using your store FSSAI from another product — change here only if this item needs a different license.
                   </span>
                 )}
-              </p>
-            )}
+            </p>
             <Select
               label="Tax category"
               value={taxCategory}
@@ -408,7 +403,8 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
             </Select>
             <HsnPicker
               value={hsn?.id}
-              required={needsHsn}
+              selectedOption={hsn}
+              required
               error={hsnError ?? undefined}
               onChange={(next) => {
                 setHsn(next);

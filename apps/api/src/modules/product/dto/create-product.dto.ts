@@ -22,6 +22,7 @@ import {
   ValidateNested,
   Matches,
   IsInt,
+  IsNotEmpty,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
@@ -224,10 +225,10 @@ export class CreateProductDto {
   @IsBoolean()
   taxInclusive?: boolean;
 
-  @ApiProperty({ required: false, description: 'HSN code reference ID' })
-  @IsOptional()
+  @ApiProperty({ description: 'Required HSN code reference ID for GST compliance and logistics' })
   @IsString()
-  hsnCodeId?: string;
+  @IsNotEmpty()
+  hsnCodeId!: string;
 
   @ApiProperty({ required: false, enum: GstSlab })
   @IsOptional()

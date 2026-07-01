@@ -64,13 +64,7 @@ export function hasProductBuyerComplianceGaps(input: ProductBuyerComplianceInput
   if (!isPublicProductImageUrl(input.imageUrls[0])) return true;
   if (!input.categoryId || !input.category) return true;
 
-  const taxCategory = input.taxCategory ?? 'GOODS';
-  if (
-    isTaxComplianceCategory(input.category, taxCategory) &&
-    !input.hsnCodeId
-  ) {
-    return true;
-  }
+  if (!input.hsnCodeId) return true;
 
   if (isFssaiRequiredCategory(input.category)) {
     const onProduct = input.fssaiLicense?.trim();
