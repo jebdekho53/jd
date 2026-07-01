@@ -86,6 +86,9 @@ let OrderRefundService = OrderRefundService_1 = class OrderRefundService {
                 idempotencyKey,
             },
         });
+        void this.emailNotifications.sendRefundInitiated(input.orderId).catch((err) => {
+            this.logger.error({ err, orderId: input.orderId }, 'Refund initiated email failed');
+        });
         await this.processRefundRecord(refund.id, input.actorId, input.ipAddress);
         const updated = await this.prisma.orderRefund.findUniqueOrThrow({ where: { id: refund.id } });
         return { refundId: updated.id, status: updated.status };

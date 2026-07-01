@@ -55,6 +55,7 @@ export declare class ShadowfaxClient {
         drop_lat: number;
         drop_lng: number;
         weight_g?: number;
+        pincode?: string;
     }): Promise<Record<string, unknown>>;
     healthCheck(): Promise<{
         healthy: boolean;
@@ -65,6 +66,9 @@ export declare class ShadowfaxClient {
     private withPaymentMode;
     private paymentModeForPayload;
     private isDebugLoggingEnabled;
+    private daleServiceabilityPath;
+    private createLegacyOrder;
+    private legacyServiceabilityPayload;
     private createFlashOrder;
     private normalizePhone;
     private request;

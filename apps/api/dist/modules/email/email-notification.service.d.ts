@@ -10,14 +10,22 @@ export declare class EmailNotificationService {
     private readonly buyerSiteUrl;
     private readonly adminSiteUrl;
     private readonly merchantSiteUrl;
+    private readonly adminEmail?;
     constructor(email: EmailService, templates: EmailTemplateService, prisma: PrismaService, configService: ConfigService);
     sendOtpEmail(to: string, code: string, expiresInSeconds: number): Promise<void>;
     sendWelcomeEmail(to: string, name: string): Promise<void>;
     sendPasswordResetEmail(to: string, token: string, expiresMinutes: number): Promise<void>;
     sendOrderConfirmation(orderId: string): Promise<void>;
     sendOrderDelivered(orderId: string): Promise<void>;
+    sendBuyerPaymentSuccess(orderId: string): Promise<void>;
+    sendBuyerPaymentFailed(orderId: string): Promise<void>;
+    sendBuyerMerchantAccepted(orderId: string): Promise<void>;
+    sendBuyerMerchantRejectedOrCancelled(orderId: string, reason?: string): Promise<void>;
+    sendBuyerDeliveryAssigned(orderId: string): Promise<void>;
+    sendBuyerPickedUpOrOutForDelivery(orderId: string): Promise<void>;
     sendSupportTicketCreated(ticketId: string): Promise<void>;
     sendRefundProcessed(orderId: string): Promise<void>;
+    sendRefundInitiated(orderId: string): Promise<void>;
     sendGstInvoiceEmail(invoiceId: string, pdf: Buffer, invoiceNumber: string, to: string): Promise<void>;
     sendTestEmail(to: string): Promise<{
         success: boolean;
@@ -28,6 +36,22 @@ export declare class EmailNotificationService {
     sendAdminNewDeviceLogin(to: string, name: string, ipAddress: string): Promise<void>;
     sendMerchantStoreApproved(merchantUserId: string, storeName: string): Promise<void>;
     sendMerchantStoreRejected(merchantUserId: string, storeName: string, reason: string): Promise<void>;
+    sendMerchantApplicationReceived(to: string, businessName: string): Promise<void>;
+    sendMerchantMoreDocumentsRequired(to: string, businessName: string): Promise<void>;
+    sendMerchantNewOrder(orderId: string): Promise<void>;
+    sendMerchantOrderCancelled(orderId: string): Promise<void>;
+    sendMerchantSettlementInitiated(to: string, settlementReference: string, amount: string): Promise<void>;
+    sendMerchantSettlementCompleted(to: string, settlementReference: string, amount: string): Promise<void>;
+    sendAdminNewMerchantApplication(businessName: string, ownerEmail?: string): Promise<void>;
+    sendAdminMerchantDocumentsSubmitted(businessName: string): Promise<void>;
+    sendAdminRefundRequest(orderNumber: string, amount: string): Promise<void>;
+    sendAdminDeliveryFailedOrDelayed(orderNumber: string): Promise<void>;
+    sendAdminRepeatedPaymentFailure(paymentReference: string): Promise<void>;
+    sendAdminSupportTicketCreated(ticketNumber: string): Promise<void>;
     private safeSend;
+    private sendAdminNotice;
+    private alreadyQueuedOrSent;
+    private getBuyerOrderContext;
+    private getMerchantOrderContext;
     private formatAddress;
 }

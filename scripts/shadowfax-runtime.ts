@@ -1,14 +1,20 @@
 import { ShadowfaxClient } from '../apps/api/src/modules/logistics/providers/shadowfax/shadowfax.client';
 import type { ConfigService } from '@nestjs/config';
 import { loadRuntimeEnv, present, safeUrlHost } from './runtime-env';
+import {
+  normalizeShadowfaxApiBase,
+  resolveShadowfaxApiMode,
+} from '../apps/api/src/modules/logistics/providers/shadowfax/shadowfax-url.util';
 
-type Command = 'health' | 'serviceability' | 'test-shipment';
+type Command = 'health' | 'serviceability' | 'test-shipment' | 'diagnose';
 
-loadRuntimeEnv();
+const envLoadResult = loadRuntimeEnv();
+if (!process.env.NODE_ENV && envLoadResult.filesLoaded.some((file) => file.endsWith('.env.production'))) {
+  process.env.NODE_ENV = 'production';
+}
 
 class EnvConfig {
   get<T = string>(key: string, fallback?: T): T {
-    if (key === 'NODE_ENV') return 'development' as T;
     const value = process.env[key];
     return (value == null || value === '' ? fallback : value) as T;
   }
@@ -33,7 +39,28 @@ function configSummary(): Record<string, unknown> {
     SHADOWFAX_API_MODE: process.env.SHADOWFAX_API_MODE ?? 'not set',
     SHADOWFAX_TEST_TOKEN: present(process.env.SHADOWFAX_TEST_TOKEN),
     SHADOWFAX_PRODUCTION_TOKEN: present(process.env.SHADOWFAX_PRODUCTION_TOKEN),
+    SHADOWFAX_WEBHOOK_SECRET: present(process.env.SHADOWFAX_WEBHOOK_SECRET),
   };
+}
+
+function providerMessage(data: unknown): string {
+  if (!data) return '';
+  if (typeof data === 'string') return data.replace(/\s+/g, ' ').slice(0, 180);
+  if (typeof data !== 'object') return String(data).slice(0, 180);
+  const row = data as Record<string, unknown>;
+  const value = row.message ?? row.error ?? row.detail ?? row.reason ?? row.msg;
+  if (typeof value === 'string') return value.slice(0, 180);
+  if (Array.isArray(value)) return value.join('; ').slice(0, 180);
+  return JSON.stringify(data).slice(0, 180);
+}
+
+async function readProviderBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 function assertBaseConfig(command: Command): ShadowfaxClient | null {
@@ -45,8 +72,8 @@ function assertBaseConfig(command: Command): ShadowfaxClient | null {
     printResult(false, 'SHADOWFAX_API_URL is not configured', configSummary());
     return null;
   }
-  if (!process.env.SHADOWFAX_TEST_TOKEN) {
-    printResult(false, 'SHADOWFAX_TEST_TOKEN is not configured', configSummary());
+  if (!process.env.SHADOWFAX_TEST_TOKEN && !process.env.SHADOWFAX_PRODUCTION_TOKEN) {
+    printResult(false, 'Shadowfax token is not configured', configSummary());
     return null;
   }
   const client = new ShadowfaxClient(new EnvConfig() as unknown as ConfigService);
@@ -78,6 +105,7 @@ async function runServiceability(): Promise<number> {
       drop_lat: Number(process.env.SHADOWFAX_TEST_DROPOFF_LAT ?? 28.62),
       drop_lng: Number(process.env.SHADOWFAX_TEST_DROPOFF_LNG ?? 77.22),
       weight_g: Number(process.env.SHADOWFAX_TEST_WEIGHT_G ?? 500),
+      pincode: serviceabilityPincode(),
     });
     printResult(true, 'Shadowfax serviceability succeeded', {
       providerResponseKeys: Object.keys(result),
@@ -86,6 +114,115 @@ async function runServiceability(): Promise<number> {
   } catch (err) {
     printResult(false, 'Shadowfax serviceability failed', {
       message: err instanceof Error ? err.message : 'Unknown error',
+    });
+    return 1;
+  }
+}
+
+
+function serviceabilityPincode(): string {
+  return String(
+    process.env.SHADOWFAX_TEST_PINCODE ??
+      process.env.SHADOWFAX_TEST_DROPOFF_PINCODE ??
+      process.env.SHADOWFAX_SERVICEABILITY_PINCODE ??
+      '110001',
+  ).trim();
+}
+
+function tokenForMode(mode: ReturnType<typeof resolveShadowfaxApiMode>): string | undefined {
+  if (mode === 'dale_staging' || mode === 'hl_staging') return process.env.SHADOWFAX_TEST_TOKEN;
+  if (mode === 'dale_production') return process.env.SHADOWFAX_PRODUCTION_TOKEN;
+  if (process.env.NODE_ENV === 'production') return process.env.SHADOWFAX_PRODUCTION_TOKEN;
+  return process.env.SHADOWFAX_TEST_TOKEN ?? process.env.SHADOWFAX_PRODUCTION_TOKEN;
+}
+
+
+async function runDiagnose(): Promise<number> {
+  const client = assertBaseConfig('diagnose');
+  if (!client) return 1;
+  const mode = client.getApiMode();
+  const rawUrl = process.env.SHADOWFAX_API_URL ?? '';
+  const host = safeUrlHost(rawUrl);
+  const token = tokenForMode(mode);
+  const isDaleMode = mode === 'dale_staging' || mode === 'dale_production';
+  const query = new URLSearchParams({
+    service: 'customer_delivery',
+    page: '1',
+    count: '10',
+    pincodes: serviceabilityPincode(),
+  });
+  const endpoint = isDaleMode
+    ? `/api/v1/clients/serviceability/?${query.toString()}`
+    : mode === 'legacy' || mode === 'hl_staging'
+      ? '/api/v1/order-serviceability/'
+      : mode === 'flash'
+        ? '/order/serviceability/'
+        : '/v3/clients/serviceability/';
+  const base = normalizeShadowfaxApiBase(rawUrl, mode);
+  const body = isDaleMode
+    ? undefined
+    : mode === 'legacy' || mode === 'hl_staging'
+      ? {
+          pickup_longitude: String(process.env.SHADOWFAX_TEST_PICKUP_LNG ?? 77.209),
+          pickup_latitude: String(process.env.SHADOWFAX_TEST_PICKUP_LAT ?? 28.6139),
+          drop_latitude: String(process.env.SHADOWFAX_TEST_DROPOFF_LAT ?? 28.62),
+          drop_longitude: String(process.env.SHADOWFAX_TEST_DROPOFF_LNG ?? 77.22),
+          paid: 'true',
+          COID: `JD-DIAG-${Date.now()}`,
+          stage_of_check: 'pre_order',
+          order_value: 1,
+          rain_flag: false,
+          client_surge: 0,
+        }
+      : mode === 'flash'
+        ? {
+            pickup_details: { latitude: Number(process.env.SHADOWFAX_TEST_PICKUP_LAT ?? 28.6139), longitude: Number(process.env.SHADOWFAX_TEST_PICKUP_LNG ?? 77.209) },
+            drop_details: { latitude: Number(process.env.SHADOWFAX_TEST_DROPOFF_LAT ?? 28.62), longitude: Number(process.env.SHADOWFAX_TEST_DROPOFF_LNG ?? 77.22) },
+          }
+        : {
+            pickup_lat: Number(process.env.SHADOWFAX_TEST_PICKUP_LAT ?? 28.6139),
+            pickup_lng: Number(process.env.SHADOWFAX_TEST_PICKUP_LNG ?? 77.209),
+            drop_lat: Number(process.env.SHADOWFAX_TEST_DROPOFF_LAT ?? 28.62),
+            drop_lng: Number(process.env.SHADOWFAX_TEST_DROPOFF_LNG ?? 77.22),
+            weight_g: Number(process.env.SHADOWFAX_TEST_WEIGHT_G ?? 500),
+          };
+  const method = isDaleMode ? 'GET' : mode === 'legacy' || mode === 'hl_staging' ? 'PUT' : 'POST';
+  try {
+    const response = await fetch(`${base}${endpoint}`, {
+      method,
+      headers: {
+        Authorization: mode === 'flash' ? String(token ?? '') : `Token ${token ?? ''}`,
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(12000),
+    });
+    const data = await readProviderBody(response);
+    printResult(response.status >= 200 && response.status < 400, 'Shadowfax diagnostic probe completed', {
+      host,
+      mode,
+      endpointPath: endpoint,
+      method,
+      authHeaderPresent: token ? 'YES' : 'NO',
+      authScheme: mode === 'flash' ? 'raw' : 'Token',
+      tokenPresent: token ? 'YES' : 'NO',
+      payloadKeys: body ? Object.keys(body) : [],
+      httpStatus: response.status,
+      providerMessage: providerMessage(data),
+    });
+    return response.status >= 200 && response.status < 400 ? 0 : 1;
+  } catch (err) {
+    printResult(false, 'Shadowfax diagnostic probe failed', {
+      host,
+      mode,
+      endpointPath: endpoint,
+      method,
+      authHeaderPresent: token ? 'YES' : 'NO',
+      authScheme: mode === 'flash' ? 'raw' : 'Token',
+      tokenPresent: token ? 'YES' : 'NO',
+      payloadKeys: body ? Object.keys(body) : [],
+      httpStatus: 'NETWORK_ERROR',
+      providerMessage: err instanceof Error ? err.message : 'Unknown error',
     });
     return 1;
   }
@@ -149,8 +286,9 @@ async function main(): Promise<void> {
   if (command === 'health') code = await runHealth();
   else if (command === 'serviceability') code = await runServiceability();
   else if (command === 'test-shipment') code = await runTestShipment();
+  else if (command === 'diagnose') code = await runDiagnose();
   else {
-    printResult(false, 'Usage: pnpm shadowfax:health | pnpm shadowfax:serviceability | SHADOWFAX_ALLOW_TEST_ORDER=true pnpm shadowfax:test-shipment');
+    printResult(false, 'Usage: pnpm shadowfax:health | pnpm shadowfax:serviceability | pnpm shadowfax:diagnose | SHADOWFAX_ALLOW_TEST_ORDER=true pnpm shadowfax:test-shipment');
   }
   process.exitCode = code;
 }

@@ -120,7 +120,7 @@ exports.validationSchema = Joi.object({
     ENABLE_BORZO: Joi.string().valid('true', 'false').default('false'),
     SHADOWFAX_API_URL: Joi.string().uri().empty('').optional(),
     SHADOWFAX_API_MODE: Joi.string()
-        .valid('v3_marketplace', 'v3_warehouse', 'v3', 'flash', 'hyperlocal', 'hl', 'warehouse', 'marketplace', 'ecommerce', '')
+        .valid('dale_staging', 'dale_production', 'staging', 'production', 'prod', 'hl_staging', 'legacy', 'hl_marketplace', 'v2', 'v3_marketplace', 'v3_warehouse', 'v3', 'flash', 'hyperlocal', 'hl', 'warehouse', 'marketplace', 'ecommerce', '')
         .empty('')
         .optional(),
     SHADOWFAX_CREDITS_KEY: Joi.string().empty('').optional(),

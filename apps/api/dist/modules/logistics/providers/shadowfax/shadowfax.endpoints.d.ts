@@ -1,4 +1,4 @@
-export type ShadowfaxApiMode = 'v3_marketplace' | 'v3_warehouse' | 'flash';
+export type ShadowfaxApiMode = 'dale_staging' | 'dale_production' | 'legacy' | 'hl_staging' | 'v3_marketplace' | 'v3_warehouse' | 'flash';
 export type ShadowfaxEndpointSet = {
     createOrder: string;
     cancelOrder: (id: string) => string;

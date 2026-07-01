@@ -45,6 +45,7 @@
     "qa:report": "playwright show-report qa-reports/playwright-html",
     "shadowfax:health": "tsx scripts/shadowfax-runtime.ts health",
     "shadowfax:serviceability": "tsx scripts/shadowfax-runtime.ts serviceability",
+    "shadowfax:diagnose": "tsx scripts/shadowfax-runtime.ts diagnose",
     "shadowfax:test-shipment": "tsx scripts/shadowfax-runtime.ts test-shipment"
   },
   "dependencies": {

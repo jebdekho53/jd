@@ -689,6 +689,22 @@ let OrderService = OrderService_1 = class OrderService {
         }
         if (targetStatus === client_1.OrderStatus.MERCHANT_ACCEPTED) {
             void this.buyerPush.notifyOrderAccepted(orderId).catch(() => { });
+            void this.deliveryDispatch.dispatchAfterReadyForPickup(orderId).then((result) => {
+                if (result?.mode === 'provider') {
+                    void this.cache.invalidateAll(orderId);
+                    this.logger.log({
+                        orderId,
+                        deliveryId: result.deliveryId,
+                        shipmentId: result.shipmentId,
+                        trackingNumber: result.trackingNumber,
+                    }, 'Provider shipment created after merchant acceptance');
+                }
+                else if (result?.mode === 'own_fleet') {
+                    this.logger.log({ orderId, riderProfileId: result.riderProfileId, deliveryId: result.deliveryId }, 'Own-fleet dispatch prepared after merchant acceptance');
+                }
+            }).catch((err) => {
+                this.logger.error({ orderId, err }, 'Dispatch failed after merchant acceptance');
+            });
         }
         const prepStatuses = new Set([
             client_1.OrderStatus.MERCHANT_ACCEPTED,

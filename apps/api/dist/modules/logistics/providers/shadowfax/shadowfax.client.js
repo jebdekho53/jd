@@ -31,11 +31,15 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
         this.debugPayloads = this.isDebugLoggingEnabled();
         const nodeEnv = config.get('NODE_ENV', 'development');
         this.token =
-            nodeEnv === 'production'
-                ? (config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '').trim()
-                : (config.get('SHADOWFAX_TEST_TOKEN', '') ??
-                    config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ??
-                    '').trim();
+            this.apiMode === 'dale_staging' || this.apiMode === 'hl_staging'
+                ? (config.get('SHADOWFAX_TEST_TOKEN', '') ?? '').trim()
+                : this.apiMode === 'dale_production'
+                    ? (config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '').trim()
+                    : nodeEnv === 'production'
+                        ? (config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ?? '').trim()
+                        : (config.get('SHADOWFAX_TEST_TOKEN', '') ??
+                            config.get('SHADOWFAX_PRODUCTION_TOKEN', '') ??
+                            '').trim();
         this.creditsKey = config.get('SHADOWFAX_CREDITS_KEY', '') ?? '';
         this.http = axios_1.default.create({
             baseURL: this.apiUrl || undefined,
@@ -50,7 +54,6 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
             apiMode: this.apiMode,
             createOrderEndpoint: this.createOrderEndpoint,
             tokenPresent: Boolean(this.token),
-            tokenMasked: (0, shadowfax_url_util_1.maskShadowfaxToken)(this.token),
         }, 'Shadowfax configuration resolved');
     }
     getApiMode() {
@@ -65,6 +68,12 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
     }
     async createShipment(payload) {
         const requestPayload = this.withPaymentMode(payload);
+        if (this.apiMode === 'dale_staging' || this.apiMode === 'dale_production') {
+            return this.request('POST', this.createOrderEndpoint, requestPayload);
+        }
+        if (this.apiMode === 'legacy' || this.apiMode === 'hl_staging') {
+            return this.createLegacyOrder(requestPayload);
+        }
         if (this.apiMode === 'flash') {
             return this.createFlashOrder(requestPayload);
         }
@@ -72,6 +81,9 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
     }
     async cancelShipment(shipmentId, reason) {
         const endpoint = (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).cancelOrder(shipmentId);
+        if (this.apiMode === 'legacy' || this.apiMode === 'hl_staging') {
+            return this.request('PUT', endpoint, { reason: reason ?? 'Cancelled by merchant' });
+        }
         if (this.apiMode === 'flash') {
             return this.request('POST', endpoint, { order_id: shipmentId });
         }
@@ -83,6 +95,12 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
         return this.request('GET', (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).trackOrder(shipmentId));
     }
     async estimatePrice(payload) {
+        if (this.apiMode === 'dale_staging' || this.apiMode === 'dale_production') {
+            return this.request('GET', this.daleServiceabilityPath(payload.pincode));
+        }
+        if (this.apiMode === 'legacy' || this.apiMode === 'hl_staging') {
+            return this.request('PUT', (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).serviceability, this.legacyServiceabilityPayload(payload));
+        }
         if (this.apiMode === 'flash') {
             return this.request('POST', '/order/serviceability/', {
                 pickup_details: {
@@ -106,15 +124,27 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
             return { healthy: false, latencyMs: 0, message: missing };
         }
         try {
-            const path = (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).health;
-            await this.http.request({
-                method: this.apiMode === 'flash' ? 'POST' : 'GET',
+            const isDaleMode = this.apiMode === 'dale_staging' || this.apiMode === 'dale_production';
+            const path = isDaleMode
+                ? this.daleServiceabilityPath()
+                : (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).health;
+            const response = await this.http.request({
+                method: isDaleMode ? 'GET' : this.apiMode === 'legacy' || this.apiMode === 'hl_staging' ? 'PUT' : this.apiMode === 'flash' ? 'POST' : 'GET',
                 url: path,
-                data: this.apiMode === 'flash'
-                    ? { pickup_details: { latitude: 28.61, longitude: 77.2 }, drop_details: { latitude: 28.62, longitude: 77.21 } }
-                    : undefined,
+                data: this.apiMode === 'legacy' || this.apiMode === 'hl_staging'
+                    ? this.legacyServiceabilityPayload({ pickup_lat: 28.61, pickup_lng: 77.2, drop_lat: 28.62, drop_lng: 77.21 })
+                    : this.apiMode === 'flash'
+                        ? { pickup_details: { latitude: 28.61, longitude: 77.2 }, drop_details: { latitude: 28.62, longitude: 77.21 } }
+                        : undefined,
                 validateStatus: () => true,
             });
+            if (response.status < 200 || response.status >= 400) {
+                return {
+                    healthy: false,
+                    latencyMs: Date.now() - started,
+                    message: `Shadowfax health returned HTTP ${response.status}`,
+                };
+            }
             return { healthy: true, latencyMs: Date.now() - started };
         }
         catch (err) {
@@ -149,6 +179,64 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
     isDebugLoggingEnabled() {
         const level = (this.config.get('LOG_LEVEL', '') ?? '').toLowerCase();
         return level === 'debug' || level === 'trace';
+    }
+    daleServiceabilityPath(pincode) {
+        const resolvedPincode = String(pincode ??
+            this.config.get('SHADOWFAX_TEST_PINCODE') ??
+            this.config.get('SHADOWFAX_TEST_DROPOFF_PINCODE') ??
+            this.config.get('SHADOWFAX_SERVICEABILITY_PINCODE') ??
+            '110001').trim();
+        const query = new URLSearchParams({
+            service: 'customer_delivery',
+            page: '1',
+            count: '10',
+            pincodes: resolvedPincode,
+        });
+        return `${(0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).serviceability}?${query.toString()}`;
+    }
+    createLegacyOrder(payload) {
+        const order = payload.order_details;
+        const pickup = order.pickup_details;
+        const drop = order.drop_details;
+        return this.request('POST', (0, shadowfax_endpoints_1.shadowfaxEndpointsForMode)(this.apiMode).createOrder, {
+            order_details: {
+                order_value: Number(order.order_value ?? 0),
+                paid: String(order.paid),
+                client_order_id: order.client_order_id,
+            },
+            pickup_details: {
+                city: pickup.city,
+                contact_number: this.normalizePhone(pickup.contact),
+                name: pickup.name,
+                longitude: pickup.longitude,
+                latitude: pickup.latitude,
+                address: [pickup.address_line_1, pickup.address_line_2].filter(Boolean).join(', '),
+                pincode: pickup.pincode,
+            },
+            drop_details: {
+                city: drop.city,
+                contact_number: this.normalizePhone(drop.contact),
+                name: drop.name,
+                longitude: drop.longitude,
+                latitude: drop.latitude,
+                address: [drop.address_line_1, drop.address_line_2].filter(Boolean).join(', '),
+                pincode: drop.pincode,
+            },
+        });
+    }
+    legacyServiceabilityPayload(payload) {
+        return {
+            pickup_longitude: String(payload.pickup_lng),
+            pickup_latitude: String(payload.pickup_lat),
+            drop_latitude: String(payload.drop_lat),
+            drop_longitude: String(payload.drop_lng),
+            paid: 'true',
+            COID: `JD-SERVICEABILITY-${Date.now()}`,
+            stage_of_check: 'pre_order',
+            order_value: 1,
+            rain_flag: false,
+            client_surge: 0,
+        };
     }
     createFlashOrder(payload) {
         const pickup = payload.order_details.pickup_details;
@@ -211,7 +299,9 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
             }
             const response = method === 'GET'
                 ? await this.http.get(path)
-                : await this.http.post(path, body);
+                : method === 'PUT'
+                    ? await this.http.put(path, body)
+                    : await this.http.post(path, body);
             const latencyMs = Date.now() - started;
             this.logger.log({ method, requestTarget, apiMode: this.apiMode, status: response.status, latencyMs }, 'Shadowfax API response');
             return (response.data ?? {});

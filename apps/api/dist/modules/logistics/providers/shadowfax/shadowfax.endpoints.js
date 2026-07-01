@@ -3,6 +3,34 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SHADOWFAX_ENDPOINTS = void 0;
 exports.shadowfaxEndpointsForMode = shadowfaxEndpointsForMode;
 exports.SHADOWFAX_ENDPOINTS = {
+    dale_staging: {
+        createOrder: '/api/v1/clients/seller-pickup-request/',
+        cancelOrder: (id) => `/api/v1/clients/orders/${encodeURIComponent(id)}/cancel/`,
+        trackOrder: (id) => `/api/v4/clients/orders/${encodeURIComponent(id)}/`,
+        serviceability: '/api/v1/clients/serviceability/',
+        health: '/api/v1/clients/serviceability/',
+    },
+    dale_production: {
+        createOrder: '/api/v1/clients/seller-pickup-request/',
+        cancelOrder: (id) => `/api/v1/clients/orders/${encodeURIComponent(id)}/cancel/`,
+        trackOrder: (id) => `/api/v4/clients/orders/${encodeURIComponent(id)}/`,
+        serviceability: '/api/v1/clients/serviceability/',
+        health: '/api/v1/clients/serviceability/',
+    },
+    legacy: {
+        createOrder: '/api/v2/orders/',
+        cancelOrder: (id) => `/api/v2/orders/${encodeURIComponent(id)}/cancel/`,
+        trackOrder: (id) => `/api/v2/orders/${encodeURIComponent(id)}/status/`,
+        serviceability: '/api/v1/order-serviceability/',
+        health: '/api/v1/order-serviceability/',
+    },
+    hl_staging: {
+        createOrder: '/api/v2/orders/',
+        cancelOrder: (id) => `/api/v2/orders/${encodeURIComponent(id)}/cancel/`,
+        trackOrder: (id) => `/api/v2/orders/${encodeURIComponent(id)}/status/`,
+        serviceability: '/api/v1/order-serviceability/',
+        health: '/api/v1/order-serviceability/',
+    },
     v3_marketplace: {
         createOrder: '/v3/clients/orders/',
         cancelOrder: (id) => `/v3/clients/orders/${encodeURIComponent(id)}/cancel/`,
