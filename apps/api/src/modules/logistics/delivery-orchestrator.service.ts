@@ -24,7 +24,7 @@ import type { CreateShipmentInput } from './interfaces/logistics-provider.interf
 import { LogisticsProviderRegistry } from './logistics-provider.registry';
 import { LOGISTICS_EVENTS, LOGISTICS_RETRY_MAX } from './logistics.constants';
 import { LogisticsProviderError } from './errors/logistics.errors';
-import { normalizedToDeliveryStatus } from './mappers/shadowfax-status.mapper';
+import { mapShadowfaxStatus, normalizedToDeliveryStatus } from './mappers/shadowfax-status.mapper';
 import { maskSensitivePayload } from './utils/mask-sensitive.util';
 import { isDispatchPaymentCleared } from '../order/merchant-order-visibility.util';
 import { OrderDeliveredHandlerService } from '../order/order-delivered-handler.service';
@@ -37,6 +37,57 @@ const PROVIDER_NAMES: Record<DeliveryProviderType, string> = {
   [DeliveryProviderType.BORZO]: 'Borzo',
   [DeliveryProviderType.OWN_FLEET]: 'JebDekho Riders',
 };
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function findStringByKeys(value: unknown, keys: string[]): string | undefined {
+  const seen = new Set<unknown>();
+  const queue: unknown[] = [value];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || seen.has(current)) continue;
+    seen.add(current);
+
+    if (Array.isArray(current)) {
+      queue.push(...current);
+      continue;
+    }
+
+    if (typeof current !== 'object') continue;
+    const row = current as Record<string, unknown>;
+    for (const key of keys) {
+      const found = asString(row[key]);
+      if (found) return found;
+    }
+    queue.push(...Object.values(row));
+  }
+
+  return undefined;
+}
+
+function extractShipmentIdentifier(rawResponse: unknown): {
+  externalShipmentId?: string;
+  trackingNumber?: string;
+  providerStatus?: string;
+} {
+  const awbNumber = findStringByKeys(rawResponse, ['awb_number', 'awbNumber', 'awb', 'AWB']);
+  const shadowfaxOrderId = findStringByKeys(rawResponse, ['sfx_order_id', 'sfxOrderId', 'shadowfax_order_id']);
+  const shipmentId = findStringByKeys(rawResponse, ['shipment_id', 'shipmentId', 'id']);
+  const trackingId = findStringByKeys(rawResponse, ['tracking_id', 'trackingId', 'tracking_number', 'trackingNumber']);
+  const externalShipmentId = awbNumber ?? shadowfaxOrderId ?? shipmentId ?? trackingId;
+  return {
+    externalShipmentId,
+    trackingNumber: awbNumber ?? trackingId ?? shadowfaxOrderId ?? externalShipmentId,
+    providerStatus: findStringByKeys(rawResponse, ['status_id', 'status']),
+  };
+}
 
 @Injectable()
 export class DeliveryOrchestratorService {
@@ -53,7 +104,7 @@ export class DeliveryOrchestratorService {
     private readonly config: ConfigService,
   ) {}
 
-  async dispatchShipment(orderId: string, attempt = 1): Promise<{
+  async dispatchShipment(orderId: string, attempt = 1, options?: { allowAssignedRepair?: boolean }): Promise<{
     shipmentId: string;
     deliveryId: string;
     trackingNumber: string;
@@ -77,7 +128,9 @@ export class DeliveryOrchestratorService {
       select: { status: true, paymentMethod: true, paymentStatus: true, orderVertical: true },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (!isDispatchEligibleOrderStatus(order.status, order.orderVertical)) {
+    const allowAssignedRepair =
+      options?.allowAssignedRepair === true && order.status === OrderStatus.RIDER_ASSIGNED;
+    if (!allowAssignedRepair && !isDispatchEligibleOrderStatus(order.status, order.orderVertical)) {
       throw new BadRequestException(
         `Cannot dispatch shipment: order status ${order.status} is not eligible for dispatch`,
       );
@@ -178,6 +231,7 @@ export class DeliveryOrchestratorService {
         actorType: OrderActorType.SYSTEM,
         actorId: 'logistics-orchestrator',
         note: `Shipment created via ${PROVIDER_NAMES[providerType]}`,
+        skipIfAlreadyStatus: true,
       });
 
       void this.domainEvents.emit(
@@ -224,7 +278,7 @@ export class DeliveryOrchestratorService {
       this.events.emit(LOGISTICS_EVENTS.SHIPMENT_FAILED, { orderId, providerType, attempt, err });
 
       if (retryable && attempt < LOGISTICS_RETRY_MAX) {
-        return this.dispatchShipment(orderId, attempt + 1);
+        return this.dispatchShipment(orderId, attempt + 1, options);
       }
       throw err;
     }
@@ -240,10 +294,66 @@ export class DeliveryOrchestratorService {
     if (shipment?.externalShipmentId?.trim()) {
       throw new BadRequestException('Shipment already exists — cancel before retrying');
     }
+    const repaired = await this.repairShipmentIdentifierFromRawResponse(shipment);
+    if (repaired) return repaired;
     if (shipment) {
       await this.prisma.providerShipment.delete({ where: { id: shipment.id } });
     }
-    return this.dispatchShipment(orderId);
+    return this.dispatchShipment(orderId, 1, { allowAssignedRepair: true });
+  }
+
+  private async repairShipmentIdentifierFromRawResponse(shipment: {
+    id: string;
+    deliveryId: string | null;
+    providerType: DeliveryProviderType;
+    rawResponse: Prisma.JsonValue | null;
+    estimatedEtaMins: number | null;
+  } | null): Promise<{
+    shipmentId: string;
+    deliveryId: string;
+    trackingNumber: string;
+    estimatedEtaMins: number | null;
+  } | null> {
+    if (!shipment?.rawResponse || shipment.providerType !== DeliveryProviderType.SHADOWFAX) return null;
+
+    const extracted = extractShipmentIdentifier(shipment.rawResponse);
+    if (!extracted.externalShipmentId || !shipment.deliveryId) return null;
+
+    const raw = asRecord(shipment.rawResponse);
+    const providerStatus = extracted.providerStatus ?? asString(raw.status) ?? 'new';
+    const normalizedStatus = mapShadowfaxStatus(providerStatus);
+    const updated = await this.prisma.providerShipment.update({
+      where: { id: shipment.id },
+      data: {
+        externalShipmentId: extracted.externalShipmentId,
+        trackingNumber: extracted.trackingNumber ?? extracted.externalShipmentId,
+        providerStatus,
+        normalizedStatus,
+        lastError: null,
+      },
+      select: {
+        id: true,
+        deliveryId: true,
+        trackingNumber: true,
+        externalShipmentId: true,
+        estimatedEtaMins: true,
+      },
+    });
+
+    this.logger.warn(
+      {
+        shipmentId: shipment.id,
+        externalShipmentId: updated.externalShipmentId,
+      },
+      'Repaired missing provider shipment identifier from raw Shadowfax response',
+    );
+
+    return {
+      shipmentId: updated.id,
+      deliveryId: updated.deliveryId!,
+      trackingNumber: updated.trackingNumber ?? updated.externalShipmentId!,
+      estimatedEtaMins: updated.estimatedEtaMins,
+    };
   }
 
   async cancelShipment(orderId: string, reason?: string): Promise<void> {
