@@ -104,6 +104,19 @@ function primaryResponseRecord(raw: Record<string, unknown>): Record<string, unk
   return {};
 }
 
+function shadowfaxFailureMessage(raw: Record<string, unknown>): string | undefined {
+  const message = findStringByKeys(raw, ['message', 'detail']);
+  const errors = findStringByKeys(raw, ['errors', 'error']);
+  const success = raw.success;
+  if (typeof success === 'boolean' && !success) {
+    return errors ?? message ?? 'Shadowfax returned unsuccessful response';
+  }
+  if (message?.trim().toLowerCase() === 'failure') {
+    return errors ? `${message}: ${errors}` : message;
+  }
+  return undefined;
+}
+
 @Injectable()
 export class ShadowfaxProvider implements ILogisticsProvider {
   readonly type = DeliveryProviderType.SHADOWFAX;
@@ -114,6 +127,7 @@ export class ShadowfaxProvider implements ILogisticsProvider {
     const raw = await this.client.createShipment({
       order_details: {
         client_order_id: input.orderNumber,
+        awb_number: input.awbNumber,
         paid: !input.codAmount,
         payment_mode: input.codAmount ? 'COD' : 'PREPAID',
         order_value: input.codAmount,
@@ -121,6 +135,18 @@ export class ShadowfaxProvider implements ILogisticsProvider {
         drop_details: this.toAddress(input.dropoff),
       },
     });
+
+    const failureMessage = shadowfaxFailureMessage(raw);
+    if (failureMessage) {
+      throw new LogisticsProviderError(
+        `Shadowfax API failed: ${failureMessage}`,
+        DeliveryProviderType.SHADOWFAX,
+        'SHADOWFAX_CREATE_FAILED',
+        false,
+        undefined,
+        { providerMessage: failureMessage },
+      );
+    }
 
     const data = primaryResponseRecord(raw);
     const awbNumber = findStringByKeys(raw, ['awb_number', 'awbNumber', 'awb', 'AWB']);
@@ -132,6 +158,7 @@ export class ShadowfaxProvider implements ILogisticsProvider {
       shadowfaxOrderId ??
       shipmentId ??
       trackingId ??
+      input.awbNumber ??
       '';
     const trackingNumber =
       awbNumber ??

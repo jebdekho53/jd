@@ -19,6 +19,7 @@ import {
 export interface ShadowfaxCreatePayload {
   order_details: {
     client_order_id: string;
+    awb_number?: string;
     order_value?: number;
     paid: boolean;
     payment_mode?: ShadowfaxPaymentMode;

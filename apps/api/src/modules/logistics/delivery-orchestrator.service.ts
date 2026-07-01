@@ -574,6 +574,7 @@ export class DeliveryOrchestratorService {
     return {
       orderId: order.id,
       orderNumber: order.orderNumber,
+      awbNumber: await this.allocateShadowfaxAwb(order.id),
       pickup: {
         name: order.store.name,
         phone: order.store.phone ?? '0000000000',
@@ -597,6 +598,58 @@ export class DeliveryOrchestratorService {
       },
       codAmount,
     };
+  }
+
+  private async allocateShadowfaxAwb(orderId: string): Promise<string | undefined> {
+    if (this.registry.primaryType !== DeliveryProviderType.SHADOWFAX) return undefined;
+    const awbs = this.shadowfaxPreallocatedAwbs();
+    if (awbs.length === 0) return undefined;
+
+    const existing = await this.prisma.providerShipment.findUnique({
+      where: { orderId },
+      select: { externalShipmentId: true, trackingNumber: true },
+    });
+    const existingAwb = awbs.find((awb) => awb === existing?.externalShipmentId || awb === existing?.trackingNumber);
+    if (existingAwb) return existingAwb;
+
+    const used = await this.prisma.providerShipment.findMany({
+      where: {
+        providerType: DeliveryProviderType.SHADOWFAX,
+        OR: [
+          { externalShipmentId: { in: awbs } },
+          { trackingNumber: { in: awbs } },
+        ],
+      },
+      select: { externalShipmentId: true, trackingNumber: true },
+    });
+    const usedAwbs = new Set(
+      used.flatMap((row) => [row.externalShipmentId, row.trackingNumber]).filter((value): value is string => Boolean(value)),
+    );
+    const nextAwb = awbs.find((awb) => !usedAwbs.has(awb));
+    if (!nextAwb) {
+      throw new LogisticsProviderError(
+        'No unused Shadowfax preallocated AWB numbers are available',
+        DeliveryProviderType.SHADOWFAX,
+        'SHADOWFAX_AWB_POOL_EXHAUSTED',
+        false,
+        undefined,
+        { providerMessage: 'Shadowfax AWB pool exhausted' },
+      );
+    }
+    return nextAwb;
+  }
+
+  private shadowfaxPreallocatedAwbs(): string[] {
+    const raw = this.config.get<string>('SHADOWFAX_PREALLOCATED_AWBS', '') ?? '';
+    const seen = new Set<string>();
+    return raw
+      .split(/[\s,]+/)
+      .map((value) => value.trim().toUpperCase())
+      .filter((value) => {
+        if (!/^SF[A-Z0-9]+$/.test(value) || seen.has(value)) return false;
+        seen.add(value);
+        return true;
+      });
   }
 
   private async resolvePayerContact(

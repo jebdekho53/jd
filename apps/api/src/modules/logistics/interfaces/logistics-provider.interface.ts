@@ -15,6 +15,7 @@ export interface ShipmentAddress {
 export interface CreateShipmentInput {
   orderId: string;
   orderNumber: string;
+  awbNumber?: string;
   pickup: ShipmentAddress;
   dropoff: ShipmentAddress;
   codAmount?: number;
