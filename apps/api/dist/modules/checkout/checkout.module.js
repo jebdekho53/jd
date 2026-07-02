@@ -10,6 +10,7 @@ exports.CheckoutModule = void 0;
 const common_1 = require("@nestjs/common");
 const checkout_service_1 = require("./checkout.service");
 const reservation_service_1 = require("./reservation.service");
+const order_expiry_service_1 = require("./order-expiry.service");
 const checkout_controller_1 = require("./checkout.controller");
 const idempotency_middleware_1 = require("./idempotency.middleware");
 const cart_module_1 = require("../cart/cart.module");
@@ -49,8 +50,8 @@ exports.CheckoutModule = CheckoutModule = __decorate([
             (0, common_1.forwardRef)(() => logistics_module_1.LogisticsModule),
         ],
         controllers: [checkout_controller_1.CheckoutController],
-        providers: [checkout_service_1.CheckoutService, reservation_service_1.ReservationService],
-        exports: [checkout_service_1.CheckoutService, reservation_service_1.ReservationService],
+        providers: [checkout_service_1.CheckoutService, reservation_service_1.ReservationService, order_expiry_service_1.OrderExpiryService],
+        exports: [checkout_service_1.CheckoutService, reservation_service_1.ReservationService, order_expiry_service_1.OrderExpiryService],
     })
 ], CheckoutModule);
 //# sourceMappingURL=checkout.module.js.map

@@ -16,7 +16,8 @@ export type OrderStatus =
   | 'CANCELLED_BY_ADMIN'
   | 'PAYMENT_FAILED'
   | 'DELIVERY_FAILED'
-  | 'REFUNDED';
+  | 'REFUNDED'
+  | 'EXPIRED';
 
 export type PaymentMethod = 'COD' | 'RAZORPAY';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
@@ -29,7 +30,7 @@ export interface OrderListItem {
   totalAmount: number;
   createdAt: string;
   store: { name: string; slug: string };
-  items: { productName: string; quantity: number }[];
+  items: { productName: string; quantity: number; imageUrl?: string | null }[];
 }
 
 export interface OrderTimelineEntry {

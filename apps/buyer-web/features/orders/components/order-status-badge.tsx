@@ -4,9 +4,18 @@ import type { OrderStatus } from '@/types/orders';
 
 interface OrderStatusBadgeProps {
   status: OrderStatus;
+  /**
+   * Name of the confirmed delivery partner, if one is actually attached. When
+   * the order is RIDER_ASSIGNED but no real rider is confirmed yet (the provider
+   * only "accepted" the order), we show an "allocating" copy rather than
+   * implying a rider is already on it.
+   */
+  driverName?: string | null;
 }
 
 type Tone = NonNullable<BadgeProps['tone']>;
+
+const RIDER_ALLOCATING_LABEL = 'Delivery partner being allocated…';
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; tone: Tone }> = {
   CREATED: { label: 'Placed', tone: 'brand' },
@@ -27,9 +36,12 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; tone: Tone }> = {
   PAYMENT_FAILED: { label: 'Payment failed', tone: 'danger' },
   DELIVERY_FAILED: { label: 'Delivery failed', tone: 'danger' },
   REFUNDED: { label: 'Refunded', tone: 'neutral' },
+  EXPIRED: { label: 'Expired', tone: 'neutral' },
 };
 
-export function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
+export function OrderStatusBadge({ status, driverName }: OrderStatusBadgeProps) {
   const config = STATUS_CONFIG[status] ?? { label: status, tone: 'neutral' as Tone };
-  return <Badge tone={config.tone}>{config.label}</Badge>;
+  const label =
+    status === 'RIDER_ASSIGNED' && !driverName?.trim() ? RIDER_ALLOCATING_LABEL : config.label;
+  return <Badge tone={config.tone}>{label}</Badge>;
 }

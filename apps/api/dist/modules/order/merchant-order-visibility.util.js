@@ -22,6 +22,7 @@ exports.MERCHANT_HIDDEN_STATUSES = [
     client_1.OrderStatus.CREATED,
     client_1.OrderStatus.PAYMENT_PENDING,
     client_1.OrderStatus.REFUNDED,
+    client_1.OrderStatus.EXPIRED,
     ...CANCELLED_STATUSES,
 ];
 function merchantPaymentVisibilityWhere() {

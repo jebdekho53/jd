@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var AuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
+exports.isBuyerFullyVerified = isBuyerFullyVerified;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const config_1 = require("@nestjs/config");
@@ -32,6 +33,13 @@ const email_notification_service_1 = require("../email/email-notification.servic
 const otp_service_1 = require("./otp.service");
 const password_service_1 = require("./password.service");
 const token_service_1 = require("./token.service");
+function isBuyerFullyVerified(input) {
+    return (Boolean(input.name?.trim()) &&
+        Boolean(input.phone?.trim()) &&
+        Boolean(input.email?.trim()) &&
+        input.phoneVerified &&
+        input.emailVerified);
+}
 let AuthService = AuthService_1 = class AuthService {
     constructor(prisma, otpService, tokenService, passwordService, wallet, referral, riskEngine, redis, auditService, domainEvents, blocklist, trustSafety, emailNotifications, configService) {
         this.prisma = prisma;
@@ -368,6 +376,7 @@ let AuthService = AuthService_1 = class AuthService {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             include: {
+                buyerProfile: { select: { name: true } },
                 roles: {
                     include: {
                         role: {
@@ -380,6 +389,7 @@ let AuthService = AuthService_1 = class AuthService {
         if (!user)
             throw new common_1.NotFoundException('User not found');
         const roles = user.roles.map((r) => r.role.name);
+        const name = user.buyerProfile?.name ?? null;
         const permSet = new Set();
         for (const ur of user.roles) {
             for (const rp of ur.role.permissions) {
@@ -390,8 +400,17 @@ let AuthService = AuthService_1 = class AuthService {
             id: user.id,
             phone: user.phone,
             email: user.email,
+            name,
             status: user.status,
             phoneVerified: user.phoneVerified,
+            emailVerified: user.emailVerified,
+            isVerified: isBuyerFullyVerified({
+                name,
+                phone: user.phone,
+                email: user.email,
+                phoneVerified: user.phoneVerified,
+                emailVerified: user.emailVerified,
+            }),
             roles,
             permissions: Array.from(permSet),
             createdAt: user.createdAt,

@@ -329,6 +329,7 @@ enum OrderStatus {
   PAYMENT_FAILED
   DELIVERY_FAILED
   REFUNDED
+  EXPIRED
 }
 
 enum PaymentStatus {

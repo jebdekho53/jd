@@ -36,3 +36,36 @@ export async function trackMarketingEvent(
     body: JSON.stringify({ eventType, metadata }),
   });
 }
+
+export interface InboxNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  isRead: boolean;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface InboxPage {
+  items: InboxNotification[];
+  total: number;
+  unread: number;
+  page: number;
+  limit: number;
+}
+
+export async function fetchNotificationInbox(page = 1): Promise<InboxPage> {
+  const res = await buyerFetch<{ success: boolean; data: InboxPage }>(
+    `/api/buyer/crm/inbox?page=${page}`,
+  );
+  return res.data;
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await buyerFetch(`/api/buyer/crm/inbox/${id}/read`, { method: 'PATCH' });
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await buyerFetch('/api/buyer/crm/inbox/read-all', { method: 'PATCH' });
+}
