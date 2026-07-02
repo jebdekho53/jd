@@ -408,6 +408,7 @@ export function SiteFooter() {
             <ul className="mt-3 space-y-2 text-sm text-jd-text-muted">
               <li><Link href="/terms" className="hover:text-primary">Terms of service</Link></li>
               <li><Link href="/privacy" className="hover:text-primary">Privacy policy</Link></li>
+              <li><Link href="/data-deletion" className="hover:text-primary">Data deletion</Link></li>
               <li><Link href="/refund-policy" className="hover:text-primary">Refund policy</Link></li>
             </ul>
           </div>
