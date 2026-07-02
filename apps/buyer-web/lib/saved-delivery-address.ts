@@ -79,7 +79,7 @@ export function persistDeliveryAddress(addr: DeliveryAddress): void {
   }
 
   const label = [addr.locality, addr.city].filter(Boolean).join(', ') || addr.line1;
-  useLocationStore.getState().setFromMaster({
+  useLocationStore.getState().setFromGoogle({
     lat: addr.lat,
     lng: addr.lng,
     label,

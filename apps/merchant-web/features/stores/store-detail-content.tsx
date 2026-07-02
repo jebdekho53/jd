@@ -280,8 +280,6 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
             {canEdit && (
               <MerchantAddressPicker
                 searchLabel="Store location"
-                masterValue={watch('localityLabel')}
-                masterPincode={watch('pincode')}
                 value={{
                   locality: watch('localityLabel') ?? '',
                   city: '',
@@ -300,15 +298,6 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
                   setValue('locationPincodeId', selection.locationPincodeId, { shouldDirty: true });
                 }}
                 onLine1Suggestion={(line1) => setValue('line1', line1, { shouldDirty: true })}
-                onMasterSelect={(selection) => {
-                  setValue('localityLabel', selection.label, { shouldDirty: true });
-                  setValue('pincode', selection.pincode, { shouldDirty: true });
-                  setValue('latitude', selection.latitude, { shouldDirty: true });
-                  setValue('longitude', selection.longitude, { shouldDirty: true });
-                  setValue('locationCityId', selection.locationCityId, { shouldDirty: true });
-                  setValue('locationAreaId', selection.locationAreaId, { shouldDirty: true });
-                  setValue('locationPincodeId', selection.locationPincodeId, { shouldDirty: true });
-                }}
                 error={errors.pincode?.message}
               />
             )}

@@ -243,13 +243,6 @@ export function DeliveryCoverageContent() {
               lng: selectedLocation?.lng ?? storeLng,
             }}
             onChange={handleCoverageSelection}
-            onMasterSelect={(item) => {
-              if (item.pincode && existingPincodes.has(item.pincode)) {
-                setCoverageMessage({ type: 'info', text: DUPLICATE_COVERAGE_MESSAGE });
-                setSearch(item.pincode);
-              }
-            }}
-            masterPincode={pickerPincode}
           />
           <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
             <div className="flex flex-col gap-2 sm:flex-row">

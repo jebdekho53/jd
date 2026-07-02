@@ -5,10 +5,6 @@ import {
   type AddressLocationValue,
   type ParsedGoogleAddress,
 } from '@jebdekho/google-maps';
-import {
-  LocationSearchInput,
-  type LocationSelection,
-} from '@/features/locations/components/location-search-input';
 
 async function reverseGeocodeCached(lat: number, lng: number): Promise<ParsedGoogleAddress | null> {
   const res = await fetch(`/api/geo/reverse?lat=${lat}&lng=${lng}`, { credentials: 'include' });
@@ -24,11 +20,6 @@ interface MerchantAddressPickerProps {
   error?: string;
   searchLabel?: string;
   mapHeightClassName?: string;
-  onMasterSelect?: (selection: LocationSelection) => void;
-  masterValue?: string;
-  masterPincode?: string;
-  directorySearchLabel?: string;
-  showDirectoryFallback?: boolean;
   showSelectionSummary?: boolean;
 }
 
@@ -39,11 +30,6 @@ export function MerchantAddressPicker({
   error,
   searchLabel,
   mapHeightClassName = 'h-56 sm:h-72',
-  onMasterSelect,
-  masterValue,
-  masterPincode,
-  directorySearchLabel = "Can't find on map? Search directory",
-  showDirectoryFallback = true,
   showSelectionSummary = true,
 }: MerchantAddressPickerProps) {
   return (
@@ -61,33 +47,6 @@ export function MerchantAddressPicker({
         const { requestBrowserLocation } = await import('@/lib/geolocation');
         return requestBrowserLocation();
       }}
-      fallback={
-        showDirectoryFallback ? (
-          // Google Places is primary; the shared picker renders this directory
-          // search only as a collapsible fallback, so no extra heading/border
-          // framing is needed here (matches the buyer flow).
-          <LocationSearchInput
-            label={directorySearchLabel}
-            value={masterValue}
-            pincode={masterPincode}
-            onSelect={(s) => {
-              onMasterSelect?.(s);
-              onChange({
-                locality: s.label,
-                city: s.city,
-                state: s.state,
-                pincode: s.pincode,
-                lat: s.latitude,
-                lng: s.longitude,
-                locationPincodeId: s.locationPincodeId,
-                locationAreaId: s.locationAreaId,
-                locationCityId: s.locationCityId,
-              });
-            }}
-            error={error}
-          />
-        ) : null
-      }
     />
   );
 }

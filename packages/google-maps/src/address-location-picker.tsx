@@ -1,10 +1,9 @@
 'use client';
 
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useState } from 'react';
 import { Navigation } from 'lucide-react';
 import { GooglePlacesAutocomplete } from './google-places-autocomplete';
 import { GoogleMapPicker } from './google-map-picker';
-import { OsmMapPicker } from './osm-map-picker';
 import { useGoogleMaps } from './google-maps-context';
 import type { ParsedGoogleAddress } from './parse-address';
 import { normalizeIndianPincode } from './parse-address';
@@ -34,7 +33,6 @@ export interface AddressLocationPickerProps {
   showMap?: boolean;
   mapHeightClassName?: string;
   searchLabel?: string;
-  fallback?: ReactNode;
   onRequestLocation?: () => Promise<{ lat: number; lng: number }>;
   onReverseGeocode?: (lat: number, lng: number) => Promise<ParsedGoogleAddress | null>;
   buttonClassName?: string;
@@ -87,7 +85,6 @@ export function AddressLocationPicker({
   showMap = true,
   mapHeightClassName = 'h-52 sm:h-64',
   searchLabel = 'Search address',
-  fallback = null,
   onRequestLocation,
   onReverseGeocode,
   buttonClassName = 'inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium',
@@ -228,30 +225,22 @@ export function AddressLocationPicker({
     </button>
   ) : null;
 
-  const mapPicker = showMap ? (
-    isConfigured ? (
+  const mapPicker = showMap && isConfigured ? (
       <GoogleMapPicker
         position={position}
         onPositionChange={handleMapMove}
         disabled={geocoding}
         heightClassName={mapHeightClassName}
       />
-    ) : onReverseGeocode ? (
-      <OsmMapPicker
-        position={position}
-        onPositionChange={handleMapMove}
-        disabled={geocoding}
-        heightClassName={mapHeightClassName}
-      />
-    ) : null
   ) : null;
 
   if (!isConfigured) {
     return (
       <div className="space-y-4">
-        {fallback}
         {locationButton}
-        {mapPicker}
+        <div className={`${mapHeightClassName} flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-4 text-center text-sm text-amber-800`}>
+          Google Maps is not configured. Add a valid browser API key to enable address search and map pin selection.
+        </div>
         {combinedError ? <p className="text-sm text-red-600">{combinedError}</p> : null}
         {geocodeError ? <p className="text-sm text-amber-700">{geocodeError}</p> : null}
         {showSelectionSummary && value.locality && (
@@ -281,21 +270,6 @@ export function AddressLocationPicker({
 
       {mapPicker}
       {geocodeError ? <p className="text-sm text-amber-700">{geocodeError}</p> : null}
-
-      {/*
-        Google Places is the primary forward search (resolves any real address
-        precisely). The master-directory search is kept only as a manual
-        fallback for when Places can't find the place — tucked behind a
-        disclosure so it no longer constrains precision or geography.
-      */}
-      {fallback ? (
-        <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-          <summary className="cursor-pointer text-sm text-slate-600">
-            Can&rsquo;t find your exact address? Pick from our area list
-          </summary>
-          <div className="pt-3">{fallback}</div>
-        </details>
-      ) : null}
 
       {showSelectionSummary && value.locality && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">

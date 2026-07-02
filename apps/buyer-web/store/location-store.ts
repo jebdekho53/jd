@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type LocationSource = 'gps' | 'manual' | 'default' | 'master';
+export type LocationSource = 'gps' | 'manual' | 'default' | 'google';
 
 export interface LocationCoords {
   lat: number;
@@ -21,7 +21,7 @@ interface LocationState extends LocationCoords {
   isReady: boolean;
   setFromGps: (lat: number, lng: number, label?: string) => void;
   setManual: (lat: number, lng: number, label: string) => void;
-  setFromMaster: (coords: Omit<LocationCoords, 'source'>) => void;
+  setFromGoogle: (coords: Omit<LocationCoords, 'source'>) => void;
   setDefault: (lat: number, lng: number, label: string) => void;
   /** @deprecated Use setManual — kept for legacy ui-store consumers */
   setLocation: (lat: number, lng: number, label: string) => void;
@@ -54,10 +54,10 @@ export const useLocationStore = create<LocationState>()(
         set({ lat, lng, label, source: 'gps', isReady: true }),
       setManual: (lat, lng, label) =>
         set({ lat, lng, label, source: 'manual', isReady: true }),
-      setFromMaster: (coords) =>
+      setFromGoogle: (coords) =>
         set({
           ...coords,
-          source: 'master',
+          source: 'google',
           isReady: true,
         }),
       setDefault: (lat, lng, label) =>

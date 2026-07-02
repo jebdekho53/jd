@@ -5,10 +5,6 @@ import {
   type AddressLocationValue,
   type ParsedGoogleAddress,
 } from '@jebdekho/google-maps';
-import {
-  LocationSearchInput,
-  type LocationSelection,
-} from '@/features/location/components/location-search-input';
 
 async function reverseGeocodeCached(lat: number, lng: number): Promise<ParsedGoogleAddress | null> {
   const res = await fetch(`/api/geo/reverse?lat=${lat}&lng=${lng}`, { credentials: 'include' });
@@ -24,8 +20,6 @@ interface BuyerAddressPickerProps {
   error?: string;
   showMap?: boolean;
   searchLabel?: string;
-  onMasterSelect?: (selection: LocationSelection) => void;
-  masterValue?: string;
 }
 
 export function BuyerAddressPicker({
@@ -35,8 +29,6 @@ export function BuyerAddressPicker({
   error,
   showMap = true,
   searchLabel,
-  onMasterSelect,
-  masterValue,
 }: BuyerAddressPickerProps) {
   return (
     <AddressLocationPicker
@@ -51,46 +43,6 @@ export function BuyerAddressPicker({
         const { requestBrowserLocation } = await import('@/lib/geolocation');
         return requestBrowserLocation();
       }}
-      fallback={
-        onMasterSelect ? (
-          <LocationSearchInput
-            value={masterValue}
-            onSelect={(s) => {
-              onMasterSelect(s);
-              onChange({
-                locality: s.label,
-                city: s.city,
-                state: s.state,
-                pincode: s.pincode,
-                lat: s.latitude,
-                lng: s.longitude,
-                locationPincodeId: s.locationPincodeId,
-                locationAreaId: s.locationAreaId,
-                locationCityId: s.locationCityId,
-              });
-            }}
-            error={error}
-          />
-        ) : (
-          <LocationSearchInput
-            value={masterValue}
-            onSelect={(s) => {
-              onChange({
-                locality: s.label,
-                city: s.city,
-                state: s.state,
-                pincode: s.pincode,
-                lat: s.latitude,
-                lng: s.longitude,
-                locationPincodeId: s.locationPincodeId,
-                locationAreaId: s.locationAreaId,
-                locationCityId: s.locationCityId,
-              });
-            }}
-            error={error}
-          />
-        )
-      }
     />
   );
 }
