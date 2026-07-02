@@ -2,6 +2,14 @@ import type { Libraries } from '@react-google-maps/api';
 
 export const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 
+/**
+ * A Map ID is required for Advanced Markers. Set NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID
+ * to a Map ID created in the Google Cloud console for production styling;
+ * falls back to Google's DEMO_MAP_ID so markers render without extra setup.
+ */
+export const GOOGLE_MAPS_MAP_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID?.trim() || 'DEMO_MAP_ID';
+
 export const GOOGLE_MAPS_LIBRARIES: Libraries = ['places', 'marker'];
 
 export const DEFAULT_MAP_CENTER = { lat: 28.6139, lng: 77.209 } as const;

@@ -61,6 +61,15 @@ export function AdvancedMarker({
     return markerContent(label, color);
   }, [color, label]);
 
+  // Keep latest callbacks in refs so the marker is created only once per
+  // (map, content). Previously the effect depended on position/onClick/onDragEnd
+  // (new refs each render), so it destroyed + recreated the marker on every
+  // render — spamming the "map initialized without a valid Map ID" warning.
+  const onClickRef = useRef(onClick);
+  const onDragEndRef = useRef(onDragEnd);
+  onClickRef.current = onClick;
+  onDragEndRef.current = onDragEnd;
+
   useEffect(() => {
     if (!map || !content || !google.maps.marker?.AdvancedMarkerElement) return undefined;
 
@@ -73,25 +82,23 @@ export function AdvancedMarker({
     });
     markerRef.current = marker;
 
-    const listeners: google.maps.MapsEventListener[] = [];
-    if (onClick) {
-      listeners.push(marker.addListener('click', onClick));
-    }
-    if (onDragEnd) {
-      listeners.push(
-        marker.addListener('dragend', (event: google.maps.MapMouseEvent) => {
-          const next = eventPosition(marker, event);
-          if (next) onDragEnd(next);
-        }),
-      );
-    }
+    const listeners: google.maps.MapsEventListener[] = [
+      marker.addListener('click', () => onClickRef.current?.()),
+      marker.addListener('dragend', (event: google.maps.MapMouseEvent) => {
+        const next = eventPosition(marker, event);
+        if (next) onDragEndRef.current?.(next);
+      }),
+    ];
 
     return () => {
       listeners.forEach((listener) => listener.remove());
       marker.map = null;
       markerRef.current = null;
     };
-  }, [content, draggable, map, onClick, onDragEnd, position, title]);
+    // Only (map, content); position/title/draggable are synced in the effect
+    // below and callbacks come from refs, so no need to recreate the marker.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, map]);
 
   useEffect(() => {
     if (markerRef.current) {

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap } from '@react-google-maps/api';
 import { Loader2, MapPin } from 'lucide-react';
 import { useGoogleMaps } from './google-maps-context';
-import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from './constants';
+import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, GOOGLE_MAPS_MAP_ID } from './constants';
 import { cn } from './cn';
 import { AdvancedMarker } from './advanced-marker';
 
@@ -24,6 +24,9 @@ export interface GoogleMapPickerProps {
 const mapContainerStyle = { width: '100%', height: '100%' };
 
 const mapOptions: google.maps.MapOptions = {
+  // Advanced Markers require a Map ID; without it the console warns on every
+  // marker render ("map initialized without a valid Map ID").
+  mapId: GOOGLE_MAPS_MAP_ID,
   disableDefaultUI: true,
   zoomControl: true,
   mapTypeControl: false,
