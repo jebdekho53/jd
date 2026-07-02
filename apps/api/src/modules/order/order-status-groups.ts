@@ -20,6 +20,9 @@ export const BUYER_STATUS_GROUPS = {
     OrderStatus.CANCELLED_BY_ADMIN,
     OrderStatus.PAYMENT_FAILED,
     OrderStatus.DELIVERY_FAILED,
+    // Auto-expired unpaid orders live in the buyer's past list (not "active"),
+    // shown with their own "Expired" badge — never as pending.
+    OrderStatus.EXPIRED,
   ],
   completed: [OrderStatus.DELIVERED, OrderStatus.COMPLETED, OrderStatus.REFUNDED],
 } as const satisfies Record<string, OrderStatus[]>;

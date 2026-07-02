@@ -35,7 +35,7 @@ export const ORDER_STATUS_STAGES: OrderStatusStage[] = [
   },
   {
     key: 'rider_assigned',
-    label: 'Rider assigned',
+    label: 'Delivery partner being allocated…',
     statuses: ['RIDER_ASSIGNED'],
   },
   {
@@ -74,6 +74,7 @@ export function isActiveOrderStatus(status: OrderStatus): boolean {
     'PAYMENT_FAILED',
     'DELIVERY_FAILED',
     'REFUNDED',
+    'EXPIRED',
     'COMPLETED',
     'DELIVERED',
   ].includes(status);

@@ -48,6 +48,7 @@ import { ComplianceModule } from './modules/compliance/compliance.module';
 import { TrustSafetyModule } from './modules/trust-safety/trust-safety.module';
 import { SupportModule } from './modules/support/support.module';
 import { CrmModule } from './modules/crm/crm.module';
+import { WishlistModule } from './modules/wishlist/wishlist.module';
 import { MerchantGrowthModule } from './modules/merchant-growth/merchant-growth.module';
 import { FulfillmentNetworkModule } from './modules/fulfillment-network/fulfillment-network.module';
 import { ProcurementModule } from './modules/procurement/procurement.module';
@@ -157,6 +158,7 @@ import { RequestIdInterceptor } from './common/interceptors/request-id.intercept
     TrustSafetyModule,
     SupportModule,
     CrmModule,
+    WishlistModule,
     PushModule,
     MerchantGrowthModule,
     FulfillmentNetworkModule,

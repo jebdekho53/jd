@@ -7,6 +7,8 @@ import { APPLE_SPLASH_LINKS } from '@/lib/pwa/apple-splash';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { GoogleMapsProvider } from '@/components/providers/google-maps-provider';
 import { PwaProvider } from '@/components/pwa/pwa-provider';
+import { ThemeApplier } from '@/components/providers/theme-applier';
+import { LocationPreferenceSync } from '@/components/providers/location-preference-sync';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
@@ -75,6 +77,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         ))}
       </head>
       <body className={`${inter.variable} pwa-root`}>
+        <ThemeApplier />
+        <LocationPreferenceSync />
         <QueryProvider>
           <GoogleMapsProvider>
             <PwaProvider>{children}</PwaProvider>

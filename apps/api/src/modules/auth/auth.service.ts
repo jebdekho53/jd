@@ -41,11 +41,37 @@ export interface MeResponse {
   id: string;
   phone: string;
   email: string | null;
+  name: string | null;
   status: UserStatus;
   phoneVerified: boolean;
+  emailVerified: boolean;
+  /**
+   * Derived "fully verified" status: true only when name, phone and email are
+   * all present AND phone and email have each been individually verified via
+   * OTP. Purely derived from already-confirmed fields — it never bypasses or
+   * short-circuits the underlying phone/email OTP verification.
+   */
+  isVerified: boolean;
   roles: string[];
   permissions: string[];
   createdAt: Date;
+}
+
+/** True only when all three identity fields exist and both are OTP-verified. */
+export function isBuyerFullyVerified(input: {
+  name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  phoneVerified: boolean;
+  emailVerified: boolean;
+}): boolean {
+  return (
+    Boolean(input.name?.trim()) &&
+    Boolean(input.phone?.trim()) &&
+    Boolean(input.email?.trim()) &&
+    input.phoneVerified &&
+    input.emailVerified
+  );
 }
 
 export interface RequestOtpResponse {
@@ -591,6 +617,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
+        buyerProfile: { select: { name: true } },
         roles: {
           include: {
             role: {
@@ -604,6 +631,7 @@ export class AuthService {
     if (!user) throw new NotFoundException('User not found');
 
     const roles = user.roles.map((r) => r.role.name);
+    const name = user.buyerProfile?.name ?? null;
 
     const permSet = new Set<string>();
     for (const ur of user.roles) {
@@ -616,8 +644,17 @@ export class AuthService {
       id: user.id,
       phone: user.phone,
       email: user.email,
+      name,
       status: user.status,
       phoneVerified: user.phoneVerified,
+      emailVerified: user.emailVerified,
+      isVerified: isBuyerFullyVerified({
+        name,
+        phone: user.phone,
+        email: user.email,
+        phoneVerified: user.phoneVerified,
+        emailVerified: user.emailVerified,
+      }),
       roles,
       permissions: Array.from(permSet),
       createdAt: user.createdAt,

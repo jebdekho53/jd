@@ -19,9 +19,21 @@ const STATUS_MAP: Record<OrderStatus, { tone: BadgeProps['tone']; label: string 
   CANCELLED_BY_ADMIN: { tone: 'danger', label: 'Cancelled by Admin' },
   PAYMENT_FAILED: { tone: 'danger', label: 'Payment Failed' },
   REFUNDED: { tone: 'neutral', label: 'Refunded' },
+  EXPIRED: { tone: 'neutral', label: 'Expired' },
 };
 
-export function OrderStatusBadge({ status }: { status: OrderStatus }) {
+const RIDER_ALLOCATING_LABEL = 'Delivery partner being allocated…';
+
+export function OrderStatusBadge({
+  status,
+  driverName,
+}: {
+  status: OrderStatus;
+  /** Confirmed delivery-partner name; when absent on RIDER_ASSIGNED we show an allocating copy. */
+  driverName?: string | null;
+}) {
   const { tone, label } = STATUS_MAP[status] ?? { tone: 'neutral', label: status };
-  return <Badge tone={tone} dot>{label}</Badge>;
+  const displayLabel =
+    status === 'RIDER_ASSIGNED' && !driverName?.trim() ? RIDER_ALLOCATING_LABEL : label;
+  return <Badge tone={tone} dot>{displayLabel}</Badge>;
 }

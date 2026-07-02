@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronRight, Package } from 'lucide-react';
 import { OrderStatusBadge } from '@/features/orders/components/order-status-badge';
@@ -13,6 +14,8 @@ export function OrderCard({ order }: OrderCardProps) {
   const itemSummary = order.items
     .map((i) => `${i.productName} × ${i.quantity}`)
     .join(', ');
+
+  const thumbnail = order.items.find((i) => i.imageUrl)?.imageUrl ?? null;
 
   const date = new Date(order.createdAt).toLocaleDateString('en-IN', {
     day: '2-digit',
@@ -32,8 +35,12 @@ export function OrderCard({ order }: OrderCardProps) {
       className="block rounded-2xl border border-border bg-card p-4 shadow-card transition hover:shadow-pop active:scale-[0.99]"
     >
       <div className="flex items-start gap-3">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-          <Package className="h-5 w-5" aria-hidden />
+        <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-primary/10 text-primary">
+          {thumbnail ? (
+            <Image src={thumbnail} alt={order.items[0]?.productName ?? 'Product'} fill className="object-cover" sizes="44px" />
+          ) : (
+            <Package className="h-5 w-5" aria-hidden />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">

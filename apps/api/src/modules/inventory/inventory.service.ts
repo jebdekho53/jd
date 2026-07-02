@@ -1,8 +1,10 @@
 import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InventoryStatus, Prisma, ReservationStatus } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma.service';
 import { InventoryCacheService } from './inventory-cache.service';
 import { InventoryAlertService } from './inventory-alert.service';
+import { INVENTORY_EVENTS, type InventoryBackInStockEvent } from './inventory.events';
 
 export type StockLevel = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
 
@@ -26,6 +28,7 @@ export class InventoryService {
     private readonly prisma: PrismaService,
     private readonly cache: InventoryCacheService,
     private readonly alerts: InventoryAlertService,
+    private readonly events: EventEmitter2,
   ) {}
 
   getAvailableQty(inv: { availableQty: number; reservedQty: number; status: InventoryStatus } | null): number {
@@ -237,6 +240,22 @@ export class InventoryService {
     await this.afterInventoryChange([variantId]);
     if (actorUserId) {
       await this.alerts.checkAndNotifyLowStock(variantId, actorUserId);
+    }
+
+    // Back-in-stock: notify anyone who wishlisted this product.
+    const cameBackInStock =
+      inv.status !== InventoryStatus.DISABLED && inv.availableQty <= 0 && newAvailableQty > 0;
+    if (cameBackInStock) {
+      const variant = await this.prisma.productVariant.findUnique({
+        where: { id: variantId },
+        select: { productId: true },
+      });
+      if (variant) {
+        this.events.emit(INVENTORY_EVENTS.BACK_IN_STOCK, {
+          productId: variant.productId,
+          variantId,
+        } satisfies InventoryBackInStockEvent);
+      }
     }
 
     return {

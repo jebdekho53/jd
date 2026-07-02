@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InventoryStatus } from '@prisma/client';
 import { InventoryService } from './inventory.service';
+import { INVENTORY_EVENTS } from './inventory.events';
 import { PrismaService } from '../../database/prisma.service';
 import { InventoryCacheService } from './inventory-cache.service';
 import { InventoryAlertService } from './inventory-alert.service';
@@ -18,11 +20,12 @@ const mockPrisma = {
   },
   inventoryReservation: { create: jest.fn(), updateMany: jest.fn(), findMany: jest.fn() },
   product: { findMany: jest.fn() },
-  productVariant: { findMany: jest.fn() },
+  productVariant: { findMany: jest.fn(), findUnique: jest.fn() },
 };
 
 const mockCache = { invalidateForStores: jest.fn() };
 const mockAlerts = { checkAndNotifyLowStock: jest.fn() };
+const mockEvents = { emit: jest.fn() };
 
 describe('InventoryService', () => {
   let service: InventoryService;
@@ -34,6 +37,7 @@ describe('InventoryService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: InventoryCacheService, useValue: mockCache },
         { provide: InventoryAlertService, useValue: mockAlerts },
+        { provide: EventEmitter2, useValue: mockEvents },
       ],
     }).compile();
 
@@ -117,6 +121,60 @@ describe('InventoryService', () => {
 
       await service.adjustAvailableQty('v1', 4, 5, 'merchant-1');
       expect(mockAlerts.checkAndNotifyLowStock).toHaveBeenCalledWith('v1', 'merchant-1');
+    });
+  });
+
+  describe('adjustAvailableQty — back-in-stock event', () => {
+    function mockInv(availableQty: number, status: InventoryStatus) {
+      mockPrisma.inventory.findUnique.mockResolvedValue({
+        id: 'inv-1',
+        availableQty,
+        reservedQty: 0,
+        lowStockThreshold: 5,
+        status,
+      });
+      mockPrisma.inventory.update.mockResolvedValue({
+        availableQty: 0,
+        reservedQty: 0,
+        soldQty: 0,
+        status: InventoryStatus.ACTIVE,
+      });
+      mockPrisma.productVariant.findUnique.mockResolvedValue({ productId: 'p1' });
+    }
+
+    it('emits BACK_IN_STOCK when stock goes from 0 to >0', async () => {
+      mockInv(0, InventoryStatus.OUT_OF_STOCK);
+
+      await service.adjustAvailableQty('v1', 8);
+
+      expect(mockEvents.emit).toHaveBeenCalledWith(
+        INVENTORY_EVENTS.BACK_IN_STOCK,
+        { productId: 'p1', variantId: 'v1' },
+      );
+    });
+
+    it('does NOT emit on a 0 -> 0 update', async () => {
+      mockInv(0, InventoryStatus.OUT_OF_STOCK);
+
+      await service.adjustAvailableQty('v1', 0);
+
+      expect(mockEvents.emit).not.toHaveBeenCalled();
+    });
+
+    it('does NOT emit when the product was already in stock (5 -> 10)', async () => {
+      mockInv(5, InventoryStatus.ACTIVE);
+
+      await service.adjustAvailableQty('v1', 10);
+
+      expect(mockEvents.emit).not.toHaveBeenCalled();
+    });
+
+    it('does NOT emit when inventory is DISABLED', async () => {
+      mockInv(0, InventoryStatus.DISABLED);
+
+      await service.adjustAvailableQty('v1', 8);
+
+      expect(mockEvents.emit).not.toHaveBeenCalled();
     });
   });
 });
