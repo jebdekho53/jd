@@ -57,6 +57,7 @@ const compliance_module_1 = require("./modules/compliance/compliance.module");
 const trust_safety_module_1 = require("./modules/trust-safety/trust-safety.module");
 const support_module_1 = require("./modules/support/support.module");
 const crm_module_1 = require("./modules/crm/crm.module");
+const wishlist_module_1 = require("./modules/wishlist/wishlist.module");
 const merchant_growth_module_1 = require("./modules/merchant-growth/merchant-growth.module");
 const fulfillment_network_module_1 = require("./modules/fulfillment-network/fulfillment-network.module");
 const procurement_module_1 = require("./modules/procurement/procurement.module");
@@ -156,6 +157,7 @@ exports.AppModule = AppModule = __decorate([
             trust_safety_module_1.TrustSafetyModule,
             support_module_1.SupportModule,
             crm_module_1.CrmModule,
+            wishlist_module_1.WishlistModule,
             push_module_1.PushModule,
             merchant_growth_module_1.MerchantGrowthModule,
             fulfillment_network_module_1.FulfillmentNetworkModule,

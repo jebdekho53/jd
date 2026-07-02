@@ -1,5 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { InventoryStatus } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma.service';
 import { InventoryCacheService } from './inventory-cache.service';
 import { InventoryAlertService } from './inventory-alert.service';
@@ -11,8 +12,9 @@ export declare class InventoryService {
     private readonly prisma;
     private readonly cache;
     private readonly alerts;
+    private readonly events;
     private readonly logger;
-    constructor(prisma: PrismaService, cache: InventoryCacheService, alerts: InventoryAlertService);
+    constructor(prisma: PrismaService, cache: InventoryCacheService, alerts: InventoryAlertService, events: EventEmitter2);
     getAvailableQty(inv: {
         availableQty: number;
         reservedQty: number;

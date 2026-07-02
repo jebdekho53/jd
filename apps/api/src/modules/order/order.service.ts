@@ -274,7 +274,14 @@ export class OrderService implements OnModuleInit {
           totalAmount: true,
           createdAt: true,
           store: { select: { name: true, slug: true } },
-          items: { select: { productName: true, quantity: true }, take: 3 },
+          items: {
+            select: {
+              productName: true,
+              quantity: true,
+              product: { select: { imageUrls: true } },
+            },
+            take: 3,
+          },
         },
       }),
       this.prisma.order.count({ where }),
@@ -1063,7 +1070,10 @@ function serializeListItem(order: any) {
     store: order.store,
     storeId: order.storeId,
     buyerProfile: order.buyerProfile,
-    items: order.items,
+    items: order.items?.map((item: any) => {
+      const { product, ...rest } = item;
+      return { ...rest, imageUrl: product?.imageUrls?.[0] ?? null };
+    }),
   };
 }
 

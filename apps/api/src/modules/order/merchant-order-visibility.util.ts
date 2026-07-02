@@ -19,6 +19,9 @@ export const MERCHANT_HIDDEN_STATUSES: OrderStatus[] = [
   OrderStatus.CREATED,
   OrderStatus.PAYMENT_PENDING,
   OrderStatus.REFUNDED,
+  // Auto-expired unpaid orders must never surface in a merchant queue (also
+  // excluded by the payment-cleared filter since they never reached PAID).
+  OrderStatus.EXPIRED,
   ...CANCELLED_STATUSES,
 ];
 

@@ -15,9 +15,11 @@ exports.buyerStockLevel = buyerStockLevel;
 exports.inventoryChangedException = inventoryChangedException;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
+const event_emitter_1 = require("@nestjs/event-emitter");
 const prisma_service_1 = require("../../database/prisma.service");
 const inventory_cache_service_1 = require("./inventory-cache.service");
 const inventory_alert_service_1 = require("./inventory-alert.service");
+const inventory_events_1 = require("./inventory.events");
 exports.BUYER_LOW_STOCK_THRESHOLD = 10;
 function buyerStockLevel(availableQty) {
     if (availableQty <= 0)
@@ -30,10 +32,11 @@ function inventoryChangedException(message) {
     return new common_1.ConflictException({ code: 'INVENTORY_CHANGED', message });
 }
 let InventoryService = InventoryService_1 = class InventoryService {
-    constructor(prisma, cache, alerts) {
+    constructor(prisma, cache, alerts, events) {
         this.prisma = prisma;
         this.cache = cache;
         this.alerts = alerts;
+        this.events = events;
         this.logger = new common_1.Logger(InventoryService_1.name);
     }
     getAvailableQty(inv) {
@@ -209,6 +212,19 @@ let InventoryService = InventoryService_1 = class InventoryService {
         await this.afterInventoryChange([variantId]);
         if (actorUserId) {
             await this.alerts.checkAndNotifyLowStock(variantId, actorUserId);
+        }
+        const cameBackInStock = inv.status !== client_1.InventoryStatus.DISABLED && inv.availableQty <= 0 && newAvailableQty > 0;
+        if (cameBackInStock) {
+            const variant = await this.prisma.productVariant.findUnique({
+                where: { id: variantId },
+                select: { productId: true },
+            });
+            if (variant) {
+                this.events.emit(inventory_events_1.INVENTORY_EVENTS.BACK_IN_STOCK, {
+                    productId: variant.productId,
+                    variantId,
+                });
+            }
         }
         return {
             availableQty: updated.availableQty,
@@ -442,6 +458,7 @@ exports.InventoryService = InventoryService = InventoryService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         inventory_cache_service_1.InventoryCacheService,
-        inventory_alert_service_1.InventoryAlertService])
+        inventory_alert_service_1.InventoryAlertService,
+        event_emitter_1.EventEmitter2])
 ], InventoryService);
 //# sourceMappingURL=inventory.service.js.map

@@ -63,29 +63,29 @@ export function MerchantAddressPicker({
       }}
       fallback={
         showDirectoryFallback ? (
-          <div className="space-y-2 border-t border-slate-100 pt-4">
-            <p className="text-xs font-medium text-slate-500">{directorySearchLabel}</p>
-            <LocationSearchInput
-              label="Directory search"
-              value={masterValue}
-              pincode={masterPincode}
-              onSelect={(s) => {
-                onMasterSelect?.(s);
-                onChange({
-                  locality: s.label,
-                  city: s.city,
-                  state: s.state,
-                  pincode: s.pincode,
-                  lat: s.latitude,
-                  lng: s.longitude,
-                  locationPincodeId: s.locationPincodeId,
-                  locationAreaId: s.locationAreaId,
-                  locationCityId: s.locationCityId,
-                });
-              }}
-              error={error}
-            />
-          </div>
+          // Google Places is primary; the shared picker renders this directory
+          // search only as a collapsible fallback, so no extra heading/border
+          // framing is needed here (matches the buyer flow).
+          <LocationSearchInput
+            label={directorySearchLabel}
+            value={masterValue}
+            pincode={masterPincode}
+            onSelect={(s) => {
+              onMasterSelect?.(s);
+              onChange({
+                locality: s.label,
+                city: s.city,
+                state: s.state,
+                pincode: s.pincode,
+                lat: s.latitude,
+                lng: s.longitude,
+                locationPincodeId: s.locationPincodeId,
+                locationAreaId: s.locationAreaId,
+                locationCityId: s.locationCityId,
+              });
+            }}
+            error={error}
+          />
         ) : null
       }
     />

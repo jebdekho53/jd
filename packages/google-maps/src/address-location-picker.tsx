@@ -282,7 +282,20 @@ export function AddressLocationPicker({
       {mapPicker}
       {geocodeError ? <p className="text-sm text-amber-700">{geocodeError}</p> : null}
 
-      {fallback}
+      {/*
+        Google Places is the primary forward search (resolves any real address
+        precisely). The master-directory search is kept only as a manual
+        fallback for when Places can't find the place — tucked behind a
+        disclosure so it no longer constrains precision or geography.
+      */}
+      {fallback ? (
+        <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <summary className="cursor-pointer text-sm text-slate-600">
+            Can&rsquo;t find your exact address? Pick from our area list
+          </summary>
+          <div className="pt-3">{fallback}</div>
+        </details>
+      ) : null}
 
       {showSelectionSummary && value.locality && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
