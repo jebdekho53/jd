@@ -15,6 +15,19 @@ const ACTIVE_STATUSES: ShipmentProviderStatus[] = [
   ShipmentProviderStatus.NEARBY,
 ];
 
+// Statuses that mean the shipment never actually left the pickup stage. If a
+// shipment has been sitting in one of these for longer than STALE_AFTER_MS
+// without progressing, it's almost certainly abandoned/test data — stop
+// polling it so we don't hammer the provider forever. Shipments that have
+// genuinely progressed (PICKED_UP / IN_TRANSIT / NEARBY) keep being polled
+// regardless of age until they reach a terminal state.
+const PRE_PICKUP_STATUSES: ShipmentProviderStatus[] = [
+  ShipmentProviderStatus.PENDING,
+  ShipmentProviderStatus.ASSIGNED,
+  ShipmentProviderStatus.PICKUP_STARTED,
+];
+const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
+
 /**
  * Polls Shadowfax for tracking updates on active shipments. Rider name/phone/
  * location primarily arrive via webhooks, but this poll is the fallback that
@@ -36,11 +49,19 @@ export class ShipmentTrackingScheduler {
     if (this.running) return;
     this.running = true;
     try {
+      const staleCutoff = new Date(Date.now() - STALE_AFTER_MS);
       const shipments = await this.prisma.providerShipment.findMany({
         where: {
           providerType: DeliveryProviderType.SHADOWFAX,
           externalShipmentId: { not: null },
           normalizedStatus: { in: ACTIVE_STATUSES },
+          // Skip stale test/abandoned shipments: older than the cutoff AND
+          // still stuck pre-pickup. Anything that actually progressed past
+          // pickup stays eligible no matter how old.
+          NOT: {
+            normalizedStatus: { in: PRE_PICKUP_STATUSES },
+            createdAt: { lt: staleCutoff },
+          },
         },
         select: { orderId: true },
         orderBy: { updatedAt: 'asc' },

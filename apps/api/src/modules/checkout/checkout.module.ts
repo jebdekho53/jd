@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod, forwardRef } from '@nestjs/common';
 import { CheckoutService } from './checkout.service';
 import { ReservationService } from './reservation.service';
+import { OrderExpiryService } from './order-expiry.service';
 import { CheckoutController } from './checkout.controller';
 import { IdempotencyMiddleware } from './idempotency.middleware';
 import { CartModule } from '../cart/cart.module';
@@ -32,8 +33,8 @@ import { LogisticsModule } from '../logistics/logistics.module';
     forwardRef(() => LogisticsModule),
   ],
   controllers: [CheckoutController],
-  providers: [CheckoutService, ReservationService],
-  exports: [CheckoutService, ReservationService],
+  providers: [CheckoutService, ReservationService, OrderExpiryService],
+  exports: [CheckoutService, ReservationService, OrderExpiryService],
 })
 export class CheckoutModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

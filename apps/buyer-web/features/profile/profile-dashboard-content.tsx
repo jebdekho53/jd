@@ -169,7 +169,8 @@ export function ProfileDashboardContent() {
           <MenuRow icon={MapPin} title="Addresses" subtitle="Delivery locations" href="/profile/addresses" />
           <MenuRow icon={Heart} title="Wishlist" subtitle="Saved products" href="/profile/wishlist" />
           <MenuRow icon={CreditCard} title="Payment methods" subtitle="UPI, cards & more" href="/profile/payments" />
-          <MenuRow icon={Bell} title="Notifications" subtitle="Alerts & offers" href="/profile/notifications" />
+          <MenuRow icon={Bell} title="Notifications" subtitle="Order, delivery & support updates" href="/profile/inbox" />
+          <MenuRow icon={Bell} title="Notification preferences" subtitle="Channels & alert types" href="/profile/notifications" />
           <MenuRow icon={Shield} title="Security" subtitle="Sessions & safety" href="/profile/security" />
           <MenuRow icon={Crown} title="JebDekho Plus" subtitle="Membership benefits" href="/plus" />
         </MenuSection>

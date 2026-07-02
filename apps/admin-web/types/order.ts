@@ -16,7 +16,8 @@ export type OrderStatus =
   | 'CANCELLED_BY_ADMIN'
   | 'PAYMENT_FAILED'
   | 'DELIVERY_FAILED'
-  | 'REFUNDED';
+  | 'REFUNDED'
+  | 'EXPIRED';
 
 export type PaymentMethod = 'COD' | 'RAZORPAY';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';

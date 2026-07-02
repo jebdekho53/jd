@@ -22,6 +22,7 @@ exports.BUYER_STATUS_GROUPS = {
         client_1.OrderStatus.CANCELLED_BY_ADMIN,
         client_1.OrderStatus.PAYMENT_FAILED,
         client_1.OrderStatus.DELIVERY_FAILED,
+        client_1.OrderStatus.EXPIRED,
     ],
     completed: [client_1.OrderStatus.DELIVERED, client_1.OrderStatus.COMPLETED, client_1.OrderStatus.REFUNDED],
 };

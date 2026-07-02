@@ -25,12 +25,22 @@ export interface MeResponse {
     id: string;
     phone: string;
     email: string | null;
+    name: string | null;
     status: UserStatus;
     phoneVerified: boolean;
+    emailVerified: boolean;
+    isVerified: boolean;
     roles: string[];
     permissions: string[];
     createdAt: Date;
 }
+export declare function isBuyerFullyVerified(input: {
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    phoneVerified: boolean;
+    emailVerified: boolean;
+}): boolean;
 export interface RequestOtpResponse {
     message: string;
     expiresIn: number;

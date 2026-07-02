@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  NotificationType,
   Prisma,
   SupportActorType,
   SupportMessageVisibility,
@@ -179,6 +180,17 @@ export class SupportTicketService {
     });
 
     if (isStaff && visibility === SupportMessageVisibility.PUBLIC) {
+      // In-app feed entry (buyer /crm/inbox) so the reply shows up in the
+      // notifications feed, in addition to the existing web-push event below.
+      await this.prisma.notification.create({
+        data: {
+          userId: ticket.requesterUserId,
+          type: NotificationType.SUPPORT,
+          title: `Support replied to ticket ${ticket.ticketNumber}`,
+          body: body.length > 160 ? `${body.slice(0, 157)}…` : body,
+        },
+      });
+
       this.events.emit(BUYER_PUSH_EVENTS.SUPPORT_REPLY, {
         userId: ticket.requesterUserId,
         ticketId,

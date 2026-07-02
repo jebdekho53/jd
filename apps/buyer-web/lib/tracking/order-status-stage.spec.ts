@@ -21,7 +21,7 @@ describe('order-status-stage', () => {
   });
 
   it('maps rider and delivery statuses', () => {
-    expect(getOrderStatusStageLabel('RIDER_ASSIGNED')).toBe('Rider assigned');
+    expect(getOrderStatusStageLabel('RIDER_ASSIGNED')).toBe('Delivery partner being allocated…');
     expect(getOrderStatusStageLabel('OUT_FOR_DELIVERY')).toBe('On the way');
     expect(getOrderStatusStageLabel('DELIVERED')).toBe('Delivered');
   });

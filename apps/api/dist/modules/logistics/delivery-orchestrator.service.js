@@ -338,7 +338,6 @@ let DeliveryOrchestratorService = DeliveryOrchestratorService_1 = class Delivery
             return;
         const provider = this.registry.get(shipment.providerType);
         const track = await provider.trackShipment(shipment.externalShipmentId);
-        this.logger.log(`[track-debug] order=${orderId} ext=${shipment.externalShipmentId} status=${track.providerStatus}/${track.normalizedStatus} driver=${track.driverName ?? 'null'} phone=${track.driverPhone ?? 'null'} lat=${track.lat ?? 'null'} lng=${track.lng ?? 'null'} eta=${track.estimatedEtaMins ?? 'null'}`);
         await this.applyStatusUpdate(shipment.id, track.providerStatus, track.normalizedStatus, {
             driverName: track.driverName,
             driverPhone: track.driverPhone,

@@ -145,6 +145,14 @@ let SupportTicketService = class SupportTicketService {
             resourceId: ticketId,
         });
         if (isStaff && visibility === client_1.SupportMessageVisibility.PUBLIC) {
+            await this.prisma.notification.create({
+                data: {
+                    userId: ticket.requesterUserId,
+                    type: client_1.NotificationType.SUPPORT,
+                    title: `Support replied to ticket ${ticket.ticketNumber}`,
+                    body: body.length > 160 ? `${body.slice(0, 157)}…` : body,
+                },
+            });
             this.events.emit(buyer_push_events_1.BUYER_PUSH_EVENTS.SUPPORT_REPLY, {
                 userId: ticket.requesterUserId,
                 ticketId,

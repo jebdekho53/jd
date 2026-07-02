@@ -12,6 +12,7 @@ import { useCartStore } from '@/store/cart-store';
 import { useGuestCartStore } from '@/store/guest-cart-store';
 import { useAuthStore } from '@/store/auth-store';
 import { SessionError } from '@/services/auth/auth-api';
+import { addToServerWishlist } from '@/services/wishlist/wishlist-api';
 import { useToast } from '@/design-system/primitives';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
@@ -60,8 +61,21 @@ export function AddToCartButton({
   const qty = isAuthenticated ? (cartItem?.quantity ?? 0) : (guestLine?.quantity ?? 0);
   const busy = addItem.isPending || updateItem.isPending || removeItem.isPending;
 
+  // Out of stock: steer the user to the wishlist instead of a dead-end.
+  const handleOutOfStock = async () => {
+    if (isAuthenticated) {
+      await addToServerWishlist(productId);
+      toast("Out of stock — saved to your wishlist. We'll notify you when it's back.", 'success');
+    } else {
+      toast("Out of stock — sign in to save it and get notified when it's back.", 'error');
+    }
+  };
+
   const handleGuestAdd = () => {
-    if (availableQty === 0) return;
+    if (availableQty === 0) {
+      void handleOutOfStock();
+      return;
+    }
     const guestStoreId = useGuestCartStore.getState().storeId;
     if (guestStoreId && guestStoreId !== storeId) {
       setConflict(
@@ -92,7 +106,10 @@ export function AddToCartButton({
   };
 
   const handleAdd = async () => {
-    if (availableQty === 0) return;
+    if (availableQty === 0) {
+      await handleOutOfStock();
+      return;
+    }
 
     if (!isAuthenticated) {
       handleGuestAdd();

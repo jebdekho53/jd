@@ -1,7 +1,12 @@
 'use client';
 
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import type { BuyerProduct, BuyerProductWithStore } from '@/types/buyer';
+import {
+  addToServerWishlist,
+  fetchServerWishlist,
+  removeFromServerWishlist,
+} from '@/services/wishlist/wishlist-api';
 
 const STORAGE_KEY = 'jebdekho-wishlist';
 const MAX = 50;
@@ -61,8 +66,38 @@ function getPrice(product: BuyerProduct | BuyerProductWithStore): number {
   return v?.price ?? product.basePrice;
 }
 
+let serverHydrated = false;
+
+/** One-time merge of the server-persisted wishlist into local state (per session). */
+async function hydrateFromServer(): Promise<void> {
+  if (serverHydrated || typeof window === 'undefined') return;
+  serverHydrated = true;
+  const server = await fetchServerWishlist();
+  if (server.length === 0) return;
+  const local = readStorage();
+  const localIds = new Set(local.map((i) => i.id));
+  const additions: WishlistItem[] = server
+    .filter((s) => !localIds.has(s.productId))
+    .map((s) => ({
+      id: s.productId,
+      name: s.name,
+      imageUrl: s.imageUrl,
+      price: s.price,
+      unit: s.unit,
+      storeId: s.store?.id,
+      storeName: s.store?.name,
+      storeSlug: s.store?.slug,
+      addedAt: new Date(s.addedAt).getTime(),
+    }));
+  if (additions.length > 0) writeStorage([...additions, ...local].slice(0, MAX));
+}
+
 export function useWishlist() {
   const items = useSyncExternalStore(subscribe, readStorage, () => EMPTY);
+
+  useEffect(() => {
+    void hydrateFromServer();
+  }, []);
 
   const isWishlisted = useCallback(
     (id: string) => items.some((i) => i.id === id),
@@ -75,6 +110,7 @@ export function useWishlist() {
     const exists = current.find((i) => i.id === product.id);
     if (exists) {
       writeStorage(current.filter((i) => i.id !== product.id));
+      void removeFromServerWishlist(product.id);
       return false;
     }
     const entry: WishlistItem = {
@@ -89,11 +125,13 @@ export function useWishlist() {
       addedAt: Date.now(),
     };
     writeStorage([entry, ...current.filter((i) => i.id !== product.id)].slice(0, MAX));
+    void addToServerWishlist(product.id);
     return true;
   }, []);
 
   const remove = useCallback((id: string) => {
     writeStorage(readStorage().filter((i) => i.id !== id));
+    void removeFromServerWishlist(id);
   }, []);
 
   const clear = useCallback(() => {

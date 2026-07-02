@@ -170,7 +170,7 @@ export function OrderTrackContent({ orderId }: OrderTrackContentProps) {
                 <div className="rounded-2xl border bg-card p-5 shadow-sm">
                   <p className="text-xs text-muted-foreground">Current status</p>
                   <div className="mt-1">
-                    <OrderStatusBadge status={order.status} />
+                    <OrderStatusBadge status={order.status} driverName={tracking?.provider?.driverName} />
                   </div>
                   {tracking?.provider?.badgeLabel && (
                     <p className="mt-2 inline-flex rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
