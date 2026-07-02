@@ -19,7 +19,7 @@ import { useEffectiveLocation, useLocationStore } from '@/store/location-store';
 
 export function MapDiscoveryView() {
   const { lat, lng, label, isReady, mapCenter } = useEffectiveLocation();
-  const setFromMaster = useLocationStore((s) => s.setFromMaster);
+  const setFromGoogle = useLocationStore((s) => s.setFromGoogle);
   const { geocode, isLoading: isGeocoding } = useReverseGeocode();
   const [selected, setSelected] = useState<MapStorePin | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -40,7 +40,7 @@ export function MapDiscoveryView() {
       const pos = await requestBrowserLocation();
       const parsed = await geocode(pos.lat, pos.lng);
       if (parsed) {
-        setFromMaster({
+        setFromGoogle({
           lat: parsed.lat,
           lng: parsed.lng,
           label: parsed.locality || parsed.formattedAddress,

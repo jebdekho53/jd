@@ -24,7 +24,7 @@ export function warnIfGoogleMapsMissing(context = 'app'): void {
   if (typeof window === 'undefined') return;
   if (!isGoogleMapsConfigured()) {
     console.warn(
-      `[${context}] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is missing — using master directory fallback`,
+      `[${context}] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is missing — Google Maps location selection is disabled`,
     );
   }
 }

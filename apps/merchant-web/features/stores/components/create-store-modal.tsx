@@ -263,8 +263,6 @@ export function CreateStoreModal({ open, onClose }: Props) {
           <Input label="Address line 1 *" error={errors.line1?.message} {...register('line1')} />
           <MerchantAddressPicker
             searchLabel="Store location *"
-            masterValue={watch('localityLabel')}
-            masterPincode={watch('pincode')}
             value={{
               locality: watch('localityLabel') ?? '',
               city: '',
@@ -283,15 +281,6 @@ export function CreateStoreModal({ open, onClose }: Props) {
               setValue('locationPincodeId', selection.locationPincodeId);
             }}
             onLine1Suggestion={(line1) => setValue('line1', line1)}
-            onMasterSelect={(selection) => {
-              setValue('localityLabel', selection.label);
-              setValue('pincode', selection.pincode);
-              setValue('latitude', selection.latitude);
-              setValue('longitude', selection.longitude);
-              setValue('locationCityId', selection.locationCityId);
-              setValue('locationAreaId', selection.locationAreaId);
-              setValue('locationPincodeId', selection.locationPincodeId);
-            }}
             error={errors.localityLabel?.message ?? errors.pincode?.message}
           />
           <div className="grid grid-cols-2 gap-3">

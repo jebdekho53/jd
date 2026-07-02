@@ -13,4 +13,3 @@ export { GoogleDeliveryMap } from './google-delivery-map';
 export { GoogleStoreMap } from './google-store-map';
 export { AdvancedMarker } from './advanced-marker';
 export type { AdvancedMarkerProps } from './advanced-marker';
-export { OsmMapPicker } from './osm-map-picker';

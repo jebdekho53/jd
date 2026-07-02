@@ -1064,8 +1064,6 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                 <MerchantAddressPicker
                   searchLabel="Search exact store address on Google"
                   mapHeightClassName="h-56 sm:h-72"
-                  masterValue={form.locality}
-                  masterPincode={form.pincode}
                   showSelectionSummary={false}
                   value={{
                     locality: form.locality,
