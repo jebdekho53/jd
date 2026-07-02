@@ -189,6 +189,7 @@ export function ProfileDashboardContent() {
           <MenuRow icon={HelpCircle} title="Help & support" subtitle="Tickets & FAQs" href="/profile/support" />
           <MenuRow icon={FileText} title="Terms of service" href="/terms" />
           <MenuRow icon={FileText} title="Privacy policy" href="/privacy" />
+          <MenuRow icon={FileText} title="Data deletion" href="/data-deletion" />
           <MenuRow icon={FileText} title="Refund policy" href="/refund-policy" />
         </MenuSection>
 
