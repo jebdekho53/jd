@@ -20,6 +20,7 @@ interface BuyerAddressPickerProps {
   error?: string;
   showMap?: boolean;
   searchLabel?: string;
+  layout?: 'inline' | 'fullscreen';
 }
 
 export function BuyerAddressPicker({
@@ -29,6 +30,7 @@ export function BuyerAddressPicker({
   error,
   showMap = true,
   searchLabel,
+  layout,
 }: BuyerAddressPickerProps) {
   return (
     <AddressLocationPicker
@@ -38,6 +40,7 @@ export function BuyerAddressPicker({
       error={error}
       showMap={showMap}
       searchLabel={searchLabel}
+      layout={layout}
       onReverseGeocode={reverseGeocodeCached}
       onRequestLocation={async () => {
         const { requestBrowserLocation } = await import('@/lib/geolocation');

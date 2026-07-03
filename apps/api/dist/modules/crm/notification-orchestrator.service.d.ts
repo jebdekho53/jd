@@ -26,11 +26,11 @@ export declare class NotificationOrchestratorService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        body: string;
         code: string;
         isActive: boolean;
         subject: string | null;
         channel: import("@prisma/client").$Enums.NotificationChannel;
-        body: string;
     }[]>;
     getPreferences(userId: string): Promise<{
         id: string;
@@ -83,12 +83,12 @@ export declare class NotificationOrchestratorService {
             createdAt: Date;
             userId: string;
             templateId: string | null;
+            body: string;
             deliveredAt: Date | null;
             subject: string | null;
             recipient: string;
             sentAt: Date | null;
             channel: import("@prisma/client").$Enums.NotificationChannel;
-            body: string;
             notificationId: string | null;
             providerRef: string | null;
             queuedAt: Date | null;
@@ -100,8 +100,8 @@ export declare class NotificationOrchestratorService {
             id: string;
             createdAt: Date;
             userId: string;
-            title: string;
             body: string;
+            title: string;
             isRead: boolean;
             readAt: Date | null;
         } | null;
@@ -118,12 +118,12 @@ export declare class NotificationOrchestratorService {
             createdAt: Date;
             userId: string;
             templateId: string | null;
+            body: string;
             deliveredAt: Date | null;
             subject: string | null;
             recipient: string;
             sentAt: Date | null;
             channel: import("@prisma/client").$Enums.NotificationChannel;
-            body: string;
             notificationId: string | null;
             providerRef: string | null;
             queuedAt: Date | null;
@@ -135,8 +135,8 @@ export declare class NotificationOrchestratorService {
             id: string;
             createdAt: Date;
             userId: string;
-            title: string;
             body: string;
+            title: string;
             isRead: boolean;
             readAt: Date | null;
         } | null;
@@ -152,8 +152,8 @@ export declare class NotificationOrchestratorService {
             id: string;
             createdAt: Date;
             userId: string;
-            title: string;
             body: string;
+            title: string;
             isRead: boolean;
             readAt: Date | null;
         }[];
@@ -173,12 +173,12 @@ export declare class NotificationOrchestratorService {
             createdAt: Date;
             userId: string;
             templateId: string | null;
+            body: string;
             deliveredAt: Date | null;
             subject: string | null;
             recipient: string;
             sentAt: Date | null;
             channel: import("@prisma/client").$Enums.NotificationChannel;
-            body: string;
             notificationId: string | null;
             providerRef: string | null;
             queuedAt: Date | null;

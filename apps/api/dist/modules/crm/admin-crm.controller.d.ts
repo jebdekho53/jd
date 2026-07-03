@@ -212,11 +212,11 @@ export declare class AdminCrmController {
             name: string;
             createdAt: Date;
             updatedAt: Date;
+            body: string;
             code: string;
             isActive: boolean;
             subject: string | null;
             channel: import("@prisma/client").$Enums.NotificationChannel;
-            body: string;
         }[];
     }>;
     deliveries(query: ListQueryDto): Promise<{
@@ -230,12 +230,12 @@ export declare class AdminCrmController {
                 createdAt: Date;
                 userId: string;
                 templateId: string | null;
+                body: string;
                 deliveredAt: Date | null;
                 subject: string | null;
                 recipient: string;
                 sentAt: Date | null;
                 channel: import("@prisma/client").$Enums.NotificationChannel;
-                body: string;
                 notificationId: string | null;
                 providerRef: string | null;
                 queuedAt: Date | null;
@@ -399,12 +399,12 @@ export declare class AdminCrmController {
                 createdAt: Date;
                 userId: string;
                 templateId: string | null;
+                body: string;
                 deliveredAt: Date | null;
                 subject: string | null;
                 recipient: string;
                 sentAt: Date | null;
                 channel: import("@prisma/client").$Enums.NotificationChannel;
-                body: string;
                 notificationId: string | null;
                 providerRef: string | null;
                 queuedAt: Date | null;

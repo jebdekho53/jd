@@ -10,16 +10,20 @@ export type ShadowfaxEndpointSet = {
 
 export const SHADOWFAX_ENDPOINTS: Record<ShadowfaxApiMode, ShadowfaxEndpointSet> = {
   dale_staging: {
-    createOrder: '/api/v1/clients/seller-pickup-request/',
-    cancelOrder: (id) => `/api/v1/clients/orders/${encodeURIComponent(id)}/cancel/`,
-    trackOrder: (id) => `/api/v4/clients/orders/${encodeURIComponent(id)}/`,
+    // Dale (dale.staging/dale.shadowfax.in) serves the V3 clients/orders API under
+    // the /api base. Verified against dale.staging: POST /api/v3/clients/orders/ (405 on
+    // GET = exists), GET .../track/ (400 on dummy id = exists); the older
+    // seller-pickup-request (/api/v1) + /api/v4 tracking paths 404 on this host.
+    createOrder: '/api/v3/clients/orders/',
+    cancelOrder: (id) => `/api/v3/clients/orders/${encodeURIComponent(id)}/cancel/`,
+    trackOrder: (id) => `/api/v3/clients/orders/${encodeURIComponent(id)}/track/`,
     serviceability: '/api/v1/clients/serviceability/',
     health: '/api/v1/clients/serviceability/',
   },
   dale_production: {
-    createOrder: '/api/v1/clients/seller-pickup-request/',
-    cancelOrder: (id) => `/api/v1/clients/orders/${encodeURIComponent(id)}/cancel/`,
-    trackOrder: (id) => `/api/v4/clients/orders/${encodeURIComponent(id)}/`,
+    createOrder: '/api/v3/clients/orders/',
+    cancelOrder: (id) => `/api/v3/clients/orders/${encodeURIComponent(id)}/cancel/`,
+    trackOrder: (id) => `/api/v3/clients/orders/${encodeURIComponent(id)}/track/`,
     serviceability: '/api/v1/clients/serviceability/',
     health: '/api/v1/clients/serviceability/',
   },

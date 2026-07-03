@@ -21,11 +21,13 @@ const configuration_1 = require("../../config/configuration");
 const demo_auth_util_1 = require("../../common/utils/demo-auth.util");
 const secure_random_util_1 = require("../../common/utils/secure-random.util");
 const msg91_service_1 = require("./msg91.service");
+const whatsapp_service_1 = require("./whatsapp.service");
 let OtpService = OtpService_1 = class OtpService {
-    constructor(prisma, redis, msg91, configService) {
+    constructor(prisma, redis, msg91, whatsapp, configService) {
         this.prisma = prisma;
         this.redis = redis;
         this.msg91 = msg91;
+        this.whatsapp = whatsapp;
         this.configService = configService;
         this.logger = new common_1.Logger(OtpService_1.name);
         this.cfg = (0, configuration_1.getConfig)(configService);
@@ -57,7 +59,11 @@ let OtpService = OtpService_1 = class OtpService {
                 expiresAt,
             },
         });
-        if (!options?.skipSms) {
+        const sentViaWhatsApp = await this.whatsapp.sendOtp(phone, code);
+        if (sentViaWhatsApp) {
+            this.logger.debug({ phone, purpose }, 'OTP dispatched via WhatsApp');
+        }
+        else if (!options?.skipSms) {
             await this.msg91.sendOtp(phone, code);
         }
         else {
@@ -127,6 +133,7 @@ exports.OtpService = OtpService = OtpService_1 = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         redis_service_1.RedisService,
         msg91_service_1.Msg91Service,
+        whatsapp_service_1.WhatsAppService,
         config_1.ConfigService])
 ], OtpService);
 //# sourceMappingURL=otp.service.js.map

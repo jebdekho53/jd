@@ -14,6 +14,7 @@ const passport_1 = require("@nestjs/passport");
 const configuration_1 = require("../../config/configuration");
 const jwt_strategy_1 = require("./strategies/jwt.strategy");
 const msg91_service_1 = require("./msg91.service");
+const whatsapp_service_1 = require("./whatsapp.service");
 const otp_service_1 = require("./otp.service");
 const token_service_1 = require("./token.service");
 const auth_service_1 = require("./auth.service");
@@ -57,6 +58,7 @@ exports.AuthModule = AuthModule = __decorate([
         providers: [
             jwt_strategy_1.JwtStrategy,
             msg91_service_1.Msg91Service,
+            whatsapp_service_1.WhatsAppService,
             otp_service_1.OtpService,
             token_service_1.TokenService,
             password_service_1.PasswordService,
