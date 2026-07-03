@@ -91,12 +91,12 @@ export declare class BuyerCrmController {
                 createdAt: Date;
                 userId: string;
                 templateId: string | null;
+                body: string;
                 deliveredAt: Date | null;
                 subject: string | null;
                 recipient: string;
                 sentAt: Date | null;
                 channel: import("@prisma/client").$Enums.NotificationChannel;
-                body: string;
                 notificationId: string | null;
                 providerRef: string | null;
                 queuedAt: Date | null;
@@ -116,8 +116,8 @@ export declare class BuyerCrmController {
                 id: string;
                 createdAt: Date;
                 userId: string;
-                title: string;
                 body: string;
+                title: string;
                 isRead: boolean;
                 readAt: Date | null;
             }[];

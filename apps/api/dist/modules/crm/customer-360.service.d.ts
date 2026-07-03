@@ -158,12 +158,12 @@ export declare class Customer360Service {
             createdAt: Date;
             userId: string;
             templateId: string | null;
+            body: string;
             deliveredAt: Date | null;
             subject: string | null;
             recipient: string;
             sentAt: Date | null;
             channel: import("@prisma/client").$Enums.NotificationChannel;
-            body: string;
             notificationId: string | null;
             providerRef: string | null;
             queuedAt: Date | null;

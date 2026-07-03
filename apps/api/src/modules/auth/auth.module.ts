@@ -5,6 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { getConfig } from '../../config/configuration';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { Msg91Service } from './msg91.service';
+import { WhatsAppService } from './whatsapp.service';
 import { OtpService } from './otp.service';
 import { TokenService } from './token.service';
 import { AuthService } from './auth.service';
@@ -45,6 +46,7 @@ import { PasswordService } from './password.service';
   providers: [
     JwtStrategy,
     Msg91Service,
+    WhatsAppService,
     OtpService,
     TokenService,
     PasswordService,

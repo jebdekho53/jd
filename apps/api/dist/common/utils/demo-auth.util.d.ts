@@ -52,6 +52,16 @@ export declare function getDemoConfig(configService: ConfigService): {
             readonly dltTeId: string;
         };
     };
+    readonly whatsapp: {
+        readonly otpEnabled: boolean;
+        readonly phoneNumberId: string;
+        readonly businessAccountId: string;
+        readonly appId: string;
+        readonly testRecipient: string;
+        readonly graphVersion: string;
+        readonly otpTemplateName: string;
+        readonly otpTemplateLang: string;
+    };
     readonly cors: {
         readonly origins: string[];
     };

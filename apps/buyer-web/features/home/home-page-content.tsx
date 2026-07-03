@@ -25,6 +25,7 @@ import { StoreGridSkeleton } from '@/components/common/skeletons';
 import { StoreCardItem } from '@/features/stores/store-card';
 import { RestaurantCard } from '@/features/food/restaurant-card';
 import { VerticalNav } from '@/features/home/vertical-nav';
+import { VerticalEntryCards } from '@/features/home/vertical-entry-cards';
 import { useCategories, useDiscoverStores } from '@/hooks/use-buyer-queries';
 import { useRestaurantsQuery } from '@/hooks/use-food-queries';
 import { useEffectiveLocation } from '@/store/location-store';
@@ -263,6 +264,7 @@ export function HomePageContent() {
     <div className="space-y-6 animate-fade-in md:space-y-10">
       <VerticalNav className="-mx-4 px-4 md:-mx-1 md:px-1" />
       <HeroCarousel />
+      <VerticalEntryCards />
       <SocialProofStrip />
 
       {/* Quick categories — top priority on mobile */}

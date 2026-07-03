@@ -169,7 +169,7 @@ describe('ShadowfaxClient', () => {
       expect.objectContaining({ baseURL: 'https://dale.shadowfax.in' }),
     );
     expect(mockHttp.post).toHaveBeenCalledWith(
-      '/api/v1/clients/seller-pickup-request/',
+      '/api/v3/clients/orders/',
       expect.objectContaining({
         order_details: expect.objectContaining({ payment_mode: 'PREPAID' }),
       }),
@@ -298,7 +298,7 @@ describe('ShadowfaxClient', () => {
     expect(mockHttp.get).toHaveBeenCalledWith(
       '/api/v1/clients/serviceability/?service=customer_delivery&page=1&count=10&pincodes=122001',
     );
-    expect(mockHttp.post).not.toHaveBeenCalledWith('/api/v1/clients/seller-pickup-request/', expect.anything());
+    expect(mockHttp.post).not.toHaveBeenCalledWith('/api/v3/clients/orders/', expect.anything());
   });
 
 

@@ -168,8 +168,8 @@ export declare class SupportTicketService {
         messages: {
             id: string;
             createdAt: Date;
-            ticketId: string;
             body: string;
+            ticketId: string;
             authorId: string;
             visibility: import("@prisma/client").$Enums.SupportMessageVisibility;
         }[];
@@ -218,8 +218,8 @@ export declare class SupportTicketService {
     reply(ticketId: string, authorId: string, body: string, visibility?: SupportMessageVisibility, isStaff?: boolean): Promise<{
         id: string;
         createdAt: Date;
-        ticketId: string;
         body: string;
+        ticketId: string;
         authorId: string;
         visibility: import("@prisma/client").$Enums.SupportMessageVisibility;
     }>;

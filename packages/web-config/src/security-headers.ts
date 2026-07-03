@@ -11,7 +11,13 @@ export const SECURITY_HEADERS = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://cdn.razorpay.com https://maps.googleapis.com",
+      // blob: + maps.gstatic.com are required by the Google Maps vector
+      // (WebGL) renderer, which loads code and spins up a Web Worker.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://checkout.razorpay.com https://cdn.razorpay.com https://maps.googleapis.com https://maps.gstatic.com",
+      // Google Maps creates its WebGL worker from a blob: URL; without an
+      // explicit worker-src the (blob-less) script-src is used and blocks it.
+      "worker-src 'self' blob:",
+      "child-src 'self' blob:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https:",
       "font-src 'self' https://fonts.gstatic.com",

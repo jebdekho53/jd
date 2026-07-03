@@ -52,6 +52,16 @@ function getConfig(configService) {
                 dltTeId: configService.get('MSG91_DLT_TE_ID', ''),
             },
         },
+        whatsapp: {
+            otpEnabled: (0, env_bool_util_1.envBool)(configService, 'ENABLE_WHATSAPP_OTP', false),
+            phoneNumberId: configService.get('WHATSAPP_PHONE_NUMBER_ID', ''),
+            businessAccountId: configService.get('WHATSAPP_BUSINESS_ACCOUNT_ID', ''),
+            appId: configService.get('WHATSAPP_APP_ID', ''),
+            testRecipient: configService.get('WHATSAPP_TEST_RECIPIENT_NUMBER', ''),
+            graphVersion: configService.get('WHATSAPP_GRAPH_VERSION', 'v21.0'),
+            otpTemplateName: configService.get('WHATSAPP_OTP_TEMPLATE_NAME', 'otp'),
+            otpTemplateLang: configService.get('WHATSAPP_OTP_TEMPLATE_LANG', 'en_US'),
+        },
         cors: {
             origins: configService
                 .get('CORS_ORIGINS', nodeEnv === 'production' ? productionCors : '')

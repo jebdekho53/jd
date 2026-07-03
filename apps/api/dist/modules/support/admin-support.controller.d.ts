@@ -695,8 +695,8 @@ export declare class AdminSupportController {
                 messages: {
                     id: string;
                     createdAt: Date;
-                    ticketId: string;
                     body: string;
+                    ticketId: string;
                     authorId: string;
                     visibility: import("@prisma/client").$Enums.SupportMessageVisibility;
                 }[];
@@ -787,8 +787,8 @@ export declare class AdminSupportController {
         data: {
             id: string;
             createdAt: Date;
-            ticketId: string;
             body: string;
+            ticketId: string;
             authorId: string;
             visibility: import("@prisma/client").$Enums.SupportMessageVisibility;
         };
@@ -808,11 +808,11 @@ export declare class AdminSupportController {
             createdAt: Date;
             updatedAt: Date;
             audience: import("@prisma/client").$Enums.SupportActorType;
+            body: string;
             title: string;
             kind: import("@prisma/client").$Enums.HelpArticleKind;
             slug: string;
             sortOrder: number;
-            body: string;
             isPublished: boolean;
         }[];
     }>;

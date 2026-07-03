@@ -15,6 +15,7 @@ import { getConfig } from '../../config/configuration';
 import { isDemoPhone } from '../../common/utils/demo-auth.util';
 import { secureNumericCode } from '../../common/utils/secure-random.util';
 import { Msg91Service } from './msg91.service';
+import { WhatsAppService } from './whatsapp.service';
 
 @Injectable()
 export class OtpService {
@@ -25,6 +26,7 @@ export class OtpService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly msg91: Msg91Service,
+    private readonly whatsapp: WhatsAppService,
     private readonly configService: ConfigService,
   ) {
     this.cfg = getConfig(configService);
@@ -74,7 +76,14 @@ export class OtpService {
       },
     });
 
-    if (!options?.skipSms) {
+    // Channel selection: try WhatsApp first when ENABLE_WHATSAPP_OTP is on (the service
+    // self-guards to the test recipient while on a test token and no-ops when disabled).
+    // If WhatsApp did not dispatch, fall back to the existing SMS path unchanged.
+    const sentViaWhatsApp = await this.whatsapp.sendOtp(phone, code);
+
+    if (sentViaWhatsApp) {
+      this.logger.debug({ phone, purpose }, 'OTP dispatched via WhatsApp');
+    } else if (!options?.skipSms) {
       await this.msg91.sendOtp(phone, code);
     } else {
       this.logger.debug({ phone, purpose }, 'OTP SMS dispatch skipped');

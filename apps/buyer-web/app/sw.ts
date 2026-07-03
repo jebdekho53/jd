@@ -59,8 +59,13 @@ const runtimeCaching = [
       request.method === 'GET' &&
       request.destination === 'document' &&
       isPublicBrowsePath(url.pathname),
-    handler: new StaleWhileRevalidate({
+    // Network-first so a new deploy is picked up immediately (fresh HTML =>
+    // fresh CSP header + fresh chunk references); falls back to cache offline.
+    // Previously StaleWhileRevalidate served a stale page (and stale CSP) after
+    // every deploy until a second load.
+    handler: new NetworkFirst({
       cacheName: cacheName('pages'),
+      networkTimeoutSeconds: 8,
       plugins: [
         new CacheableResponsePlugin({ statuses: [0, 200] }),
         new ExpirationPlugin({

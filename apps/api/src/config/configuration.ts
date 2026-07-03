@@ -85,6 +85,23 @@ export function getConfig(configService: ConfigService) {
       },
     },
 
+    // WhatsApp Cloud API (Meta) — OTP delivery channel. Gated by ENABLE_WHATSAPP_OTP
+    // (default OFF so production OTP keeps flowing through MSG91/SMS). While on a Meta
+    // TEST token, WHATSAPP_TEST_RECIPIENT_NUMBER restricts sends to that one verified
+    // number; every other recipient falls back to the SMS path automatically.
+    // Access token is read fresh at send-time (not memoised) so a token rotation only
+    // needs an env update + process reload — no code change.
+    whatsapp: {
+      otpEnabled: envBool(configService, 'ENABLE_WHATSAPP_OTP', false),
+      phoneNumberId: configService.get<string>('WHATSAPP_PHONE_NUMBER_ID', ''),
+      businessAccountId: configService.get<string>('WHATSAPP_BUSINESS_ACCOUNT_ID', ''),
+      appId: configService.get<string>('WHATSAPP_APP_ID', ''),
+      testRecipient: configService.get<string>('WHATSAPP_TEST_RECIPIENT_NUMBER', ''),
+      graphVersion: configService.get<string>('WHATSAPP_GRAPH_VERSION', 'v21.0'),
+      otpTemplateName: configService.get<string>('WHATSAPP_OTP_TEMPLATE_NAME', 'otp'),
+      otpTemplateLang: configService.get<string>('WHATSAPP_OTP_TEMPLATE_LANG', 'en_US'),
+    },
+
     cors: {
       origins: configService
         .get<string>(

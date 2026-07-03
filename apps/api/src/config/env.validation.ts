@@ -74,6 +74,23 @@ export const validationSchema = Joi.object({
   }),
   MSG91_DLT_TE_ID: Joi.string().empty('').optional(),
 
+  // WhatsApp Cloud API (Meta) — OTP channel. All optional; feature is off unless
+  // ENABLE_WHATSAPP_OTP=true, at which point the token + phone number id are needed.
+  ENABLE_WHATSAPP_OTP: Joi.string().valid('true', 'false', '1', '0').default('false'),
+  WHATSAPP_ACCESS_TOKEN: Joi.string().empty('').optional(),
+  WHATSAPP_APP_ID: Joi.string().empty('').optional(),
+  WHATSAPP_APP_SECRET: Joi.string().empty('').optional(),
+  WHATSAPP_PHONE_NUMBER_ID: Joi.string().empty('').when('ENABLE_WHATSAPP_OTP', {
+    is: Joi.valid('true', '1'),
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+  WHATSAPP_BUSINESS_ACCOUNT_ID: Joi.string().empty('').optional(),
+  WHATSAPP_TEST_RECIPIENT_NUMBER: Joi.string().empty('').optional(),
+  WHATSAPP_GRAPH_VERSION: Joi.string().default('v21.0'),
+  WHATSAPP_OTP_TEMPLATE_NAME: Joi.string().default('otp'),
+  WHATSAPP_OTP_TEMPLATE_LANG: Joi.string().default('en_US'),
+
   // Rate limiting
   THROTTLE_TTL: Joi.number().default(60000),
   THROTTLE_LIMIT: Joi.number().default(100),

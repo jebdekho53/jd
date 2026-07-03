@@ -42,37 +42,35 @@ export function ProfileAddressesContent() {
     );
   }
 
+  // AddressForm renders as its own full-screen overlay (map + bottom sheet), so
+  // it is not wrapped in ProfileShell.
   if (mode === 'add') {
     return (
-      <ProfileShell title="Add address" backHref="/profile/addresses">
-        <AddressForm
-          onSubmit={(data) => {
-            createMutation.mutate(data, {
-              onSuccess: () => setMode('list'),
-            });
-          }}
-          onCancel={() => setMode('list')}
-          isPending={createMutation.isPending}
-        />
-      </ProfileShell>
+      <AddressForm
+        onSubmit={(data) => {
+          createMutation.mutate(data, {
+            onSuccess: () => setMode('list'),
+          });
+        }}
+        onCancel={() => setMode('list')}
+        isPending={createMutation.isPending}
+      />
     );
   }
 
   if (mode === 'edit' && editing) {
     return (
-      <ProfileShell title="Edit address" backHref="/profile/addresses">
-        <AddressForm
-          initial={editing}
-          onSubmit={(data) => {
-            updateMutation.mutate(
-              { id: editing.id, patch: data },
-              { onSuccess: () => { setMode('list'); setEditing(null); } },
-            );
-          }}
-          onCancel={() => { setMode('list'); setEditing(null); }}
-          isPending={updateMutation.isPending}
-        />
-      </ProfileShell>
+      <AddressForm
+        initial={editing}
+        onSubmit={(data) => {
+          updateMutation.mutate(
+            { id: editing.id, patch: data },
+            { onSuccess: () => { setMode('list'); setEditing(null); } },
+          );
+        }}
+        onCancel={() => { setMode('list'); setEditing(null); }}
+        isPending={updateMutation.isPending}
+      />
     );
   }
 

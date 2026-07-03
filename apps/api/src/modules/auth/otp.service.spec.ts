@@ -4,6 +4,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { ConfigService } from '@nestjs/config';
 import { Msg91Service } from './msg91.service';
+import { WhatsAppService } from './whatsapp.service';
 import { secureNumericCode } from '../../common/utils/secure-random.util';
 
 jest.mock('../../common/utils/secure-random.util', () => ({
@@ -42,6 +43,7 @@ describe('OtpService.generateCode', () => {
       prisma as unknown as PrismaService,
       redis as unknown as RedisService,
       { sendOtp: jest.fn() } as unknown as Msg91Service,
+      { sendOtp: jest.fn().mockResolvedValue(false) } as unknown as WhatsAppService,
       configService as ConfigService,
     );
 

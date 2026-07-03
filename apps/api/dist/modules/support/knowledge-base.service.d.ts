@@ -8,11 +8,11 @@ export declare class KnowledgeBaseService {
         createdAt: Date;
         updatedAt: Date;
         audience: import("@prisma/client").$Enums.SupportActorType;
+        body: string;
         title: string;
         kind: import("@prisma/client").$Enums.HelpArticleKind;
         slug: string;
         sortOrder: number;
-        body: string;
         isPublished: boolean;
     }[]>;
     getBySlug(slug: string): Promise<{
@@ -21,11 +21,11 @@ export declare class KnowledgeBaseService {
         createdAt: Date;
         updatedAt: Date;
         audience: import("@prisma/client").$Enums.SupportActorType;
+        body: string;
         title: string;
         kind: import("@prisma/client").$Enums.HelpArticleKind;
         slug: string;
         sortOrder: number;
-        body: string;
         isPublished: boolean;
     } | null>;
     listCategories(audience?: string): Promise<string[]>;
