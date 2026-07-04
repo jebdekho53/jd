@@ -1,5 +1,7 @@
--- CreateEnum
-CREATE TYPE "AIProductAnalysisStatus" AS ENUM ('PROCESSING', 'COMPLETED', 'FAILED', 'CONFIRMED', 'CANCELLED');
+-- CreateEnum (created earlier in 20260626120000_fix_ai_product_analyses_base; guard for clean replay)
+DO $$ BEGIN
+    CREATE TYPE "AIProductAnalysisStatus" AS ENUM ('PROCESSING', 'COMPLETED', 'FAILED', 'CONFIRMED', 'CANCELLED');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- CreateEnum
 CREATE TYPE "MerchantAiCreditTransactionType" AS ENUM ('DEBIT', 'REFUND', 'ADJUSTMENT');
@@ -7,8 +9,8 @@ CREATE TYPE "MerchantAiCreditTransactionType" AS ENUM ('DEBIT', 'REFUND', 'ADJUS
 -- CreateEnum
 CREATE TYPE "MerchantAiCreditTransactionStatus" AS ENUM ('PENDING', 'SUCCESS', 'FAILED', 'REFUNDED');
 
--- CreateTable
-CREATE TABLE "ai_product_analyses" (
+-- CreateTable (created earlier in 20260626120000_fix_ai_product_analyses_base; guard for clean replay)
+CREATE TABLE IF NOT EXISTS "ai_product_analyses" (
     "id" TEXT NOT NULL,
     "merchant_profile_id" TEXT NOT NULL,
     "store_id" TEXT NOT NULL,

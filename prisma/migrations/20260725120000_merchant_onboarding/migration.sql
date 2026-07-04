@@ -1,8 +1,12 @@
--- CreateEnum
-CREATE TYPE "MerchantApplicationStatus" AS ENUM ('DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'KYC_PENDING', 'APPROVED', 'REJECTED');
+-- CreateEnum (created earlier in 20260623100000_merchant_applications_base; guard for clean replay)
+DO $$ BEGIN
+    CREATE TYPE "MerchantApplicationStatus" AS ENUM ('DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'KYC_PENDING', 'APPROVED', 'REJECTED');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
--- CreateEnum
-CREATE TYPE "MerchantBusinessType" AS ENUM ('GROCERY', 'RESTAURANT', 'PHARMACY', 'ELECTRONICS', 'FASHION', 'PET_STORE', 'BEAUTY', 'HEALTH_NUTRITION', 'BAKERY', 'STATIONERY', 'OTHER');
+-- CreateEnum (created earlier in 20260623100000_merchant_applications_base; guard for clean replay)
+DO $$ BEGIN
+    CREATE TYPE "MerchantBusinessType" AS ENUM ('GROCERY', 'RESTAURANT', 'PHARMACY', 'ELECTRONICS', 'FASHION', 'PET_STORE', 'BEAUTY', 'HEALTH_NUTRITION', 'BAKERY', 'STATIONERY', 'OTHER');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- CreateEnum
 CREATE TYPE "MerchantDocumentType" AS ENUM ('GST_CERTIFICATE', 'PAN_CARD', 'SHOP_LICENSE', 'FSSAI_LICENSE', 'CANCELLED_CHEQUE', 'OWNER_PHOTO', 'STORE_PHOTO', 'TRADE_LICENSE', 'BANK_PROOF', 'OTHER');
@@ -18,8 +22,8 @@ ALTER TYPE "MarketingEventType" ADD VALUE 'MERCHANT_SIGNUP';
 ALTER TYPE "MarketingEventType" ADD VALUE 'MERCHANT_APPLICATION_SUBMITTED';
 ALTER TYPE "MarketingEventType" ADD VALUE 'MERCHANT_APPROVED';
 
--- CreateTable
-CREATE TABLE "merchant_applications" (
+-- CreateTable (created earlier in 20260623100000_merchant_applications_base; guard for clean replay)
+CREATE TABLE IF NOT EXISTS "merchant_applications" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "merchant_profile_id" TEXT,
