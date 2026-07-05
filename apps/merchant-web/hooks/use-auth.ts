@@ -44,7 +44,8 @@ export function useVerifyOtpMutation() {
   const { clearCurrentStore } = useStoreStore();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ phone, code }: { phone: string; code: string }) => verifyOtp(phone, code),
+    mutationFn: ({ phone, code, rememberMe }: { phone: string; code: string; rememberMe?: boolean }) =>
+      verifyOtp(phone, code, rememberMe),
     onSuccess: (data) => {
       clearCurrentStore();
       qc.clear();
@@ -59,8 +60,8 @@ export function useEmailLoginMutation() {
   const { clearCurrentStore } = useStoreStore();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) =>
-      emailLogin(email, password),
+    mutationFn: ({ email, password, rememberMe }: { email: string; password: string; rememberMe?: boolean }) =>
+      emailLogin(email, password, rememberMe),
     onSuccess: (data) => {
       clearCurrentStore();
       qc.clear();

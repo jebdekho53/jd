@@ -53,11 +53,18 @@ export async function adminFetch<T>(path: string, init?: RequestInit): Promise<T
     throw new ApiError(friendlyAdminMessage(401, ''), 401);
   }
 
-  if (res.status === 403) {
-    throw new ApiError(friendlyAdminMessage(403, ''), 403);
-  }
-
   const body = await res.json().catch(() => ({}));
+
+  if (res.status === 403) {
+    if (body?.error === 'Step-Up Required' || body?.message?.includes('Step-Up Required') || body?.message?.includes('Re-authentication required')) {
+      const { useUiModalsStore } = await import('@/store/ui-modals-store');
+      const success = await useUiModalsStore.getState().triggerStepUp();
+      if (success) {
+        return adminFetch(path, init);
+      }
+    }
+    throw new ApiError(friendlyAdminMessage(403, body?.message ?? ''), 403);
+  }
 
   if (!res.ok) {
     const raw = (body as { message?: string | string[] })?.message ?? 'Request failed';

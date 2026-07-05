@@ -3,9 +3,11 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { StepUpGuard } from '../../common/guards/step-up.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { RequireStepUp } from '../../common/decorators/require-step-up.decorator';
 import { RequestUser } from '../../common/types';
 import { SettlementService } from './settlement.service';
 import { CreatePayoutRequestDto, ListSettlementsQueryDto } from './dto/settlement.dto';
@@ -34,6 +36,8 @@ export class MerchantSettlementController {
 
   @Post('payout-request')
   @Permissions('payouts:request')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp()
   @ApiOperation({ summary: 'Request a payout from available balance' })
   createPayout(@CurrentUser() user: RequestUser, @Body() dto: CreatePayoutRequestDto) {
     return this.settlement.createPayoutRequest(user.id, dto).then((data) => ({ success: true, data }));

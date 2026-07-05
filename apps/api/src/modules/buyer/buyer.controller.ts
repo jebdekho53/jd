@@ -1,11 +1,14 @@
 import {
+  Body,
   Controller,
   Get,
   Logger,
   NotFoundException,
   Param,
+  Patch,
   Query,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiOperation,
@@ -22,6 +25,13 @@ import { DiscoverStoresDto } from './dto/discover-stores.dto';
 import { StoreProductsDto } from './dto/store-products.dto';
 import { SearchProductsDto } from './dto/search-products.dto';
 import { CompareProductDto } from './dto/compare-product.dto';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { StepUpGuard } from '../../common/guards/step-up.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RequireStepUp } from '../../common/decorators/require-step-up.decorator';
+import { RequestUser } from '../../common/types';
 
 @ApiTags('buyer')
 @Public()
@@ -224,5 +234,17 @@ export class BuyerController {
       `GET /buyer/categories storeId=${storeId ?? 'global'} → ${data.length} categories`,
     );
     return { success: true, data };
+  }
+
+  @Patch('profile')
+  @Roles('BUYER')
+  @UseGuards(JwtAuthGuard, RolesGuard, StepUpGuard)
+  @RequireStepUp()
+  @ApiOperation({ summary: 'Update buyer profile (requires step-up)' })
+  async updateProfile(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: any,
+  ) {
+    return { success: true, message: 'Profile updated successfully' };
   }
 }

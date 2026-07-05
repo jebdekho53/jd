@@ -22,9 +22,11 @@ import { Request } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { StepUpGuard } from '../../common/guards/step-up.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { RequireStepUp } from '../../common/decorators/require-step-up.decorator';
 import { RequestUser } from '../../common/types';
 import { ApiTags as Tags } from '../../common/constants';
 import { AdminStoreService } from './admin-store.service';
@@ -193,6 +195,8 @@ export class AdminStoreController {
   @Post(':id/suspend')
   @HttpCode(HttpStatus.OK)
   @Permissions('stores:suspend')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp()
   @ApiParam({ name: 'id', description: 'Store ID' })
   @ApiOperation({ summary: 'Suspend an APPROVED store' })
   @ApiResponse({ status: 200, description: 'Store suspended' })

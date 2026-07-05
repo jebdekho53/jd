@@ -7,7 +7,6 @@ import { useRequestOtpMutation, useVerifyOtpMutation } from '@/hooks/use-auth';
 import type { VerifyOtpResult } from '@/types/auth';
 import { useToast } from '@/design-system/primitives';
 import { cn } from '@/lib/cn';
-import { DEMO_MERCHANT_ACCOUNTS, DEMO_OTP, IS_DEV } from '@/lib/demo-auth';
 import { isPhoneOtpEnabled } from '@jebdekho/web-config';
 import { MobileOtpComingSoonBanner } from '@/features/auth/components/auth-tabs';
 
@@ -105,22 +104,6 @@ export function MerchantOtpFlow({
     <div className="space-y-4">
       <h2 className="text-center text-sm font-semibold text-slate-700">{heading}</h2>
 
-      {IS_DEV && step === 'identifier' && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-left text-xs text-amber-900">
-          <p className="font-semibold">Demo (dev only)</p>
-          <p className="mt-1">
-            OTP: <span className="font-mono">{DEMO_OTP}</span>
-          </p>
-          <ul className="mt-2 space-y-1">
-            {DEMO_MERCHANT_ACCOUNTS.map((a) => (
-              <li key={a.phoneDigits}>
-                {a.label}: <span className="font-mono">{a.phoneDigits}</span> / {a.email}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       {step === 'identifier' ? (
         <>
           <div className="flex rounded-xl bg-slate-100 p-1">
@@ -201,11 +184,6 @@ export function MerchantOtpFlow({
           </p>
           <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-4">
             <OtpInput value={otp} onChange={setOtp} disabled={verifyOtp.isPending} />
-            {IS_DEV && (
-              <p className="mt-3 text-center text-xs text-slate-500">
-                Dev OTP: <span className="font-mono font-semibold">{DEMO_OTP}</span>
-              </p>
-            )}
           </div>
           <Button
             fullWidth

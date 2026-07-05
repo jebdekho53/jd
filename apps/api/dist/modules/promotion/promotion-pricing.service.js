@@ -10,6 +10,16 @@ exports.PromotionPricingService = exports.MAX_COMBINED_DISCOUNT_PCT = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 exports.MAX_COMBINED_DISCOUNT_PCT = 50;
+const GST_SLAB_PERCENT = {
+    ZERO: 0,
+    FIVE: 5,
+    TWELVE: 12,
+    EIGHTEEN: 18,
+    TWENTY_EIGHT: 28,
+};
+function round2(n) {
+    return Math.round(n * 100) / 100;
+}
 let PromotionPricingService = class PromotionPricingService {
     computeTotals(input) {
         const subtotal = input.items.reduce((s, i) => s + i.lineTotal, 0);
@@ -42,8 +52,9 @@ let PromotionPricingService = class PromotionPricingService {
             couponDiscount = Math.round(couponDiscount * ratio * 100) / 100;
         }
         const deliveryFee = freeDelivery ? 0 : input.baseDeliveryFee;
-        const tax = 0;
-        const grandTotal = Math.max(0, subtotal - offerDiscount - couponDiscount + deliveryFee + tax);
+        const netGoods = Math.max(0, subtotal - offerDiscount - couponDiscount);
+        const tax = this.embeddedGst(input.items, subtotal, netGoods);
+        const grandTotal = Math.max(0, netGoods + deliveryFee);
         const totalSavings = input.catalogSavings + offerDiscount + couponDiscount + deliveryDiscount;
         return {
             subtotal,
@@ -80,6 +91,17 @@ let PromotionPricingService = class PromotionPricingService {
             },
         };
     }
+    embeddedGst(items, subtotal, netGoods) {
+        if (subtotal <= 0)
+            return 0;
+        const grossGst = items.reduce((sum, it) => {
+            const rate = it.gstSlab ? GST_SLAB_PERCENT[it.gstSlab] : 0;
+            if (rate <= 0 || it.lineTotal <= 0)
+                return sum;
+            return sum + (it.lineTotal * rate) / (100 + rate);
+        }, 0);
+        return round2(grossGst * (netGoods / subtotal));
+    }
     computeTotalsWithOfferExtras(input) {
         const base = this.computeTotals({
             items: input.items,
@@ -94,12 +116,15 @@ let PromotionPricingService = class PromotionPricingService {
             const maxAllowed = Math.round(subtotal * (exports.MAX_COMBINED_DISCOUNT_PCT / 100) * 100) / 100;
             const cappedOffer = Math.min(offerDiscount, maxAllowed);
             const deliveryFee = base.promo.freeDelivery ? 0 : input.baseDeliveryFee;
-            const grandTotal = Math.max(0, subtotal - cappedOffer - base.couponDiscount + deliveryFee + base.tax);
+            const netGoods = Math.max(0, subtotal - cappedOffer - base.couponDiscount);
+            const tax = this.embeddedGst(input.items, subtotal, netGoods);
+            const grandTotal = Math.max(0, netGoods + deliveryFee);
             const cashback = input.cashbackAmount ?? 0;
             const points = input.rewardPointsBonus ?? 0;
             return {
                 ...base,
                 offerDiscount: cappedOffer,
+                tax,
                 grandTotal,
                 totalSavings: input.catalogSavings + cappedOffer + base.couponDiscount + base.deliveryDiscount,
                 promo: {

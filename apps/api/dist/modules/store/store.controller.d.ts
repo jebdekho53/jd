@@ -11,12 +11,12 @@ export declare class StoreController {
     createStore(user: RequestUser, dto: CreateStoreDto, ip: string): Promise<{
         success: boolean;
         data: {
-            phone: string | null;
-            email: string | null;
             id: string;
             status: import("@prisma/client").$Enums.StoreStatus;
             name: string;
             createdAt: Date;
+            email: string | null;
+            phone: string | null;
             updatedAt: Date;
             deletedAt: Date | null;
             description: string | null;
@@ -97,12 +97,12 @@ export declare class StoreController {
     listStores(user: RequestUser, query: ListStoresDto): Promise<{
         success: boolean;
         data: ({
-            phone: string | null;
-            email: string | null;
             id: string;
             status: import("@prisma/client").$Enums.StoreStatus;
             name: string;
             createdAt: Date;
+            email: string | null;
+            phone: string | null;
             updatedAt: Date;
             deletedAt: Date | null;
             description: string | null;
@@ -189,12 +189,12 @@ export declare class StoreController {
     getStore(user: RequestUser, storeId: string): Promise<{
         success: boolean;
         data: {
-            phone: string | null;
-            email: string | null;
             id: string;
             status: import("@prisma/client").$Enums.StoreStatus;
             name: string;
             createdAt: Date;
+            email: string | null;
+            phone: string | null;
             updatedAt: Date;
             deletedAt: Date | null;
             description: string | null;
@@ -275,12 +275,12 @@ export declare class StoreController {
     updateStore(user: RequestUser, storeId: string, dto: UpdateStoreDto, ip: string): Promise<{
         success: boolean;
         data: {
-            phone: string | null;
-            email: string | null;
             id: string;
             status: import("@prisma/client").$Enums.StoreStatus;
             name: string;
             createdAt: Date;
+            email: string | null;
+            phone: string | null;
             updatedAt: Date;
             deletedAt: Date | null;
             description: string | null;
@@ -361,12 +361,12 @@ export declare class StoreController {
     submitForReview(user: RequestUser, storeId: string, ip: string, req: Request): Promise<{
         success: boolean;
         data: {
-            phone: string | null;
-            email: string | null;
             id: string;
             status: import("@prisma/client").$Enums.StoreStatus;
             name: string;
             createdAt: Date;
+            email: string | null;
+            phone: string | null;
             updatedAt: Date;
             deletedAt: Date | null;
             description: string | null;
@@ -447,12 +447,12 @@ export declare class StoreController {
     uploadVerificationDocument(user: RequestUser, storeId: string, dto: UploadVerificationDocumentDto, ip: string): Promise<{
         success: boolean;
         data: {
-            phone: string | null;
-            email: string | null;
             id: string;
             status: import("@prisma/client").$Enums.StoreStatus;
             name: string;
             createdAt: Date;
+            email: string | null;
+            phone: string | null;
             updatedAt: Date;
             deletedAt: Date | null;
             description: string | null;
@@ -533,12 +533,12 @@ export declare class StoreController {
     submitDocumentsForReview(user: RequestUser, storeId: string, ip: string): Promise<{
         success: boolean;
         data: {
-            phone: string | null;
-            email: string | null;
             id: string;
             status: import("@prisma/client").$Enums.StoreStatus;
             name: string;
             createdAt: Date;
+            email: string | null;
+            phone: string | null;
             updatedAt: Date;
             deletedAt: Date | null;
             description: string | null;

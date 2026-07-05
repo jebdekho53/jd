@@ -19,9 +19,11 @@ const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const permissions_guard_1 = require("../../common/guards/permissions.guard");
+const step_up_guard_1 = require("../../common/guards/step-up.guard");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const permissions_decorator_1 = require("../../common/decorators/permissions.decorator");
+const require_step_up_decorator_1 = require("../../common/decorators/require-step-up.decorator");
 const settlement_service_1 = require("./settlement.service");
 const settlement_dto_1 = require("./dto/settlement.dto");
 let MerchantSettlementController = class MerchantSettlementController {
@@ -66,6 +68,8 @@ __decorate([
 __decorate([
     (0, common_1.Post)('payout-request'),
     (0, permissions_decorator_1.Permissions)('payouts:request'),
+    (0, common_1.UseGuards)(step_up_guard_1.StepUpGuard),
+    (0, require_step_up_decorator_1.RequireStepUp)(),
     (0, swagger_1.ApiOperation)({ summary: 'Request a payout from available balance' }),
     openapi.ApiResponse({ status: 201 }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),

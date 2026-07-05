@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { Coupon, Prisma, StorePromotion } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { PromotionPricingService, PromoCartItem } from './promotion-pricing.service';
@@ -12,6 +18,7 @@ import {
 import { PromotionNotificationService } from './promotion-notification.service';
 import { OfferEngineService } from './offer-engine.service';
 import { OfferCacheService } from './offer-cache.service';
+import { CartService } from '../cart/cart.service';
 
 @Injectable()
 export class StorePromotionService {
@@ -21,7 +28,18 @@ export class StorePromotionService {
     private readonly notifications: PromotionNotificationService,
     private readonly offerEngine: OfferEngineService,
     private readonly offerCache: OfferCacheService,
+    @Inject(forwardRef(() => CartService))
+    private readonly cartService: CartService,
   ) {}
+
+  /**
+   * Invalidate both the store offer cache and every affected buyer's cart cache
+   * so promotion changes surface immediately (auto-applied discounts).
+   */
+  private async invalidateStorePromotions(storeId: string): Promise<void> {
+    await this.offerCache.invalidateStore(storeId);
+    await this.cartService.invalidateStoreCarts(storeId);
+  }
 
   // ── Merchant store promotions ─────────────────────────────────────────────
 
@@ -47,7 +65,7 @@ export class StorePromotionService {
       },
     });
     void this.notifications.notifyStorePromotion(storeId, promo.name);
-    await this.offerCache.invalidateStore(storeId);
+    await this.invalidateStorePromotions(storeId);
     return this.serializePromotion(promo);
   }
 
@@ -68,6 +86,7 @@ export class StorePromotionService {
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });
+    await this.invalidateStorePromotions(storeId);
     return this.serializePromotion(updated);
   }
 
@@ -78,6 +97,7 @@ export class StorePromotionService {
       where: { id },
       data: { pausedAt: new Date(), isActive: false },
     });
+    await this.invalidateStorePromotions(storeId);
     return this.serializePromotion(updated);
   }
 
@@ -88,6 +108,7 @@ export class StorePromotionService {
       where: { id },
       data: { pausedAt: null, isActive: true },
     });
+    await this.invalidateStorePromotions(storeId);
     return this.serializePromotion(updated);
   }
 

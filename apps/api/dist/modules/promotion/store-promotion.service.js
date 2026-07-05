@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StorePromotionService = void 0;
 const common_1 = require("@nestjs/common");
@@ -16,13 +19,19 @@ const promotion_pricing_service_1 = require("./promotion-pricing.service");
 const promotion_notification_service_1 = require("./promotion-notification.service");
 const offer_engine_service_1 = require("./offer-engine.service");
 const offer_cache_service_1 = require("./offer-cache.service");
+const cart_service_1 = require("../cart/cart.service");
 let StorePromotionService = class StorePromotionService {
-    constructor(prisma, pricing, notifications, offerEngine, offerCache) {
+    constructor(prisma, pricing, notifications, offerEngine, offerCache, cartService) {
         this.prisma = prisma;
         this.pricing = pricing;
         this.notifications = notifications;
         this.offerEngine = offerEngine;
         this.offerCache = offerCache;
+        this.cartService = cartService;
+    }
+    async invalidateStorePromotions(storeId) {
+        await this.offerCache.invalidateStore(storeId);
+        await this.cartService.invalidateStoreCarts(storeId);
     }
     async create(userId, storeId, dto) {
         await this.assertStoreOwned(userId, storeId);
@@ -46,7 +55,7 @@ let StorePromotionService = class StorePromotionService {
             },
         });
         void this.notifications.notifyStorePromotion(storeId, promo.name);
-        await this.offerCache.invalidateStore(storeId);
+        await this.invalidateStorePromotions(storeId);
         return this.serializePromotion(promo);
     }
     async update(userId, storeId, id, dto) {
@@ -66,6 +75,7 @@ let StorePromotionService = class StorePromotionService {
                 ...(dto.isActive !== undefined && { isActive: dto.isActive }),
             },
         });
+        await this.invalidateStorePromotions(storeId);
         return this.serializePromotion(updated);
     }
     async pause(userId, storeId, id) {
@@ -75,6 +85,7 @@ let StorePromotionService = class StorePromotionService {
             where: { id },
             data: { pausedAt: new Date(), isActive: false },
         });
+        await this.invalidateStorePromotions(storeId);
         return this.serializePromotion(updated);
     }
     async resume(userId, storeId, id) {
@@ -84,6 +95,7 @@ let StorePromotionService = class StorePromotionService {
             where: { id },
             data: { pausedAt: null, isActive: true },
         });
+        await this.invalidateStorePromotions(storeId);
         return this.serializePromotion(updated);
     }
     async remove(userId, storeId, id) {
@@ -535,10 +547,12 @@ let StorePromotionService = class StorePromotionService {
 exports.StorePromotionService = StorePromotionService;
 exports.StorePromotionService = StorePromotionService = __decorate([
     (0, common_1.Injectable)(),
+    __param(5, (0, common_1.Inject)((0, common_1.forwardRef)(() => cart_service_1.CartService))),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         promotion_pricing_service_1.PromotionPricingService,
         promotion_notification_service_1.PromotionNotificationService,
         offer_engine_service_1.OfferEngineService,
-        offer_cache_service_1.OfferCacheService])
+        offer_cache_service_1.OfferCacheService,
+        cart_service_1.CartService])
 ], StorePromotionService);
 //# sourceMappingURL=store-promotion.service.js.map

@@ -18,17 +18,6 @@ export declare function getConfig(configService: ConfigService): {
         readonly rateLimitRequests: number;
         readonly rateLimitWindowMinutes: number;
     };
-    readonly dev: {
-        readonly demoPhone: string;
-        readonly demoMerchantPhone: string;
-        readonly demoMerchantEmail: string;
-        readonly demoMerchantPhone2: string;
-        readonly demoMerchantEmail2: string;
-        readonly demoAdminPhone: string;
-        readonly demoAdminEmail: string;
-        readonly demoRiderPhone: string;
-        readonly demoOtp: string;
-    };
     readonly auth: {
         readonly emailEnabled: boolean;
         readonly phoneOtpEnabled: boolean;

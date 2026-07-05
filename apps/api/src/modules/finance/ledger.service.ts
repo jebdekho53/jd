@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { LedgerAccountKind, LedgerReferenceType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import { LEDGER_ACCOUNT_CODES } from './ledger-accounts.constants';
+import {
+  LEDGER_ACCOUNT_CODES,
+  LEDGER_ACCOUNT_DEFINITIONS,
+} from './ledger-accounts.constants';
 
 export interface LedgerLine {
   accountCode: string;
@@ -17,7 +20,27 @@ export class LedgerService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit(): Promise<void> {
+    await this.seedAccounts();
     await this.refreshAccountCache();
+  }
+
+  /**
+   * Idempotently ensure every account in the chart of accounts exists. Runs on
+   * boot so the ledger works on a fresh database without a separate seed step.
+   */
+  async seedAccounts(): Promise<void> {
+    for (const def of LEDGER_ACCOUNT_DEFINITIONS) {
+      await this.prisma.ledgerAccount.upsert({
+        where: { code: def.code },
+        update: {},
+        create: {
+          code: def.code,
+          name: def.name,
+          kind: def.kind as LedgerAccountKind,
+          isActive: true,
+        },
+      });
+    }
   }
 
   async refreshAccountCache(): Promise<void> {

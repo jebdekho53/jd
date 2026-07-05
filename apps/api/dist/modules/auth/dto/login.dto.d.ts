@@ -3,4 +3,5 @@ export declare class EmailLoginDto {
     password: string;
     deviceId?: string;
     deviceName?: string;
+    rememberMe?: boolean;
 }

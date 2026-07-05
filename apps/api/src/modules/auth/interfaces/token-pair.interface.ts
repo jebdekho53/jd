@@ -3,4 +3,5 @@ export interface TokenPair {
   refreshToken: string;
   /** Access token expiry in seconds (for clients to schedule silent refresh) */
   expiresIn: number;
+  rememberMe?: boolean;
 }

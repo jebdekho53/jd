@@ -16,7 +16,7 @@ const class_validator_1 = require("class-validator");
 const constants_1 = require("../../../common/constants");
 class VerifyOtpDto {
     static _OPENAPI_METADATA_FACTORY() {
-        return { phone: { required: true, type: () => String, pattern: "PHONE_E164_REGEX" }, code: { required: true, type: () => String, minLength: 4, maxLength: 8 }, deviceId: { required: false, type: () => String }, deviceName: { required: false, type: () => String }, name: { required: false, type: () => String }, referralCode: { required: false, type: () => String } };
+        return { phone: { required: true, type: () => String, pattern: "PHONE_E164_REGEX" }, code: { required: true, type: () => String, minLength: 4, maxLength: 8 }, deviceId: { required: false, type: () => String }, deviceName: { required: false, type: () => String }, name: { required: false, type: () => String }, referralCode: { required: false, type: () => String }, rememberMe: { required: false, type: () => Boolean } };
     }
 }
 exports.VerifyOtpDto = VerifyOtpDto;
@@ -57,4 +57,10 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], VerifyOtpDto.prototype, "referralCode", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], VerifyOtpDto.prototype, "rememberMe", void 0);
 //# sourceMappingURL=verify-otp.dto.js.map

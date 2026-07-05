@@ -32,10 +32,8 @@ interface AdminGoogleMapProps {
 }
 
 const mapContainerStyle = { width: '100%', height: '100%' };
-const DEFAULT_CENTER = { lat: 28.6139, lng: 77.209 };
-
 function computeCenter(points: Array<{ lat: number; lng: number }>) {
-  if (points.length === 0) return DEFAULT_CENTER;
+  if (points.length === 0) return { lat: 0, lng: 0 };
   const lat = points.reduce((s, p) => s + p.lat, 0) / points.length;
   const lng = points.reduce((s, p) => s + p.lng, 0) / points.length;
   return { lat, lng };
@@ -50,6 +48,14 @@ export function AdminGoogleMap({
 }: AdminGoogleMapProps) {
   const { isLoaded, loadError, isConfigured } = useGoogleMaps();
   const [map, setMap] = useState<google.maps.Map | null>(null);
+
+  if (!defaultCenter && markers.length === 0 && circles.length === 0) {
+    return (
+      <div className={`flex items-center justify-center rounded-xl border border-dashed bg-slate-50 p-6 text-sm text-slate-500 ${heightClassName} ${className ?? ''}`}>
+        No locations to display.
+      </div>
+    );
+  }
 
   const center = useMemo(() => {
     if (defaultCenter) return defaultCenter;

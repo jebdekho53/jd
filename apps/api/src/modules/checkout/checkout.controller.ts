@@ -19,21 +19,24 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { StepUpGuard } from '../../common/guards/step-up.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequireStepUp } from '../../common/decorators/require-step-up.decorator';
 import { RequestUser } from '../../common/types';
 import { CheckoutService } from './checkout.service';
 import { InitiateCheckoutDto } from './dto/initiate-checkout.dto';
 
 @ApiTags('checkout')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, StepUpGuard)
 @Roles('BUYER')
 @Controller('buyer/checkout')
 export class CheckoutController {
   constructor(private readonly checkoutService: CheckoutService) {}
 
   @Post()
+  @RequireStepUp()
   @HttpCode(HttpStatus.CREATED)
   @ApiHeader({
     name: 'Idempotency-Key',
@@ -59,6 +62,7 @@ export class CheckoutController {
   }
 
   @Post('cod')
+  @RequireStepUp()
   @HttpCode(HttpStatus.CREATED)
   @ApiHeader({
     name: 'Idempotency-Key',

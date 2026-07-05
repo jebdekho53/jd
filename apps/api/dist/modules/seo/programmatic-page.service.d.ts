@@ -20,12 +20,12 @@ export declare class ProgrammaticPageService {
             timezone: string;
         } | null;
         store: {
-            phone: string | null;
-            email: string | null;
             id: string;
             status: import("@prisma/client").$Enums.StoreStatus;
             name: string;
             createdAt: Date;
+            email: string | null;
+            phone: string | null;
             updatedAt: Date;
             deletedAt: Date | null;
             description: string | null;

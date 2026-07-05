@@ -19,7 +19,7 @@ export const validationSchema = Joi.object({
   }),
 
   TRUST_PROXY: Joi.string().valid('true', 'false').default('false'),
-  STORAGE_PROVIDER: Joi.string().valid('local', 's3', 'r2').default('local'),
+  STORAGE_PROVIDER: Joi.string().valid('local', 's3', 'r2', 'minio').default('local'),
   UPLOAD_DIR: Joi.string().default('/var/www/jebdekho/uploads'),
   UPLOAD_PUBLIC_URL: Joi.string().default('https://api.jebdekho.com/uploads'),
   BUYER_SITE_URL: Joi.string().default('https://jebdekho.com'),
@@ -41,16 +41,6 @@ export const validationSchema = Joi.object({
   OTP_RATE_LIMIT_REQUESTS: Joi.number().integer().default(3),
   OTP_RATE_LIMIT_WINDOW_MINUTES: Joi.number().integer().default(10),
 
-  // Dev-only demo login (fixed OTP for demo phone) — empty values disabled in production
-  DEV_DEMO_PHONE: Joi.string().empty('').default('+919876543210'),
-  DEV_DEMO_MERCHANT_PHONE: Joi.string().empty('').default('+919876543211'),
-  DEV_DEMO_MERCHANT_EMAIL: Joi.string().email().empty('').default('merchant@demo.jebdekho.com'),
-  DEV_DEMO_MERCHANT_PHONE_2: Joi.string().empty('').default('+919876543213'),
-  DEV_DEMO_MERCHANT_EMAIL_2: Joi.string().email().empty('').default('merchant2@demo.jebdekho.com'),
-  DEV_DEMO_ADMIN_PHONE: Joi.string().empty('').default('+919876543212'),
-  DEV_DEMO_ADMIN_EMAIL: Joi.string().email().empty('').default('admin@demo.jebdekho.com'),
-  DEV_DEMO_RIDER_PHONE: Joi.string().empty('').default('+919876543214'),
-  DEV_DEMO_OTP: Joi.string().length(6).pattern(/^\d+$/).empty('').default('123456'),
 
   // Authentication feature flags (email-only until MSG91/DLT approval)
   AUTH_EMAIL_ENABLED: Joi.string().valid('true', 'false', '1', '0').default('true'),

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, Length, Matches } from 'class-validator';
 import { PHONE_E164_REGEX } from '../../../common/constants';
 
 export class VerifyOtpDto {
@@ -33,4 +33,9 @@ export class VerifyOtpDto {
   @IsOptional()
   @IsString()
   referralCode?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  rememberMe?: boolean;
 }

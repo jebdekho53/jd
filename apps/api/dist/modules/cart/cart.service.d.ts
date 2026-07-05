@@ -69,6 +69,7 @@ export declare class CartService {
     constructor(prisma: PrismaService, audit: AuditService, domainEvents: DomainEventsService, cartCache: CartCacheService, promotions: StorePromotionService, membershipBenefits: MembershipBenefitService);
     getBuyerProfileId(userId: string): Promise<string>;
     invalidateCache(userId: string): Promise<void>;
+    invalidateStoreCarts(storeId: string): Promise<void>;
     private getOrCreateBuyerProfile;
     getCart(userId: string): Promise<CartView | null>;
     addItem(userId: string, dto: AddCartItemDto, ipAddress?: string): Promise<CartView>;

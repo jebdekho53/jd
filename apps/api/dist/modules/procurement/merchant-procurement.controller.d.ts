@@ -123,10 +123,10 @@ export declare class MerchantProcurementController {
                         vendorProductId: string;
                     } | null;
                     vendor: {
-                        phone: string | null;
-                        email: string | null;
                         id: string;
                         createdAt: Date;
+                        email: string | null;
+                        phone: string | null;
                         updatedAt: Date;
                         businessName: string;
                         gstNumber: string | null;
@@ -189,10 +189,10 @@ export declare class MerchantProcurementController {
                         vendorProductId: string;
                     } | null;
                     vendor: {
-                        phone: string | null;
-                        email: string | null;
                         id: string;
                         createdAt: Date;
+                        email: string | null;
+                        phone: string | null;
                         updatedAt: Date;
                         businessName: string;
                         gstNumber: string | null;
@@ -255,10 +255,10 @@ export declare class MerchantProcurementController {
                         vendorProductId: string;
                     } | null;
                     vendor: {
-                        phone: string | null;
-                        email: string | null;
                         id: string;
                         createdAt: Date;
+                        email: string | null;
+                        phone: string | null;
                         updatedAt: Date;
                         businessName: string;
                         gstNumber: string | null;
@@ -312,10 +312,10 @@ export declare class MerchantProcurementController {
         success: boolean;
         data: {
             vendor: {
-                phone: string | null;
-                email: string | null;
                 id: string;
                 createdAt: Date;
+                email: string | null;
+                phone: string | null;
                 updatedAt: Date;
                 businessName: string;
                 gstNumber: string | null;

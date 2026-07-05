@@ -27,11 +27,6 @@ for key in "${required[@]}"; do
   fi
 done
 
-# Remove empty DEV_DEMO_OTP (breaks Joi length validation)
-if grep -qE '^DEV_DEMO_OTP=$' "$ENV_FILE"; then
-  echo "WARN: Removing empty DEV_DEMO_OTP= from .env.production"
-  sed -i '/^DEV_DEMO_OTP=$/d' "$ENV_FILE"
-fi
 
 # Boot without MSG91 / Razorpay until keys are configured
 if grep -qE '^SMS_PROVIDER=msg91$' "$ENV_FILE" && ! grep -qE '^MSG91_AUTH_KEY=.+' "$ENV_FILE"; then

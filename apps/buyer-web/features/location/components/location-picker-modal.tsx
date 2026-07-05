@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Navigation } from 'lucide-react';
 import { Button, Modal } from '@/design-system/primitives';
-import { GooglePlacesAutocomplete, GoogleMapPicker, useGoogleMaps, DEFAULT_MAP_CENTER, type ParsedGoogleAddress } from '@jebdekho/google-maps';
+import { GooglePlacesAutocomplete, GoogleMapPicker, useGoogleMaps, MAP_INITIAL_VISUAL_CENTER, type ParsedGoogleAddress } from '@jebdekho/google-maps';
 import { requestBrowserLocation } from '@/lib/geolocation';
 import { useReverseGeocode } from '@/hooks/use-reverse-geocode';
 import { useLocationStore } from '@/store/location-store';
@@ -27,7 +27,7 @@ export function LocationPickerModal({
   const { geocode, isLoading: isGeocoding } = useReverseGeocode();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [mapPosition, setMapPosition] = useState<{ lat: number; lng: number }>(DEFAULT_MAP_CENTER);
+  const [mapPosition, setMapPosition] = useState<{ lat: number; lng: number }>(MAP_INITIAL_VISUAL_CENTER);
   const [preview, setPreview] = useState<{
     lat: number;
     lng: number;
@@ -57,7 +57,7 @@ export function LocationPickerModal({
       return;
     }
 
-    setMapPosition(DEFAULT_MAP_CENTER);
+    setMapPosition(MAP_INITIAL_VISUAL_CENTER);
     setPreview(null);
   }, [
     open,

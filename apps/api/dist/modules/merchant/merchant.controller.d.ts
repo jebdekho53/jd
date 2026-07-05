@@ -65,4 +65,8 @@ export declare class MerchantController {
             blacklistRemovedBy: string | null;
         };
     }>;
+    updateBankAccount(user: RequestUser, dto: any): Promise<{
+        success: boolean;
+        message: string;
+    }>;
 }

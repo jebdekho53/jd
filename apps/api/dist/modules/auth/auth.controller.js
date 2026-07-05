@@ -30,6 +30,7 @@ const signup_dto_1 = require("./dto/signup.dto");
 const login_dto_1 = require("./dto/login.dto");
 const forgot_password_dto_1 = require("./dto/forgot-password.dto");
 const reset_password_dto_1 = require("./dto/reset-password.dto");
+const step_up_dto_1 = require("./dto/step-up.dto");
 let AuthController = class AuthController {
     constructor(authService) {
         this.authService = authService;
@@ -79,6 +80,13 @@ let AuthController = class AuthController {
         return {
             success: true,
             data: { message: 'Logged out successfully' },
+        };
+    }
+    async stepUp(user, dto, ip, req) {
+        const data = await this.authService.stepUp(user.id, dto, ip, req.headers['user-agent']);
+        return {
+            success: true,
+            data,
         };
     }
     async logoutAll(user, ip, req) {
@@ -225,6 +233,22 @@ __decorate([
     __metadata("design:paramtypes", [Object, logout_dto_1.LogoutDto, String, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "logout", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, common_1.Post)('step-up'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Step-up authentication via password or OTP' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Step-up authentication successful' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Ip)()),
+    __param(3, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, step_up_dto_1.StepUpDto, String, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "stepUp", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

@@ -92,7 +92,7 @@ let OrderFinancialsService = OrderFinancialsService_1 = class OrderFinancialsSer
             input.paymentMethod === client_1.PaymentMethod.WALLET_COD;
         const deferOnlineLedger = input.paymentMethod === client_1.PaymentMethod.RAZORPAY ||
             input.paymentMethod === client_1.PaymentMethod.WALLET_RAZORPAY;
-        const paidAmount = gross + deliveryFee - input.discountAmount + taxAmount;
+        const paidAmount = input.totalAmount ?? gross + deliveryFee - input.discountAmount + taxAmount;
         if (!deferOnlineLedger) {
             void this.ledger.recordOrderPayment(input.orderId, paidAmount, isCod).catch((err) => {
                 this.logger.warn(`Ledger order payment failed: ${err.message}`);
@@ -118,12 +118,7 @@ let OrderFinancialsService = OrderFinancialsService_1 = class OrderFinancialsSer
         const method = order.paymentMethod;
         if (method !== client_1.PaymentMethod.RAZORPAY && method !== client_1.PaymentMethod.WALLET_RAZORPAY)
             return;
-        const snap = await this.prisma.orderFinancialSnapshot.findUnique({ where: { orderId } });
-        const gross = snap ? (0, settlement_utils_1.decimalToNumber)(snap.subtotal) : (0, settlement_utils_1.decimalToNumber)(order.totalAmount);
-        const deliveryFee = snap ? (0, settlement_utils_1.decimalToNumber)(snap.deliveryFee) : (0, settlement_utils_1.decimalToNumber)(order.deliveryFee);
-        const discount = snap ? (0, settlement_utils_1.decimalToNumber)(snap.discountAmount) : (0, settlement_utils_1.decimalToNumber)(order.discountAmount);
-        const tax = snap ? (0, settlement_utils_1.decimalToNumber)(snap.taxAmount) : (0, settlement_utils_1.decimalToNumber)(order.taxAmount);
-        const paidAmount = gross + deliveryFee - discount + tax;
+        const paidAmount = (0, settlement_utils_1.decimalToNumber)(order.totalAmount);
         await this.ledger.recordOrderPayment(orderId, paidAmount, false);
     }
     async getOrderFinancials(orderId) {

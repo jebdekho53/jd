@@ -59,9 +59,9 @@ export declare class AdminStoreController {
         data: {
             merchantProfile: {
                 user: {
-                    phone: string;
-                    email: string | null;
                     id: string;
+                    email: string | null;
+                    phone: string;
                 };
                 id: string;
                 businessName: string;
@@ -98,12 +98,12 @@ export declare class AdminStoreController {
                 uploadedAt: Date;
             }[];
         } & {
-            phone: string | null;
-            email: string | null;
             id: string;
             status: import("@prisma/client").$Enums.StoreStatus;
             name: string;
             createdAt: Date;
+            email: string | null;
+            phone: string | null;
             updatedAt: Date;
             deletedAt: Date | null;
             description: string | null;

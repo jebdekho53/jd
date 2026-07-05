@@ -43,10 +43,7 @@ let AdminAuthService = AdminAuthService_1 = class AdminAuthService {
         const settings = await this.getSettings();
         let user = await this.findAdminUserByEmail(email);
         if (!user) {
-            const hasAdmin = await this.hasAnyAdminUser();
-            if (!hasAdmin) {
-                user = await this.tryEnvBootstrap(email, dto.password);
-            }
+            user = await this.tryEnvBootstrap(email, dto.password);
             if (!user) {
                 await this.recordAudit(null, email, false, 'INVALID_CREDENTIALS', ipAddress, userAgent);
                 throw new common_1.UnauthorizedException('Invalid email or password');
@@ -420,7 +417,7 @@ let AdminAuthService = AdminAuthService_1 = class AdminAuthService {
     }
     async issueTokens(userId, opts) {
         const userForToken = await this.tokenService.buildUserForToken(userId);
-        const tokens = await this.tokenService.generateTokenPair(userForToken, undefined, opts.deviceName, opts.ipAddress, opts.userAgent);
+        const tokens = await this.tokenService.generateTokenPair(userForToken, undefined, opts.deviceName, opts.ipAddress, opts.userAgent, opts.rememberMe);
         const tokenHash = (0, crypto_1.createHash)('sha256').update(tokens.refreshToken).digest('hex');
         const refreshRecord = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
         if (refreshRecord) {

@@ -7,7 +7,7 @@
 - [ ] `CORS_ORIGINS` lists only `*.jebdekho.com` portals (no wildcards)
 - [ ] Helmet enabled (API `main.ts`)
 - [ ] JWT RS256 keys unique to production (`JWT_KEY_ID=prod-*`)
-- [ ] `DEV_DEMO_PHONE` and `DEV_DEMO_OTP` empty in production
+- [x] `DEV_DEMO_*` bypasses and demo credentials fully removed from codebase
 - [ ] Rate limiting: `THROTTLE_LIMIT`, `AUTH_THROTTLE_LIMIT` configured
 - [ ] Razorpay webhook signature verification enabled (`RAZORPAY_WEBHOOK_SECRET`)
 - [ ] Cookie sessions: `Secure`, `HttpOnly`, `SameSite=Lax` on portal BFF routes

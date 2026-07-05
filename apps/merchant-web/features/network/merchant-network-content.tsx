@@ -64,9 +64,11 @@ export function MerchantNetworkContent() {
 
   const mapCenter = useMemo(() => {
     const stores = overview?.stores ?? [];
-    if (stores.length === 0) return { lat: 28.6139, lng: 77.209 };
-    const lat = stores.reduce((s: number, st: NetworkStore) => s + (st.latitude ?? 0), 0) / stores.length;
-    const lng = stores.reduce((s: number, st: NetworkStore) => s + (st.longitude ?? 0), 0) / stores.length;
+    if (stores.length === 0) return null;
+    const valid = stores.filter((s: NetworkStore) => s.latitude != null && s.longitude != null);
+    if (valid.length === 0) return null;
+    const lat = valid.reduce((s: number, st: NetworkStore) => s + st.latitude!, 0) / valid.length;
+    const lng = valid.reduce((s: number, st: NetworkStore) => s + st.longitude!, 0) / valid.length;
     return { lat, lng };
   }, [overview?.stores]);
 
@@ -87,7 +89,15 @@ export function MerchantNetworkContent() {
 
       <section>
         <h2 className="mb-3 text-lg font-semibold">Warehouse & dark-store map</h2>
-        {hubStores.length > 0 && isConfigured && isLoaded ? (
+        {overview?.stores && overview.stores.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            Add a store to view network coverage.
+          </p>
+        ) : !mapCenter && overview?.stores && overview.stores.length > 0 ? (
+          <p className="text-sm text-slate-500">
+            Store coordinates missing. Please update hub locations to view map.
+          </p>
+        ) : hubStores.length > 0 && mapCenter && isConfigured && isLoaded ? (
           <GoogleStoreMap
             buyerLat={mapCenter.lat}
             buyerLng={mapCenter.lng}

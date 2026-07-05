@@ -13,18 +13,18 @@ export async function requestOtp(input: RequestOtpInput): Promise<RequestOtpResu
   return res.data;
 }
 
-export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpResult> {
+export async function verifyOtp(phone: string, code: string, rememberMe?: boolean): Promise<VerifyOtpResult> {
   const res = await merchantFetch<ApiResponse<VerifyOtpResult>>('/api/auth/verify-otp', {
     method: 'POST',
-    body: JSON.stringify({ phone, code, deviceName: 'merchant-web' }),
+    body: JSON.stringify({ phone, code, deviceName: 'merchant-web', rememberMe }),
   });
   return res.data;
 }
 
-export async function emailLogin(email: string, password: string): Promise<VerifyOtpResult> {
+export async function emailLogin(email: string, password: string, rememberMe?: boolean): Promise<VerifyOtpResult> {
   const res = await merchantFetch<ApiResponse<VerifyOtpResult>>('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password, deviceName: 'merchant-web' }),
+    body: JSON.stringify({ email, password, deviceName: 'merchant-web', rememberMe }),
   });
   return res.data;
 }

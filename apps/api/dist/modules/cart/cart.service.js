@@ -41,6 +41,13 @@ let CartService = CartService_1 = class CartService {
         const { id } = await this.getOrCreateBuyerProfile(userId);
         await this.cartCache.invalidate(id);
     }
+    async invalidateStoreCarts(storeId) {
+        const carts = await this.prisma.cart.findMany({
+            where: { storeId },
+            select: { buyerProfileId: true },
+        });
+        await Promise.all(carts.map((c) => this.cartCache.invalidate(c.buyerProfileId)));
+    }
     async getOrCreateBuyerProfile(userId) {
         const existing = await this.prisma.buyerProfile.findUnique({
             where: { userId },
@@ -235,6 +242,7 @@ let CartService = CartService_1 = class CartService {
                                 imageUrls: true,
                                 isVeg: true,
                                 categoryId: true,
+                                gstSlab: true,
                                 isReturnable: true,
                                 isRefundable: true,
                                 isReplaceable: true,
@@ -320,6 +328,7 @@ let CartService = CartService_1 = class CartService {
             quantity: item.quantity,
             unitPrice: Number(item.variant.price),
             lineTotal: Number(item.variant.price) * item.quantity,
+            gstSlab: item.product.gstSlab,
         }));
         const enriched = await this.promotions.enrichCartPromotions(cart.id, cart.storeId, buyerProfileId, baseDeliveryFee, catalogSavings, promoItems, cart.appliedCouponId, cart.appliedPromotionId, cart.appliedOfferId);
         let appliedCouponCode = null;

@@ -12,3 +12,8 @@ export declare const LEDGER_ACCOUNT_CODES: {
     readonly COD_COLLECTED: "COD_COLLECTED";
 };
 export type LedgerAccountCode = (typeof LEDGER_ACCOUNT_CODES)[keyof typeof LEDGER_ACCOUNT_CODES];
+export declare const LEDGER_ACCOUNT_DEFINITIONS: {
+    code: LedgerAccountCode;
+    name: string;
+    kind: 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'EXPENSE';
+}[];

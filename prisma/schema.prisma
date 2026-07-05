@@ -704,6 +704,8 @@ model RefreshToken {
   expiresAt DateTime  @map("expires_at")
   revokedAt DateTime? @map("revoked_at")
   createdAt DateTime  @default(now()) @map("created_at")
+  rememberMe Boolean   @default(false) @map("remember_me")
+  authTime   DateTime? @map("auth_time")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   adminSession AdminSession?

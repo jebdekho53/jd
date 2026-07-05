@@ -35,6 +35,7 @@ import { EmailLoginDto } from './dto/login.dto';
 import { EmailSignupDto } from './dto/signup.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { StepUpDto } from './dto/step-up.dto';
 import { TokenPair } from './interfaces/token-pair.interface';
 
 export interface MeResponse {
@@ -272,6 +273,7 @@ export class AuthService {
       deviceName,
       ipAddress,
       userAgent,
+      dto.rememberMe,
     );
 
     void this.trustSafety.onOtpVerified(user.id, {
@@ -435,6 +437,7 @@ export class AuthService {
       userAgent,
       auditAction: 'USER_LOGGED_IN',
       metadata: { email, loginMethod: 'email' },
+      rememberMe: dto.rememberMe,
     });
   }
 
@@ -823,6 +826,7 @@ export class AuthService {
       userAgent?: string;
       auditAction: string;
       metadata: Record<string, unknown>;
+      rememberMe?: boolean;
     },
   ): Promise<VerifyOtpResponse> {
     await this.ensureBuyerAccess(userId);
@@ -835,6 +839,7 @@ export class AuthService {
       opts.deviceName,
       opts.ipAddress,
       opts.userAgent,
+      opts.rememberMe,
     );
 
     const eventType = opts.isNewUser ? DomainEventType.USER_REGISTERED : DomainEventType.USER_LOGGED_IN;
@@ -864,6 +869,37 @@ export class AuthService {
 
     const me = await this.getMe(userId);
     return { ...tokens, user: me, isNewUser: opts.isNewUser };
+  }
+
+  async stepUp(
+    userId: string,
+    dto: StepUpDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{ accessToken: string; expiresIn: number }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (dto.password) {
+      if (!user.passwordHash) {
+        throw new BadRequestException('This account does not have a password set. Please verify via OTP.');
+      }
+      const isValid = await this.passwordService.verify(user.passwordHash, dto.password);
+      if (!isValid) {
+        throw new UnauthorizedException('Invalid password');
+      }
+    } else if (dto.phone && dto.code) {
+      if (user.phone !== dto.phone) {
+        throw new BadRequestException('Phone number does not match current user');
+      }
+      await this.otpService.verifyOtp(dto.phone, dto.code, OtpPurpose.LOGIN);
+    } else {
+      throw new BadRequestException('Provide a password or phone OTP to step up');
+    }
+
+    return this.tokenService.generateStepUpToken(userId);
   }
 
   private async generatePlaceholderPhone(): Promise<string> {

@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ToastProvider } from '@/design-system/primitives';
 import { AuthProvider } from '@/features/auth/auth-provider';
+import { StepUpModal } from '@/components/auth/step-up-modal';
 import { makeQueryClient } from '@/lib/query-client';
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
@@ -11,7 +12,10 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          {children}
+          <StepUpModal />
+        </ToastProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

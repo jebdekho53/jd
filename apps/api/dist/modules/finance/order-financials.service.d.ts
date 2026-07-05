@@ -12,6 +12,7 @@ export interface FreezeOrderInput {
     platformContribution?: number;
     deliveryFee: number;
     taxAmount?: number;
+    totalAmount?: number;
     paymentMethod: PaymentMethod;
 }
 export declare class OrderFinancialsService {

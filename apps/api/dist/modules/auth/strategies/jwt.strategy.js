@@ -33,7 +33,12 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         if (!payload.sub) {
             throw new common_1.UnauthorizedException('Malformed token payload');
         }
-        return this.tokenService.resolveLiveRequestUser(payload.sub);
+        const user = await this.tokenService.resolveLiveRequestUser(payload.sub);
+        return {
+            ...user,
+            authTime: payload.authTime,
+            amr: payload.amr,
+        };
     }
 };
 exports.JwtStrategy = JwtStrategy;

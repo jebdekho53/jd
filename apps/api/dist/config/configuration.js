@@ -25,17 +25,6 @@ function getConfig(configService) {
             rateLimitRequests: configService.get('OTP_RATE_LIMIT_REQUESTS', 3),
             rateLimitWindowMinutes: configService.get('OTP_RATE_LIMIT_WINDOW_MINUTES', 10),
         },
-        dev: {
-            demoPhone: configService.get('DEV_DEMO_PHONE', '+919876543210'),
-            demoMerchantPhone: configService.get('DEV_DEMO_MERCHANT_PHONE', '+919876543211'),
-            demoMerchantEmail: configService.get('DEV_DEMO_MERCHANT_EMAIL', 'merchant@demo.jebdekho.com'),
-            demoMerchantPhone2: configService.get('DEV_DEMO_MERCHANT_PHONE_2', '+919876543213'),
-            demoMerchantEmail2: configService.get('DEV_DEMO_MERCHANT_EMAIL_2', 'merchant2@demo.jebdekho.com'),
-            demoAdminPhone: configService.get('DEV_DEMO_ADMIN_PHONE', '+919876543212'),
-            demoAdminEmail: configService.get('DEV_DEMO_ADMIN_EMAIL', 'admin@demo.jebdekho.com'),
-            demoRiderPhone: configService.get('DEV_DEMO_RIDER_PHONE', '+919876543214'),
-            demoOtp: configService.get('DEV_DEMO_OTP', '123456'),
-        },
         auth: {
             emailEnabled: (0, env_bool_util_1.envBool)(configService, 'AUTH_EMAIL_ENABLED', true),
             phoneOtpEnabled: (0, env_bool_util_1.envBool)(configService, 'AUTH_PHONE_OTP_ENABLED', false),

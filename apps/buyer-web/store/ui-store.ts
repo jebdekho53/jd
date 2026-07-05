@@ -18,6 +18,4 @@ export const useUiStore = create<UiState>((set) => ({
 export {
   useLocationStore,
   useEffectiveLocation,
-  FALLBACK_LOCATIONS,
-  DEFAULT_LOCATION,
 } from '@/store/location-store';

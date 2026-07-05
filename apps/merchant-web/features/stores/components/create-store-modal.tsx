@@ -33,8 +33,8 @@ const schema = z.object({
   line1: z.string().min(5).max(200),
   line2: z.string().optional(),
   pincode: z.string().regex(/^\d{6}$/, 'Must be 6 digits'),
-  latitude: z.coerce.number().min(-90).max(90),
-  longitude: z.coerce.number().min(-180).max(180),
+  latitude: z.number({ required_error: 'Select store location on the map', invalid_type_error: 'Select store location on the map' }).min(-90).max(90),
+  longitude: z.number({ required_error: 'Select store location on the map', invalid_type_error: 'Select store location on the map' }).min(-180).max(180),
   locationCityId: z.string().optional(),
   locationAreaId: z.string().optional(),
   locationPincodeId: z.string().optional(),
@@ -268,8 +268,8 @@ export function CreateStoreModal({ open, onClose }: Props) {
               city: '',
               state: '',
               pincode: watch('pincode') ?? '',
-              lat: watch('latitude') ?? 28.6139,
-              lng: watch('longitude') ?? 77.209,
+              lat: watch('latitude') ?? undefined,
+              lng: watch('longitude') ?? undefined,
             }}
             onChange={(selection) => {
               setValue('localityLabel', selection.locality);
@@ -281,7 +281,7 @@ export function CreateStoreModal({ open, onClose }: Props) {
               setValue('locationPincodeId', selection.locationPincodeId);
             }}
             onLine1Suggestion={(line1) => setValue('line1', line1)}
-            error={errors.localityLabel?.message ?? errors.pincode?.message}
+            error={errors.localityLabel?.message ?? errors.pincode?.message ?? errors.latitude?.message ?? errors.longitude?.message}
           />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Address line 2" {...register('line2')} />

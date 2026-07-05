@@ -37,14 +37,7 @@ const EMPTY: LocationCoords & { isReady: boolean } = {
   isReady: false,
 };
 
-/** Delhi default coords — used for store discovery until user picks a location */
-export const FALLBACK_LOCATIONS = [
-  { label: 'Connaught Place, Delhi', lat: 28.6139, lng: 77.209, pincode: '110001' },
-  { label: 'Cyber City, Gurgaon', lat: 28.4941, lng: 77.0886, pincode: '122002' },
-  { label: 'Sector 18, Noida', lat: 28.5706, lng: 77.3219, pincode: '201301' },
-] as const;
 
-export const DEFAULT_LOCATION = FALLBACK_LOCATIONS[0];
 
 export const useLocationStore = create<LocationState>()(
   persist(
@@ -64,7 +57,7 @@ export const useLocationStore = create<LocationState>()(
         set({ lat, lng, label, source: 'default', isReady: true }),
       setLocation: (lat, lng, label) =>
         set({ lat, lng, label, source: 'manual', isReady: true }),
-      resetLocation: () => set({ ...DEFAULT_LOCATION, source: 'default', isReady: true }),
+      resetLocation: () => set(EMPTY),
       clear: () => set(EMPTY),
     }),
     {
@@ -136,6 +129,6 @@ export function useEffectiveLocation() {
     pincode: hasLocation ? pincode : undefined,
     city: hasLocation ? city : undefined,
     area: hasLocation ? area : undefined,
-    mapCenter: hasLocation ? { lat: lat!, lng: lng! } : DEFAULT_LOCATION,
+    mapCenter: hasLocation ? { lat: lat!, lng: lng! } : { lat: 0, lng: 0 },
   };
 }

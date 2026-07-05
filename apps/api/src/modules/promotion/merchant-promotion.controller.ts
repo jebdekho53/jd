@@ -58,7 +58,7 @@ export class MerchantPromotionController {
   }
 
   @Post(':storeId/promotions')
-  @Permissions('stores:update')
+  @Permissions('stores:write')
   async create(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -69,7 +69,7 @@ export class MerchantPromotionController {
   }
 
   @Patch(':storeId/promotions/:id')
-  @Permissions('stores:update')
+  @Permissions('stores:write')
   async update(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -82,7 +82,7 @@ export class MerchantPromotionController {
 
   @Post(':storeId/promotions/:id/pause')
   @HttpCode(HttpStatus.OK)
-  @Permissions('stores:update')
+  @Permissions('stores:write')
   async pause(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -94,7 +94,7 @@ export class MerchantPromotionController {
 
   @Post(':storeId/promotions/:id/resume')
   @HttpCode(HttpStatus.OK)
-  @Permissions('stores:update')
+  @Permissions('stores:write')
   async resume(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -105,7 +105,7 @@ export class MerchantPromotionController {
   }
 
   @Delete(':storeId/promotions/:id')
-  @Permissions('stores:update')
+  @Permissions('stores:write')
   async remove(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,

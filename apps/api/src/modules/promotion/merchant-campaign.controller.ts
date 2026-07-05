@@ -47,7 +47,7 @@ export class MerchantCampaignController {
 
   @Post(':storeId/campaigns')
   @HttpCode(HttpStatus.CREATED)
-  @Permissions('stores:update')
+  @Permissions('stores:write')
   async create(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -70,7 +70,7 @@ export class MerchantCampaignController {
 
   @Post(':storeId/campaigns/:campaignId/pause')
   @HttpCode(HttpStatus.OK)
-  @Permissions('stores:update')
+  @Permissions('stores:write')
   async pause(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -82,7 +82,7 @@ export class MerchantCampaignController {
 
   @Post(':storeId/campaigns/:campaignId/resume')
   @HttpCode(HttpStatus.OK)
-  @Permissions('stores:update')
+  @Permissions('stores:write')
   async resume(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -93,7 +93,7 @@ export class MerchantCampaignController {
   }
 
   @Patch(':storeId/campaigns/:campaignId')
-  @Permissions('stores:update')
+  @Permissions('stores:write')
   async update(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,
@@ -106,7 +106,7 @@ export class MerchantCampaignController {
 
   @Post(':storeId/campaigns/:campaignId/offers')
   @HttpCode(HttpStatus.CREATED)
-  @Permissions('stores:update')
+  @Permissions('stores:write')
   async addOffer(
     @CurrentUser() user: RequestUser,
     @Param('storeId') storeId: string,

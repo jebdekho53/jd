@@ -26,6 +26,7 @@ import { EmailModule } from '../email/email.module';
 import { BuyerModule } from '../buyer/buyer.module';
 import { CategoryGovernanceModule } from '../category-governance/category-governance.module';
 import { StoreVerticalModule } from '../store-vertical/store-vertical.module';
+import { FinanceModule } from '../finance/finance.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { StoreVerticalModule } from '../store-vertical/store-vertical.module';
     PushModule,
     EmailModule,
     forwardRef(() => PaymentModule),
+    forwardRef(() => FinanceModule),
   ],
   controllers: [
     FoodCartController,

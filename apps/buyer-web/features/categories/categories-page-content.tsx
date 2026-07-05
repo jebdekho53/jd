@@ -137,7 +137,7 @@ function PremiumCategoryGrid({ categories }: { categories: CategoryItem[] }) {
                   src={image}
                   alt={category.name}
                   fill
-                  className="object-cover transition duration-300 group-hover:scale-105"
+                  className="object-contain p-3 transition duration-300 group-hover:scale-105"
                   sizes="(max-width: 640px) 33vw, (max-width: 1024px) 20vw, 160px"
                 />
               ) : (

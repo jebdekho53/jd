@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -23,6 +25,7 @@ import { DomainEventsService } from '../domain-events/domain-events.service';
 import { FoodCartService } from './food-cart.service';
 import { InitiateFoodCheckoutDto } from './dto/initiate-food-checkout.dto';
 import { GeospatialService } from '../geospatial/geospatial.service';
+import { OrderFinancialsService } from '../finance/order-financials.service';
 
 const CHECKOUT_TTL_MINUTES = 15;
 const FOOD_CHECKOUT_PENDING = 'PENDING';
@@ -73,6 +76,8 @@ export class FoodCheckoutService {
     private readonly audit: AuditService,
     private readonly domainEvents: DomainEventsService,
     private readonly geospatial: GeospatialService,
+    @Inject(forwardRef(() => OrderFinancialsService))
+    private readonly orderFinancials: OrderFinancialsService,
   ) {}
 
   async initiateCheckout(userId: string, dto: InitiateFoodCheckoutDto, idempotencyKey?: string) {
@@ -310,6 +315,22 @@ export class FoodCheckoutService {
       return created;
     });
 
+    // Freeze order financials (commission, merchant net, tax). Ledger for online
+    // payments is posted on payment confirmation, matching the marketplace path.
+    void this.orderFinancials
+      .freezeOnOrderCreate({
+        orderId: order.id,
+        storeId: snapshot.storeId,
+        subtotal: snapshot.totals.subtotal,
+        discountAmount: snapshot.couponDiscount,
+        offerSubsidy: 0,
+        deliveryFee: snapshot.totals.deliveryFee,
+        taxAmount: snapshot.totals.tax,
+        totalAmount: snapshot.totalAmount,
+        paymentMethod: PaymentMethod.RAZORPAY,
+      })
+      .catch((err) => this.logger.warn(`Food financial freeze failed: ${(err as Error).message}`));
+
     await this.audit.log({
       actorId: opts.userId,
       action: 'FOOD_ORDER_CREATED',
@@ -391,6 +412,22 @@ export class FoodCheckoutService {
       await tx.foodCart.deleteMany({ where: { buyerProfileId } });
       return created;
     });
+
+    // Freeze order financials (commission, merchant net earnings, tax record, and
+    // COD ledger posting) — same treatment as the marketplace checkout path.
+    void this.orderFinancials
+      .freezeOnOrderCreate({
+        orderId: order.id,
+        storeId: cart.storeId,
+        subtotal: cart.totals.subtotal,
+        discountAmount: couponDiscount,
+        offerSubsidy: 0,
+        deliveryFee: cart.totals.deliveryFee,
+        taxAmount: cart.totals.tax,
+        totalAmount,
+        paymentMethod: PaymentMethod.COD,
+      })
+      .catch((err) => this.logger.warn(`Food financial freeze failed: ${(err as Error).message}`));
 
     await this.audit.log({
       actorId: userId,

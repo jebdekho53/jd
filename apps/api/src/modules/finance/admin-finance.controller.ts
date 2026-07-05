@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   Res,
@@ -28,6 +30,7 @@ import { RiderPayoutService } from './rider-payout.service';
 import { FinanceExportService } from './finance-export.service';
 import { OrderRefundService } from '../payment/order-refund.service';
 import { SettlementService } from '../settlement/settlement.service';
+import { FinanceCommissionService } from './finance-commission.service';
 import {
   CodSubmitDto,
   ExportQueryDto,
@@ -36,6 +39,10 @@ import {
   MarkRiderPayoutPaidDto,
   RejectCodDto,
 } from './dto/finance.dto';
+import {
+  CreateCommissionRuleDto,
+  UpdateCommissionRuleDto,
+} from './dto/commission-rule.dto';
 
 @ApiTags(Tags.ADMIN)
 @ApiBearerAuth('access-token')
@@ -51,7 +58,43 @@ export class AdminFinanceController {
     private readonly exports: FinanceExportService,
     private readonly settlement: SettlementService,
     private readonly orderRefunds: OrderRefundService,
+    private readonly commission: FinanceCommissionService,
   ) {}
+
+  // ── Commission rules ───────────────────────────────────────────────────────
+
+  @Get('commission-rules')
+  @Permissions('settlements:read')
+  @ApiOperation({ summary: 'List commission rules + platform default' })
+  async listCommissionRules() {
+    const data = await this.commission.listRules();
+    return { success: true, data };
+  }
+
+  @Post('commission-rules')
+  @HttpCode(HttpStatus.CREATED)
+  @Permissions('settlements:manage')
+  @ApiOperation({ summary: 'Create a GLOBAL/STORE/CATEGORY commission rule' })
+  async createCommissionRule(@Body() dto: CreateCommissionRuleDto) {
+    const data = await this.commission.createRule(dto);
+    return { success: true, data };
+  }
+
+  @Patch('commission-rules/:id')
+  @Permissions('settlements:manage')
+  @ApiOperation({ summary: 'Update a commission rule (rate / delay / active)' })
+  async updateCommissionRule(@Param('id') id: string, @Body() dto: UpdateCommissionRuleDto) {
+    const data = await this.commission.updateRule(id, dto);
+    return { success: true, data };
+  }
+
+  @Delete('commission-rules/:id')
+  @Permissions('settlements:manage')
+  @ApiOperation({ summary: 'Delete a commission rule' })
+  async deleteCommissionRule(@Param('id') id: string) {
+    const data = await this.commission.deleteRule(id);
+    return { success: true, data };
+  }
 
   @Get('overview')
   @Permissions('settlements:read')

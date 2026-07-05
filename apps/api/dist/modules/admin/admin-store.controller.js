@@ -19,9 +19,11 @@ const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const permissions_guard_1 = require("../../common/guards/permissions.guard");
+const step_up_guard_1 = require("../../common/guards/step-up.guard");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const permissions_decorator_1 = require("../../common/decorators/permissions.decorator");
+const require_step_up_decorator_1 = require("../../common/decorators/require-step-up.decorator");
 const constants_1 = require("../../common/constants");
 const admin_store_service_1 = require("./admin-store.service");
 const list_store_approvals_dto_1 = require("./dto/list-store-approvals.dto");
@@ -181,6 +183,8 @@ __decorate([
     (0, common_1.Post)(':id/suspend'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     (0, permissions_decorator_1.Permissions)('stores:suspend'),
+    (0, common_1.UseGuards)(step_up_guard_1.StepUpGuard),
+    (0, require_step_up_decorator_1.RequireStepUp)(),
     (0, swagger_1.ApiParam)({ name: 'id', description: 'Store ID' }),
     (0, swagger_1.ApiOperation)({ summary: 'Suspend an APPROVED store' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Store suspended' }),

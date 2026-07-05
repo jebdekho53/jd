@@ -14,6 +14,7 @@ interface TokenPair {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  rememberMe?: boolean;
 }
 
 export async function setAuthCookies(response: NextResponse, tokens: TokenPair) {
@@ -21,10 +22,15 @@ export async function setAuthCookies(response: NextResponse, tokens: TokenPair) 
     ...cookieOptions,
     maxAge: accessCookieMaxAge(tokens.expiresIn),
   });
-  response.cookies.set(REFRESH_COOKIE, tokens.refreshToken, {
+
+  const refreshOptions: any = {
     ...cookieOptions,
-    maxAge: REFRESH_MAX_AGE,
-  });
+  };
+  if (tokens.rememberMe) {
+    refreshOptions.maxAge = REFRESH_MAX_AGE;
+  }
+
+  response.cookies.set(REFRESH_COOKIE, tokens.refreshToken, refreshOptions);
   return response;
 }
 

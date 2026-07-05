@@ -55,7 +55,7 @@ export class MerchantStoreReviewController {
 
   @Post(':storeId/reviews/:reviewId/reply')
   @HttpCode(HttpStatus.OK)
-  @Permissions('stores:update')
+  @Permissions('stores:write')
   @ApiOperation({ summary: 'Reply to a customer review' })
   async reply(
     @CurrentUser() user: RequestUser,

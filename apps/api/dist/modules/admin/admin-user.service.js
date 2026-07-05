@@ -79,6 +79,15 @@ let AdminUserService = class AdminUserService {
             lastLoginAt: updated.lastLoginAt,
         }));
     }
+    async deleteUser(id) {
+        const user = await this.prisma.user.findUnique({ where: { id } });
+        if (!user || user.deletedAt)
+            throw new common_1.NotFoundException('User not found');
+        return this.prisma.user.update({
+            where: { id },
+            data: { status: client_1.UserStatus.DELETED, deletedAt: new Date() },
+        });
+    }
 };
 exports.AdminUserService = AdminUserService;
 exports.AdminUserService = AdminUserService = __decorate([

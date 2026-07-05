@@ -31,8 +31,6 @@ describe('OtpService.generateCode', () => {
           OTP_MAX_ATTEMPTS: 5,
           OTP_RATE_LIMIT_REQUESTS: 3,
           OTP_RATE_LIMIT_WINDOW_MINUTES: 10,
-          DEV_DEMO_PHONE: '+919876543210',
-          DEV_DEMO_OTP: '123456',
           NODE_ENV: 'test',
         };
         return map[key] ?? fallback;

@@ -22,7 +22,22 @@ let LedgerService = LedgerService_1 = class LedgerService {
         this.accountCache = new Map();
     }
     async onModuleInit() {
+        await this.seedAccounts();
         await this.refreshAccountCache();
+    }
+    async seedAccounts() {
+        for (const def of ledger_accounts_constants_1.LEDGER_ACCOUNT_DEFINITIONS) {
+            await this.prisma.ledgerAccount.upsert({
+                where: { code: def.code },
+                update: {},
+                create: {
+                    code: def.code,
+                    name: def.name,
+                    kind: def.kind,
+                    isActive: true,
+                },
+            });
+        }
     }
     async refreshAccountCache() {
         const accounts = await this.prisma.ledgerAccount.findMany({ where: { isActive: true } });

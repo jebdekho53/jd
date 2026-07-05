@@ -83,14 +83,21 @@ export async function merchantFetch<T>(path: string, init?: RequestInit): Promis
 
   let { res, body } = await doFetch();
 
-  // Stale JWT after MERCHANT role assignment — refresh once and retry.
   if (res.status === 403 && path !== '/api/auth/refresh') {
-    const refreshed = await fetch('/api/auth/refresh', {
-      method: 'POST',
-      credentials: 'include',
-    });
-    if (refreshed.ok) {
-      ({ res, body } = await doFetch());
+    if (body?.error === 'Step-Up Required' || body?.message?.includes('Step-Up Required') || body?.message?.includes('Re-authentication required')) {
+      const { useUiModalsStore } = await import('@/store/ui-modals-store');
+      const success = await useUiModalsStore.getState().triggerStepUp();
+      if (success) {
+        ({ res, body } = await doFetch());
+      }
+    } else {
+      const refreshed = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (refreshed.ok) {
+        ({ res, body } = await doFetch());
+      }
     }
   }
 

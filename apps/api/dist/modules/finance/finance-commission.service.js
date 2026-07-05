@@ -20,6 +20,89 @@ let FinanceCommissionService = class FinanceCommissionService {
     constructor(prisma, legacy) {
         this.prisma = prisma;
         this.legacy = legacy;
+        this.defaultCommissionPercent = DEFAULT_COMMISSION;
+    }
+    async listRules() {
+        const rules = await this.prisma.commissionRule.findMany({
+            orderBy: [{ scope: 'asc' }, { updatedAt: 'desc' }],
+            include: {
+                store: { select: { id: true, name: true } },
+                category: { select: { id: true, name: true } },
+            },
+        });
+        return {
+            defaultCommissionPercent: DEFAULT_COMMISSION,
+            rules: rules.map((r) => ({
+                id: r.id,
+                scope: r.scope,
+                storeId: r.storeId,
+                storeName: r.store?.name ?? null,
+                categoryId: r.categoryId,
+                categoryName: r.category?.name ?? null,
+                commissionPercent: (0, settlement_utils_1.decimalToNumber)(r.commissionPercent),
+                settlementDelayDays: r.settlementDelayDays,
+                isActive: r.isActive,
+                updatedAt: r.updatedAt,
+            })),
+        };
+    }
+    async createRule(dto) {
+        this.assertScopeTarget(dto.scope, dto.storeId, dto.categoryId);
+        if (dto.scope === client_1.CommissionRuleScope.STORE && dto.storeId) {
+            const store = await this.prisma.store.findUnique({ where: { id: dto.storeId }, select: { id: true } });
+            if (!store)
+                throw new common_1.NotFoundException('Store not found');
+        }
+        if (dto.scope === client_1.CommissionRuleScope.CATEGORY && dto.categoryId) {
+            const cat = await this.prisma.category.findUnique({ where: { id: dto.categoryId }, select: { id: true } });
+            if (!cat)
+                throw new common_1.NotFoundException('Category not found');
+        }
+        const created = await this.prisma.commissionRule.create({
+            data: {
+                scope: dto.scope,
+                storeId: dto.scope === client_1.CommissionRuleScope.STORE ? dto.storeId : null,
+                categoryId: dto.scope === client_1.CommissionRuleScope.CATEGORY ? dto.categoryId : null,
+                commissionPercent: new client_1.Prisma.Decimal(dto.commissionPercent),
+                settlementDelayDays: dto.settlementDelayDays ?? 2,
+                isActive: dto.isActive ?? true,
+            },
+        });
+        return { id: created.id };
+    }
+    async updateRule(id, dto) {
+        const existing = await this.prisma.commissionRule.findUnique({ where: { id } });
+        if (!existing)
+            throw new common_1.NotFoundException('Commission rule not found');
+        await this.prisma.commissionRule.update({
+            where: { id },
+            data: {
+                ...(dto.commissionPercent !== undefined && {
+                    commissionPercent: new client_1.Prisma.Decimal(dto.commissionPercent),
+                }),
+                ...(dto.settlementDelayDays !== undefined && { settlementDelayDays: dto.settlementDelayDays }),
+                ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+            },
+        });
+        return { id };
+    }
+    async deleteRule(id) {
+        const existing = await this.prisma.commissionRule.findUnique({ where: { id } });
+        if (!existing)
+            throw new common_1.NotFoundException('Commission rule not found');
+        await this.prisma.commissionRule.delete({ where: { id } });
+        return { id };
+    }
+    assertScopeTarget(scope, storeId, categoryId) {
+        if (scope === client_1.CommissionRuleScope.STORE && !storeId) {
+            throw new common_1.BadRequestException('storeId is required for a STORE-scoped rule');
+        }
+        if (scope === client_1.CommissionRuleScope.CATEGORY && !categoryId) {
+            throw new common_1.BadRequestException('categoryId is required for a CATEGORY-scoped rule');
+        }
+        if (scope === client_1.CommissionRuleScope.CAMPAIGN) {
+            throw new common_1.BadRequestException('CAMPAIGN rules are managed via campaigns, not here');
+        }
     }
     async resolveForOrder(storeId, orderId) {
         const campaignRule = await this.findCampaignRule(storeId);

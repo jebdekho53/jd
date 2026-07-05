@@ -7,4 +7,6 @@ export interface JwtPayload {
   permissions: string[];
   /** Key ID — matches JWT_KEY_ID env var for rotation tracking */
   kid?: string;
+  authTime?: number;
+  amr?: string[];
 }

@@ -29,4 +29,17 @@ export declare class AdminUserService {
         createdAt: Date;
         lastLoginAt: Date | null;
     }>;
+    deleteUser(id: string): Promise<{
+        id: string;
+        status: import("@prisma/client").$Enums.UserStatus;
+        createdAt: Date;
+        email: string | null;
+        phone: string;
+        passwordHash: string | null;
+        phoneVerified: boolean;
+        emailVerified: boolean;
+        lastLoginAt: Date | null;
+        updatedAt: Date;
+        deletedAt: Date | null;
+    }>;
 }

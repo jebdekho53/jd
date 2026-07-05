@@ -24,7 +24,6 @@ import {
   SessionError,
 } from '@/hooks/use-auth';
 import { isValidIndianPhone, normalizeIndianPhone } from '@/lib/phone';
-import { DEMO_OTP, DEMO_PHONE_DIGITS, DEMO_PHONE_E164, IS_DEV } from '@/lib/demo-auth';
 import { safeReturnUrl } from '@jebdekho/web-config';
 import { isPhoneOtpEnabled } from '@jebdekho/web-config';
 
@@ -60,6 +59,7 @@ export function LoginPageContent() {
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState<string | null>(null);
   const [resendSeconds, setResendSeconds] = useState(0);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const requestOtp = useRequestOtpMutation();
   const verifyOtp = useVerifyOtpMutation();
@@ -120,7 +120,7 @@ export function LoginPageContent() {
     }
     setOtpError(null);
     try {
-      const result = await verifyOtp.mutateAsync({ phone, code: otp });
+      const result = await verifyOtp.mutateAsync({ phone, code: otp, rememberMe });
       await completeLogin(result.user, result.isNewUser);
     } catch (err) {
       const msg =
@@ -136,7 +136,7 @@ export function LoginPageContent() {
 
   const onEmailSubmit = emailForm.handleSubmit(async (values) => {
     try {
-      const result = await emailLogin.mutateAsync(values);
+      const result = await emailLogin.mutateAsync({ ...values, rememberMe });
       await completeLogin(result.user, result.isNewUser);
     } catch (err) {
       const msg = err instanceof SessionError ? err.message : 'Login failed';
@@ -173,25 +173,6 @@ export function LoginPageContent() {
 
       {tab === 'mobile' && phoneOtpEnabled && mobileStep === 'phone' && (
         <form onSubmit={onPhoneSubmit} className="space-y-5">
-          {IS_DEV && (
-            <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4 text-center">
-              <p className="text-sm font-semibold text-jd-text-primary">Demo login</p>
-              <p className="mt-1 text-xs text-jd-text-muted">
-                Phone <span className="font-mono font-medium">{DEMO_PHONE_DIGITS}</span>
-                {' · '}
-                OTP <span className="font-mono font-medium">{DEMO_OTP}</span>
-              </p>
-              <button
-                type="button"
-                className="mt-3 text-sm font-semibold text-primary hover:underline"
-                onClick={() => {
-                  phoneForm.setValue('phone', DEMO_PHONE_DIGITS, { shouldValidate: true });
-                }}
-              >
-                Use demo number
-              </button>
-            </div>
-          )}
           <PhoneInput
             value={phoneForm.watch('phone')}
             onChange={(v) => phoneForm.setValue('phone', v, { shouldValidate: true })}
@@ -210,11 +191,6 @@ export function LoginPageContent() {
             <p className="text-sm text-jd-text-muted">
               OTP sent to <span className="font-medium text-neutral-900">{phone}</span>
             </p>
-            {IS_DEV && phone === DEMO_PHONE_E164 && (
-              <p className="mt-2 rounded-lg bg-primary/10 px-3 py-2 text-sm font-mono font-semibold text-primary">
-                Demo OTP: {DEMO_OTP}
-              </p>
-            )}
             <button
               type="button"
               className="mt-2 text-sm font-medium text-jd-primary hover:underline"
@@ -233,6 +209,16 @@ export function LoginPageContent() {
             disabled={verifyOtp.isPending}
             error={otpError ?? undefined}
           />
+
+          <label className="flex items-center gap-2 cursor-pointer select-none py-1">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 rounded border-border text-primary"
+            />
+            <span className="text-sm text-jd-text-secondary">Remember me</span>
+          </label>
 
           <Button fullWidth loading={verifyOtp.isPending} onClick={onVerifyOtp}>
             Verify &amp; Login
@@ -273,7 +259,16 @@ export function LoginPageContent() {
             error={emailForm.formState.errors.password?.message}
             {...emailForm.register('password')}
           />
-          <div className="text-right">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-border text-primary"
+              />
+              <span className="text-sm text-jd-text-secondary">Remember me</span>
+            </label>
             <Link href="/forgot-password" className="text-sm font-medium text-jd-primary hover:underline">
               Forgot Password?
             </Link>

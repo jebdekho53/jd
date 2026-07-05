@@ -119,8 +119,8 @@ export declare class AdminAiProductUsageController {
             id: string;
             merchant: {
                 user: {
-                    phone: string;
                     email: string | null;
+                    phone: string;
                 };
                 id: string;
                 businessName: string;

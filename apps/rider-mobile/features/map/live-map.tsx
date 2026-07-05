@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { RouteLine } from '@/features/map/route-line';
 import { useLocationStore } from '@/store/location-store';
@@ -13,15 +13,24 @@ function LiveMapInner({ order }: Props) {
   const lat = useLocationStore((s) => s.currentLat);
   const lng = useLocationStore((s) => s.currentLng);
 
+  if (lat == null || lng == null) {
+    return (
+      <View style={[styles.wrap, styles.center]}>
+        <ActivityIndicator size="large" color="#0f766e" />
+        <Text style={styles.text}>Waiting for GPS location...</Text>
+      </View>
+    );
+  }
+
   const region = useMemo(() => {
     const points = [
-      lat != null && lng != null ? { latitude: lat, longitude: lng } : null,
+      { latitude: lat, longitude: lng },
       order ? { latitude: order.storeLat, longitude: order.storeLng } : null,
       order ? { latitude: order.customerLat, longitude: order.customerLng } : null,
     ].filter(Boolean) as { latitude: number; longitude: number }[];
 
     if (points.length === 0) {
-      return { latitude: 28.6139, longitude: 77.209, latitudeDelta: 0.08, longitudeDelta: 0.08 };
+      return { latitude: 0, longitude: 0, latitudeDelta: 0.08, longitudeDelta: 0.08 };
     }
 
     const lats = points.map((p) => p.latitude);
@@ -85,4 +94,16 @@ export const LiveMap = memo(LiveMapInner, (prev, next) => {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   map: { flex: 1 },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    padding: 20,
+  },
+  text: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
+  },
 });

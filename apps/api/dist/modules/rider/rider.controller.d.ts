@@ -30,9 +30,9 @@ export declare class RiderController {
         data: ({
             order: {
                 store: {
-                    phone: string | null;
                     id: string;
                     name: string;
+                    phone: string | null;
                     latitude: number;
                     longitude: number;
                 };
@@ -74,9 +74,9 @@ export declare class RiderController {
         data: {
             order: {
                 store: {
-                    phone: string | null;
                     id: string;
                     name: string;
+                    phone: string | null;
                     latitude: number;
                     longitude: number;
                 };

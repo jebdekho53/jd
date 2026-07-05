@@ -40,10 +40,10 @@ export declare class AdminSupplyChainService {
             products: number;
         };
     } & {
-        phone: string | null;
-        email: string | null;
         id: string;
         createdAt: Date;
+        email: string | null;
+        phone: string | null;
         updatedAt: Date;
         businessName: string;
         gstNumber: string | null;

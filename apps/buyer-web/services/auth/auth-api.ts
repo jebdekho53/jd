@@ -57,7 +57,7 @@ export async function verifyOtp(
   phone: string,
   code: string,
   deviceId?: string,
-  extras?: { name?: string; referralCode?: string },
+  extras?: { name?: string; referralCode?: string; rememberMe?: boolean },
 ): Promise<VerifyOtpResult> {
   const res = await sessionFetch<ApiResponse<VerifyOtpResult>>('/api/auth/verify-otp', {
     method: 'POST',
@@ -76,10 +76,11 @@ export async function emailLogin(
   email: string,
   password: string,
   deviceId?: string,
+  rememberMe?: boolean,
 ): Promise<VerifyOtpResult> {
   const res = await sessionFetch<ApiResponse<VerifyOtpResult>>('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password, deviceId, deviceName: 'buyer-web' }),
+    body: JSON.stringify({ email, password, deviceId, deviceName: 'buyer-web', rememberMe }),
   });
   return res.data;
 }

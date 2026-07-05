@@ -31,6 +31,7 @@ import { EmailSignupDto } from './dto/signup.dto';
 import { EmailLoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { StepUpDto } from './dto/step-up.dto';
 
 @ApiTags(Tags.AUTH)
 @Controller('auth')
@@ -190,6 +191,28 @@ export class AuthController {
     return {
       success: true,
       data: { message: 'Logged out successfully' },
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // POST /auth/step-up
+  // --------------------------------------------------------------------------
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('step-up')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Step-up authentication via password or OTP' })
+  @ApiResponse({ status: 200, description: 'Step-up authentication successful' })
+  async stepUp(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: StepUpDto,
+    @Ip() ip: string,
+    @Req() req: Request,
+  ) {
+    const data = await this.authService.stepUp(user.id, dto, ip, req.headers['user-agent']);
+    return {
+      success: true,
+      data,
     };
   }
 

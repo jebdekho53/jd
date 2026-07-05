@@ -106,6 +106,18 @@ const runtimeCaching = [
           ...CACHE_LIMITS.images,
           purgeOnQuotaError: true,
         }),
+        {
+          handlerDidError: async () =>
+            new Response(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" viewBox="0 0 1 1"><rect width="1" height="1" fill="none"/></svg>',
+              {
+                headers: {
+                  'Content-Type': 'image/svg+xml',
+                  'Cache-Control': 'no-store',
+                },
+              }
+            ),
+        },
       ],
     }),
   },

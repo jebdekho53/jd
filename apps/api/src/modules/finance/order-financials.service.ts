@@ -19,6 +19,10 @@ export interface FreezeOrderInput {
   platformContribution?: number;
   deliveryFee: number;
   taxAmount?: number;
+  /** Actual amount payable by the buyer (order total). Used for the cash/receivable
+   *  ledger so it always matches what is collected, regardless of inclusive/exclusive
+   *  GST or catalog savings baked into the discount. */
+  totalAmount?: number;
   paymentMethod: PaymentMethod;
 }
 
@@ -103,7 +107,11 @@ export class OrderFinancialsService {
     const deferOnlineLedger =
       input.paymentMethod === PaymentMethod.RAZORPAY ||
       input.paymentMethod === PaymentMethod.WALLET_RAZORPAY;
-    const paidAmount = gross + deliveryFee - input.discountAmount + taxAmount;
+    // Prefer the real order total (what the buyer actually pays) so the cash/
+    // receivable ledger matches collection exactly. Fall back to the derived
+    // figure only when the caller doesn't supply it.
+    const paidAmount =
+      input.totalAmount ?? gross + deliveryFee - input.discountAmount + taxAmount;
 
     if (!deferOnlineLedger) {
       void this.ledger.recordOrderPayment(input.orderId, paidAmount, isCod).catch((err) => {
@@ -133,12 +141,8 @@ export class OrderFinancialsService {
     const method = order.paymentMethod;
     if (method !== PaymentMethod.RAZORPAY && method !== PaymentMethod.WALLET_RAZORPAY) return;
 
-    const snap = await this.prisma.orderFinancialSnapshot.findUnique({ where: { orderId } });
-    const gross = snap ? decimalToNumber(snap.subtotal) : decimalToNumber(order.totalAmount);
-    const deliveryFee = snap ? decimalToNumber(snap.deliveryFee) : decimalToNumber(order.deliveryFee);
-    const discount = snap ? decimalToNumber(snap.discountAmount) : decimalToNumber(order.discountAmount);
-    const tax = snap ? decimalToNumber(snap.taxAmount) : decimalToNumber(order.taxAmount);
-    const paidAmount = gross + deliveryFee - discount + tax;
+    // Cash/receivable ledger must equal what the buyer actually paid.
+    const paidAmount = decimalToNumber(order.totalAmount);
 
     await this.ledger.recordOrderPayment(orderId, paidAmount, false);
   }

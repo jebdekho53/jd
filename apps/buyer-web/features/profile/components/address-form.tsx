@@ -27,8 +27,8 @@ export function AddressForm({ initial, onSubmit, onCancel, isPending }: AddressF
   const [landmark, setLandmark] = useState(initial?.landmark ?? '');
   const [pincode, setPincode] = useState(initial?.pincode ?? '');
   const [city, setCity] = useState(initial?.city ?? '');
-  const [lat, setLat] = useState(initial?.lat ?? 28.6139);
-  const [lng, setLng] = useState(initial?.lng ?? 77.209);
+  const [lat, setLat] = useState<number | null>(initial?.lat ?? null);
+  const [lng, setLng] = useState<number | null>(initial?.lng ?? null);
   const [locality, setLocality] = useState(initial?.city ?? '');
   const [isDefault, setIsDefault] = useState(initial?.isDefault ?? false);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -54,6 +54,10 @@ export function AddressForm({ initial, onSubmit, onCancel, isPending }: AddressF
       setLocationError('Add your house / flat / building number.');
       return;
     }
+    if (lat == null || lng == null || (Math.abs(lat - 28.6139) < 0.0001 && Math.abs(lng - 77.209) < 0.0001)) {
+      setLocationError('Please select your delivery location on the map.');
+      return;
+    }
     onSubmit({
       label,
       line1,
@@ -61,8 +65,8 @@ export function AddressForm({ initial, onSubmit, onCancel, isPending }: AddressF
       landmark: landmark || undefined,
       pincode,
       city: city || undefined,
-      lat,
-      lng,
+      lat: lat!,
+      lng: lng!,
       isDefault,
     });
   };
@@ -93,7 +97,7 @@ export function AddressForm({ initial, onSubmit, onCancel, isPending }: AddressF
       <div className="relative min-h-0 flex-1">
         <BuyerAddressPicker
           layout="fullscreen"
-          value={{ locality, city, state: '', pincode, lat, lng }}
+          value={{ locality, city, state: '', pincode, lat: lat ?? undefined, lng: lng ?? undefined }}
           onChange={handleLocationChange}
           onLine1Suggestion={setLine1}
           error={locationError ?? undefined}

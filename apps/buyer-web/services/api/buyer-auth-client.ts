@@ -29,6 +29,18 @@ export async function buyerFetch<T>(path: string, init?: RequestInit): Promise<T
     throw new SessionError('Session expired. Please log in again.', 401, 'UNAUTHENTICATED');
   }
 
+  if (res.status === 403) {
+    const clone = res.clone();
+    const body = await clone.json().catch(() => ({}));
+    if (body?.error === 'Step-Up Required' || body?.message?.includes('Step-Up Required') || body?.message?.includes('Re-authentication required')) {
+      const { useUiModalsStore } = await import('@/store/ui-modals-store');
+      const success = await useUiModalsStore.getState().triggerStepUp();
+      if (success) {
+        return buyerFetch(path, init);
+      }
+    }
+  }
+
   const body = await res.json().catch(() => ({}));
 
   if (!res.ok) {

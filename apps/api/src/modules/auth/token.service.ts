@@ -44,9 +44,13 @@ export class TokenService {
     deviceName?: string,
     ipAddress?: string,
     userAgent?: string,
+    rememberMe = false,
+    authTime?: number,
   ): Promise<TokenPair> {
     const roles = user.roles.map((r) => r.role.name);
     const permissions = user.permissions;
+
+    const actualAuthTime = authTime ?? Math.floor(Date.now() / 1000);
 
     const payload: JwtPayload = {
       sub: user.id,
@@ -55,6 +59,8 @@ export class TokenService {
       roles,
       permissions,
       kid: this.cfg.jwt.keyId,
+      authTime: actualAuthTime,
+      amr: authTime ? ['refresh'] : ['otp'],
     };
 
     const accessToken = this.jwtService.sign(payload);
@@ -64,7 +70,8 @@ export class TokenService {
 
     const rawRefreshToken = randomBytes(32).toString('hex');
     const tokenHash = this.hashToken(rawRefreshToken);
-    const refreshExpiresAt = this.parseExpiryToDate(this.cfg.jwt.refreshExpiresIn);
+    const refreshExpiryStr = rememberMe ? '30d' : '1d';
+    const refreshExpiresAt = this.parseExpiryToDate(refreshExpiryStr);
 
     await this.prisma.refreshToken.create({
       data: {
@@ -75,10 +82,37 @@ export class TokenService {
         ipAddress,
         userAgent,
         expiresAt: refreshExpiresAt,
+        rememberMe,
+        authTime: new Date(actualAuthTime * 1000),
       },
     });
 
-    return { accessToken, refreshToken: rawRefreshToken, expiresIn };
+    return { accessToken, refreshToken: rawRefreshToken, expiresIn, rememberMe };
+  }
+
+  /**
+   * Generate a step-up token for sensitive actions.
+   */
+  async generateStepUpToken(userId: string): Promise<{ accessToken: string; expiresIn: number }> {
+    const user = await this.buildUserForToken(userId);
+    const roles = user.roles.map((r) => r.role.name);
+    const permissions = user.permissions;
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      phone: user.phone,
+      email: user.email,
+      roles,
+      permissions,
+      kid: this.cfg.jwt.keyId,
+      authTime: Math.floor(Date.now() / 1000),
+      amr: ['step-up'],
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+    const expiresIn = this.parseExpirySeconds(this.cfg.jwt.accessExpiresIn);
+
+    return { accessToken, expiresIn };
   }
 
   /**
@@ -141,12 +175,18 @@ export class TokenService {
       permissions,
     };
 
+    const storedAuthTime = stored.authTime
+      ? Math.floor(stored.authTime.getTime() / 1000)
+      : Math.floor(stored.createdAt.getTime() / 1000);
+
     return this.generateTokenPair(
       userWithPermissions,
       deviceId ?? stored.deviceId ?? undefined,
       stored.deviceName ?? undefined,
       ipAddress,
       userAgent,
+      stored.rememberMe,
+      storedAuthTime,
     );
   }
 

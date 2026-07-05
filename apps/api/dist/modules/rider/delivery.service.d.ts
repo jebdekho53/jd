@@ -21,9 +21,9 @@ export declare class DeliveryService {
     getRiderDeliveries(userId: string): Promise<({
         order: {
             store: {
-                phone: string | null;
                 id: string;
                 name: string;
+                phone: string | null;
                 latitude: number;
                 longitude: number;
             };
@@ -62,9 +62,9 @@ export declare class DeliveryService {
     getRiderDeliveryByOrderId(userId: string, orderId: string): Promise<{
         order: {
             store: {
-                phone: string | null;
                 id: string;
                 name: string;
+                phone: string | null;
                 latitude: number;
                 longitude: number;
             };

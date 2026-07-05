@@ -31,18 +31,20 @@ export function useVerifyOtpMutation() {
       code: string;
       name?: string;
       referralCode?: string;
+      rememberMe?: boolean;
     }) =>
       verifyOtp(input.phone, input.code, getDeviceId(), {
         name: input.name,
         referralCode: input.referralCode,
+        rememberMe: input.rememberMe,
       }),
   });
 }
 
 export function useEmailLoginMutation() {
   return useMutation({
-    mutationFn: (input: { email: string; password: string }) =>
-      emailLogin(input.email, input.password, getDeviceId()),
+    mutationFn: (input: { email: string; password: string; rememberMe?: boolean }) =>
+      emailLogin(input.email, input.password, getDeviceId(), input.rememberMe),
   });
 }
 
