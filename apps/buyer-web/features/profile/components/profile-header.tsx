@@ -45,7 +45,13 @@ export function ProfileHeader({
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative mx-auto sm:mx-0">
-          <div className="relative h-20 w-20 overflow-hidden rounded-2xl border-2 border-white shadow-md">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={isUploading}
+            className="relative h-20 w-20 overflow-hidden rounded-2xl border-2 border-white shadow-md transition hover:ring-2 hover:ring-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed"
+            aria-label="Upload profile photo"
+          >
             {profile.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -63,7 +69,7 @@ export function ProfileHeader({
                 Uploading…
               </div>
             )}
-          </div>
+          </button>
           <button
             type="button"
             onClick={() => inputRef.current?.click()}

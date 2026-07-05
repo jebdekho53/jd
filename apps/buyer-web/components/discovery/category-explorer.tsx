@@ -99,7 +99,7 @@ export function CategoryExplorer({ categories = [], className, showAll = false }
                   src={image}
                   alt={cat.name}
                   fill
-                  className="object-contain p-1.5"
+                  className="rounded-xl object-contain p-1.5"
                   sizes="72px"
                 />
               ) : (
@@ -152,7 +152,7 @@ export function CategoryRail({ categories = [], className }: CategoryExplorerPro
                   src={image}
                   alt={cat.name}
                   fill
-                  className="object-contain p-1.5"
+                  className="rounded-xl object-contain p-1.5"
                   sizes="64px"
                 />
               ) : (

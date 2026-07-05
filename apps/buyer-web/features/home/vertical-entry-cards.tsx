@@ -87,7 +87,7 @@ export function VerticalEntryCards({ className }: { className?: string }) {
             >
               <span className={cn('relative grid aspect-square w-11 place-items-center overflow-hidden rounded-2xl', iconClassName)}>
                 {image ? (
-                  <Image src={image} alt="" fill className="object-contain p-1.5" sizes="44px" />
+                  <Image src={image} alt="" fill className="rounded-xl object-contain p-1.5" sizes="44px" />
                 ) : (
                   <Icon className="h-5 w-5" aria-hidden />
                 )}

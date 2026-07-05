@@ -5,11 +5,13 @@ import type { MembershipTier } from '@/features/profile/types';
 interface ProfileState {
   displayName: string | null;
   email: string | null;
+  phone: string | null;
   avatarUrl: string | null;
   membershipTier: MembershipTier;
   onboardingCompleted: boolean;
   setDisplayName: (name: string | null) => void;
   setEmail: (email: string | null) => void;
+  setPhone: (phone: string | null) => void;
   setAvatarUrl: (url: string | null) => void;
   setMembershipTier: (tier: MembershipTier) => void;
   completeOnboarding: () => void;
@@ -21,11 +23,13 @@ export const useProfileStore = create<ProfileState>()(
     (set) => ({
       displayName: null,
       email: null,
+      phone: null,
       avatarUrl: null,
       membershipTier: 'member',
       onboardingCompleted: false,
       setDisplayName: (displayName) => set({ displayName }),
       setEmail: (email) => set({ email }),
+      setPhone: (phone) => set({ phone }),
       setAvatarUrl: (avatarUrl) => set({ avatarUrl }),
       setMembershipTier: (membershipTier) => set({ membershipTier }),
       completeOnboarding: () => set({ onboardingCompleted: true }),
@@ -33,6 +37,7 @@ export const useProfileStore = create<ProfileState>()(
         set({
           displayName: null,
           email: null,
+          phone: null,
           avatarUrl: null,
           membershipTier: 'member',
           onboardingCompleted: false,

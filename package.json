@@ -32,6 +32,7 @@
     "deploy:production": "bash deploy/deploy.sh",
     "deploy:rollback": "bash deploy/rollback.sh",
     "vps:update": "bash deploy/scripts/vps-update.sh",
+    "preflight": "tsx scripts/production-preflight.ts",
     "shadowfax:health": "tsx scripts/shadowfax-runtime.ts health",
     "shadowfax:serviceability": "tsx scripts/shadowfax-runtime.ts serviceability",
     "shadowfax:diagnose": "tsx scripts/shadowfax-runtime.ts diagnose",

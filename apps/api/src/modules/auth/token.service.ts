@@ -1,8 +1,14 @@
-import { ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { RoleName, UserStatus } from '@prisma/client';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, createPublicKey, randomBytes } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
@@ -21,7 +27,7 @@ interface UserForToken {
 }
 
 @Injectable()
-export class TokenService {
+export class TokenService implements OnModuleInit {
   private readonly logger = new Logger(TokenService.name);
   private readonly cfg: ReturnType<typeof getConfig>;
 
@@ -32,6 +38,34 @@ export class TokenService {
     private readonly configService: ConfigService,
   ) {
     this.cfg = getConfig(configService);
+  }
+
+  /**
+   * Boot-time self-test: confirm the configured JWT public key actually matches
+   * the private key. A mismatch silently 401s every authenticated request (this
+   * was a real production incident), so surface it loudly at startup.
+   * Non-throwing by design — logging only, never blocks boot.
+   */
+  onModuleInit(): void {
+    try {
+      const priv = this.cfg.jwt.privateKey;
+      const pub = this.cfg.jwt.publicKey;
+      if (!priv || !pub) {
+        this.logger.warn('JWT keys not fully configured — skipping keypair self-test');
+        return;
+      }
+      const derived = createPublicKey(priv).export({ type: 'spki', format: 'pem' }).toString().trim();
+      const provided = createPublicKey(pub).export({ type: 'spki', format: 'pem' }).toString().trim();
+      if (derived !== provided) {
+        this.logger.error(
+          'JWT_PUBLIC_KEY does NOT match JWT_PRIVATE_KEY — all authenticated requests will fail with 401. Fix the key pair before serving traffic.',
+        );
+      } else {
+        this.logger.log('JWT keypair self-test passed');
+      }
+    } catch (err) {
+      this.logger.warn(`JWT keypair self-test could not run: ${(err as Error).message}`);
+    }
   }
 
   /**

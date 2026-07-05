@@ -1,3 +1,4 @@
+import { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../database/prisma.service';
@@ -15,7 +16,7 @@ interface UserForToken {
     }>;
     permissions: string[];
 }
-export declare class TokenService {
+export declare class TokenService implements OnModuleInit {
     private readonly prisma;
     private readonly redis;
     private readonly jwtService;
@@ -23,6 +24,7 @@ export declare class TokenService {
     private readonly logger;
     private readonly cfg;
     constructor(prisma: PrismaService, redis: RedisService, jwtService: JwtService, configService: ConfigService);
+    onModuleInit(): void;
     generateTokenPair(user: UserForToken, deviceId?: string, deviceName?: string, ipAddress?: string, userAgent?: string, rememberMe?: boolean, authTime?: number): Promise<TokenPair>;
     generateStepUpToken(userId: string): Promise<{
         accessToken: string;
