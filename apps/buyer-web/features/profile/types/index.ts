@@ -90,6 +90,7 @@ export interface LoginSession {
 export interface UpdateProfileInput {
   displayName?: string;
   email?: string | null;
+  phone?: string | null;
   avatarUrl?: string | null;
 }
 

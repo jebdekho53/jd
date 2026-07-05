@@ -2,6 +2,7 @@ import { fetchMe } from '@/services/auth/auth-api';
 import { useProfileStore } from '@/store/profile-store';
 import { useProfilePreferencesStore } from '@/store/profile-preferences-store';
 import type { ProfileUser, ProfileStats, UpdateProfileInput } from '@/features/profile/types';
+import { isPlaceholderPhone } from '@/lib/phone';
 import { listOrders } from '@/services/orders/orders-api';
 import { getWishlistItems } from '@/features/profile/services/wishlist-service';
 import { getAddresses } from '@/features/profile/services/address-service';
@@ -27,14 +28,15 @@ export async function getProfile(): Promise<ProfileUser> {
   const displayName =
     local.displayName?.trim() ||
     `Customer ${auth.phone.slice(-4)}`;
+  const phone = local.phone ?? (isPlaceholderPhone(auth.phone) ? '' : auth.phone);
 
   return {
     id: auth.id,
-    phone: auth.phone,
+    phone,
     email: local.email ?? auth.email,
     displayName,
     avatarUrl: local.avatarUrl,
-    phoneVerified: auth.phoneVerified,
+    phoneVerified: auth.phoneVerified && !isPlaceholderPhone(auth.phone),
     membershipTier: local.membershipTier,
     memberSince: auth.createdAt,
   };
@@ -44,6 +46,7 @@ export async function updateProfile(input: UpdateProfileInput): Promise<ProfileU
   const store = getLocalProfile();
   if (input.displayName !== undefined) store.setDisplayName(input.displayName);
   if (input.email !== undefined) store.setEmail(input.email);
+  if (input.phone !== undefined) store.setPhone(input.phone);
   if (input.avatarUrl !== undefined) store.setAvatarUrl(input.avatarUrl);
   return getProfile();
 }

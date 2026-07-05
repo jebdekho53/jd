@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useVerticalsQuery } from '@/hooks/use-food-queries';
 
@@ -11,11 +11,13 @@ const FALLBACK_VERTICALS = [
   { label: 'Bakery', slug: 'bakery', href: '/?vertical=bakery' },
   { label: 'Cafe', slug: 'cafe', href: '/?vertical=cafe' },
   { label: 'Fresh', slug: 'fresh', href: '/?vertical=fresh' },
+  { label: 'Pet', slug: 'pet', href: '/?vertical=pet' },
 ];
 
-function isVerticalActive(pathname: string, slug: string, href: string): boolean {
+function isVerticalActive(pathname: string, selectedVertical: string | null, slug: string, href: string): boolean {
   if (slug === 'food') {
     return (
+      selectedVertical === 'food' ||
       pathname === '/food' ||
       pathname.startsWith('/restaurant') ||
       pathname.startsWith('/restaurants') ||
@@ -24,14 +26,17 @@ function isVerticalActive(pathname: string, slug: string, href: string): boolean
     );
   }
   if (slug === 'grocery') {
-    return pathname === '/' && !pathname.startsWith('/food');
+    return pathname === '/' && !selectedVertical;
   }
+  if (pathname === '/' && selectedVertical === slug) return true;
   const base = href.split('?')[0];
   return pathname === base || pathname.startsWith(`${base}/`);
 }
 
 export function VerticalNav({ className }: { className?: string }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const selectedVertical = searchParams.get('vertical');
   const { data: verticals } = useVerticalsQuery();
   const tabs = verticals?.length
     ? verticals.map((v) => ({ label: v.label, slug: v.slug, href: v.href }))
@@ -44,7 +49,7 @@ export function VerticalNav({ className }: { className?: string }) {
     >
       <div className="flex gap-2 pb-1 snap-x snap-mandatory">
         {tabs.map((tab) => {
-          const active = isVerticalActive(pathname, tab.slug, tab.href);
+          const active = isVerticalActive(pathname, selectedVertical, tab.slug, tab.href);
           return (
             <Link
               key={tab.slug}
@@ -53,7 +58,7 @@ export function VerticalNav({ className }: { className?: string }) {
                 'inline-flex min-h-10 shrink-0 snap-start items-center rounded-full px-4 py-2 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
                 active
                   ? 'bg-primary text-white shadow-card'
-                  : 'border border-border/60 bg-card text-jd-text-secondary shadow-card hover:border-primary/30 hover:text-primary',
+                  : 'border border-primary/20 bg-primary/10 text-primary shadow-card hover:border-primary/40 hover:bg-primary/15',
               )}
               aria-current={active ? 'page' : undefined}
             >

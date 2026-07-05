@@ -66,7 +66,7 @@ export function CategoryGrid({ categories, className, limit = 10 }: CategoryGrid
           >
             <div className="relative flex aspect-square w-12 items-center justify-center overflow-hidden rounded-xl bg-brand-100 text-primary transition group-hover:bg-brand-500/15">
               {image ? (
-                <Image src={image} alt={cat.name} fill className="object-contain p-1" sizes="48px" />
+                <Image src={image} alt={cat.name} fill className="rounded-lg object-contain p-1" sizes="48px" />
               ) : (
                 <Icon className="h-5 w-5" aria-hidden />
               )}

@@ -131,13 +131,13 @@ function PremiumCategoryGrid({ categories }: { categories: CategoryItem[] }) {
               index < 3 && 'bg-gradient-to-br from-white to-primary/5',
             )}
           >
-            <div className="relative aspect-square bg-cream-3">
+            <div className="relative aspect-square overflow-hidden rounded-3xl bg-cream-3">
               {image ? (
                 <Image
                   src={image}
                   alt={category.name}
                   fill
-                  className="object-contain p-3 transition duration-300 group-hover:scale-105"
+                  className="rounded-2xl object-contain p-3 transition duration-300 group-hover:scale-105"
                   sizes="(max-width: 640px) 33vw, (max-width: 1024px) 20vw, 160px"
                 />
               ) : (

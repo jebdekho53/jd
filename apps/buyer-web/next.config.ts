@@ -43,6 +43,9 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: appVersion,
   },
+  experimental: {
+    devtoolSegmentExplorer: false,
+  },
   transpilePackages: ['@jebdekho/order-timeline', '@jebdekho/web-config'],
   async headers() {
     return nextSecurityHeaders();

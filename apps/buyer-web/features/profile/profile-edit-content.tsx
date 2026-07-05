@@ -4,17 +4,20 @@ import { useState, useEffect } from 'react';
 import { ProfileShell } from '@/features/profile/components/profile-shell';
 import { ProfileErrorState } from '@/features/profile/components/profile-error';
 import { useProfileQuery, useUpdateProfileMutation } from '@/features/profile/hooks/use-profile';
+import { isPlaceholderPhone, normalizeIndianPhone } from '@/lib/phone';
 
 export function ProfileEditContent() {
   const { data: profile, isLoading, isError, refetch } = useProfileQuery();
   const updateMutation = useUpdateProfileMutation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
 
   useEffect(() => {
     if (profile) {
       setName(profile.displayName);
       setEmail(profile.email ?? '');
+      setPhone(profile.phone ?? '');
     }
   }, [profile]);
 
@@ -37,15 +40,26 @@ export function ProfileEditContent() {
     );
   }
 
+  const emailLocked = Boolean(profile.email && !profile.phoneVerified);
+  const phoneLocked = Boolean(profile.phone && profile.phoneVerified && !isPlaceholderPhone(profile.phone));
+  const lockedInputClassName =
+    'w-full rounded-xl border border-border/40 bg-cream-3 px-3 py-2.5 text-sm text-jd-text-muted';
+  const editableInputClassName =
+    'w-full rounded-xl border border-border/60 bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+
   return (
     <ProfileShell title="Edit profile" subtitle="Update your personal details">
       <form
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
+          const normalizedPhone = phone.trim() ? normalizeIndianPhone(phone.trim()) : null;
           updateMutation.mutate(
-            { displayName: name.trim(), email: email.trim() || null },
-            { onSuccess: () => window.history.back() },
+            {
+              displayName: name.trim(),
+              email: emailLocked ? profile.email : email.trim() || null,
+              phone: phoneLocked ? profile.phone : normalizedPhone,
+            },
           );
         }}
       >
@@ -55,27 +69,42 @@ export function ProfileEditContent() {
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-xl border border-border/60 bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            className={editableInputClassName}
           />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-jd-text-muted">Phone</span>
           <input
-            disabled
-            value={profile.phone}
-            className="w-full rounded-xl border border-border/40 bg-cream-3 px-3 py-2.5 text-sm text-jd-text-muted"
+            disabled={phoneLocked}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+91XXXXXXXXXX"
+            className={phoneLocked ? lockedInputClassName : editableInputClassName}
           />
-          <p className="mt-1 text-xs text-jd-text-muted">Change phone in Security settings</p>
+          <p className="mt-1 text-xs text-jd-text-muted">
+            {phoneLocked
+              ? 'This phone number was used to sign up and cannot be changed.'
+              : 'Add your phone number here. OTP verification can be completed when required.'}
+          </p>
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-jd-text-muted">Email (optional)</span>
           <input
             type="email"
+            readOnly={emailLocked}
+            aria-readonly={emailLocked}
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              if (!emailLocked) setEmail(e.target.value);
+            }}
             placeholder="you@example.com"
-            className="w-full rounded-xl border border-border/60 bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            className={emailLocked ? lockedInputClassName : editableInputClassName}
           />
+          {emailLocked && (
+            <p className="mt-1 text-xs text-jd-text-muted">
+              This email was used to sign up and cannot be changed.
+            </p>
+          )}
         </label>
         <button
           type="submit"

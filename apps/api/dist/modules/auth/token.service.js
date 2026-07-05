@@ -29,6 +29,27 @@ let TokenService = TokenService_1 = class TokenService {
         this.logger = new common_1.Logger(TokenService_1.name);
         this.cfg = (0, configuration_1.getConfig)(configService);
     }
+    onModuleInit() {
+        try {
+            const priv = this.cfg.jwt.privateKey;
+            const pub = this.cfg.jwt.publicKey;
+            if (!priv || !pub) {
+                this.logger.warn('JWT keys not fully configured — skipping keypair self-test');
+                return;
+            }
+            const derived = (0, crypto_1.createPublicKey)(priv).export({ type: 'spki', format: 'pem' }).toString().trim();
+            const provided = (0, crypto_1.createPublicKey)(pub).export({ type: 'spki', format: 'pem' }).toString().trim();
+            if (derived !== provided) {
+                this.logger.error('JWT_PUBLIC_KEY does NOT match JWT_PRIVATE_KEY — all authenticated requests will fail with 401. Fix the key pair before serving traffic.');
+            }
+            else {
+                this.logger.log('JWT keypair self-test passed');
+            }
+        }
+        catch (err) {
+            this.logger.warn(`JWT keypair self-test could not run: ${err.message}`);
+        }
+    }
     async generateTokenPair(user, deviceId, deviceName, ipAddress, userAgent, rememberMe = false, authTime) {
         const roles = user.roles.map((r) => r.role.name);
         const permissions = user.permissions;
