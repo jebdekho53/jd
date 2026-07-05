@@ -124,8 +124,8 @@ export declare class AdminAiProductUsageService {
         id: string;
         merchant: {
             user: {
-                phone: string;
                 email: string | null;
+                phone: string;
             };
             id: string;
             businessName: string;

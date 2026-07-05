@@ -1,0 +1,9 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "buyer-web", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@jebdekho/buyer-web", "run", "dev"], "port": 3000 },
+    { "name": "merchant-web", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@jebdekho/merchant-web", "run", "dev"], "port": 3002 },
+    { "name": "admin-web", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@jebdekho/admin-web", "run", "dev"], "port": 3003 },
+    { "name": "admin-web-preview", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@jebdekho/admin-web", "exec", "next", "dev", "-p", "3011"], "port": 3011 }
+  ]
+}

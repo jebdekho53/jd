@@ -93,13 +93,13 @@ export function CategoryExplorer({ categories = [], className, showAll = false }
             role="listitem"
             className="group flex min-h-[118px] flex-col items-center gap-2 rounded-2xl border border-border/50 bg-card p-2.5 text-center shadow-card transition hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:p-3"
           >
-            <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-cream-3 text-primary transition group-hover:bg-primary/10 sm:h-[72px] sm:w-[72px]">
+            <div className="relative flex aspect-square w-16 items-center justify-center overflow-hidden rounded-2xl bg-cream-3 text-primary transition group-hover:bg-primary/10 sm:w-[72px]">
               {image ? (
                 <Image
                   src={image}
                   alt={cat.name}
                   fill
-                  className="object-cover"
+                  className="object-contain p-1.5"
                   sizes="72px"
                 />
               ) : (
@@ -146,13 +146,13 @@ export function CategoryRail({ categories = [], className }: CategoryExplorerPro
             role="listitem"
             className="group flex w-[82px] shrink-0 snap-start flex-col items-center gap-1.5 rounded-2xl p-1 transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
-            <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-card shadow-card transition group-hover:shadow-elevated">
+            <div className="relative flex aspect-square w-16 items-center justify-center overflow-hidden rounded-2xl bg-card shadow-card transition group-hover:shadow-elevated">
               {image ? (
                 <Image
                   src={image}
                   alt={cat.name}
                   fill
-                  className="object-cover"
+                  className="object-contain p-1.5"
                   sizes="64px"
                 />
               ) : (

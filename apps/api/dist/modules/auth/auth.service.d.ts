@@ -20,6 +20,7 @@ import { EmailLoginDto } from './dto/login.dto';
 import { EmailSignupDto } from './dto/signup.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { StepUpDto } from './dto/step-up.dto';
 import { TokenPair } from './interfaces/token-pair.interface';
 export interface MeResponse {
     id: string;
@@ -93,6 +94,10 @@ export declare class AuthService {
     private applyBuyerRegistration;
     private finalizeBuyerRegistration;
     private completeAuthentication;
+    stepUp(userId: string, dto: StepUpDto, ipAddress?: string, userAgent?: string): Promise<{
+        accessToken: string;
+        expiresIn: number;
+    }>;
     private generatePlaceholderPhone;
     private sendWelcomeEmailIfPossible;
 }

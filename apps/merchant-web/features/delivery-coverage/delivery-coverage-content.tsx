@@ -42,8 +42,8 @@ export function DeliveryCoverageContent() {
   const [selectedLocation, setSelectedLocation] = useState<Partial<AddressLocationValue> | null>(null);
   const [coverageMessage, setCoverageMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const { data: storeDetail } = useStoreQuery(storeId ?? '');
-  const storeLat = storeDetail?.latitude ?? 28.6139;
-  const storeLng = storeDetail?.longitude ?? 77.209;
+  const storeLat = storeDetail?.latitude ?? 0;
+  const storeLng = storeDetail?.longitude ?? 0;
   const { isConfigured, isLoaded } = useGoogleMaps();
 
   const { data, isLoading } = useQuery({
@@ -210,6 +210,18 @@ export function DeliveryCoverageContent() {
 
   if (!storeId) {
     return <p className="text-sm text-slate-500">Select a store from the sidebar.</p>;
+  }
+
+  const coordinatesMissing = storeDetail && (storeDetail.latitude == null || storeDetail.longitude == null);
+  if (coordinatesMissing) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+        <p className="font-semibold text-red-800">Store location missing</p>
+        <p className="mt-2 text-sm text-red-700">
+          Please update store location before configuring delivery coverage.
+        </p>
+      </div>
+    );
   }
 
   return (

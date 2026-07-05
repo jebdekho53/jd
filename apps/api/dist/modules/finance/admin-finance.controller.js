@@ -30,9 +30,11 @@ const rider_payout_service_1 = require("./rider-payout.service");
 const finance_export_service_1 = require("./finance-export.service");
 const order_refund_service_1 = require("../payment/order-refund.service");
 const settlement_service_1 = require("../settlement/settlement.service");
+const finance_commission_service_1 = require("./finance-commission.service");
 const finance_dto_1 = require("./dto/finance.dto");
+const commission_rule_dto_1 = require("./dto/commission-rule.dto");
 let AdminFinanceController = class AdminFinanceController {
-    constructor(finance, batches, cod, riderPayouts, exports, settlement, orderRefunds) {
+    constructor(finance, batches, cod, riderPayouts, exports, settlement, orderRefunds, commission) {
         this.finance = finance;
         this.batches = batches;
         this.cod = cod;
@@ -40,6 +42,23 @@ let AdminFinanceController = class AdminFinanceController {
         this.exports = exports;
         this.settlement = settlement;
         this.orderRefunds = orderRefunds;
+        this.commission = commission;
+    }
+    async listCommissionRules() {
+        const data = await this.commission.listRules();
+        return { success: true, data };
+    }
+    async createCommissionRule(dto) {
+        const data = await this.commission.createRule(dto);
+        return { success: true, data };
+    }
+    async updateCommissionRule(id, dto) {
+        const data = await this.commission.updateRule(id, dto);
+        return { success: true, data };
+    }
+    async deleteCommissionRule(id) {
+        const data = await this.commission.deleteRule(id);
+        return { success: true, data };
     }
     async overview() {
         const data = await this.finance.getControlTower();
@@ -110,6 +129,47 @@ let AdminFinanceController = class AdminFinanceController {
     }
 };
 exports.AdminFinanceController = AdminFinanceController;
+__decorate([
+    (0, common_1.Get)('commission-rules'),
+    (0, permissions_decorator_1.Permissions)('settlements:read'),
+    (0, swagger_1.ApiOperation)({ summary: 'List commission rules + platform default' }),
+    openapi.ApiResponse({ status: 200 }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminFinanceController.prototype, "listCommissionRules", null);
+__decorate([
+    (0, common_1.Post)('commission-rules'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, permissions_decorator_1.Permissions)('settlements:manage'),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a GLOBAL/STORE/CATEGORY commission rule' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.CREATED }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [commission_rule_dto_1.CreateCommissionRuleDto]),
+    __metadata("design:returntype", Promise)
+], AdminFinanceController.prototype, "createCommissionRule", null);
+__decorate([
+    (0, common_1.Patch)('commission-rules/:id'),
+    (0, permissions_decorator_1.Permissions)('settlements:manage'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update a commission rule (rate / delay / active)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, commission_rule_dto_1.UpdateCommissionRuleDto]),
+    __metadata("design:returntype", Promise)
+], AdminFinanceController.prototype, "updateCommissionRule", null);
+__decorate([
+    (0, common_1.Delete)('commission-rules/:id'),
+    (0, permissions_decorator_1.Permissions)('settlements:manage'),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete a commission rule' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminFinanceController.prototype, "deleteCommissionRule", null);
 __decorate([
     (0, common_1.Get)('overview'),
     (0, permissions_decorator_1.Permissions)('settlements:read'),
@@ -276,6 +336,7 @@ exports.AdminFinanceController = AdminFinanceController = __decorate([
         rider_payout_service_1.RiderPayoutService,
         finance_export_service_1.FinanceExportService,
         settlement_service_1.SettlementService,
-        order_refund_service_1.OrderRefundService])
+        order_refund_service_1.OrderRefundService,
+        finance_commission_service_1.FinanceCommissionService])
 ], AdminFinanceController);
 //# sourceMappingURL=admin-finance.controller.js.map

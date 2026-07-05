@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap } from '@react-google-maps/api';
 import { Loader2, MapPin } from 'lucide-react';
 import { useGoogleMaps } from './google-maps-context';
-import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, GOOGLE_MAPS_MAP_ID } from './constants';
+import { MAP_INITIAL_VISUAL_CENTER, DEFAULT_MAP_ZOOM, GOOGLE_MAPS_MAP_ID } from './constants';
 import { cn } from './cn';
 
 export interface MapPickerPosition {
@@ -60,7 +60,7 @@ export function GoogleMapPicker({
     () =>
       position.lat && position.lng
         ? { lat: position.lat, lng: position.lng }
-        : DEFAULT_MAP_CENTER,
+        : MAP_INITIAL_VISUAL_CENTER,
     [position.lat, position.lng],
   );
 

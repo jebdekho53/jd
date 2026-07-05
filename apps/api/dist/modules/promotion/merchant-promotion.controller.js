@@ -86,7 +86,7 @@ __decorate([
 ], MerchantPromotionController.prototype, "list", null);
 __decorate([
     (0, common_1.Post)(':storeId/promotions'),
-    (0, permissions_decorator_1.Permissions)('stores:update'),
+    (0, permissions_decorator_1.Permissions)('stores:write'),
     openapi.ApiResponse({ status: 201 }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('storeId')),
@@ -97,7 +97,7 @@ __decorate([
 ], MerchantPromotionController.prototype, "create", null);
 __decorate([
     (0, common_1.Patch)(':storeId/promotions/:id'),
-    (0, permissions_decorator_1.Permissions)('stores:update'),
+    (0, permissions_decorator_1.Permissions)('stores:write'),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('storeId')),
@@ -110,7 +110,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':storeId/promotions/:id/pause'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
-    (0, permissions_decorator_1.Permissions)('stores:update'),
+    (0, permissions_decorator_1.Permissions)('stores:write'),
     openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('storeId')),
@@ -122,7 +122,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':storeId/promotions/:id/resume'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
-    (0, permissions_decorator_1.Permissions)('stores:update'),
+    (0, permissions_decorator_1.Permissions)('stores:write'),
     openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('storeId')),
@@ -133,7 +133,7 @@ __decorate([
 ], MerchantPromotionController.prototype, "resume", null);
 __decorate([
     (0, common_1.Delete)(':storeId/promotions/:id'),
-    (0, permissions_decorator_1.Permissions)('stores:update'),
+    (0, permissions_decorator_1.Permissions)('stores:write'),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('storeId')),

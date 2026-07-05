@@ -374,7 +374,7 @@ async function seedNotificationTemplates(): Promise<void> {
 }
 
 async function seedDemoBuyer(): Promise<void> {
-  const demoPhone = process.env.DEV_DEMO_PHONE ?? '+919876543210';
+  const demoPhone = '+919876543210';
   console.log(`  Seeding demo buyer (${demoPhone})...`);
 
   const buyerRole = await prisma.role.findUnique({ where: { name: RoleName.BUYER } });
@@ -513,8 +513,8 @@ async function seedDemoMerchantAccount(params: {
 
 async function seedDemoMerchants(): Promise<void> {
   await seedDemoMerchantAccount({
-    phone: process.env.DEV_DEMO_MERCHANT_PHONE ?? '+919876543211',
-    email: process.env.DEV_DEMO_MERCHANT_EMAIL ?? 'merchant@demo.jebdekho.com',
+    phone: '+919876543211',
+    email: 'merchant@demo.jebdekho.com',
     businessName: 'Demo Grocery Store',
     storeSlug: 'demo-grocery',
     storeName: 'Demo Grocery Store',
@@ -526,8 +526,8 @@ async function seedDemoMerchants(): Promise<void> {
   });
 
   await seedDemoMerchantAccount({
-    phone: process.env.DEV_DEMO_MERCHANT_PHONE_2 ?? '+919876543213',
-    email: process.env.DEV_DEMO_MERCHANT_EMAIL_2 ?? 'merchant2@demo.jebdekho.com',
+    phone: '+919876543213',
+    email: 'merchant2@demo.jebdekho.com',
     businessName: 'Demo Electronics Store',
     storeSlug: 'demo-electronics',
     storeName: 'Demo Electronics Store',
@@ -540,9 +540,9 @@ async function seedDemoMerchants(): Promise<void> {
 }
 
 async function seedDemoAdmin(): Promise<void> {
-  const demoPhone = process.env.DEV_DEMO_ADMIN_PHONE ?? '+919876543212';
-  const demoEmail = process.env.DEV_DEMO_ADMIN_EMAIL ?? 'admin@demo.jebdekho.com';
-  const demoPassword = process.env.DEV_DEMO_ADMIN_PASSWORD ?? 'Admin@123456';
+  const demoPhone = '+919876543212';
+  const demoEmail = 'admin@demo.jebdekho.com';
+  const demoPassword = 'Admin@123456';
   const passwordHash = await bcrypt.hash(demoPassword, 12);
   console.log(`  Seeding demo admin (${demoPhone})...`);
 
@@ -674,7 +674,7 @@ async function seedGlobalCategories(): Promise<void> {
 }
 
 async function seedDemoMerchantCategoryApprovals(): Promise<void> {
-  const demoPhone = process.env.DEV_DEMO_MERCHANT_PHONE ?? '+919876543211';
+  const demoPhone = '+919876543211';
   const user = await prisma.user.findUnique({ where: { phone: demoPhone } });
   if (!user) return;
 
@@ -732,7 +732,7 @@ async function seedDemoStoreZones(): Promise<void> {
 }
 
 async function seedDemoRider(): Promise<void> {
-  const demoPhone = process.env.DEV_DEMO_RIDER_PHONE ?? '+919876543214';
+  const demoPhone = '+919876543214';
   console.log(`  Seeding demo rider (${demoPhone})...`);
 
   const riderRole = await prisma.role.findUnique({ where: { name: RoleName.RIDER } });
@@ -1027,6 +1027,10 @@ async function seedMenuCatalog(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('ERROR: Database seed script cannot be run in production mode!');
+    process.exit(1);
+  }
   console.log('Starting seed...');
 
   await seedRolesAndPermissions();

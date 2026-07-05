@@ -42,3 +42,12 @@ export async function proxyPatch<T>(req: NextRequest, path: string) {
     return errorResponse(err);
   }
 }
+
+export async function proxyDelete<T>(path: string) {
+  try {
+    const data = await fetchWithAuth<T>(path, { method: 'DELETE' });
+    return NextResponse.json({ success: true, data });
+  } catch (err) {
+    return errorResponse(err);
+  }
+}

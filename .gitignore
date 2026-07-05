@@ -44,10 +44,6 @@ minio_data/
 # Test
 coverage/
 .nyc_output/
-qa-reports/
-playwright-report/
-test-results/
-tests/e2e/.env.qa.local
 
 # Misc
 *.tsbuildinfo

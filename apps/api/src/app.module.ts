@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { ThrottlerModule } from '@nestjs/throttler';
-import { DemoAwareThrottlerGuard } from './common/guards/demo-aware-throttler.guard';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { StepUpGuard } from './common/guards/step-up.guard';
 import { ScheduleModule } from '@nestjs/schedule';
 import { validationSchema } from './config/env.validation';
 import { resolveEnvFilePaths } from './config/env-path';
@@ -175,7 +175,8 @@ import { RequestIdInterceptor } from './common/interceptors/request-id.intercept
   ],
   providers: [
     // Apply global throttle guard to every route
-    { provide: APP_GUARD, useClass: DemoAwareThrottlerGuard },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    StepUpGuard,
 
     // Global exception filter — structured error responses
     { provide: APP_FILTER, useClass: HttpExceptionFilter },

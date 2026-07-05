@@ -3,14 +3,10 @@ import type { DeliveryAddress } from '@/types/checkout';
 import { useAddressStore } from '@/store/address-store';
 import { useLocationStore } from '@/store/location-store';
 
-/** Default map center (Delhi) — coords matching this are treated as unset. */
-const DEFAULT_MAP_LAT = 28.6139;
-const DEFAULT_MAP_LNG = 77.209;
-
 export function isDefaultDelhiCoords(lat: number, lng: number): boolean {
   return (
-    Math.abs(lat - DEFAULT_MAP_LAT) < 0.0001 &&
-    Math.abs(lng - DEFAULT_MAP_LNG) < 0.0001
+    Math.abs(lat - 28.6139) < 0.0001 &&
+    Math.abs(lng - 77.209) < 0.0001
   );
 }
 
@@ -21,6 +17,7 @@ export function isAddressGeoComplete(
   if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) {
     return false;
   }
+  if (lat === 0 && lng === 0) return false;
   return !isDefaultDelhiCoords(lat, lng);
 }
 
@@ -43,8 +40,8 @@ export function profileAddressToDelivery(addr: ProfileAddress): DeliveryAddress 
     locality: addr.landmark ?? addr.city ?? '',
     city: addr.city ?? '',
     pincode: addr.pincode,
-    lat: addr.lat ?? DEFAULT_MAP_LAT,
-    lng: addr.lng ?? DEFAULT_MAP_LNG,
+    lat: addr.lat ?? 0,
+    lng: addr.lng ?? 0,
   };
 }
 

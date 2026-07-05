@@ -12,7 +12,7 @@ export const GOOGLE_MAPS_MAP_ID =
 
 export const GOOGLE_MAPS_LIBRARIES: Libraries = ['places', 'marker'];
 
-export const DEFAULT_MAP_CENTER = { lat: 28.6139, lng: 77.209 } as const;
+export const MAP_INITIAL_VISUAL_CENTER = { lat: 20.5937, lng: 78.9629 } as const;
 
 export const DEFAULT_MAP_ZOOM = 15;
 

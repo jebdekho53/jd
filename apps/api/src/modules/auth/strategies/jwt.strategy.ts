@@ -33,6 +33,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!payload.sub) {
       throw new UnauthorizedException('Malformed token payload');
     }
-    return this.tokenService.resolveLiveRequestUser(payload.sub);
+    const user = await this.tokenService.resolveLiveRequestUser(payload.sub);
+    return {
+      ...user,
+      authTime: payload.authTime,
+      amr: payload.amr,
+    };
   }
 }

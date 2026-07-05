@@ -7,7 +7,9 @@ import { RiderPayoutService } from './rider-payout.service';
 import { FinanceExportService } from './finance-export.service';
 import { OrderRefundService } from '../payment/order-refund.service';
 import { SettlementService } from '../settlement/settlement.service';
+import { FinanceCommissionService } from './finance-commission.service';
 import { ExportQueryDto, GenerateSettlementDto, ListFinanceQueryDto, MarkRiderPayoutPaidDto, RejectCodDto } from './dto/finance.dto';
+import { CreateCommissionRuleDto, UpdateCommissionRuleDto } from './dto/commission-rule.dto';
 export declare class AdminFinanceController {
     private readonly finance;
     private readonly batches;
@@ -16,7 +18,44 @@ export declare class AdminFinanceController {
     private readonly exports;
     private readonly settlement;
     private readonly orderRefunds;
-    constructor(finance: FinanceService, batches: SettlementBatchService, cod: CodReconciliationService, riderPayouts: RiderPayoutService, exports: FinanceExportService, settlement: SettlementService, orderRefunds: OrderRefundService);
+    private readonly commission;
+    constructor(finance: FinanceService, batches: SettlementBatchService, cod: CodReconciliationService, riderPayouts: RiderPayoutService, exports: FinanceExportService, settlement: SettlementService, orderRefunds: OrderRefundService, commission: FinanceCommissionService);
+    listCommissionRules(): Promise<{
+        success: boolean;
+        data: {
+            defaultCommissionPercent: number;
+            rules: {
+                id: string;
+                scope: import("@prisma/client").$Enums.CommissionRuleScope;
+                storeId: string | null;
+                storeName: string | null;
+                categoryId: string | null;
+                categoryName: string | null;
+                commissionPercent: number;
+                settlementDelayDays: number;
+                isActive: boolean;
+                updatedAt: Date;
+            }[];
+        };
+    }>;
+    createCommissionRule(dto: CreateCommissionRuleDto): Promise<{
+        success: boolean;
+        data: {
+            id: string;
+        };
+    }>;
+    updateCommissionRule(id: string, dto: UpdateCommissionRuleDto): Promise<{
+        success: boolean;
+        data: {
+            id: string;
+        };
+    }>;
+    deleteCommissionRule(id: string): Promise<{
+        success: boolean;
+        data: {
+            id: string;
+        };
+    }>;
     overview(): Promise<{
         success: boolean;
         data: {

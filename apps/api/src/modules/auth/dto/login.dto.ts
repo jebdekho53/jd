@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class EmailLoginDto {
   @ApiProperty({ example: 'rahul@example.com' })
@@ -20,4 +20,9 @@ export class EmailLoginDto {
   @IsOptional()
   @IsString()
   deviceName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  rememberMe?: boolean;
 }

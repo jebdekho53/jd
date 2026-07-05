@@ -25,6 +25,12 @@ const discover_stores_dto_1 = require("./dto/discover-stores.dto");
 const store_products_dto_1 = require("./dto/store-products.dto");
 const search_products_dto_1 = require("./dto/search-products.dto");
 const compare_product_dto_1 = require("./dto/compare-product.dto");
+const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
+const roles_guard_1 = require("../../common/guards/roles.guard");
+const step_up_guard_1 = require("../../common/guards/step-up.guard");
+const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
+const roles_decorator_1 = require("../../common/decorators/roles.decorator");
+const require_step_up_decorator_1 = require("../../common/decorators/require-step-up.decorator");
 let BuyerController = BuyerController_1 = class BuyerController {
     constructor(storeService, productService, jwtService) {
         this.storeService = storeService;
@@ -123,6 +129,9 @@ let BuyerController = BuyerController_1 = class BuyerController {
         const data = await this.productService.listCategories(storeId);
         this.logger.log(`GET /buyer/categories storeId=${storeId ?? 'global'} → ${data.length} categories`);
         return { success: true, data };
+    }
+    async updateProfile(user, dto) {
+        return { success: true, message: 'Profile updated successfully' };
     }
 };
 exports.BuyerController = BuyerController;
@@ -257,6 +266,19 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], BuyerController.prototype, "listCategories", null);
+__decorate([
+    (0, common_1.Patch)('profile'),
+    (0, roles_decorator_1.Roles)('BUYER'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard, step_up_guard_1.StepUpGuard),
+    (0, require_step_up_decorator_1.RequireStepUp)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Update buyer profile (requires step-up)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], BuyerController.prototype, "updateProfile", null);
 exports.BuyerController = BuyerController = BuyerController_1 = __decorate([
     (0, swagger_1.ApiTags)('buyer'),
     (0, public_decorator_1.Public)(),

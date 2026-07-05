@@ -23,7 +23,11 @@ export declare class TokenService {
     private readonly logger;
     private readonly cfg;
     constructor(prisma: PrismaService, redis: RedisService, jwtService: JwtService, configService: ConfigService);
-    generateTokenPair(user: UserForToken, deviceId?: string, deviceName?: string, ipAddress?: string, userAgent?: string): Promise<TokenPair>;
+    generateTokenPair(user: UserForToken, deviceId?: string, deviceName?: string, ipAddress?: string, userAgent?: string, rememberMe?: boolean, authTime?: number): Promise<TokenPair>;
+    generateStepUpToken(userId: string): Promise<{
+        accessToken: string;
+        expiresIn: number;
+    }>;
     rotateRefreshToken(rawRefreshToken: string, deviceId?: string, ipAddress?: string, userAgent?: string): Promise<TokenPair>;
     revokeByRawToken(rawRefreshToken: string, expectedUserId?: string): Promise<void>;
     revokeAllUserSessions(userId: string): Promise<number>;

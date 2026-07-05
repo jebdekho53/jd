@@ -155,9 +155,9 @@ export declare class AdminCategoryGovernanceController {
             store: {
                 merchantProfile: {
                     user: {
-                        phone: string;
-                        email: string | null;
                         id: string;
+                        email: string | null;
+                        phone: string;
                     };
                     id: string;
                     businessName: string;
@@ -215,9 +215,9 @@ export declare class AdminCategoryGovernanceController {
             store: {
                 merchantProfile: {
                     user: {
-                        phone: string;
-                        email: string | null;
                         id: string;
+                        email: string | null;
+                        phone: string;
                     };
                     id: string;
                     businessName: string;

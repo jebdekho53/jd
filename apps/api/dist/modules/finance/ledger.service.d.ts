@@ -12,6 +12,7 @@ export declare class LedgerService implements OnModuleInit {
     private accountCache;
     constructor(prisma: PrismaService);
     onModuleInit(): Promise<void>;
+    seedAccounts(): Promise<void>;
     refreshAccountCache(): Promise<void>;
     postJournal(input: {
         referenceType: LedgerReferenceType;

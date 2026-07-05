@@ -55,9 +55,9 @@ export declare class AdminSupportController {
                     agentId: string;
                 })[];
                 requester: {
-                    phone: string;
-                    email: string | null;
                     id: string;
+                    email: string | null;
+                    phone: string;
                 };
                 tags: ({
                     tag: {
@@ -132,9 +132,9 @@ export declare class AdminSupportController {
                     agentId: string;
                 })[];
                 requester: {
-                    phone: string;
-                    email: string | null;
                     id: string;
+                    email: string | null;
+                    phone: string;
                 };
                 tags: ({
                     tag: {
@@ -209,9 +209,9 @@ export declare class AdminSupportController {
                     agentId: string;
                 })[];
                 requester: {
-                    phone: string;
-                    email: string | null;
                     id: string;
+                    email: string | null;
+                    phone: string;
                 };
                 tags: ({
                     tag: {
@@ -286,9 +286,9 @@ export declare class AdminSupportController {
                     agentId: string;
                 })[];
                 requester: {
-                    phone: string;
-                    email: string | null;
                     id: string;
+                    email: string | null;
+                    phone: string;
                 };
                 tags: ({
                     tag: {
@@ -363,9 +363,9 @@ export declare class AdminSupportController {
                     agentId: string;
                 })[];
                 requester: {
-                    phone: string;
-                    email: string | null;
                     id: string;
+                    email: string | null;
+                    phone: string;
                 };
                 tags: ({
                     tag: {
@@ -440,9 +440,9 @@ export declare class AdminSupportController {
                     agentId: string;
                 })[];
                 requester: {
-                    phone: string;
-                    email: string | null;
                     id: string;
+                    email: string | null;
+                    phone: string;
                 };
                 tags: ({
                     tag: {
@@ -517,9 +517,9 @@ export declare class AdminSupportController {
                     agentId: string;
                 })[];
                 requester: {
-                    phone: string;
-                    email: string | null;
                     id: string;
+                    email: string | null;
+                    phone: string;
                 };
                 tags: ({
                     tag: {
@@ -594,9 +594,9 @@ export declare class AdminSupportController {
                     agentId: string;
                 })[];
                 requester: {
-                    phone: string;
-                    email: string | null;
                     id: string;
+                    email: string | null;
+                    phone: string;
                 };
                 tags: ({
                     tag: {

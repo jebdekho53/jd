@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getSiteUrl } from '@jebdekho/web-config';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -55,6 +55,7 @@ export function MerchantEmailAuth({
   const emailLogin = useEmailLoginMutation();
   const emailSignup = useEmailSignupMutation();
   const pending = emailLogin.isPending || emailSignup.isPending;
+  const [rememberMe, setRememberMe] = useState(false);
 
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -80,7 +81,7 @@ export function MerchantEmailAuth({
 
   const onLoginSubmit = loginForm.handleSubmit(async ({ email, password }) => {
     try {
-      const result = await emailLogin.mutateAsync({ email: email.trim(), password });
+      const result = await emailLogin.mutateAsync({ email: email.trim(), password, rememberMe });
       await onSuccess(result);
     } catch (err) {
       handleError(err);
@@ -137,13 +138,22 @@ export function MerchantEmailAuth({
             error={loginForm.formState.errors.password?.message}
             {...loginForm.register('password')}
           />
-          {showForgotPassword && (
-            <p className="text-right text-sm">
+          <div className="flex items-center justify-between text-sm py-1">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+              />
+              <span className="text-slate-600">Remember me</span>
+            </label>
+            {showForgotPassword && (
               <Link href={`${getSiteUrl()}/forgot-password`} className="font-medium text-brand-600 hover:underline">
                 Forgot password?
               </Link>
-            </p>
-          )}
+            )}
+          </div>
           <Button type="submit" fullWidth loading={pending}>
             {submitLabel ?? 'Sign in'}
           </Button>

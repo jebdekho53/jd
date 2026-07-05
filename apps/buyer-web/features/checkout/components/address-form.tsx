@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { MapPin } from 'lucide-react';
 import { Button, Input } from '@/design-system/primitives';
 import { useCheckoutStore } from '@/store/checkout-store';
-import { DEFAULT_LOCATION, useLocationStore } from '@/store/location-store';
+import { useLocationStore } from '@/store/location-store';
 import {
   BuyerAddressPicker,
   type AddressLocationValue,
@@ -62,8 +62,8 @@ export function AddressForm({ onNext }: AddressFormProps) {
       locality: deliveryAddress?.locality ?? location.label ?? '',
       city: deliveryAddress?.city ?? location.city ?? '',
       pincode: deliveryAddress?.pincode ?? location.pincode ?? '',
-      lat: deliveryAddress?.lat ?? (location.isReady ? location.lat : DEFAULT_LOCATION.lat),
-      lng: deliveryAddress?.lng ?? (location.isReady ? location.lng : DEFAULT_LOCATION.lng),
+      lat: deliveryAddress?.lat ?? (location.isReady ? location.lat : 0),
+      lng: deliveryAddress?.lng ?? (location.isReady ? location.lng : 0),
       locationPincodeId: deliveryAddress?.locationPincodeId,
       locationAreaId: deliveryAddress?.locationAreaId,
       locationCityId: deliveryAddress?.locationCityId,

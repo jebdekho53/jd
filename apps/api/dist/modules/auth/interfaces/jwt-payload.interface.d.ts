@@ -5,4 +5,6 @@ export interface JwtPayload {
     roles: string[];
     permissions: string[];
     kid?: string;
+    authTime?: number;
+    amr?: string[];
 }

@@ -1,4 +1,4 @@
-import { Coupon, PromotionOfferType, StorePromotion } from '@prisma/client';
+import { Coupon, GstSlab, PromotionOfferType, StorePromotion } from '@prisma/client';
 export declare const MAX_COMBINED_DISCOUNT_PCT = 50;
 export interface PromoCartItem {
     productId: string;
@@ -7,6 +7,7 @@ export interface PromoCartItem {
     quantity: number;
     unitPrice: number;
     lineTotal: number;
+    gstSlab?: GstSlab | null;
 }
 export interface PromoBreakdown {
     catalogSavings: number;
@@ -59,6 +60,7 @@ export declare class PromotionPricingService {
         coupon: Coupon | null;
         promotion: StorePromotion | null;
     }): EnrichedTotals;
+    private embeddedGst;
     computeTotalsWithOfferExtras(input: {
         items: PromoCartItem[];
         catalogSavings: number;

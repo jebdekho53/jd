@@ -5,14 +5,16 @@ import { DomainEventsService } from '../domain-events/domain-events.service';
 import { FoodCartService } from './food-cart.service';
 import { InitiateFoodCheckoutDto } from './dto/initiate-food-checkout.dto';
 import { GeospatialService } from '../geospatial/geospatial.service';
+import { OrderFinancialsService } from '../finance/order-financials.service';
 export declare class FoodCheckoutService {
     private readonly prisma;
     private readonly foodCart;
     private readonly audit;
     private readonly domainEvents;
     private readonly geospatial;
+    private readonly orderFinancials;
     private readonly logger;
-    constructor(prisma: PrismaService, foodCart: FoodCartService, audit: AuditService, domainEvents: DomainEventsService, geospatial: GeospatialService);
+    constructor(prisma: PrismaService, foodCart: FoodCartService, audit: AuditService, domainEvents: DomainEventsService, geospatial: GeospatialService, orderFinancials: OrderFinancialsService);
     initiateCheckout(userId: string, dto: InitiateFoodCheckoutDto, idempotencyKey?: string): Promise<{
         orderId: string;
         orderNumber: string;

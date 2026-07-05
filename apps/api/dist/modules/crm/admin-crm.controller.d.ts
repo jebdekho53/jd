@@ -65,9 +65,9 @@ export declare class AdminCrmController {
         data: {
             items: ({
                 user: {
-                    phone: string;
-                    email: string | null;
                     id: string;
+                    email: string | null;
+                    phone: string;
                 };
             } & {
                 userId: string;

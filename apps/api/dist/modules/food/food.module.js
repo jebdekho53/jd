@@ -32,6 +32,7 @@ const email_module_1 = require("../email/email.module");
 const buyer_module_1 = require("../buyer/buyer.module");
 const category_governance_module_1 = require("../category-governance/category-governance.module");
 const store_vertical_module_1 = require("../store-vertical/store-vertical.module");
+const finance_module_1 = require("../finance/finance.module");
 let FoodModule = class FoodModule {
 };
 exports.FoodModule = FoodModule;
@@ -49,6 +50,7 @@ exports.FoodModule = FoodModule = __decorate([
             push_module_1.PushModule,
             email_module_1.EmailModule,
             (0, common_1.forwardRef)(() => payment_module_1.PaymentModule),
+            (0, common_1.forwardRef)(() => finance_module_1.FinanceModule),
         ],
         controllers: [
             food_cart_controller_1.FoodCartController,

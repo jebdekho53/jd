@@ -9,6 +9,7 @@ import { EmailSignupDto } from './dto/signup.dto';
 import { EmailLoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { StepUpDto } from './dto/step-up.dto';
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
@@ -54,6 +55,13 @@ export declare class AuthController {
         success: boolean;
         data: {
             message: string;
+        };
+    }>;
+    stepUp(user: RequestUser, dto: StepUpDto, ip: string, req: Request): Promise<{
+        success: boolean;
+        data: {
+            accessToken: string;
+            expiresIn: number;
         };
     }>;
     logoutAll(user: RequestUser, ip: string, req: Request): Promise<{

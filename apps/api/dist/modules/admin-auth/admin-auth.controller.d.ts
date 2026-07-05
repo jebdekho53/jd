@@ -26,6 +26,7 @@ export declare class AdminAuthController {
             accessToken: string;
             refreshToken: string;
             expiresIn: number;
+            rememberMe?: boolean;
         };
     }>;
     forgotPassword(dto: AdminForgotPasswordDto): Promise<{

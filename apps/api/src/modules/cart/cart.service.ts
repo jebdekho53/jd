@@ -90,6 +90,19 @@ export class CartService {
     await this.cartCache.invalidate(id);
   }
 
+  /**
+   * Invalidate the cached cart view for every buyer with an active cart at this
+   * store. Called when a store's promotions/offers change so auto-applied
+   * discounts are reflected immediately instead of after the cache TTL.
+   */
+  async invalidateStoreCarts(storeId: string): Promise<void> {
+    const carts = await this.prisma.cart.findMany({
+      where: { storeId },
+      select: { buyerProfileId: true },
+    });
+    await Promise.all(carts.map((c) => this.cartCache.invalidate(c.buyerProfileId)));
+  }
+
   // ── Get or create buyer profile ────────────────────────────────────────────
 
   private async getOrCreateBuyerProfile(userId: string): Promise<{ id: string }> {
@@ -380,6 +393,7 @@ export class CartService {
                 imageUrls: true,
                 isVeg: true,
                 categoryId: true,
+                gstSlab: true,
                 isReturnable: true,
                 isRefundable: true,
                 isReplaceable: true,
@@ -469,6 +483,7 @@ export class CartService {
       quantity: item.quantity,
       unitPrice: Number(item.variant.price),
       lineTotal: Number(item.variant.price) * item.quantity,
+      gstSlab: item.product.gstSlab,
     }));
 
     const enriched = await this.promotions.enrichCartPromotions(

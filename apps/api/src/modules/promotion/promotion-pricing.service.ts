@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   Coupon,
   CouponType,
+  GstSlab,
   PromotionOfferType,
   PromotionTarget,
   StorePromotion,
@@ -10,6 +11,19 @@ import {
 /** Maximum combined promo discount as % of subtotal */
 export const MAX_COMBINED_DISCOUNT_PCT = 50;
 
+/** GST slab → percentage. Kept local to avoid coupling the pricing engine to the compliance module. */
+const GST_SLAB_PERCENT: Record<GstSlab, number> = {
+  ZERO: 0,
+  FIVE: 5,
+  TWELVE: 12,
+  EIGHTEEN: 18,
+  TWENTY_EIGHT: 28,
+};
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 export interface PromoCartItem {
   productId: string;
   variantId: string;
@@ -17,6 +31,8 @@ export interface PromoCartItem {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+  /** GST slab for this item; used to surface the GST embedded in the (inclusive) price. */
+  gstSlab?: GstSlab | null;
 }
 
 export interface PromoBreakdown {
@@ -102,8 +118,11 @@ export class PromotionPricingService {
     }
 
     const deliveryFee = freeDelivery ? 0 : input.baseDeliveryFee;
-    const tax = 0;
-    const grandTotal = Math.max(0, subtotal - offerDiscount - couponDiscount + deliveryFee + tax);
+    // Prices are GST-inclusive: `tax` is the GST already embedded in the item prices,
+    // surfaced for transparency/invoicing. It is NOT added on top of the payable amount.
+    const netGoods = Math.max(0, subtotal - offerDiscount - couponDiscount);
+    const tax = this.embeddedGst(input.items, subtotal, netGoods);
+    const grandTotal = Math.max(0, netGoods + deliveryFee);
     const totalSavings =
       input.catalogSavings + offerDiscount + couponDiscount + deliveryDiscount;
 
@@ -143,6 +162,21 @@ export class PromotionPricingService {
     };
   }
 
+  /**
+   * GST embedded in the (inclusive) item prices, scaled to the net-of-discount goods
+   * value. Per-item slabs are honoured. Returned for display/invoicing — never added
+   * on top of the payable amount, since the prices already include GST.
+   */
+  private embeddedGst(items: PromoCartItem[], subtotal: number, netGoods: number): number {
+    if (subtotal <= 0) return 0;
+    const grossGst = items.reduce((sum, it) => {
+      const rate = it.gstSlab ? GST_SLAB_PERCENT[it.gstSlab] : 0;
+      if (rate <= 0 || it.lineTotal <= 0) return sum;
+      return sum + (it.lineTotal * rate) / (100 + rate);
+    }, 0);
+    return round2(grossGst * (netGoods / subtotal));
+  }
+
   computeTotalsWithOfferExtras(input: {
     items: PromoCartItem[];
     catalogSavings: number;
@@ -169,16 +203,17 @@ export class PromotionPricingService {
       const maxAllowed = Math.round(subtotal * (MAX_COMBINED_DISCOUNT_PCT / 100) * 100) / 100;
       const cappedOffer = Math.min(offerDiscount, maxAllowed);
       const deliveryFee = base.promo.freeDelivery ? 0 : input.baseDeliveryFee;
-      const grandTotal = Math.max(
-        0,
-        subtotal - cappedOffer - base.couponDiscount + deliveryFee + base.tax,
-      );
+      // GST-inclusive prices — tax is embedded, not added to the payable.
+      const netGoods = Math.max(0, subtotal - cappedOffer - base.couponDiscount);
+      const tax = this.embeddedGst(input.items, subtotal, netGoods);
+      const grandTotal = Math.max(0, netGoods + deliveryFee);
       const cashback = input.cashbackAmount ?? 0;
       const points = input.rewardPointsBonus ?? 0;
 
       return {
         ...base,
         offerDiscount: cappedOffer,
+        tax,
         grandTotal,
         totalSavings: input.catalogSavings + cappedOffer + base.couponDiscount + base.deliveryDiscount,
         promo: {

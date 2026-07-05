@@ -34,4 +34,8 @@ export declare class AdminUserController {
             lastLoginAt: Date | null;
         };
     }>;
+    deleteUser(id: string): Promise<{
+        success: boolean;
+        message: string;
+    }>;
 }

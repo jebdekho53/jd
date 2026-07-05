@@ -125,12 +125,12 @@ export declare class BuyerSearchController {
                         estimatedMinutes: number | null;
                     }[];
                 } & {
-                    phone: string | null;
-                    email: string | null;
                     id: string;
                     status: import("@prisma/client").$Enums.StoreStatus;
                     name: string;
                     createdAt: Date;
+                    email: string | null;
+                    phone: string | null;
                     updatedAt: Date;
                     deletedAt: Date | null;
                     description: string | null;
@@ -201,12 +201,12 @@ export declare class BuyerSearchController {
                     minimumOrder: import("@prisma/client/runtime/library").Decimal | null;
                     estimatedMinutes: number | null;
                 }[];
-                phone: string | null;
-                email: string | null;
                 id: string;
                 status: import("@prisma/client").$Enums.StoreStatus;
                 name: string;
                 createdAt: Date;
+                email: string | null;
+                phone: string | null;
                 updatedAt: Date;
                 deletedAt: Date | null;
                 description: string | null;

@@ -34,38 +34,6 @@ export function getConfig(configService: ConfigService) {
       rateLimitWindowMinutes: configService.get<number>('OTP_RATE_LIMIT_WINDOW_MINUTES', 10),
     },
 
-    dev: {
-      demoPhone: configService.get<string>('DEV_DEMO_PHONE', '+919876543210'),
-      demoMerchantPhone: configService.get<string>(
-        'DEV_DEMO_MERCHANT_PHONE',
-        '+919876543211',
-      ),
-      demoMerchantEmail: configService.get<string>(
-        'DEV_DEMO_MERCHANT_EMAIL',
-        'merchant@demo.jebdekho.com',
-      ),
-      demoMerchantPhone2: configService.get<string>(
-        'DEV_DEMO_MERCHANT_PHONE_2',
-        '+919876543213',
-      ),
-      demoMerchantEmail2: configService.get<string>(
-        'DEV_DEMO_MERCHANT_EMAIL_2',
-        'merchant2@demo.jebdekho.com',
-      ),
-      demoAdminPhone: configService.get<string>(
-        'DEV_DEMO_ADMIN_PHONE',
-        '+919876543212',
-      ),
-      demoAdminEmail: configService.get<string>(
-        'DEV_DEMO_ADMIN_EMAIL',
-        'admin@demo.jebdekho.com',
-      ),
-      demoRiderPhone: configService.get<string>(
-        'DEV_DEMO_RIDER_PHONE',
-        '+919876543214',
-      ),
-      demoOtp: configService.get<string>('DEV_DEMO_OTP', '123456'),
-    },
 
     auth: {
       emailEnabled: envBool(configService, 'AUTH_EMAIL_ENABLED', true),

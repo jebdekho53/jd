@@ -73,7 +73,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':storeId/reviews/:reviewId/reply'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
-    (0, permissions_decorator_1.Permissions)('stores:update'),
+    (0, permissions_decorator_1.Permissions)('stores:write'),
     (0, swagger_1.ApiOperation)({ summary: 'Reply to a customer review' }),
     openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),

@@ -6,6 +6,7 @@ import { DiscoverStoresDto } from './dto/discover-stores.dto';
 import { StoreProductsDto } from './dto/store-products.dto';
 import { SearchProductsDto } from './dto/search-products.dto';
 import { CompareProductDto } from './dto/compare-product.dto';
+import { RequestUser } from '../../common/types';
 export declare class BuyerController {
     private readonly storeService;
     private readonly productService;
@@ -117,5 +118,9 @@ export declare class BuyerController {
     listCategories(storeId?: string): Promise<{
         success: boolean;
         data: import("./buyer-product.service").CategoryItem[];
+    }>;
+    updateProfile(user: RequestUser, dto: any): Promise<{
+        success: boolean;
+        message: string;
     }>;
 }

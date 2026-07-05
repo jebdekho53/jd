@@ -7,7 +7,7 @@ import { GoogleMapPicker } from './google-map-picker';
 import { useGoogleMaps } from './google-maps-context';
 import type { ParsedGoogleAddress } from './parse-address';
 import { normalizeIndianPincode } from './parse-address';
-import { DEFAULT_MAP_CENTER } from './constants';
+import { MAP_INITIAL_VISUAL_CENTER } from './constants';
 
 export interface AddressLocationValue {
   locality: string;
@@ -105,8 +105,8 @@ export function AddressLocationPicker({
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
 
   const position = {
-    lat: value.lat ?? DEFAULT_MAP_CENTER.lat,
-    lng: value.lng ?? DEFAULT_MAP_CENTER.lng,
+    lat: value.lat ?? MAP_INITIAL_VISUAL_CENTER.lat,
+    lng: value.lng ?? MAP_INITIAL_VISUAL_CENTER.lng,
   };
 
   const applyParsed = useCallback(

@@ -18,7 +18,6 @@ const prisma_service_1 = require("../../database/prisma.service");
 const redis_service_1 = require("../../redis/redis.service");
 const redis_constants_1 = require("../../redis/redis.constants");
 const configuration_1 = require("../../config/configuration");
-const demo_auth_util_1 = require("../../common/utils/demo-auth.util");
 const secure_random_util_1 = require("../../common/utils/secure-random.util");
 const msg91_service_1 = require("./msg91.service");
 const whatsapp_service_1 = require("./whatsapp.service");
@@ -33,9 +32,7 @@ let OtpService = OtpService_1 = class OtpService {
         this.cfg = (0, configuration_1.getConfig)(configService);
     }
     async requestOtp(phone, purpose, userId, options) {
-        if (!(0, demo_auth_util_1.isDemoPhone)(phone, this.cfg)) {
-            await this.enforceRateLimit(phone);
-        }
+        await this.enforceRateLimit(phone);
         const code = this.resolveOtpCode(phone);
         const codeHash = await argon2.hash(code, {
             type: argon2.argon2id,
@@ -85,7 +82,7 @@ let OtpService = OtpService_1 = class OtpService {
         if (!record) {
             throw new common_1.BadRequestException('OTP not found or expired. Please request a new one.');
         }
-        if (!(0, demo_auth_util_1.isDemoPhone)(phone, this.cfg) && record.attempts >= this.cfg.otp.maxAttempts) {
+        if (record.attempts >= this.cfg.otp.maxAttempts) {
             throw new common_1.BadRequestException('Too many incorrect attempts. Please request a new OTP.');
         }
         const isValid = await argon2.verify(record.codeHash, code);
@@ -104,10 +101,6 @@ let OtpService = OtpService_1 = class OtpService {
         return record.id;
     }
     resolveOtpCode(phone) {
-        if ((0, demo_auth_util_1.isDemoPhone)(phone, this.cfg)) {
-            this.logger.log({ phone, otp: this.cfg.dev.demoOtp }, '🔑 Demo OTP (development only)');
-            return this.cfg.dev.demoOtp;
-        }
         return this.generateCode();
     }
     generateCode() {

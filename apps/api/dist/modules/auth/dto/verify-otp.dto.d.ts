@@ -5,4 +5,5 @@ export declare class VerifyOtpDto {
     deviceName?: string;
     name?: string;
     referralCode?: string;
+    rememberMe?: boolean;
 }

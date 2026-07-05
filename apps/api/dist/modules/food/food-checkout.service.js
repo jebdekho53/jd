@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var FoodCheckoutService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FoodCheckoutService = void 0;
@@ -19,6 +22,7 @@ const audit_service_1 = require("../audit/audit.service");
 const domain_events_service_1 = require("../domain-events/domain-events.service");
 const food_cart_service_1 = require("./food-cart.service");
 const geospatial_service_1 = require("../geospatial/geospatial.service");
+const order_financials_service_1 = require("../finance/order-financials.service");
 const CHECKOUT_TTL_MINUTES = 15;
 const FOOD_CHECKOUT_PENDING = 'PENDING';
 const FOOD_CHECKOUT_PROCESSING = 'PROCESSING';
@@ -30,12 +34,13 @@ function generateOrderNumber() {
     return `JDF-${ymd}-${rand}`;
 }
 let FoodCheckoutService = FoodCheckoutService_1 = class FoodCheckoutService {
-    constructor(prisma, foodCart, audit, domainEvents, geospatial) {
+    constructor(prisma, foodCart, audit, domainEvents, geospatial, orderFinancials) {
         this.prisma = prisma;
         this.foodCart = foodCart;
         this.audit = audit;
         this.domainEvents = domainEvents;
         this.geospatial = geospatial;
+        this.orderFinancials = orderFinancials;
         this.logger = new common_1.Logger(FoodCheckoutService_1.name);
     }
     async initiateCheckout(userId, dto, idempotencyKey) {
@@ -244,6 +249,19 @@ let FoodCheckoutService = FoodCheckoutService_1 = class FoodCheckoutService {
             await tx.foodCart.deleteMany({ where: { buyerProfileId: opts.buyerProfileId } });
             return created;
         });
+        void this.orderFinancials
+            .freezeOnOrderCreate({
+            orderId: order.id,
+            storeId: snapshot.storeId,
+            subtotal: snapshot.totals.subtotal,
+            discountAmount: snapshot.couponDiscount,
+            offerSubsidy: 0,
+            deliveryFee: snapshot.totals.deliveryFee,
+            taxAmount: snapshot.totals.tax,
+            totalAmount: snapshot.totalAmount,
+            paymentMethod: client_1.PaymentMethod.RAZORPAY,
+        })
+            .catch((err) => this.logger.warn(`Food financial freeze failed: ${err.message}`));
         await this.audit.log({
             actorId: opts.userId,
             action: 'FOOD_ORDER_CREATED',
@@ -310,6 +328,19 @@ let FoodCheckoutService = FoodCheckoutService_1 = class FoodCheckoutService {
             await tx.foodCart.deleteMany({ where: { buyerProfileId } });
             return created;
         });
+        void this.orderFinancials
+            .freezeOnOrderCreate({
+            orderId: order.id,
+            storeId: cart.storeId,
+            subtotal: cart.totals.subtotal,
+            discountAmount: couponDiscount,
+            offerSubsidy: 0,
+            deliveryFee: cart.totals.deliveryFee,
+            taxAmount: cart.totals.tax,
+            totalAmount,
+            paymentMethod: client_1.PaymentMethod.COD,
+        })
+            .catch((err) => this.logger.warn(`Food financial freeze failed: ${err.message}`));
         await this.audit.log({
             actorId: userId,
             action: 'FOOD_ORDER_CREATED',
@@ -354,10 +385,12 @@ let FoodCheckoutService = FoodCheckoutService_1 = class FoodCheckoutService {
 exports.FoodCheckoutService = FoodCheckoutService;
 exports.FoodCheckoutService = FoodCheckoutService = FoodCheckoutService_1 = __decorate([
     (0, common_1.Injectable)(),
+    __param(5, (0, common_1.Inject)((0, common_1.forwardRef)(() => order_financials_service_1.OrderFinancialsService))),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         food_cart_service_1.FoodCartService,
         audit_service_1.AuditService,
         domain_events_service_1.DomainEventsService,
-        geospatial_service_1.GeospatialService])
+        geospatial_service_1.GeospatialService,
+        order_financials_service_1.OrderFinancialsService])
 ], FoodCheckoutService);
 //# sourceMappingURL=food-checkout.service.js.map

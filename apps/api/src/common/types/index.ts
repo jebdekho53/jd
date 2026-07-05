@@ -6,6 +6,8 @@ export interface RequestUser {
   email: string | null;
   roles: string[];
   permissions: string[];
+  authTime?: number;
+  amr?: string[];
 }
 
 export interface AuthenticatedRequest extends Request {

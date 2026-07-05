@@ -1,10 +1,12 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { StepUpGuard } from '../../common/guards/step-up.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { RequireStepUp } from '../../common/decorators/require-step-up.decorator';
 import { ApiTags as Tags } from '../../common/constants';
 import { AdminUserService } from './admin-user.service';
 import { ListAdminUsersDto } from './dto/list-admin-users.dto';
@@ -29,9 +31,22 @@ export class AdminUserController {
   @Post(':id/suspend')
   @HttpCode(HttpStatus.OK)
   @Permissions('users:write')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp()
   @ApiOperation({ summary: 'Suspend a platform user' })
   async suspend(@Param('id') id: string, @Body() _dto: SuspendAdminUserDto) {
     const data = await this.users.suspendUser(id);
     return { success: true, data };
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('users:write')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp()
+  @ApiOperation({ summary: 'Delete a platform user' })
+  async deleteUser(@Param('id') id: string) {
+    await this.users.deleteUser(id);
+    return { success: true, message: 'User deleted successfully' };
   }
 }

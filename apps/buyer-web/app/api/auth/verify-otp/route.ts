@@ -10,6 +10,7 @@ interface VerifyBackendData {
   expiresIn: number;
   user: AuthUser;
   isNewUser: boolean;
+  rememberMe?: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -20,14 +21,14 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    const { accessToken, refreshToken, expiresIn, user, isNewUser } = data.data;
+    const { accessToken, refreshToken, expiresIn, user, isNewUser, rememberMe } = data.data;
 
     const response = NextResponse.json({
       success: true,
       data: { user, isNewUser, expiresIn },
     });
 
-    await setAuthCookies(response, { accessToken, refreshToken, expiresIn });
+    await setAuthCookies(response, { accessToken, refreshToken, expiresIn, rememberMe });
     return response;
   } catch (err) {
     return errorResponse(err);

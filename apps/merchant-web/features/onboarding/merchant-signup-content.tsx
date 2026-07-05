@@ -144,8 +144,8 @@ type LocationSelectionInput = {
   city: string;
   state: string;
   pincode: string;
-  lat: number;
-  lng: number;
+  lat?: number | null;
+  lng?: number | null;
   line1?: string;
   line2?: string;
   formattedAddress?: string;
@@ -157,6 +157,8 @@ type LocationSelectionInput = {
 
 function isLocationReadyForResolve(selection: LocationSelectionInput): boolean {
   return (
+    selection.lat != null &&
+    selection.lng != null &&
     Number.isFinite(selection.lat) &&
     Number.isFinite(selection.lng) &&
     /^\d{6}$/.test(selection.pincode.trim())
@@ -225,8 +227,8 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
     locationCityId: '',
     operationalCityName: '',
     expansionArea: false,
-    latitude: 28.6139,
-    longitude: 77.209,
+    latitude: null as number | null,
+    longitude: null as number | null,
     deliveryRadiusKm: 5,
     deliveryCoverageInput: '',
     preferredCategories: [] as string[],
@@ -642,8 +644,8 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       city: selection.city,
       state: selection.state,
       pincode,
-      latitude: selection.lat,
-      longitude: selection.lng,
+      latitude: selection.lat ?? null,
+      longitude: selection.lng ?? null,
       googlePlaceId: selection.googlePlaceId ?? f.googlePlaceId,
       formattedAddress: selection.formattedAddress ?? f.formattedAddress,
       addressLine2: selection.line2 ?? f.addressLine2,
@@ -661,8 +663,8 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       setResolvingLocation(true);
       try {
         const body: Parameters<typeof resolveStoreLocation>[0] = {
-          latitude: selection.lat,
-          longitude: selection.lng,
+          latitude: selection.lat!,
+          longitude: selection.lng!,
         };
         const locality = selection.locality.trim();
         const city = selection.city.trim();
@@ -684,8 +686,8 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
           city: resolved.city,
           state: resolved.state,
           pincode: resolved.pincode,
-          latitude: selection.lat,
-          longitude: selection.lng,
+          latitude: selection.lat!,
+          longitude: selection.lng!,
           cityId: resolved.cityId,
           operationalCityName: resolved.operationalCityName,
           expansionArea: resolved.expansionArea,
@@ -1070,8 +1072,8 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                     city: form.city,
                     state: form.state,
                     pincode: form.pincode,
-                    lat: form.latitude,
-                    lng: form.longitude,
+                    lat: form.latitude ?? undefined,
+                    lng: form.longitude ?? undefined,
                     formattedAddress: form.formattedAddress,
                     googlePlaceId: form.googlePlaceId,
                   }}
@@ -1220,7 +1222,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                   <p>{[form.locality, form.landmark && `Landmark: ${form.landmark}`].filter(Boolean).join(' · ') || 'Locality and landmark pending'}</p>
                   <p>{[form.city, form.state, form.pincode].filter(Boolean).join(', ') || 'City, state, and pincode pending'}</p>
                   <p className="mt-2 text-xs text-slate-500">
-                    Coordinates: {Number.isFinite(form.latitude) ? form.latitude.toFixed(6) : 'pending'}, {Number.isFinite(form.longitude) ? form.longitude.toFixed(6) : 'pending'}
+                    Coordinates: {form.latitude != null && Number.isFinite(form.latitude) ? form.latitude.toFixed(6) : 'pending'}, {form.longitude != null && Number.isFinite(form.longitude) ? form.longitude.toFixed(6) : 'pending'}
                   </p>
                 </div>
                 {getPickupAddressIssues().length > 0 && (

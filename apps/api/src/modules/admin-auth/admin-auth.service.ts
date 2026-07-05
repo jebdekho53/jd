@@ -61,10 +61,7 @@ export class AdminAuthService {
     let user = await this.findAdminUserByEmail(email);
 
     if (!user) {
-      const hasAdmin = await this.hasAnyAdminUser();
-      if (!hasAdmin) {
-        user = await this.tryEnvBootstrap(email, dto.password);
-      }
+      user = await this.tryEnvBootstrap(email, dto.password);
       if (!user) {
         await this.recordAudit(null, email, false, 'INVALID_CREDENTIALS', ipAddress, userAgent);
         throw new UnauthorizedException('Invalid email or password');
@@ -525,6 +522,7 @@ export class AdminAuthService {
       opts.deviceName,
       opts.ipAddress,
       opts.userAgent,
+      opts.rememberMe,
     );
 
     const tokenHash = createHash('sha256').update(tokens.refreshToken).digest('hex');

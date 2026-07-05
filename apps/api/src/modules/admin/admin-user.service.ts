@@ -73,4 +73,14 @@ export class AdminUserService {
       lastLoginAt: updated.lastLoginAt,
     }));
   }
+
+  async deleteUser(id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user || user.deletedAt) throw new NotFoundException('User not found');
+
+    return this.prisma.user.update({
+      where: { id },
+      data: { status: UserStatus.DELETED, deletedAt: new Date() },
+    });
+  }
 }

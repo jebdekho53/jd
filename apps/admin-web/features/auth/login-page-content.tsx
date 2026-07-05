@@ -38,9 +38,9 @@ export function LoginPageContent() {
   useEffect(() => {
     if (session && isAdminUser(session)) {
       const next = searchParams.get('next') ?? '/dashboard';
-      router.replace(next);
+      window.location.href = next;
     }
-  }, [session, router, searchParams]);
+  }, [session, searchParams]);
 
   const validate = () => {
     const next: typeof errors = {};
@@ -61,7 +61,7 @@ export function LoginPageContent() {
         return;
       }
       toast('Signed in successfully', 'success');
-      router.replace(searchParams.get('next') ?? '/dashboard');
+      window.location.href = searchParams.get('next') ?? '/dashboard';
     } catch (err) {
       const msg = (err as Error).message;
       if (msg.toLowerCase().includes('locked') || msg.toLowerCase().includes('too many')) {

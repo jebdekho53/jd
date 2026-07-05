@@ -12,7 +12,7 @@ const config_1 = require("@nestjs/config");
 const core_1 = require("@nestjs/core");
 const event_emitter_1 = require("@nestjs/event-emitter");
 const throttler_1 = require("@nestjs/throttler");
-const demo_aware_throttler_guard_1 = require("./common/guards/demo-aware-throttler.guard");
+const step_up_guard_1 = require("./common/guards/step-up.guard");
 const schedule_1 = require("@nestjs/schedule");
 const env_validation_1 = require("./config/env.validation");
 const env_path_1 = require("./config/env-path");
@@ -173,7 +173,8 @@ exports.AppModule = AppModule = __decorate([
             food_module_1.FoodModule,
         ],
         providers: [
-            { provide: core_1.APP_GUARD, useClass: demo_aware_throttler_guard_1.DemoAwareThrottlerGuard },
+            { provide: core_1.APP_GUARD, useClass: throttler_1.ThrottlerGuard },
+            step_up_guard_1.StepUpGuard,
             { provide: core_1.APP_FILTER, useClass: http_exception_filter_1.HttpExceptionFilter },
             { provide: core_1.APP_INTERCEPTOR, useClass: request_id_interceptor_1.RequestIdInterceptor },
             { provide: core_1.APP_INTERCEPTOR, useClass: logging_interceptor_1.LoggingInterceptor },

@@ -162,7 +162,7 @@ let AuthService = AuthService_1 = class AuthService {
             });
         }
         const refreshedUser = await this.tokenService.buildUserForToken(user.id);
-        const tokens = await this.tokenService.generateTokenPair(refreshedUser, deviceId, deviceName, ipAddress, userAgent);
+        const tokens = await this.tokenService.generateTokenPair(refreshedUser, deviceId, deviceName, ipAddress, userAgent, dto.rememberMe);
         void this.trustSafety.onOtpVerified(user.id, {
             deviceId,
             ipAddress,
@@ -269,6 +269,7 @@ let AuthService = AuthService_1 = class AuthService {
             userAgent,
             auditAction: 'USER_LOGGED_IN',
             metadata: { email, loginMethod: 'email' },
+            rememberMe: dto.rememberMe,
         });
     }
     async forgotPassword(dto) {
@@ -510,7 +511,7 @@ let AuthService = AuthService_1 = class AuthService {
     async completeAuthentication(userId, opts) {
         await this.ensureBuyerAccess(userId);
         const refreshedUser = await this.tokenService.buildUserForToken(userId);
-        const tokens = await this.tokenService.generateTokenPair(refreshedUser, opts.deviceId, opts.deviceName, opts.ipAddress, opts.userAgent);
+        const tokens = await this.tokenService.generateTokenPair(refreshedUser, opts.deviceId, opts.deviceName, opts.ipAddress, opts.userAgent, opts.rememberMe);
         const eventType = opts.isNewUser ? client_1.DomainEventType.USER_REGISTERED : client_1.DomainEventType.USER_LOGGED_IN;
         await Promise.all([
             this.auditService.log({
@@ -530,6 +531,31 @@ let AuthService = AuthService_1 = class AuthService {
         ]);
         const me = await this.getMe(userId);
         return { ...tokens, user: me, isNewUser: opts.isNewUser };
+    }
+    async stepUp(userId, dto, ipAddress, userAgent) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        if (dto.password) {
+            if (!user.passwordHash) {
+                throw new common_1.BadRequestException('This account does not have a password set. Please verify via OTP.');
+            }
+            const isValid = await this.passwordService.verify(user.passwordHash, dto.password);
+            if (!isValid) {
+                throw new common_1.UnauthorizedException('Invalid password');
+            }
+        }
+        else if (dto.phone && dto.code) {
+            if (user.phone !== dto.phone) {
+                throw new common_1.BadRequestException('Phone number does not match current user');
+            }
+            await this.otpService.verifyOtp(dto.phone, dto.code, client_1.OtpPurpose.LOGIN);
+        }
+        else {
+            throw new common_1.BadRequestException('Provide a password or phone OTP to step up');
+        }
+        return this.tokenService.generateStepUpToken(userId);
     }
     async generatePlaceholderPhone() {
         for (let i = 0; i < 10; i++) {

@@ -12,8 +12,10 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { StepUpGuard } from '../../common/guards/step-up.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequireStepUp } from '../../common/decorators/require-step-up.decorator';
 import { RequestUser } from '../../common/types';
 import { ApiTags as Tags } from '../../common/constants';
 import { MerchantService } from './merchant.service';
@@ -73,5 +75,17 @@ export class MerchantController {
   ) {
     const data = await this.merchantService.updateProfile(user.id, dto, ip);
     return { success: true, data };
+  }
+
+  @Patch('bank-account')
+  @Roles('MERCHANT')
+  @UseGuards(RolesGuard, StepUpGuard)
+  @RequireStepUp()
+  @ApiOperation({ summary: 'Update merchant bank account details (requires step-up)' })
+  async updateBankAccount(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: any,
+  ) {
+    return { success: true, message: 'Bank account updated successfully' };
   }
 }

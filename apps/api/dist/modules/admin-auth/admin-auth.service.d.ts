@@ -37,6 +37,7 @@ export declare class AdminAuthService {
         accessToken: string;
         refreshToken: string;
         expiresIn: number;
+        rememberMe?: boolean;
     }>;
     forgotPassword(dto: AdminForgotPasswordDto): Promise<{
         message: string;

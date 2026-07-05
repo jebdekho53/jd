@@ -15,7 +15,7 @@ const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class EmailLoginDto {
     static _OPENAPI_METADATA_FACTORY() {
-        return { email: { required: true, type: () => String }, password: { required: true, type: () => String, minLength: 1 }, deviceId: { required: false, type: () => String }, deviceName: { required: false, type: () => String } };
+        return { email: { required: true, type: () => String }, password: { required: true, type: () => String, minLength: 1 }, deviceId: { required: false, type: () => String }, deviceName: { required: false, type: () => String }, rememberMe: { required: false, type: () => Boolean } };
     }
 }
 exports.EmailLoginDto = EmailLoginDto;
@@ -42,4 +42,10 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], EmailLoginDto.prototype, "deviceName", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], EmailLoginDto.prototype, "rememberMe", void 0);
 //# sourceMappingURL=login.dto.js.map

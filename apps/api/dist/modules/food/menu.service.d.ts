@@ -14,12 +14,12 @@ export declare class MenuService {
     private readonly buyerCache;
     constructor(prisma: PrismaService, categoryAccess: StoreCategoryAccessService, verticalService: VerticalService, buyerCache: BuyerCacheService);
     assertStoreOwnership(merchantProfileId: string, storeId: string): Promise<{
-        phone: string | null;
-        email: string | null;
         id: string;
         status: import("@prisma/client").$Enums.StoreStatus;
         name: string;
         createdAt: Date;
+        email: string | null;
+        phone: string | null;
         updatedAt: Date;
         deletedAt: Date | null;
         description: string | null;
@@ -108,12 +108,12 @@ export declare class MenuService {
                 isPrimary: boolean;
             }[];
         } & {
-            phone: string | null;
-            email: string | null;
             id: string;
             status: import("@prisma/client").$Enums.StoreStatus;
             name: string;
             createdAt: Date;
+            email: string | null;
+            phone: string | null;
             updatedAt: Date;
             deletedAt: Date | null;
             description: string | null;

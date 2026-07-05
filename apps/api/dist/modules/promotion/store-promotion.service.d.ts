@@ -5,13 +5,16 @@ import { CreateCouponDto, CreateStorePromotionDto, ListAdminPromotionsDto, ListP
 import { PromotionNotificationService } from './promotion-notification.service';
 import { OfferEngineService } from './offer-engine.service';
 import { OfferCacheService } from './offer-cache.service';
+import { CartService } from '../cart/cart.service';
 export declare class StorePromotionService {
     private readonly prisma;
     private readonly pricing;
     private readonly notifications;
     private readonly offerEngine;
     private readonly offerCache;
-    constructor(prisma: PrismaService, pricing: PromotionPricingService, notifications: PromotionNotificationService, offerEngine: OfferEngineService, offerCache: OfferCacheService);
+    private readonly cartService;
+    constructor(prisma: PrismaService, pricing: PromotionPricingService, notifications: PromotionNotificationService, offerEngine: OfferEngineService, offerCache: OfferCacheService, cartService: CartService);
+    private invalidateStorePromotions;
     create(userId: string, storeId: string, dto: CreateStorePromotionDto): Promise<{
         id: string;
         storeId: string;

@@ -681,6 +681,7 @@ export class CheckoutService {
           offerSubsidy: totals.offerDiscount ?? 0,
           deliveryFee: totals.deliveryFee ?? 0,
           taxAmount: totals.tax ?? 0,
+          totalAmount: totals.grandTotal,
           paymentMethod: order.paymentMethod,
         })
         .catch((err) => this.logger.warn(`Financial freeze failed: ${(err as Error).message}`));

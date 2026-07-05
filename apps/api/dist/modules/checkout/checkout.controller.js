@@ -18,8 +18,10 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
+const step_up_guard_1 = require("../../common/guards/step-up.guard");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
+const require_step_up_decorator_1 = require("../../common/decorators/require-step-up.decorator");
 const checkout_service_1 = require("./checkout.service");
 const initiate_checkout_dto_1 = require("./dto/initiate-checkout.dto");
 let CheckoutController = class CheckoutController {
@@ -42,6 +44,7 @@ let CheckoutController = class CheckoutController {
 exports.CheckoutController = CheckoutController;
 __decorate([
     (0, common_1.Post)(),
+    (0, require_step_up_decorator_1.RequireStepUp)(),
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     (0, swagger_1.ApiHeader)({
         name: 'Idempotency-Key',
@@ -66,6 +69,7 @@ __decorate([
 ], CheckoutController.prototype, "initiateCheckout", null);
 __decorate([
     (0, common_1.Post)('cod'),
+    (0, require_step_up_decorator_1.RequireStepUp)(),
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     (0, swagger_1.ApiHeader)({
         name: 'Idempotency-Key',
@@ -102,7 +106,7 @@ __decorate([
 exports.CheckoutController = CheckoutController = __decorate([
     (0, swagger_1.ApiTags)('checkout'),
     (0, swagger_1.ApiBearerAuth)('access-token'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard, step_up_guard_1.StepUpGuard),
     (0, roles_decorator_1.Roles)('BUYER'),
     (0, common_1.Controller)('buyer/checkout'),
     __metadata("design:paramtypes", [checkout_service_1.CheckoutService])

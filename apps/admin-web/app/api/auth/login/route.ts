@@ -8,6 +8,7 @@ interface LoginBackendData {
   refreshToken: string;
   expiresIn: number;
   user: AuthUser;
+  rememberMe?: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -17,9 +18,9 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       body: JSON.stringify({ ...body, deviceName: 'admin-web' }),
     });
-    const { accessToken, refreshToken, expiresIn, user } = data.data;
+    const { accessToken, refreshToken, expiresIn, user, rememberMe } = data.data;
     const response = NextResponse.json({ success: true, data: { user, expiresIn } });
-    await setAuthCookies(response, { accessToken, refreshToken, expiresIn });
+    await setAuthCookies(response, { accessToken, refreshToken, expiresIn, rememberMe });
     return response;
   } catch (err) {
     if (err instanceof BackendError) {

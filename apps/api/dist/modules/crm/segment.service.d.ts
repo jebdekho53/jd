@@ -21,9 +21,9 @@ export declare class SegmentService {
     getSegmentMembers(segmentId: string, page?: number, limit?: number): Promise<{
         items: ({
             user: {
-                phone: string;
-                email: string | null;
                 id: string;
+                email: string | null;
+                phone: string;
             };
         } & {
             userId: string;
