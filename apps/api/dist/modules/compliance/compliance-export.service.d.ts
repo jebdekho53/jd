@@ -11,7 +11,7 @@ export declare class ComplianceExportService {
         filename: string;
         binary?: undefined;
     } | {
-        content: string;
+        content: any;
         mime: string;
         filename: string;
         binary: boolean;
@@ -22,7 +22,7 @@ export declare class ComplianceExportService {
         filename: string;
         binary?: undefined;
     } | {
-        content: string;
+        content: any;
         mime: string;
         filename: string;
         binary: boolean;
@@ -33,7 +33,7 @@ export declare class ComplianceExportService {
         filename: string;
         binary?: undefined;
     } | {
-        content: string;
+        content: any;
         mime: string;
         filename: string;
         binary: boolean;
@@ -44,7 +44,7 @@ export declare class ComplianceExportService {
         filename: string;
         binary?: undefined;
     } | {
-        content: string;
+        content: any;
         mime: string;
         filename: string;
         binary: boolean;
@@ -55,7 +55,7 @@ export declare class ComplianceExportService {
         filename: string;
         binary?: undefined;
     } | {
-        content: string;
+        content: any;
         mime: string;
         filename: string;
         binary: boolean;

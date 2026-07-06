@@ -10,21 +10,21 @@ export declare class BuyerPushController {
             configured: boolean;
             publicKey: string | null;
             subscribed: boolean;
-            activeSubscriptions: number;
+            activeSubscriptions: any;
         };
     }>;
     subscribe(user: RequestUser, dto: PushSubscribeDto): Promise<{
         success: boolean;
         data: {
-            id: string;
-            endpoint: string;
-            isActive: boolean;
+            id: any;
+            endpoint: any;
+            isActive: any;
         };
     }>;
     unsubscribe(user: RequestUser, dto: PushUnsubscribeDto): Promise<{
         success: boolean;
         data: {
-            updated: number;
+            updated: any;
         };
     }>;
 }

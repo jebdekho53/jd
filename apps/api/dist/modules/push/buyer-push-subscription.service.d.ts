@@ -5,27 +5,15 @@ export declare class BuyerPushSubscriptionService {
     private readonly prisma;
     private readonly webPush;
     constructor(prisma: PrismaService, webPush: WebPushService);
-    getStatus(userId: string): import("@prisma/client").Prisma.PrismaPromise<number>;
+    getStatus(userId: string): any;
     getPushStatus(userId: string): Promise<{
         configured: boolean;
         publicKey: string | null;
         subscribed: boolean;
-        activeSubscriptions: number;
+        activeSubscriptions: any;
     }>;
-    subscribe(userId: string, dto: PushSubscribeDto): Promise<{
-        id: string;
-        userAgent: string | null;
-        createdAt: Date;
-        userId: string;
-        updatedAt: Date;
-        lastSeenAt: Date;
-        isActive: boolean;
-        auth: string;
-        endpoint: string;
-        p256dh: string;
-        deviceType: import("@prisma/client").$Enums.PushDeviceType;
-    }>;
+    subscribe(userId: string, dto: PushSubscribeDto): Promise<any>;
     unsubscribe(userId: string, dto: PushUnsubscribeDto): Promise<{
-        updated: number;
+        updated: any;
     }>;
 }

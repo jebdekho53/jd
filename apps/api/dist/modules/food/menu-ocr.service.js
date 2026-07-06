@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var MenuOcrService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MenuOcrService = void 0;
 const common_1 = require("@nestjs/common");
@@ -159,7 +160,6 @@ exports.MenuOcrService = MenuOcrService = MenuOcrService_1 = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         openai_vision_client_1.OpenAiVisionClient,
         menu_service_1.MenuService,
-        store_category_access_service_1.StoreCategoryAccessService,
-        config_1.ConfigService])
+        store_category_access_service_1.StoreCategoryAccessService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
 ], MenuOcrService);
 //# sourceMappingURL=menu-ocr.service.js.map

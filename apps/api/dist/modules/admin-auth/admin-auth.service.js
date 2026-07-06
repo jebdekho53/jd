@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var AdminAuthService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminAuthService = void 0;
 const common_1 = require("@nestjs/common");
@@ -500,7 +501,6 @@ exports.AdminAuthService = AdminAuthService = AdminAuthService_1 = __decorate([
         admin_password_service_1.AdminPasswordService,
         audit_service_1.AuditService,
         domain_events_service_1.DomainEventsService,
-        email_notification_service_1.EmailNotificationService,
-        config_1.ConfigService])
+        email_notification_service_1.EmailNotificationService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
 ], AdminAuthService);
 //# sourceMappingURL=admin-auth.service.js.map

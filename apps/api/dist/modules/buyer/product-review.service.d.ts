@@ -4,34 +4,18 @@ export declare class ProductReviewService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     listProductReviews(productId: string, dto: ListProductReviewsDto): Promise<{
-        reviews: {
-            id: string;
-            productId: string;
-            rating: number;
-            comment: string | null;
-            images: string[];
-            verifiedPurchase: boolean;
-            buyer: {
-                id: string;
-                name: string;
-            } | null;
-            order: {
-                id: string;
-                orderNumber: string;
-            } | null;
-            createdAt: string;
-        }[];
+        reviews: any;
         aggregate: {
-            ratingAvg: number;
-            ratingCount: number;
+            ratingAvg: any;
+            ratingCount: any;
         };
         page: number;
         limit: number;
-        total: number;
+        total: any;
     }>;
     getProductRatingSummary(productId: string): Promise<{
-        ratingAvg: number;
-        ratingCount: number;
+        ratingAvg: any;
+        ratingCount: any;
     }>;
     createProductReview(userId: string, productId: string, dto: CreateProductReviewDto): Promise<{
         id: string;

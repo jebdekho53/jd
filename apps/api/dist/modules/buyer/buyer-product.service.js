@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var BuyerProductService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BuyerProductService = void 0;
 const common_1 = require("@nestjs/common");
@@ -723,7 +724,6 @@ exports.BuyerProductService = BuyerProductService;
 exports.BuyerProductService = BuyerProductService = BuyerProductService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        buyer_cache_service_1.BuyerCacheService,
-        config_1.ConfigService])
+        buyer_cache_service_1.BuyerCacheService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
 ], BuyerProductService);
 //# sourceMappingURL=buyer-product.service.js.map

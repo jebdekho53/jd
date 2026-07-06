@@ -3,16 +3,7 @@ import { PrismaService } from '../../database/prisma.service';
 export declare class SupportSlaService {
     private readonly prisma;
     constructor(prisma: PrismaService);
-    getSla(priority: SupportPriority): Promise<{
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        isActive: boolean;
-        priority: import("@prisma/client").$Enums.SupportPriority;
-        responseMinutes: number;
-        resolutionMinutes: number;
-        escalationMinutes: number;
-    } | null>;
+    getSla(priority: SupportPriority): Promise<any>;
     computeDeadlines(priority: SupportPriority, from?: Date): Promise<{
         slaResponseDue: Date;
         slaResolutionDue: Date;

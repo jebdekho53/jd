@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var InventoryService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InventoryService = exports.BUYER_LOW_STOCK_THRESHOLD = void 0;
 exports.buyerStockLevel = buyerStockLevel;
@@ -458,7 +459,6 @@ exports.InventoryService = InventoryService = InventoryService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         inventory_cache_service_1.InventoryCacheService,
-        inventory_alert_service_1.InventoryAlertService,
-        event_emitter_1.EventEmitter2])
+        inventory_alert_service_1.InventoryAlertService, typeof (_a = typeof event_emitter_1.EventEmitter2 !== "undefined" && event_emitter_1.EventEmitter2) === "function" ? _a : Object])
 ], InventoryService);
 //# sourceMappingURL=inventory.service.js.map

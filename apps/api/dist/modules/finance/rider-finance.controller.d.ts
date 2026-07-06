@@ -16,18 +16,13 @@ export declare class RiderFinanceController {
             thisWeek: number;
             pendingPayout: number;
             totalPaid: number;
-            recentDeliveries: {
-                orderNumber: string;
-                earning: number;
-                deliveredAt: string | null;
-                paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
-            }[];
+            recentDeliveries: any;
         };
     }>;
     submitCod(user: RequestUser, dto: CodSubmitDto): Promise<{
         success: boolean;
         data: {
-            submitted: number;
+            submitted: any;
             expected: number;
             deposited: number;
             mismatch: number;

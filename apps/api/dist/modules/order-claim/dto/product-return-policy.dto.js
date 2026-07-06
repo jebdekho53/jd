@@ -49,13 +49,13 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: claim_policy_enums_1.ClaimApprovalModeEnum }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(claim_policy_enums_1.ClaimApprovalModeEnum),
-    __metadata("design:type", String)
+    __metadata("design:type", Object)
 ], ProductReturnPolicyDto.prototype, "approvalMode", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: claim_policy_enums_1.ClaimProofRequirementEnum }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(claim_policy_enums_1.ClaimProofRequirementEnum),
-    __metadata("design:type", String)
+    __metadata("design:type", Object)
 ], ProductReturnPolicyDto.prototype, "proofRequired", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
@@ -82,7 +82,7 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: claim_policy_enums_1.ClaimRefundMethodEnum }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(claim_policy_enums_1.ClaimRefundMethodEnum),
-    __metadata("design:type", String)
+    __metadata("design:type", Object)
 ], ProductReturnPolicyDto.prototype, "refundMethod", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
@@ -102,7 +102,7 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: claim_policy_enums_1.PreparedFoodPolicyEnum }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(claim_policy_enums_1.PreparedFoodPolicyEnum),
-    __metadata("design:type", String)
+    __metadata("design:type", Object)
 ], ProductReturnPolicyDto.prototype, "preparedFoodPolicy", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ default: false }),

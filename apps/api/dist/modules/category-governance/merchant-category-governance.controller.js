@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var _a, _b, _c, _d;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MerchantCategoryGovernanceController = void 0;
 const openapi = require("@nestjs/swagger");
@@ -111,7 +112,7 @@ __decorate([
     __param(1, (0, common_1.Param)('storeId')),
     __param(2, (0, common_1.Query)('catalogKind')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:paramtypes", [Object, String, typeof (_a = typeof client_1.CategoryCatalogKind !== "undefined" && client_1.CategoryCatalogKind) === "function" ? _a : Object]),
     __metadata("design:returntype", Promise)
 ], MerchantCategoryGovernanceController.prototype, "listStoreCatalog", null);
 __decorate([
@@ -134,7 +135,7 @@ __decorate([
     __param(1, (0, common_1.Param)('storeId')),
     __param(2, (0, common_1.Query)('catalogKind')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:paramtypes", [Object, String, typeof (_b = typeof client_1.CategoryCatalogKind !== "undefined" && client_1.CategoryCatalogKind) === "function" ? _b : Object]),
     __metadata("design:returntype", Promise)
 ], MerchantCategoryGovernanceController.prototype, "listStoreApproved", null);
 __decorate([
@@ -199,14 +200,14 @@ __decorate([
     __param(1, (0, common_1.Query)('storeId')),
     __param(2, (0, common_1.Query)('catalogKind')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:paramtypes", [Object, String, typeof (_c = typeof client_1.CategoryCatalogKind !== "undefined" && client_1.CategoryCatalogKind) === "function" ? _c : Object]),
     __metadata("design:returntype", Promise)
 ], MerchantCategoryGovernanceController.prototype, "listCatalog", null);
 __decorate([
     (0, common_1.Get)('category-requests'),
     (0, permissions_decorator_1.Permissions)('categories:read'),
     (0, swagger_1.ApiOperation)({ summary: 'List category access requests' }),
-    openapi.ApiResponse({ status: 200, type: Object }),
+    openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Query)('storeId')),
     __metadata("design:type", Function),
@@ -222,14 +223,14 @@ __decorate([
     __param(1, (0, common_1.Query)('storeId')),
     __param(2, (0, common_1.Query)('catalogKind')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:paramtypes", [Object, String, typeof (_d = typeof client_1.CategoryCatalogKind !== "undefined" && client_1.CategoryCatalogKind) === "function" ? _d : Object]),
     __metadata("design:returntype", Promise)
 ], MerchantCategoryGovernanceController.prototype, "listApproved", null);
 __decorate([
     (0, common_1.Post)('category-requests'),
     (0, permissions_decorator_1.Permissions)('categories:request'),
     (0, swagger_1.ApiOperation)({ summary: 'Request access to sell in a category (legacy)' }),
-    openapi.ApiResponse({ status: 201, type: Object }),
+    openapi.ApiResponse({ status: 201 }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Ip)()),

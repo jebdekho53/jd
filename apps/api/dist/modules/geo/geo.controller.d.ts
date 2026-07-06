@@ -4,20 +4,10 @@ export declare class GeoController {
     constructor(geoService: GeoService);
     listCities(): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            name: string;
-            state: string;
-            slug: string;
-            country: string;
-        }[];
+        data: any;
     }>;
     listZones(cityId: string): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            name: string;
-            slug: string;
-        }[];
+        data: any;
     }>;
 }

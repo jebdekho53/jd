@@ -1,5 +1,4 @@
-import { CreateMerchantProfileDto } from './create-merchant-profile.dto';
-declare const UpdateMerchantProfileDto_base: import("@nestjs/common").Type<Partial<CreateMerchantProfileDto>>;
+declare const UpdateMerchantProfileDto_base: any;
 export declare class UpdateMerchantProfileDto extends UpdateMerchantProfileDto_base {
 }
 export {};

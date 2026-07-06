@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var OrderClaimService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OrderClaimService = void 0;
 const common_1 = require("@nestjs/common");
@@ -544,8 +545,7 @@ exports.OrderClaimService = OrderClaimService = OrderClaimService_1 = __decorate
         claim_eligibility_service_1.ClaimEligibilityService,
         claim_refund_service_1.ClaimRefundService,
         claim_replacement_service_1.ClaimReplacementService,
-        claim_notification_service_1.ClaimNotificationService,
-        config_1.ConfigService])
+        claim_notification_service_1.ClaimNotificationService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
 ], OrderClaimService);
 function round(n) {
     return Math.round(n * 100) / 100;

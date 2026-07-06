@@ -4,42 +4,14 @@ export declare class AdminUserService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     listUsers(dto: ListAdminUsersDto): Promise<{
-        data: {
-            id: string;
-            phone: string;
-            email: string | null;
-            status: import("@prisma/client").$Enums.UserStatus;
-            roles: import("@prisma/client").$Enums.RoleName[];
-            createdAt: Date;
-            lastLoginAt: Date | null;
-        }[];
+        data: any;
         meta: {
             page: number;
             limit: number;
-            total: number;
+            total: any;
             totalPages: number;
         };
     }>;
-    suspendUser(id: string): Promise<{
-        id: string;
-        phone: string;
-        email: string | null;
-        status: import("@prisma/client").$Enums.UserStatus;
-        roles: import("@prisma/client").$Enums.RoleName[];
-        createdAt: Date;
-        lastLoginAt: Date | null;
-    }>;
-    deleteUser(id: string): Promise<{
-        id: string;
-        status: import("@prisma/client").$Enums.UserStatus;
-        createdAt: Date;
-        email: string | null;
-        phone: string;
-        passwordHash: string | null;
-        phoneVerified: boolean;
-        emailVerified: boolean;
-        lastLoginAt: Date | null;
-        updatedAt: Date;
-        deletedAt: Date | null;
-    }>;
+    suspendUser(id: string): Promise<any>;
+    deleteUser(id: string): Promise<any>;
 }

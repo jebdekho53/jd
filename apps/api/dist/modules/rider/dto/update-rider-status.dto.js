@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateRiderStatusDto = void 0;
 const openapi = require("@nestjs/swagger");
@@ -23,6 +24,6 @@ exports.UpdateRiderStatusDto = UpdateRiderStatusDto;
 __decorate([
     (0, swagger_1.ApiProperty)({ enum: ['ONLINE', 'OFFLINE'], description: 'Rider can only toggle between ONLINE and OFFLINE manually' }),
     (0, class_validator_1.IsIn)([client_1.RiderStatus.ONLINE, client_1.RiderStatus.OFFLINE]),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_a = typeof client_1.RiderStatus !== "undefined" && client_1.RiderStatus) === "function" ? _a : Object)
 ], UpdateRiderStatusDto.prototype, "status", void 0);
 //# sourceMappingURL=update-rider-status.dto.js.map

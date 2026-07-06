@@ -3,31 +3,22 @@ export declare class AdAnalyticsService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     getCampaignMetrics(campaignId: string): Promise<{
-        impressions: number;
-        clicks: number;
+        impressions: any;
+        clicks: any;
         ctr: number;
-        conversions: number;
-        revenue: number;
+        conversions: any;
+        revenue: any;
         spend: number;
         roas: number;
     }>;
-    getMerchantAnalytics(advertiserId: string): Promise<{
-        ctr: number;
-        roas: number;
-        campaigns: number;
-        impressions: number;
-        clicks: number;
-        conversions: number;
-        revenue: number;
-        spend: number;
-    }>;
+    getMerchantAnalytics(advertiserId: string): Promise<any>;
     getAdminAnalytics(): Promise<{
         revenue: number;
         adSpend: number;
         roas: number;
         ctr: number;
-        advertisers: number;
-        impressions: number;
-        clicks: number;
+        advertisers: any;
+        impressions: any;
+        clicks: any;
     }>;
 }

@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var RazorpayService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RazorpayService = void 0;
 const common_1 = require("@nestjs/common");
@@ -117,6 +118,6 @@ let RazorpayService = RazorpayService_1 = class RazorpayService {
 exports.RazorpayService = RazorpayService;
 exports.RazorpayService = RazorpayService = RazorpayService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [config_1.ConfigService])
+    __metadata("design:paramtypes", [typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
 ], RazorpayService);
 //# sourceMappingURL=razorpay.service.js.map

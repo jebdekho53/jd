@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateMenuItemDto = exports.MenuItemVariantDto = void 0;
 const openapi = require("@nestjs/swagger");
@@ -89,13 +90,13 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.DietType }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.DietType),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_a = typeof client_1.DietType !== "undefined" && client_1.DietType) === "function" ? _a : Object)
 ], CreateMenuItemDto.prototype, "dietType", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.SpiceLevel }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.SpiceLevel),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_b = typeof client_1.SpiceLevel !== "undefined" && client_1.SpiceLevel) === "function" ? _b : Object)
 ], CreateMenuItemDto.prototype, "spiceLevel", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),

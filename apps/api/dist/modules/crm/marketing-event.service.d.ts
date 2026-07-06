@@ -12,16 +12,6 @@ export interface TrackEventInput {
 export declare class MarketingEventService {
     private readonly prisma;
     constructor(prisma: PrismaService);
-    track(input: TrackEventInput): Promise<{
-        id: string;
-        metadata: Prisma.JsonValue | null;
-        createdAt: Date;
-        eventType: import("@prisma/client").$Enums.MarketingEventType;
-        userId: string | null;
-        storeId: string | null;
-        productId: string | null;
-        orderId: string | null;
-        sessionId: string | null;
-    }>;
+    track(input: TrackEventInput): Promise<any>;
     private updateAffinities;
 }

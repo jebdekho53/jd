@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var ProductCsvService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProductCsvService = void 0;
 const common_1 = require("@nestjs/common");
@@ -350,7 +351,6 @@ exports.ProductCsvService = ProductCsvService = ProductCsvService_1 = __decorate
         merchant_service_1.MerchantService,
         category_service_1.CategoryService,
         product_service_1.ProductService,
-        product_duplicate_service_1.ProductDuplicateService,
-        config_1.ConfigService])
+        product_duplicate_service_1.ProductDuplicateService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
 ], ProductCsvService);
 //# sourceMappingURL=product-csv.service.js.map

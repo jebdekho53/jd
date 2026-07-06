@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BuyerRestaurantController = void 0;
 const openapi = require("@nestjs/swagger");
@@ -76,7 +77,7 @@ __decorate([
     __param(5, (0, common_1.Query)('page')),
     __param(6, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number, Number, String, String, String, Number, Number]),
+    __metadata("design:paramtypes", [Number, Number, String, String, typeof (_a = typeof client_1.VerticalBusinessType !== "undefined" && client_1.VerticalBusinessType) === "function" ? _a : Object, Number, Number]),
     __metadata("design:returntype", Promise)
 ], BuyerRestaurantController.prototype, "listRestaurants", null);
 __decorate([

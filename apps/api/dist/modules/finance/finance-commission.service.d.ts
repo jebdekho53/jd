@@ -14,21 +14,10 @@ export declare class FinanceCommissionService {
     readonly defaultCommissionPercent = 15;
     listRules(): Promise<{
         defaultCommissionPercent: number;
-        rules: {
-            id: string;
-            scope: import("@prisma/client").$Enums.CommissionRuleScope;
-            storeId: string | null;
-            storeName: string | null;
-            categoryId: string | null;
-            categoryName: string | null;
-            commissionPercent: number;
-            settlementDelayDays: number;
-            isActive: boolean;
-            updatedAt: Date;
-        }[];
+        rules: any;
     }>;
     createRule(dto: CreateCommissionRuleDto): Promise<{
-        id: string;
+        id: any;
     }>;
     updateRule(id: string, dto: UpdateCommissionRuleDto): Promise<{
         id: string;

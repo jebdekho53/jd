@@ -6,29 +6,11 @@ export declare class MerchantCampaignController {
     constructor(campaigns: CampaignService);
     list(user: RequestUser, storeId: string, dto: ListCampaignsDto): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            name: string;
-            description: string | null;
-            scope: import("@prisma/client").$Enums.CampaignScope;
-            storeId: string | null;
-            status: import("@prisma/client").$Enums.CampaignStatus;
-            stackMode: import("@prisma/client").$Enums.OfferStackMode;
-            startsAt: string;
-            endsAt: string;
-            budgetCap: number | null;
-            spentAmount: number;
-            impressionCount: number;
-            clickCount: number;
-            orderCount: number;
-            gmvGenerated: number;
-            offerCount: number | undefined;
-            store: {} | undefined;
-        }[];
+        data: any;
         meta: {
             page: number;
             limit: number;
-            total: number;
+            total: any;
         };
     }>;
     create(user: RequestUser, storeId: string, dto: CreateCampaignDto): Promise<{
@@ -37,10 +19,10 @@ export declare class MerchantCampaignController {
             id: string;
             name: string;
             description: string | null;
-            scope: import("@prisma/client").$Enums.CampaignScope;
+            scope: CampaignScope;
             storeId: string | null;
-            status: import("@prisma/client").$Enums.CampaignStatus;
-            stackMode: import("@prisma/client").$Enums.OfferStackMode;
+            status: CampaignStatus;
+            stackMode: OfferStackMode;
             startsAt: string;
             endsAt: string;
             budgetCap: number | null;
@@ -60,10 +42,10 @@ export declare class MerchantCampaignController {
                 id: string;
                 name: string;
                 description: string | null;
-                scope: import("@prisma/client").$Enums.CampaignScope;
+                scope: CampaignScope;
                 storeId: string | null;
-                status: import("@prisma/client").$Enums.CampaignStatus;
-                stackMode: import("@prisma/client").$Enums.OfferStackMode;
+                status: CampaignStatus;
+                stackMode: OfferStackMode;
                 startsAt: string;
                 endsAt: string;
                 budgetCap: number | null;
@@ -75,10 +57,10 @@ export declare class MerchantCampaignController {
                 offerCount: number | undefined;
                 store: {} | undefined;
             };
-            impressions: number;
-            clicks: number;
-            orders: number;
-            redemptions: number;
+            impressions: any;
+            clicks: any;
+            orders: any;
+            redemptions: any;
             conversion: number;
             gmvGenerated: number;
             discountGiven: number;
@@ -91,10 +73,10 @@ export declare class MerchantCampaignController {
             id: string;
             name: string;
             description: string | null;
-            scope: import("@prisma/client").$Enums.CampaignScope;
+            scope: CampaignScope;
             storeId: string | null;
-            status: import("@prisma/client").$Enums.CampaignStatus;
-            stackMode: import("@prisma/client").$Enums.OfferStackMode;
+            status: CampaignStatus;
+            stackMode: OfferStackMode;
             startsAt: string;
             endsAt: string;
             budgetCap: number | null;
@@ -113,10 +95,10 @@ export declare class MerchantCampaignController {
             id: string;
             name: string;
             description: string | null;
-            scope: import("@prisma/client").$Enums.CampaignScope;
+            scope: CampaignScope;
             storeId: string | null;
-            status: import("@prisma/client").$Enums.CampaignStatus;
-            stackMode: import("@prisma/client").$Enums.OfferStackMode;
+            status: CampaignStatus;
+            stackMode: OfferStackMode;
             startsAt: string;
             endsAt: string;
             budgetCap: number | null;
@@ -135,10 +117,10 @@ export declare class MerchantCampaignController {
             id: string;
             name: string;
             description: string | null;
-            scope: import("@prisma/client").$Enums.CampaignScope;
+            scope: CampaignScope;
             storeId: string | null;
-            status: import("@prisma/client").$Enums.CampaignStatus;
-            stackMode: import("@prisma/client").$Enums.OfferStackMode;
+            status: CampaignStatus;
+            stackMode: OfferStackMode;
             startsAt: string;
             endsAt: string;
             budgetCap: number | null;
@@ -157,7 +139,7 @@ export declare class MerchantCampaignController {
             id: string;
             campaignId: string;
             name: string;
-            kind: import("@prisma/client").$Enums.OfferKind;
+            kind: OfferKind;
             discountValue: number;
             expiresAt: string;
             isActive: boolean;

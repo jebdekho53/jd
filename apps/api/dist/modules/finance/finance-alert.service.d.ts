@@ -1,4 +1,4 @@
-import { FinanceAlertSeverity, FinanceAlertType, Prisma } from '@prisma/client';
+import { FinanceAlertSeverity, FinanceAlertType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 export declare class FinanceAlertService {
     private readonly prisma;
@@ -15,16 +15,6 @@ export declare class FinanceAlertService {
     }): Promise<void>;
     checkNegativeMerchantBalances(): Promise<number>;
     checkCodMismatches(): Promise<number>;
-    listOpen(limit?: number): Promise<{
-        message: string;
-        id: string;
-        status: import("@prisma/client").$Enums.FinanceAlertStatus;
-        metadata: Prisma.JsonValue | null;
-        createdAt: Date;
-        severity: import("@prisma/client").$Enums.FinanceAlertSeverity;
-        title: string;
-        resolvedAt: Date | null;
-        alertType: import("@prisma/client").$Enums.FinanceAlertType;
-    }[]>;
+    listOpen(limit?: number): Promise<any>;
     private create;
 }

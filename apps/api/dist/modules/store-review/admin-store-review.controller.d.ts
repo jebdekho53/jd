@@ -6,67 +6,23 @@ export declare class AdminStoreReviewController {
     constructor(service: StoreReviewService);
     list(dto: ListStoreReviewsDto): Promise<{
         success: boolean;
-        data: {
-            id: any;
-            orderId: any;
-            storeId: any;
-            rating: any;
-            storeExperience: any;
-            deliveryExperience: any;
-            productQuality: any;
-            title: any;
-            review: any;
-            images: any;
-            verifiedPurchase: any;
-            merchantReply: any;
-            merchantRepliedAt: any;
-            status: any;
-            reportedAt: any;
-            reportReason: any;
-            buyer: {
-                id: any;
-                name: any;
-            } | null;
-            order: {
-                id: any;
-                orderNumber: any;
-            } | null;
-            store: {
-                id: any;
-                name: any;
-                slug: any;
-            } | null;
-            createdAt: any;
-            updatedAt: any;
-        }[];
+        data: any;
         meta: {
             page: number;
             limit: number;
-            total: number;
+            total: any;
         };
     }>;
     analytics(): Promise<{
         success: boolean;
         data: {
-            platformRating: number;
-            totalReviews: number;
+            platformRating: any;
+            totalReviews: any;
             distribution: {
-                [k: string]: number;
+                [k: string]: any;
             };
-            worstRatedStores: {
-                id: string;
-                name: string;
-                ratingAvg: number;
-                ratingCount: number;
-                slug: string;
-            }[];
-            bestRatedStores: {
-                id: string;
-                name: string;
-                ratingAvg: number;
-                ratingCount: number;
-                slug: string;
-            }[];
+            worstRatedStores: any;
+            bestRatedStores: any;
         };
     }>;
     approve(user: RequestUser, id: string): Promise<{

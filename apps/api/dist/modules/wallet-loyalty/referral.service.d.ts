@@ -17,24 +17,12 @@ export declare class ReferralService {
     private readonly events;
     private readonly logger;
     constructor(prisma: PrismaService, config: RewardConfigService, wallet: WalletService, reward: RewardService, fraud: FraudService, trustSafety: TrustSafetyHookService, domainEvents: DomainEventsService, events: EventEmitter2);
-    applyReferralCode(buyerProfileId: string, code: string, deviceFingerprint?: string): Promise<{
-        deviceFingerprint: string | null;
-        id: string;
-        status: import("@prisma/client").$Enums.ReferralStatus;
-        createdAt: Date;
-        referrerWalletId: string;
-        referredWalletId: string;
-        completedAt: Date | null;
-        referrerWalletCredit: import("@prisma/client/runtime/library").Decimal | null;
-        referredWalletCredit: import("@prisma/client/runtime/library").Decimal | null;
-        referrerRewardPoints: number | null;
-        referredRewardPoints: number | null;
-    }>;
+    applyReferralCode(buyerProfileId: string, code: string, deviceFingerprint?: string): Promise<any>;
     completeReferralOnFirstOrder(buyerProfileId: string, orderId: string): Promise<void>;
     getReferralSummary(buyerProfileId: string): Promise<{
-        code: string;
-        inviteCount: number;
-        earnings: number;
-        pendingCount: number;
+        code: any;
+        inviteCount: any;
+        earnings: any;
+        pendingCount: any;
     }>;
 }

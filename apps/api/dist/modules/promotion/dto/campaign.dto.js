@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var _a, _b, _c, _d, _e, _f, _g, _h, _j;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TrackCampaignEventDto = exports.ListCampaignsDto = exports.UpdateCampaignDto = exports.CreateCampaignDto = exports.CreateOfferDto = exports.CampaignAudienceDto = exports.OfferRuleDto = void 0;
 const openapi = require("@nestjs/swagger");
@@ -22,7 +23,7 @@ class OfferRuleDto {
 exports.OfferRuleDto = OfferRuleDto;
 __decorate([
     (0, class_validator_1.IsEnum)(client_1.OfferRuleType),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_a = typeof client_1.OfferRuleType !== "undefined" && client_1.OfferRuleType) === "function" ? _a : Object)
 ], OfferRuleDto.prototype, "ruleType", void 0);
 __decorate([
     (0, class_validator_1.IsObject)(),
@@ -36,7 +37,7 @@ class CampaignAudienceDto {
 exports.CampaignAudienceDto = CampaignAudienceDto;
 __decorate([
     (0, class_validator_1.IsEnum)(client_1.AudienceType),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_b = typeof client_1.AudienceType !== "undefined" && client_1.AudienceType) === "function" ? _b : Object)
 ], CampaignAudienceDto.prototype, "audienceType", void 0);
 __decorate([
     (0, class_validator_1.IsObject)(),
@@ -59,12 +60,12 @@ __decorate([
 ], CreateOfferDto.prototype, "description", void 0);
 __decorate([
     (0, class_validator_1.IsEnum)(client_1.OfferKind),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_c = typeof client_1.OfferKind !== "undefined" && client_1.OfferKind) === "function" ? _c : Object)
 ], CreateOfferDto.prototype, "kind", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.PromotionTarget),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_d = typeof client_1.PromotionTarget !== "undefined" && client_1.PromotionTarget) === "function" ? _d : Object)
 ], CreateOfferDto.prototype, "target", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -174,7 +175,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.OfferStackMode),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_e = typeof client_1.OfferStackMode !== "undefined" && client_1.OfferStackMode) === "function" ? _e : Object)
 ], CreateCampaignDto.prototype, "stackMode", void 0);
 __decorate([
     (0, class_validator_1.IsDateString)(),
@@ -222,7 +223,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.OfferStackMode),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_f = typeof client_1.OfferStackMode !== "undefined" && client_1.OfferStackMode) === "function" ? _f : Object)
 ], UpdateCampaignDto.prototype, "stackMode", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -248,12 +249,12 @@ exports.ListCampaignsDto = ListCampaignsDto;
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.CampaignScope),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_g = typeof client_1.CampaignScope !== "undefined" && client_1.CampaignScope) === "function" ? _g : Object)
 ], ListCampaignsDto.prototype, "scope", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.CampaignStatus),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_h = typeof client_1.CampaignStatus !== "undefined" && client_1.CampaignStatus) === "function" ? _h : Object)
 ], ListCampaignsDto.prototype, "status", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -296,6 +297,6 @@ __decorate([
 ], TrackCampaignEventDto.prototype, "offerId", void 0);
 __decorate([
     (0, class_validator_1.IsEnum)(client_1.CampaignEventType),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_j = typeof client_1.CampaignEventType !== "undefined" && client_1.CampaignEventType) === "function" ? _j : Object)
 ], TrackCampaignEventDto.prototype, "eventType", void 0);
 //# sourceMappingURL=campaign.dto.js.map

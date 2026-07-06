@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var DeliveryOrchestratorService_1;
+var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeliveryOrchestratorService = void 0;
 const common_1 = require("@nestjs/common");
@@ -703,9 +704,6 @@ exports.DeliveryOrchestratorService = DeliveryOrchestratorService = DeliveryOrch
         logistics_provider_registry_1.LogisticsProviderRegistry,
         domain_events_service_1.DomainEventsService,
         order_status_history_service_1.OrderStatusHistoryService,
-        order_cache_service_1.OrderCacheService,
-        event_emitter_1.EventEmitter2,
-        order_delivered_handler_service_1.OrderDeliveredHandlerService,
-        config_1.ConfigService])
+        order_cache_service_1.OrderCacheService, typeof (_a = typeof event_emitter_1.EventEmitter2 !== "undefined" && event_emitter_1.EventEmitter2) === "function" ? _a : Object, order_delivered_handler_service_1.OrderDeliveredHandlerService, typeof (_b = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _b : Object])
 ], DeliveryOrchestratorService);
 //# sourceMappingURL=delivery-orchestrator.service.js.map

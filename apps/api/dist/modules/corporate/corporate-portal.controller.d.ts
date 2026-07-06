@@ -13,30 +13,7 @@ export declare class CorporatePortalController {
     constructor(accounts: CorporateAccountService, approval: ApprovalService, billing: CorporateBillingService, wallet: CorporateWalletService, prisma: PrismaService);
     listAccounts(user: RequestUser): Promise<{
         success: boolean;
-        data: {
-            role: import("@prisma/client").$Enums.CorporateUserRole;
-            corporateUserId: string;
-            wallet: {
-                id: string;
-                updatedAt: Date;
-                balance: import("@prisma/client/runtime/library").Decimal;
-                accountId: string;
-            } | null;
-            costCenters: {
-                id: string;
-                name: string;
-                createdAt: Date;
-                accountId: string;
-                monthlyLimit: import("@prisma/client/runtime/library").Decimal;
-            }[];
-            id: string;
-            status: import("@prisma/client").$Enums.CorporateAccountStatus;
-            createdAt: Date;
-            updatedAt: Date;
-            gstin: string | null;
-            companyName: string;
-            creditLimit: import("@prisma/client/runtime/library").Decimal;
-        }[];
+        data: any;
     }>;
     createRequest(user: RequestUser, body: {
         amount: number;
@@ -47,30 +24,12 @@ export declare class CorporatePortalController {
         data?: undefined;
     } | {
         success: boolean;
-        data: {
-            id: string;
-            status: import("@prisma/client").$Enums.PurchaseRequestStatus;
-            createdAt: Date;
-            updatedAt: Date;
-            amount: import("@prisma/client/runtime/library").Decimal;
-            orderId: string | null;
-            notes: string | null;
-            employeeId: string;
-        };
+        data: any;
         message?: undefined;
     }>;
     invoices(user: RequestUser): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            createdAt: Date;
-            invoiceNumber: string;
-            accountId: string;
-            periodStart: Date | null;
-            periodEnd: Date | null;
-            invoiceAmount: import("@prisma/client/runtime/library").Decimal;
-            ledgerJournalId: string | null;
-        }[];
+        data: any;
     }>;
     walletBalance(user: RequestUser): Promise<{
         success: boolean;

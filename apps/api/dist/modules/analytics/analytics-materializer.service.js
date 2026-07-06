@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var AnalyticsMaterializerService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AnalyticsMaterializerService = void 0;
 const common_1 = require("@nestjs/common");
@@ -96,7 +97,6 @@ exports.AnalyticsMaterializerService = AnalyticsMaterializerService = AnalyticsM
         analytics_snapshot_service_1.AnalyticsSnapshotService,
         analytics_alert_service_1.AnalyticsAlertService,
         analytics_metrics_cache_service_1.AnalyticsMetricsCacheService,
-        prisma_service_1.PrismaService,
-        event_emitter_1.EventEmitter2])
+        prisma_service_1.PrismaService, typeof (_a = typeof event_emitter_1.EventEmitter2 !== "undefined" && event_emitter_1.EventEmitter2) === "function" ? _a : Object])
 ], AnalyticsMaterializerService);
 //# sourceMappingURL=analytics-materializer.service.js.map

@@ -1,128 +1,128 @@
 export declare const stub: <T extends object>(methods: T) => T;
 export declare const checkoutServiceMocks: {
     orderCache: {
-        invalidateAll: jest.Mock<any, any, any>;
+        invalidateAll: any;
     };
     promotions: {
-        redeemOnOrder: jest.Mock<any, any, any>;
-        applyPromoToCart: jest.Mock<any, any, any>;
-        recalculateCartTotals: jest.Mock<any, any, any>;
+        redeemOnOrder: any;
+        applyPromoToCart: any;
+        recalculateCartTotals: any;
     };
     geospatial: {
-        validateCheckoutLocation: jest.Mock<any, any, any>;
+        validateCheckoutLocation: any;
     };
     walletCheckout: {
-        computeCheckoutPayment: jest.Mock<any, any, any>;
-        applyCheckoutDeductions: jest.Mock<any, any, any>;
+        computeCheckoutPayment: any;
+        applyCheckoutDeductions: any;
     };
     referral: {
-        applyReferralCode: jest.Mock<any, any, any>;
+        applyReferralCode: any;
     };
     wallet: {
-        getOrCreateWallet: jest.Mock<any, any, any>;
-        emitWalletDebited: jest.Mock<any, any, any>;
+        getOrCreateWallet: any;
+        emitWalletDebited: any;
     };
     orderFinancials: {
-        freezeOnOrderCreate: jest.Mock<any, any, any>;
+        freezeOnOrderCreate: any;
     };
     trustSafety: {
-        beforeCodCheckout: jest.Mock<any, any, any>;
+        beforeCodCheckout: any;
     };
     smartFulfillment: {
-        allocateOrder: jest.Mock<any, any, any>;
+        allocateOrder: any;
     };
     corporateWallet: {
-        debitForPurchase: jest.Mock<any, any, any>;
+        debitForPurchase: any;
     };
     corporateApproval: {
-        markApproved: jest.Mock<any, any, any>;
+        markApproved: any;
     };
     emailNotifications: {
-        sendOrderConfirmation: jest.Mock<any, any, any>;
+        sendOrderConfirmation: any;
     };
     buyerPush: {
-        notifyOrderPlaced: jest.Mock<any, any, any>;
+        notifyOrderPlaced: any;
     };
     deliveryDispatch: {
-        dispatchAfterOrderPlaced: jest.Mock<any, any, any>;
+        dispatchAfterOrderPlaced: any;
     };
 };
 export declare const orderServiceMocks: {
     deliveryDispatch: {
-        dispatchAfterReadyForPickup: jest.Mock<any, any, any>;
-        dispatchAfterOrderPlaced: jest.Mock<any, any, any>;
+        dispatchAfterReadyForPickup: any;
+        dispatchAfterOrderPlaced: any;
     };
     rewards: {
-        creditPointsForOrder: jest.Mock<any, any, any>;
-        refundWalletForOrder: jest.Mock<any, any, any>;
+        creditPointsForOrder: any;
+        refundWalletForOrder: any;
     };
     ledger: {
-        recordRefund: jest.Mock<any, any, any>;
-        recordOrderPayment: jest.Mock<any, any, any>;
+        recordRefund: any;
+        recordOrderPayment: any;
     };
     creditNotes: {
-        createForOrderCancellation: jest.Mock<any, any, any>;
-        createForRefund: jest.Mock<any, any, any>;
+        createForOrderCancellation: any;
+        createForRefund: any;
     };
     emailNotifications: {
-        sendOrderConfirmation: jest.Mock<any, any, any>;
-        sendRefundProcessed: jest.Mock<any, any, any>;
+        sendOrderConfirmation: any;
+        sendRefundProcessed: any;
     };
     buyerPush: {
-        notifyOrderAccepted: jest.Mock<any, any, any>;
-        notifyReadyForPickup: jest.Mock<any, any, any>;
+        notifyOrderAccepted: any;
+        notifyReadyForPickup: any;
     };
     tracking: {
-        emitOrderStatus: jest.Mock<any, any, any>;
-        publishUpdate: jest.Mock<any, any, any>;
-        emitDeliveryEvent: jest.Mock<any, any, any>;
+        emitOrderStatus: any;
+        publishUpdate: any;
+        emitDeliveryEvent: any;
     };
 };
 export declare const deliveryServiceMocks: {
     settlement: {
-        settleOrder: jest.Mock<any, any, any>;
-        createLedgerForDeliveredOrder: jest.Mock<any, any, any>;
+        settleOrder: any;
+        createLedgerForDeliveredOrder: any;
     };
     cod: {
-        recordCollection: jest.Mock<any, any, any>;
-        createForDeliveredOrder: jest.Mock<any, any, any>;
+        recordCollection: any;
+        createForDeliveredOrder: any;
     };
     reservation: {
-        fulfillOnDelivery: jest.Mock<any, any, any>;
-        releaseOrderReservations: jest.Mock<any, any, any>;
+        fulfillOnDelivery: any;
+        releaseOrderReservations: any;
     };
     statusHistory: {
-        transition: jest.Mock<any, any, any>;
-        appendEntry: jest.Mock<any, any, any>;
+        transition: any;
+        appendEntry: any;
     };
     tracking: {
-        publishUpdate: jest.Mock<any, any, any>;
-        emitOrderStatus: jest.Mock<any, any, any>;
-        emitDeliveryEvent: jest.Mock<any, any, any>;
+        publishUpdate: any;
+        emitOrderStatus: any;
+        emitDeliveryEvent: any;
     };
     walletLoyalty: {
-        processOrderCompleted: jest.Mock<any, any, any>;
+        processOrderCompleted: any;
     };
     referral: {
-        creditReferrerOnFirstOrder: jest.Mock<any, any, any>;
+        creditReferrerOnFirstOrder: any;
     };
     invoiceEngine: {
-        generateForOrder: jest.Mock<any, any, any>;
+        generateForOrder: any;
     };
     tdsTcs: {
-        recordForOrder: jest.Mock<any, any, any>;
-        syncMonthlyTotals: jest.Mock<any, any, any>;
+        recordForOrder: any;
+        syncMonthlyTotals: any;
     };
     trustSafety: {
-        afterDelivery: jest.Mock<any, any, any>;
-        onOrderDelivered: jest.Mock<any, any, any>;
+        afterDelivery: any;
+        onOrderDelivered: any;
     };
     emailNotifications: {
-        sendDeliveryConfirmation: jest.Mock<any, any, any>;
-        sendOrderDelivered: jest.Mock<any, any, any>;
+        sendDeliveryConfirmation: any;
+        sendOrderDelivered: any;
     };
     buyerPush: {
-        notifyDelivered: jest.Mock<any, any, any>;
-        notifyOutForDelivery: jest.Mock<any, any, any>;
+        notifyDelivered: any;
+        notifyOutForDelivery: any;
     };
 };

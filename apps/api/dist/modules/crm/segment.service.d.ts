@@ -4,33 +4,10 @@ export declare class SegmentService {
     private readonly prisma;
     private readonly logger;
     constructor(prisma: PrismaService);
-    listSegments(): Promise<{
-        id: string;
-        name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        description: string | null;
-        code: string;
-        kind: import("@prisma/client").$Enums.SegmentKind;
-        isActive: boolean;
-        rules: import("@prisma/client/runtime/library").JsonValue;
-        isDynamic: boolean;
-        memberCount: number;
-        lastRefreshedAt: Date | null;
-    }[]>;
+    listSegments(): Promise<any>;
     getSegmentMembers(segmentId: string, page?: number, limit?: number): Promise<{
-        items: ({
-            user: {
-                id: string;
-                email: string | null;
-                phone: string;
-            };
-        } & {
-            userId: string;
-            segmentId: string;
-            addedAt: Date;
-        })[];
-        total: number;
+        items: any;
+        total: any;
         page: number;
         limit: number;
     }>;

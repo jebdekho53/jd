@@ -45,19 +45,19 @@ export declare class PaymentService {
     }>;
     verifyPayment(userId: string, dto: VerifyPaymentDto, ipAddress?: string): Promise<{
         success: boolean;
-        orderId: string;
-        orderNumber: string;
+        orderId: any;
+        orderNumber: any;
         message: string;
     } | {
         success: boolean;
-        orderId: string;
-        orderNumber: string;
+        orderId: any;
+        orderNumber: any;
         message?: undefined;
     }>;
     syncCheckoutPayment(userId: string, checkoutId: string, ipAddress?: string): Promise<{
         success: boolean;
-        orderId: string;
-        orderNumber: string;
+        orderId: any;
+        orderNumber: any;
         message: string;
     }>;
     handleWebhook(rawBody: Buffer, signature: string): Promise<void>;

@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var _a, _b, _c, _d, _e, _f;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.KnowledgeSearchDto = exports.AdminListTicketsDto = exports.ResolveTicketDto = exports.FeedbackDto = exports.ReplyTicketDto = exports.CreateTicketDto = exports.ListTicketsQueryDto = void 0;
 const openapi = require("@nestjs/swagger");
@@ -62,7 +63,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.SupportPriority),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_a = typeof client_1.SupportPriority !== "undefined" && client_1.SupportPriority) === "function" ? _a : Object)
 ], CreateTicketDto.prototype, "priority", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -98,7 +99,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.SupportMessageVisibility),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_b = typeof client_1.SupportMessageVisibility !== "undefined" && client_1.SupportMessageVisibility) === "function" ? _b : Object)
 ], ReplyTicketDto.prototype, "visibility", void 0);
 class FeedbackDto {
     static _OPENAPI_METADATA_FACTORY() {
@@ -140,12 +141,12 @@ exports.AdminListTicketsDto = AdminListTicketsDto;
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.SupportTicketStatus),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_c = typeof client_1.SupportTicketStatus !== "undefined" && client_1.SupportTicketStatus) === "function" ? _c : Object)
 ], AdminListTicketsDto.prototype, "status", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.SupportPriority),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_d = typeof client_1.SupportPriority !== "undefined" && client_1.SupportPriority) === "function" ? _d : Object)
 ], AdminListTicketsDto.prototype, "priority", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -161,7 +162,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.SupportActorType),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_e = typeof client_1.SupportActorType !== "undefined" && client_1.SupportActorType) === "function" ? _e : Object)
 ], AdminListTicketsDto.prototype, "actorType", void 0);
 class KnowledgeSearchDto {
     static _OPENAPI_METADATA_FACTORY() {
@@ -182,6 +183,6 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.SupportActorType),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_f = typeof client_1.SupportActorType !== "undefined" && client_1.SupportActorType) === "function" ? _f : Object)
 ], KnowledgeSearchDto.prototype, "audience", void 0);
 //# sourceMappingURL=support.dto.js.map

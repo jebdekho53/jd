@@ -7,16 +7,16 @@ export declare class FoodPaymentController {
     createOrder(user: RequestUser, checkoutId: string, forwardedFor?: string): Promise<{
         success: boolean;
         data: {
-            foodCheckoutId: string;
-            orderId: string;
-            orderNumber: string;
-            razorpayOrderId: string | null;
+            foodCheckoutId: any;
+            orderId: any;
+            orderNumber: any;
+            razorpayOrderId: any;
             keyId: string;
             amount: number;
             currency: string;
         } | {
-            foodCheckoutId: string;
-            razorpayOrderId: string;
+            foodCheckoutId: any;
+            razorpayOrderId: any;
             keyId: string;
             amount: number;
             currency: string;
@@ -28,13 +28,13 @@ export declare class FoodPaymentController {
         success: boolean;
         data: {
             success: boolean;
-            orderId: string;
-            orderNumber: string;
+            orderId: any;
+            orderNumber: any;
             message: string;
         } | {
             success: boolean;
-            orderId: string;
-            orderNumber: string;
+            orderId: any;
+            orderNumber: any;
             message?: undefined;
         };
     }>;
@@ -42,13 +42,13 @@ export declare class FoodPaymentController {
         success: boolean;
         data: {
             success: boolean;
-            orderId: string;
-            orderNumber: string;
+            orderId: any;
+            orderNumber: any;
             message: string;
         } | {
             success: boolean;
-            orderId: string;
-            orderNumber: string;
+            orderId: any;
+            orderNumber: any;
             message?: undefined;
         };
     }>;

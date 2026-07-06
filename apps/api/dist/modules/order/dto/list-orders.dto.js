@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var _a, _b, _c;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ListAdminOrdersDto = exports.ListMerchantOrdersDto = exports.ListOrdersDto = void 0;
 const openapi = require("@nestjs/swagger");
@@ -31,7 +32,7 @@ __decorate([
     (0, swagger_1.ApiProperty)({ required: false, enum: client_1.OrderStatus }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.OrderStatus),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_a = typeof client_1.OrderStatus !== "undefined" && client_1.OrderStatus) === "function" ? _a : Object)
 ], ListOrdersDto.prototype, "status", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ required: false, enum: ['active', 'cancelled', 'completed'] }),
@@ -115,7 +116,7 @@ __decorate([
     (0, swagger_1.ApiProperty)({ required: false, enum: client_1.PaymentMethod }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.PaymentMethod),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_b = typeof client_1.PaymentMethod !== "undefined" && client_1.PaymentMethod) === "function" ? _b : Object)
 ], ListMerchantOrdersDto.prototype, "paymentMethod", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ required: false, description: 'Search order #, customer, phone, product, SKU' }),
@@ -178,7 +179,7 @@ __decorate([
     (0, swagger_1.ApiProperty)({ required: false, enum: client_1.PaymentMethod }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.PaymentMethod),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_c = typeof client_1.PaymentMethod !== "undefined" && client_1.PaymentMethod) === "function" ? _c : Object)
 ], ListAdminOrdersDto.prototype, "paymentMethod", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ required: false, enum: ['PENDING', 'PAID', 'FAILED', 'REFUNDED'] }),

@@ -27,7 +27,7 @@ export declare class ProductAiService {
         message: string | null;
         code: string | null;
         pricePaise: number;
-        walletBalancePaise: number;
+        walletBalancePaise: any;
         walletBalanceRupee: number;
         minimumRechargePaise: number;
         minimumRechargeRupee: number;
@@ -45,7 +45,7 @@ export declare class ProductAiService {
         };
         categoryMatch: {} | null;
         confidence: number | null;
-        status: import("@prisma/client").$Enums.AIProductAnalysisStatus;
+        status: AIProductAnalysisStatus;
         errorMessage: string | null;
         createdProductId: string | null;
         chargeAmountPaise: number;
@@ -61,8 +61,8 @@ export declare class ProductAiService {
         labelReadable: {} | null;
         canPublishDirectly: boolean;
         imageQualityScore: {} | null;
-        detectedProductType: import("@prisma/client").$Enums.AIProductType | null | undefined;
-        productType: {} | null | undefined;
+        detectedProductType: any;
+        productType: any;
     }>;
     getAnalysis(userId: string, storeId: string, analysisId: string): Promise<{
         id: string;
@@ -76,7 +76,7 @@ export declare class ProductAiService {
         };
         categoryMatch: {} | null;
         confidence: number | null;
-        status: import("@prisma/client").$Enums.AIProductAnalysisStatus;
+        status: AIProductAnalysisStatus;
         errorMessage: string | null;
         createdProductId: string | null;
         chargeAmountPaise: number;
@@ -92,22 +92,22 @@ export declare class ProductAiService {
         labelReadable: {} | null;
         canPublishDirectly: boolean;
         imageQualityScore: {} | null;
-        detectedProductType: import("@prisma/client").$Enums.AIProductType | null | undefined;
-        productType: {} | null | undefined;
+        detectedProductType: any;
+        productType: any;
     }>;
     confirmAnalysis(userId: string, storeId: string, analysisId: string, dto: ConfirmAiProductDto, ipAddress?: string): Promise<{
         alreadyConfirmed: boolean;
-        productId: string | null;
+        productId: any;
         charged: boolean;
-        amountPaise: number;
+        amountPaise: any;
         productName?: undefined;
         publish?: undefined;
         chargedAt?: undefined;
         analysisId?: undefined;
         receipt?: undefined;
     } | {
-        productId: string;
-        productName: string;
+        productId: any;
+        productName: any;
         charged: boolean;
         amountPaise: number;
         publish: boolean;
@@ -115,7 +115,7 @@ export declare class ProductAiService {
         analysisId: string;
         receipt: {
             analysisId: string;
-            productName: string;
+            productName: any;
             amountPaise: number;
             amountRupee: number;
             chargedAt: string;
@@ -127,48 +127,26 @@ export declare class ProductAiService {
         cancelled: boolean;
     }>;
     listHistory(userId: string, storeId: string | undefined, page?: number, limit?: number): Promise<{
-        items: {
-            id: string;
-            status: import("@prisma/client").$Enums.AIProductAnalysisStatus;
-            errorMessage: string | null;
-            createdAt: Date;
-            storeId: string;
-            uploadedImageUrl: string;
-            confidence: number | null;
-            createdProductId: string | null;
-            chargeAmountPaise: number;
-            chargedAt: Date | null;
-        }[];
+        items: any;
         meta: {
             page: number;
             limit: number;
-            total: number;
+            total: any;
             totalPages: number;
         };
     }>;
     listBilling(userId: string, storeId: string, page?: number, limit?: number): Promise<{
-        items: {
-            analysisId: string | null;
-            productName: string;
-            amountPaise: number;
-            amountRupee: number;
-            status: import("@prisma/client").$Enums.MerchantAiWalletTransactionStatus;
-            type: import("@prisma/client").$Enums.MerchantAiWalletTransactionType;
-            chargedAt: Date | null;
-            refundedAt: Date | null;
-            reason: string | null;
-            createdAt: Date;
-        }[];
+        items: any;
         meta: {
             page: number;
             limit: number;
-            total: number;
+            total: any;
             totalPages: number;
         };
-        walletBalancePaise: number;
+        walletBalancePaise: any;
         summary: {
-            grossRevenuePaise: number;
-            refundedPaise: number;
+            grossRevenuePaise: any;
+            refundedPaise: any;
             netRevenuePaise: number;
         };
     }>;

@@ -7,49 +7,7 @@ export declare class MerchantLogisticsController {
     constructor(prisma: PrismaService, orchestrator: DeliveryOrchestratorService);
     getShipment(user: RequestUser, orderId: string): Promise<{
         success: boolean;
-        data: {
-            provider: {
-                type: import("@prisma/client").$Enums.DeliveryProviderType;
-                name: string;
-            };
-            events: {
-                id: string;
-                createdAt: Date;
-                occurredAt: Date;
-                description: string | null;
-                lat: number | null;
-                lng: number | null;
-                shipmentId: string;
-                providerStatus: string | null;
-                normalizedStatus: import("@prisma/client").$Enums.ShipmentProviderStatus;
-                rawPayload: import("@prisma/client/runtime/library").JsonValue | null;
-            }[];
-        } & {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            cancelledAt: Date | null;
-            vehicleType: string | null;
-            orderId: string;
-            estimatedArrivalAt: Date | null;
-            deliveredAt: Date | null;
-            providerType: import("@prisma/client").$Enums.DeliveryProviderType;
-            deliveryId: string | null;
-            trackingNumber: string | null;
-            externalShipmentId: string | null;
-            estimatedEtaMins: number | null;
-            providerStatus: string | null;
-            rawResponse: import("@prisma/client/runtime/library").JsonValue | null;
-            deliveryCost: import("@prisma/client/runtime/library").Decimal | null;
-            normalizedStatus: import("@prisma/client").$Enums.ShipmentProviderStatus;
-            driverName: string | null;
-            driverPhone: string | null;
-            labelUrl: string | null;
-            podUrl: string | null;
-            providerId: string;
-            retryCount: number;
-            lastError: string | null;
-        };
+        data: any;
     }>;
     cancelShipment(user: RequestUser, orderId: string, body: {
         reason?: string;

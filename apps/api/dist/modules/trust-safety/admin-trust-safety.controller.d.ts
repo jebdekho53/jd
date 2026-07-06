@@ -13,64 +13,27 @@ export declare class AdminTrustSafetyController {
         success: boolean;
         data: {
             metrics: {
-                openCases: number;
-                blockedUsers: number;
-                blockedMerchants: number;
-                activeRestrictions: number;
-                fraudPrevented: number;
-                walletAbusePrevented: number;
-                referralAbusePrevented: number;
-                codLossAvoided: number;
+                openCases: any;
+                blockedUsers: any;
+                blockedMerchants: any;
+                activeRestrictions: any;
+                fraudPrevented: any;
+                walletAbusePrevented: any;
+                referralAbusePrevented: any;
+                codLossAvoided: any;
             };
-            alerts: {
-                message: string;
-                id: string;
-                status: string;
-                metadata: import("@prisma/client/runtime/library").JsonValue | null;
-                createdAt: Date;
-                severity: string;
-                title: string;
-                resolvedAt: Date | null;
-                alertType: import("@prisma/client").$Enums.TrustAlertType;
-            }[];
+            alerts: any;
         };
     }>;
     listAlerts(): Promise<{
         success: boolean;
-        data: {
-            message: string;
-            id: string;
-            status: string;
-            metadata: import("@prisma/client/runtime/library").JsonValue | null;
-            createdAt: Date;
-            severity: string;
-            title: string;
-            resolvedAt: Date | null;
-            alertType: import("@prisma/client").$Enums.TrustAlertType;
-        }[];
+        data: any;
     }>;
     fraudCases(query: ListTrustQueryDto): Promise<{
         success: boolean;
         data: {
-            items: {
-                category: import("@prisma/client").$Enums.FraudCaseCategory;
-                idempotencyKey: string | null;
-                id: string;
-                status: import("@prisma/client").$Enums.FraudCaseStatus;
-                createdAt: Date;
-                userId: string | null;
-                updatedAt: Date;
-                description: string;
-                severity: string;
-                subjectType: string | null;
-                subjectId: string | null;
-                caseNumber: string;
-                title: string;
-                resolvedAt: Date | null;
-                resolvedBy: string | null;
-                resolution: string | null;
-            }[];
-            total: number;
+            items: any;
+            total: any;
             page: number;
             limit: number;
         };
@@ -78,25 +41,8 @@ export declare class AdminTrustSafetyController {
     fraudCasesByCategory(category: FraudCaseCategory, query: ListTrustQueryDto): Promise<{
         success: boolean;
         data: {
-            items: {
-                category: import("@prisma/client").$Enums.FraudCaseCategory;
-                idempotencyKey: string | null;
-                id: string;
-                status: import("@prisma/client").$Enums.FraudCaseStatus;
-                createdAt: Date;
-                userId: string | null;
-                updatedAt: Date;
-                description: string;
-                severity: string;
-                subjectType: string | null;
-                subjectId: string | null;
-                caseNumber: string;
-                title: string;
-                resolvedAt: Date | null;
-                resolvedBy: string | null;
-                resolution: string | null;
-            }[];
-            total: number;
+            items: any;
+            total: any;
             page: number;
             limit: number;
         };
@@ -104,23 +50,8 @@ export declare class AdminTrustSafetyController {
     riskProfiles(query: ListTrustQueryDto): Promise<{
         success: boolean;
         data: {
-            items: {
-                id: string;
-                status: import("@prisma/client").$Enums.RiskProfileStatus;
-                metadata: import("@prisma/client/runtime/library").JsonValue | null;
-                createdAt: Date;
-                userId: string;
-                updatedAt: Date;
-                riskScore: number;
-                trustScore: number;
-                fraudScore: number;
-                codEnabled: boolean;
-                walletFrozen: boolean;
-                referralFrozen: boolean;
-                couponFrozen: boolean;
-                lastEvaluatedAt: Date | null;
-            }[];
-            total: number;
+            items: any;
+            total: any;
             page: number;
             limit: number;
         };
@@ -128,19 +59,8 @@ export declare class AdminTrustSafetyController {
     blocked(query: ListTrustQueryDto): Promise<{
         success: boolean;
         data: {
-            items: {
-                id: string;
-                createdAt: Date;
-                expiresAt: Date | null;
-                userId: string;
-                reason: string;
-                active: boolean;
-                restrictionType: import("@prisma/client").$Enums.AccountRestrictionType;
-                appliedBy: string | null;
-                liftedAt: Date | null;
-                liftedBy: string | null;
-            }[];
-            total: number;
+            items: any;
+            total: any;
             page: number;
             limit: number;
         };
@@ -153,24 +73,7 @@ export declare class AdminTrustSafetyController {
     }>;
     resolveCase(user: RequestUser, id: string, resolution: string, dismiss?: boolean): Promise<{
         success: boolean;
-        data: {
-            category: import("@prisma/client").$Enums.FraudCaseCategory;
-            idempotencyKey: string | null;
-            id: string;
-            status: import("@prisma/client").$Enums.FraudCaseStatus;
-            createdAt: Date;
-            userId: string | null;
-            updatedAt: Date;
-            description: string;
-            severity: string;
-            subjectType: string | null;
-            subjectId: string | null;
-            caseNumber: string;
-            title: string;
-            resolvedAt: Date | null;
-            resolvedBy: string | null;
-            resolution: string | null;
-        };
+        data: any;
     }>;
     enableCod(user: RequestUser, dto: EnableCodDto): Promise<{
         success: boolean;
@@ -180,16 +83,6 @@ export declare class AdminTrustSafetyController {
     }>;
     resolveAlert(id: string): Promise<{
         success: boolean;
-        data: {
-            message: string;
-            id: string;
-            status: string;
-            metadata: import("@prisma/client/runtime/library").JsonValue | null;
-            createdAt: Date;
-            severity: string;
-            title: string;
-            resolvedAt: Date | null;
-            alertType: import("@prisma/client").$Enums.TrustAlertType;
-        };
+        data: any;
     }>;
 }

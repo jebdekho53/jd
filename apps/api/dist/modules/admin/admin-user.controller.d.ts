@@ -5,34 +5,18 @@ export declare class AdminUserController {
     private readonly users;
     constructor(users: AdminUserService);
     list(dto: ListAdminUsersDto): Promise<{
-        data: {
-            id: string;
-            phone: string;
-            email: string | null;
-            status: import("@prisma/client").$Enums.UserStatus;
-            roles: import("@prisma/client").$Enums.RoleName[];
-            createdAt: Date;
-            lastLoginAt: Date | null;
-        }[];
+        data: any;
         meta: {
             page: number;
             limit: number;
-            total: number;
+            total: any;
             totalPages: number;
         };
         success: boolean;
     }>;
     suspend(id: string, _dto: SuspendAdminUserDto): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            phone: string;
-            email: string | null;
-            status: import("@prisma/client").$Enums.UserStatus;
-            roles: import("@prisma/client").$Enums.RoleName[];
-            createdAt: Date;
-            lastLoginAt: Date | null;
-        };
+        data: any;
     }>;
     deleteUser(id: string): Promise<{
         success: boolean;

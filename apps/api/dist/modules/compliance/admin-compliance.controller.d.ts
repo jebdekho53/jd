@@ -22,63 +22,21 @@ export declare class AdminComplianceController {
     }>;
     taxRates(): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            isActive: boolean;
-            slab: import("@prisma/client").$Enums.GstSlab;
-            cgstRate: import("@prisma/client/runtime/library").Decimal;
-            sgstRate: import("@prisma/client/runtime/library").Decimal;
-            igstRate: import("@prisma/client/runtime/library").Decimal;
-            totalRate: import("@prisma/client/runtime/library").Decimal;
-        }[];
+        data: any;
     }>;
     jurisdictions(): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            createdAt: Date;
-            isActive: boolean;
-            stateCode: string;
-            stateName: string;
-        }[];
+        data: any;
     }>;
     hsn(q?: string): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            createdAt: Date;
-            description: string;
-            code: string;
-            isActive: boolean;
-            defaultGstSlab: import("@prisma/client").$Enums.GstSlab;
-        }[];
+        data: any;
     }>;
     listInvoices(query: ListComplianceQueryDto): Promise<{
         success: boolean;
         data: {
-            items: {
-                id: string;
-                invoiceNumber: string;
-                orderId: string;
-                orderNumber: string | undefined;
-                storeName: string | undefined;
-                status: string;
-                supplyType: string;
-                supplierGstin: string | null;
-                taxableAmount: number;
-                cgstAmount: number;
-                sgstAmount: number;
-                igstAmount: number;
-                totalTax: number;
-                grandTotal: number;
-                deliveryFee: number;
-                invoiceDate: Date;
-                emailedAt: Date | null;
-                isImmutable: boolean;
-            }[];
-            total: number;
+            items: any;
+            total: any;
             page: number;
             limit: number;
         };
@@ -110,30 +68,8 @@ export declare class AdminComplianceController {
     listCreditNotes(query: ListComplianceQueryDto): Promise<{
         success: boolean;
         data: {
-            items: ({
-                invoice: {
-                    invoiceNumber: string;
-                };
-            } & {
-                id: string;
-                status: import("@prisma/client").$Enums.CreditNoteStatus;
-                createdAt: Date;
-                reason: string;
-                orderId: string;
-                invoiceId: string;
-                taxableAmount: import("@prisma/client/runtime/library").Decimal;
-                cgstAmount: import("@prisma/client/runtime/library").Decimal;
-                sgstAmount: import("@prisma/client/runtime/library").Decimal;
-                igstAmount: import("@prisma/client/runtime/library").Decimal;
-                totalTax: import("@prisma/client/runtime/library").Decimal;
-                grandTotal: import("@prisma/client/runtime/library").Decimal;
-                pdfStorageKey: string | null;
-                emailedAt: Date | null;
-                creditNoteNumber: string;
-                isPartial: boolean;
-                issuedAt: Date;
-            })[];
-            total: number;
+            items: any;
+            total: any;
             page: number;
             limit: number;
         };
@@ -142,49 +78,20 @@ export declare class AdminComplianceController {
     listDebitNotes(query: ListComplianceQueryDto): Promise<{
         success: boolean;
         data: {
-            items: ({
-                merchantProfile: {
-                    businessName: string;
-                };
-            } & {
-                id: string;
-                status: import("@prisma/client").$Enums.DebitNoteStatus;
-                createdAt: Date;
-                reason: string;
-                orderId: string | null;
-                merchantProfileId: string;
-                invoiceId: string | null;
-                taxableAmount: import("@prisma/client/runtime/library").Decimal;
-                totalTax: import("@prisma/client/runtime/library").Decimal;
-                grandTotal: import("@prisma/client/runtime/library").Decimal;
-                issuedAt: Date;
-                debitNoteNumber: string;
-            })[];
-            total: number;
+            items: any;
+            total: any;
             page: number;
             limit: number;
         };
     }>;
     tds(month?: string): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            merchant: string;
-            periodMonth: string;
-            taxableAmount: number;
-            tdsRate: number;
-            tdsAmount: number;
-        }[];
+        data: any;
     }>;
     tcs(month?: string): Promise<{
         success: boolean;
         data: {
-            records: {
-                periodMonth: string;
-                gmvAmount: number;
-                tcsRate: number;
-                tcsAmount: number;
-            }[];
+            records: any;
             totalTcs: number;
         };
     }>;

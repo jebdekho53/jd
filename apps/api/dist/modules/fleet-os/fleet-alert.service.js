@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var FleetAlertService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FleetAlertService = void 0;
 const common_1 = require("@nestjs/common");
@@ -88,7 +89,6 @@ let FleetAlertService = FleetAlertService_1 = class FleetAlertService {
 exports.FleetAlertService = FleetAlertService;
 exports.FleetAlertService = FleetAlertService = FleetAlertService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        event_emitter_1.EventEmitter2])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, typeof (_a = typeof event_emitter_1.EventEmitter2 !== "undefined" && event_emitter_1.EventEmitter2) === "function" ? _a : Object])
 ], FleetAlertService);
 //# sourceMappingURL=fleet-alert.service.js.map

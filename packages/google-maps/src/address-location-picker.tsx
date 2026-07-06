@@ -103,6 +103,7 @@ export function AddressLocationPicker({
   const [geocoding, setGeocoding] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
+  const [placeViewport, setPlaceViewport] = useState<google.maps.LatLngBoundsLiteral | null>(null);
 
   const position = {
     lat: value.lat ?? MAP_INITIAL_VISUAL_CENTER.lat,
@@ -111,6 +112,7 @@ export function AddressLocationPicker({
 
   const applyParsed = useCallback(
     (parsed: ParsedGoogleAddress) => {
+      setPlaceViewport(parsed.viewport ?? null);
       onChange(fromParsed(parsed));
       if (parsed.line1 && onLine1Suggestion) onLine1Suggestion(parsed.line1);
     },
@@ -167,6 +169,7 @@ export function AddressLocationPicker({
 
   const handleMapMove = useCallback(
     async (coords: { lat: number; lng: number }) => {
+      setPlaceViewport(null);
       const parsed = await reverse(coords.lat, coords.lng);
       if (parsed) {
         applyParsed(parsed);
@@ -192,6 +195,7 @@ export function AddressLocationPicker({
     if (!onRequestLocation) return;
     setGpsLoading(true);
     setGpsError(null);
+    setPlaceViewport(null);
     try {
       const pos = await onRequestLocation();
       onChange({
@@ -238,6 +242,8 @@ export function AddressLocationPicker({
         onPositionChange={handleMapMove}
         disabled={geocoding}
         heightClassName={mapHeightClassName}
+        viewport={placeViewport}
+        address={value.formattedAddress || value.locality}
       />
   ) : null;
 
@@ -258,6 +264,14 @@ export function AddressLocationPicker({
               {value.state ? ` · ${value.state}` : ''}
               {value.pincode ? ` · PIN ${value.pincode}` : ' · Pincode pending'}
             </p>
+            {value.formattedAddress ? (
+              <p className="mt-1 text-xs text-slate-500">{value.formattedAddress}</p>
+            ) : null}
+            {typeof value.lat === 'number' && typeof value.lng === 'number' ? (
+              <p className="mt-1 text-xs text-slate-500">
+                Lat {value.lat.toFixed(6)} · Lng {value.lng.toFixed(6)}
+              </p>
+            ) : null}
           </div>
         )}
       </div>
@@ -275,6 +289,8 @@ export function AddressLocationPicker({
               disabled={geocoding}
               heightClassName="h-full"
               className="h-full"
+              viewport={placeViewport}
+              address={value.formattedAddress || value.locality}
             />
           </div>
         ) : (
@@ -339,6 +355,14 @@ export function AddressLocationPicker({
             {value.state ? ` · ${value.state}` : ''}
             {value.pincode ? ` · PIN ${value.pincode}` : ' · Pincode pending'}
           </p>
+          {value.formattedAddress ? (
+            <p className="mt-1 text-xs text-slate-500">{value.formattedAddress}</p>
+          ) : null}
+          {typeof value.lat === 'number' && typeof value.lng === 'number' ? (
+            <p className="mt-1 text-xs text-slate-500">
+              Lat {value.lat.toFixed(6)} · Lng {value.lng.toFixed(6)}
+            </p>
+          ) : null}
         </div>
       )}
     </div>

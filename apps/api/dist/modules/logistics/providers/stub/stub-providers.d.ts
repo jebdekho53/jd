@@ -1,6 +1,6 @@
 import type { ILogisticsProvider } from '../../interfaces/logistics-provider.interface';
 export declare class PorterProvider implements ILogisticsProvider {
-    readonly type: "PORTER";
+    readonly type: any;
     private notReady;
     createShipment(): never;
     cancelShipment(): never;
@@ -11,7 +11,7 @@ export declare class PorterProvider implements ILogisticsProvider {
     healthCheck(): never;
 }
 export declare class DelhiveryProvider implements ILogisticsProvider {
-    readonly type: "DELHIVERY";
+    readonly type: any;
     private notReady;
     createShipment(): never;
     cancelShipment(): never;
@@ -22,7 +22,7 @@ export declare class DelhiveryProvider implements ILogisticsProvider {
     healthCheck(): never;
 }
 export declare class BorzoProvider implements ILogisticsProvider {
-    readonly type: "BORZO";
+    readonly type: any;
     private notReady;
     createShipment(): never;
     cancelShipment(): never;

@@ -10,6 +10,7 @@ export interface ParsedGoogleAddress {
   lat: number;
   lng: number;
   googlePlaceId?: string;
+  viewport?: google.maps.LatLngBoundsLiteral;
 }
 
 type AddressComponent = google.maps.GeocoderAddressComponent;
@@ -86,6 +87,7 @@ export function parsePlaceResult(place: google.maps.places.PlaceResult): ParsedG
   return {
     ...parsed,
     googlePlaceId: place.place_id,
+    viewport: place.geometry?.viewport?.toJSON(),
   };
 }
 

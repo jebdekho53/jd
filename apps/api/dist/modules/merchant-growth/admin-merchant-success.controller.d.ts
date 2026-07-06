@@ -6,49 +6,18 @@ export declare class AdminMerchantSuccessController {
         success: boolean;
         data: {
             summary: {
-                storesTracked: number;
+                storesTracked: any;
                 avgHealthScore: number;
-                atRiskCount: number;
-                topPerformerCount: number;
-                expansionReadyCount: number;
-                fraudProneCount: number;
+                atRiskCount: any;
+                topPerformerCount: any;
+                expansionReadyCount: any;
+                fraudProneCount: any;
             };
-            atRisk: {
-                storeId: string;
-                storeName: string;
-                merchantName: string;
-                phone: string;
-                healthScore: number;
-                visibilityScore: number;
-            }[];
-            topPerformers: {
-                storeId: string;
-                storeName: string;
-                merchantName: string;
-                phone: string;
-                healthScore: number;
-                visibilityScore: number;
-            }[];
-            expansionReady: {
-                storeId: string;
-                storeName: string;
-                merchantName: string;
-                phone: string;
-                healthScore: number;
-                visibilityScore: number;
-            }[];
-            fraudProne: {
-                storeId: string;
-                storeName: string;
-                merchantName: string;
-                phone: string;
-                healthScore: number;
-                visibilityScore: number;
-            }[];
-            alertsByType: {
-                type: import("@prisma/client").$Enums.MerchantGrowthAlertType;
-                count: number;
-            }[];
+            atRisk: any;
+            topPerformers: any;
+            expansionReady: any;
+            fraudProne: any;
+            alertsByType: any;
         };
     }>;
 }

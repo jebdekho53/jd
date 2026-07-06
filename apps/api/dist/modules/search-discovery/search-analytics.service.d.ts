@@ -18,52 +18,26 @@ export declare class SearchAnalyticsService {
     constructor(prisma: PrismaService);
     track(input: TrackSearchEventInput): void;
     private sinceForPeriod;
-    getTrendingQueries(period: '24h' | '7d' | '30d', limit?: number): Promise<{
-        query: string;
-        count: number;
-    }[]>;
+    getTrendingQueries(period: '24h' | '7d' | '30d', limit?: number): Promise<any>;
     getAdminAnalytics(period?: '24h' | '7d' | '30d'): Promise<{
         period: "30d" | "7d" | "24h";
-        topSearches: {
-            query: string;
-            count: number;
-        }[];
-        noResultSearches: {
-            query: string;
-            count: number;
-        }[];
-        lowConversionSearches: {
-            query: string;
-            searches: number;
-        }[];
+        topSearches: any;
+        noResultSearches: any;
+        lowConversionSearches: any;
         conversionRate: number;
         clickThroughRate: number;
-        trendingCategories: {
-            categoryId: string | null;
-            name: string;
-            count: number;
-        }[];
-        trendingStores: {
-            storeId: string | null;
-            name: string;
-            count: number;
-        }[];
+        trendingCategories: any;
+        trendingStores: any;
     }>;
     getMerchantInsights(storeId: string, period?: '7d' | '30d'): Promise<{
         period: "30d" | "7d";
-        impressions: number;
-        clicks: number;
+        impressions: any;
+        clicks: any;
         ctr: number;
-        addToCart: number;
-        orders: number;
+        addToCart: any;
+        orders: any;
         conversionRate: number;
-        topSearchedProducts: {
-            query: string;
-            count: number;
-        }[];
-        lostSearches: {
-            query: string;
-            count: number;
-        }[];
+        topSearchedProducts: any;
+        lostSearches: any;
     }>;
 }

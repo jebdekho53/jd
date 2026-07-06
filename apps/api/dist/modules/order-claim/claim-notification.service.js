@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var ClaimNotificationService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ClaimNotificationService = exports.CLAIM_EVENTS = void 0;
 const common_1 = require("@nestjs/common");
@@ -56,6 +57,6 @@ let ClaimNotificationService = ClaimNotificationService_1 = class ClaimNotificat
 exports.ClaimNotificationService = ClaimNotificationService;
 exports.ClaimNotificationService = ClaimNotificationService = ClaimNotificationService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [event_emitter_1.EventEmitter2])
+    __metadata("design:paramtypes", [typeof (_a = typeof event_emitter_1.EventEmitter2 !== "undefined" && event_emitter_1.EventEmitter2) === "function" ? _a : Object])
 ], ClaimNotificationService);
 //# sourceMappingURL=claim-notification.service.js.map

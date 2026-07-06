@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var TokenService_1;
+var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TokenService = void 0;
 const common_1 = require("@nestjs/common");
@@ -43,6 +44,13 @@ let TokenService = TokenService_1 = class TokenService {
                 this.logger.error('JWT_PUBLIC_KEY does NOT match JWT_PRIVATE_KEY — all authenticated requests will fail with 401. Fix the key pair before serving traffic.');
             }
             else {
+                const payload = Buffer.from('jwt-keypair-self-test');
+                const signature = (0, crypto_1.sign)('sha256', payload, priv);
+                const roundTripOk = (0, crypto_1.verify)('sha256', payload, pub, signature);
+                if (!roundTripOk) {
+                    this.logger.error('JWT keypair self-test sign/verify failed — authenticated requests may fail with 401.');
+                    return;
+                }
                 this.logger.log('JWT keypair self-test passed');
             }
         }
@@ -255,8 +263,6 @@ exports.TokenService = TokenService;
 exports.TokenService = TokenService = TokenService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        redis_service_1.RedisService,
-        jwt_1.JwtService,
-        config_1.ConfigService])
+        redis_service_1.RedisService, typeof (_a = typeof jwt_1.JwtService !== "undefined" && jwt_1.JwtService) === "function" ? _a : Object, typeof (_b = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _b : Object])
 ], TokenService);
 //# sourceMappingURL=token.service.js.map

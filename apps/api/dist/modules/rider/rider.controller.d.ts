@@ -15,7 +15,7 @@ export declare class RiderController {
     updateStatus(user: RequestUser, dto: UpdateRiderStatusDto): Promise<{
         success: boolean;
         data: {
-            status: import("@prisma/client").$Enums.RiderStatus;
+            status: RiderStatus;
         };
     }>;
     updateLocation(user: RequestUser, dto: UpdateRiderLocationDto): Promise<{
@@ -27,114 +27,17 @@ export declare class RiderController {
     }>;
     listOrders(user: RequestUser): Promise<{
         success: boolean;
-        data: ({
-            order: {
-                store: {
-                    id: string;
-                    name: string;
-                    phone: string | null;
-                    latitude: number;
-                    longitude: number;
-                };
-                id: string;
-                status: import("@prisma/client").$Enums.OrderStatus;
-                deliveryAddress: import("@prisma/client/runtime/library").JsonValue;
-                paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
-                orderNumber: string;
-                totalAmount: import("@prisma/client/runtime/library").Decimal;
-                buyerNote: string | null;
-            };
-        } & {
-            id: string;
-            status: import("@prisma/client").$Enums.DeliveryStatus;
-            createdAt: Date;
-            updatedAt: Date;
-            assignedAt: Date | null;
-            assignedBy: string | null;
-            deliveryLat: number;
-            deliveryLng: number;
-            orderId: string;
-            riderProfileId: string | null;
-            fulfillmentStoreId: string | null;
-            pickupLat: number;
-            pickupLng: number;
-            distanceKm: number | null;
-            estimatedMins: number | null;
-            estimatedArrivalAt: Date | null;
-            arrivedAtStoreAt: Date | null;
-            pickedUpAt: Date | null;
-            arrivedAtCustomerAt: Date | null;
-            deliveredAt: Date | null;
-            deliveryProofUrl: string | null;
-            riderEarning: import("@prisma/client/runtime/library").Decimal | null;
-        })[];
+        data: any;
     }>;
     getOrder(user: RequestUser, orderId: string): Promise<{
         success: boolean;
-        data: {
-            order: {
-                store: {
-                    id: string;
-                    name: string;
-                    phone: string | null;
-                    latitude: number;
-                    longitude: number;
-                };
-                id: string;
-                status: import("@prisma/client").$Enums.OrderStatus;
-                items: {
-                    productName: string;
-                    variantName: string;
-                    quantity: number;
-                }[];
-                deliveryAddress: import("@prisma/client/runtime/library").JsonValue;
-                paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
-                deliveryLat: number;
-                deliveryLng: number;
-                orderNumber: string;
-                totalAmount: import("@prisma/client/runtime/library").Decimal;
-                buyerNote: string | null;
-            };
-            assignments: {
-                id: string;
-                status: import("@prisma/client").$Enums.AssignmentStatus;
-                expiresAt: Date;
-                assignedBy: string | null;
-                riderProfileId: string;
-                deliveryId: string;
-                offeredAt: Date;
-                respondedAt: Date | null;
-            }[];
-        } & {
-            id: string;
-            status: import("@prisma/client").$Enums.DeliveryStatus;
-            createdAt: Date;
-            updatedAt: Date;
-            assignedAt: Date | null;
-            assignedBy: string | null;
-            deliveryLat: number;
-            deliveryLng: number;
-            orderId: string;
-            riderProfileId: string | null;
-            fulfillmentStoreId: string | null;
-            pickupLat: number;
-            pickupLng: number;
-            distanceKm: number | null;
-            estimatedMins: number | null;
-            estimatedArrivalAt: Date | null;
-            arrivedAtStoreAt: Date | null;
-            pickedUpAt: Date | null;
-            arrivedAtCustomerAt: Date | null;
-            deliveredAt: Date | null;
-            deliveryProofUrl: string | null;
-            riderEarning: import("@prisma/client/runtime/library").Decimal | null;
-        };
+        data: any;
     }>;
     acceptDelivery(user: RequestUser, orderId: string, ip: string): Promise<{
         success: boolean;
         data: {
-            deliveryId: string;
-            status: "ACCEPTED";
+            deliveryId: any;
+            status: any;
         };
     }>;
     rejectDelivery(user: RequestUser, orderId: string): Promise<{
@@ -143,36 +46,36 @@ export declare class RiderController {
     arrivedAtStore(user: RequestUser, orderId: string, ip: string): Promise<{
         success: boolean;
         data: {
-            deliveryId: string;
-            status: "ARRIVED_AT_STORE";
+            deliveryId: any;
+            status: any;
         };
     }>;
     pickedUp(user: RequestUser, orderId: string, ip: string): Promise<{
         success: boolean;
         data: {
-            deliveryId: string;
-            status: "PICKED_UP";
+            deliveryId: any;
+            status: any;
         };
     }>;
     arrivedAtCustomer(user: RequestUser, orderId: string, ip: string): Promise<{
         success: boolean;
         data: {
-            deliveryId: string;
-            status: "ARRIVED_AT_CUSTOMER";
+            deliveryId: any;
+            status: any;
         };
     }>;
     markDelivered(user: RequestUser, orderId: string, ip: string): Promise<{
         success: boolean;
         data: {
-            deliveryId: string;
-            status: "DELIVERED";
+            deliveryId: any;
+            status: any;
         };
     }>;
     markFailed(user: RequestUser, orderId: string, dto: FailDeliveryDto, ip: string): Promise<{
         success: boolean;
         data: {
-            deliveryId: string;
-            status: "FAILED";
+            deliveryId: any;
+            status: any;
         };
     }>;
 }

@@ -7,14 +7,14 @@ export declare class MerchantLoyaltyController {
         success: boolean;
         data: {
             storeId: string;
-            totalOrders: number;
+            totalOrders: any;
             uniqueCustomers: number;
             repeatCustomers: number;
             loyaltyMembers: number;
-            walletRedemptions: number;
-            pointsRedemptions: number;
+            walletRedemptions: any;
+            pointsRedemptions: any;
             revenueFromLoyaltyUsers: number;
-            totalRevenue: number;
+            totalRevenue: any;
         };
     }>;
     private assertStoreOwned;

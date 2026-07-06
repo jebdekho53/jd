@@ -6,52 +6,38 @@ export declare class AdminDashboardController {
     getOverview(): Promise<{
         success: boolean;
         data: {
-            totalOrders: number;
-            ordersToday: number;
+            totalOrders: any;
+            ordersToday: any;
             gmvToday: number;
             gmvThisMonth: number;
-            totalUsers: number;
-            totalBuyers: number;
-            totalMerchants: number;
-            totalRiders: number;
-            totalStores: number;
-            activeStores: number;
-            approvedStores: number;
-            pendingStores: number;
-            rejectedStores: number;
-            activeRiders: number;
-            onlineRiders: number;
-            newUsersToday: number;
-            cancelledOrdersToday: number;
-            failedPayments: number;
+            totalUsers: any;
+            totalBuyers: any;
+            totalMerchants: any;
+            totalRiders: any;
+            totalStores: any;
+            activeStores: any;
+            approvedStores: any;
+            pendingStores: any;
+            rejectedStores: any;
+            activeRiders: any;
+            onlineRiders: any;
+            newUsersToday: any;
+            cancelledOrdersToday: any;
+            failedPayments: any;
             platformRevenue: number;
             storeStatusBreakdown: {
-                [k: string]: number;
+                [k: string]: any;
             };
         };
     }>;
     getOrders(query: AdminDashboardOrdersQueryDto): Promise<{
         success: boolean;
         data: {
-            orders: {
-                id: string;
-                orderNumber: string;
-                buyer: string;
-                store: string;
-                storeId: string;
-                merchant: string;
-                city: string;
-                rider: string | null;
-                riderId: string | null;
-                amount: number;
-                status: import("@prisma/client").$Enums.OrderStatus;
-                createdAt: string;
-                deliveryEta: number | null;
-            }[];
+            orders: any;
             meta: {
                 page: number;
                 limit: number;
-                total: number;
+                total: any;
                 totalPages: number;
             };
         };
@@ -60,23 +46,13 @@ export declare class AdminDashboardController {
         success: boolean;
         data: {
             summary: {
-                [k: string]: number;
+                [k: string]: any;
             };
-            stores: {
-                id: string;
-                name: string;
-                merchant: string;
-                gst: string | null;
-                kycStatus: import("@prisma/client").$Enums.KycStatus;
-                status: import("@prisma/client").$Enums.StoreStatus;
-                appliedAt: string | null;
-                documentCount: number;
-                riskScore: number;
-            }[];
+            stores: any;
             meta: {
                 page: number;
                 limit: number;
-                total: number;
+                total: any;
                 totalPages: number;
             };
         };
@@ -84,95 +60,65 @@ export declare class AdminDashboardController {
     getRiders(): Promise<{
         success: boolean;
         data: {
-            online: number;
-            offline: number;
-            busy: number;
-            available: number;
-            pendingKyc: number;
-            rejectedKyc: number;
-            riders: {
-                id: string;
-                name: string;
-                phone: string;
-                status: import("@prisma/client").$Enums.RiderStatus;
-                kycStatus: import("@prisma/client").$Enums.KycStatus;
-                currentOrder: string;
-            }[];
+            online: any;
+            offline: any;
+            busy: any;
+            available: any;
+            pendingKyc: any;
+            rejectedKyc: any;
+            riders: any;
         };
     }>;
     getUnassigned(): Promise<{
         success: boolean;
         data: {
-            count: number;
-            availableRiders: number;
-            orders: {
-                id: string;
-                orderNumber: string;
-                store: string;
-                zone: string;
-                amount: number;
-                waitingSince: string;
-            }[];
+            count: any;
+            availableRiders: any;
+            orders: any;
         };
     }>;
     getPayments(): Promise<{
         success: boolean;
         data: {
-            codOrdersToday: number;
-            paidOrdersToday: number;
-            failedPayments: number;
-            refunds: number;
-            revenueTrend: {
-                date: string;
-                revenue: number;
-            }[];
+            codOrdersToday: any;
+            paidOrdersToday: any;
+            failedPayments: any;
+            refunds: any;
+            revenueTrend: any;
         };
     }>;
     getCustomers(): Promise<{
         success: boolean;
         data: {
-            usersToday: number;
-            activeUsers: number;
+            usersToday: any;
+            activeUsers: any;
             repeatBuyers: number;
-            suspiciousUsers: number;
-            refundRequests: number;
+            suspiciousUsers: any;
+            refundRequests: any;
         };
     }>;
     getCategories(): Promise<{
         success: boolean;
         data: {
-            totalCategories: number;
-            totalSubcategories: number;
+            totalCategories: any;
+            totalSubcategories: any;
             categoryRequests: {
-                [k: string]: number;
+                [k: string]: any;
             };
-            pendingRequests: number;
-            approvedRequests: number;
-            topCategories: {
-                categoryId: string | null;
-                name: string;
-                productCount: number;
-            }[];
-            storesPerCategory: {
-                categoryId: string;
-                name: string;
-                storeCount: number;
-            }[];
+            pendingRequests: any;
+            approvedRequests: any;
+            topCategories: any;
+            storesPerCategory: any;
         };
     }>;
     getFraudRisk(): Promise<{
         success: boolean;
         data: {
-            rejectedMerchants: number;
-            blockedUsers: number;
-            failedVerifications: number;
-            duplicateAccounts: number;
-            riskEvents: {
-                id: string;
-                type: string;
-                resource: string;
-                at: string;
-            }[];
+            rejectedMerchants: any;
+            blockedUsers: any;
+            failedVerifications: any;
+            duplicateAccounts: any;
+            riskEvents: any;
         };
     }>;
     getSystemHealth(): Promise<{
@@ -182,7 +128,7 @@ export declare class AdminDashboardController {
             database: "up" | "down";
             redis: "up" | "down";
             queueHealth: string;
-            pendingCheckouts: number;
+            pendingCheckouts: any;
             websocket: string;
             backgroundJobs: string;
             cronStatus: string;

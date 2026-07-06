@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var _a, _b, _c;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ScheduleCallDto = exports.RequestApplicationChangesDto = exports.RequestApplicationDocumentsDto = exports.RejectApplicationDto = exports.ListMerchantApplicationsDto = exports.FranchiseLeadDto = exports.ValidateGstDto = exports.SaveBankAccountDto = exports.UploadMerchantDocumentDto = exports.UpdateOnboardingStepDto = exports.PickupAddressDto = exports.ResolveStoreLocationDto = void 0;
 const openapi = require("@nestjs/swagger");
@@ -169,7 +170,7 @@ exports.UpdateOnboardingStepDto = UpdateOnboardingStepDto;
 __decorate([
     (0, swagger_1.ApiProperty)({ enum: client_1.MerchantOnboardingStepKey }),
     (0, class_validator_1.IsEnum)(client_1.MerchantOnboardingStepKey),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_a = typeof client_1.MerchantOnboardingStepKey !== "undefined" && client_1.MerchantOnboardingStepKey) === "function" ? _a : Object)
 ], UpdateOnboardingStepDto.prototype, "stepKey", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
@@ -228,7 +229,7 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.MerchantBusinessType }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.MerchantBusinessType),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_b = typeof client_1.MerchantBusinessType !== "undefined" && client_1.MerchantBusinessType) === "function" ? _b : Object)
 ], UpdateOnboardingStepDto.prototype, "businessType", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ type: [String], description: 'Multiple business verticals (super-app)' }),
@@ -522,7 +523,7 @@ exports.UploadMerchantDocumentDto = UploadMerchantDocumentDto;
 __decorate([
     (0, swagger_1.ApiProperty)({ enum: client_1.MerchantDocumentType }),
     (0, class_validator_1.IsEnum)(client_1.MerchantDocumentType),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_c = typeof client_1.MerchantDocumentType !== "undefined" && client_1.MerchantDocumentType) === "function" ? _c : Object)
 ], UploadMerchantDocumentDto.prototype, "documentType", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
