@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "prebuild": "pnpm -C ../.. db:generate",
+    "prebuild": "prisma generate --schema=../../prisma/schema.prisma",
     "build": "rm -rf dist tsconfig.build.tsbuildinfo tsconfig.tsbuildinfo && nest build",
     "dev": "nest start --watch",
     "start": "node dist/main",

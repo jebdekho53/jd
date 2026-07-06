@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { RoleName, UserStatus } from '@prisma/client';
-import { createHash, createPublicKey, randomBytes } from 'crypto';
+import { createHash, createPublicKey, randomBytes, sign, verify } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
@@ -61,6 +61,13 @@ export class TokenService implements OnModuleInit {
           'JWT_PUBLIC_KEY does NOT match JWT_PRIVATE_KEY — all authenticated requests will fail with 401. Fix the key pair before serving traffic.',
         );
       } else {
+        const payload = Buffer.from('jwt-keypair-self-test');
+        const signature = sign('sha256', payload, priv);
+        const roundTripOk = verify('sha256', payload, pub, signature);
+        if (!roundTripOk) {
+          this.logger.error('JWT keypair self-test sign/verify failed — authenticated requests may fail with 401.');
+          return;
+        }
         this.logger.log('JWT keypair self-test passed');
       }
     } catch (err) {
