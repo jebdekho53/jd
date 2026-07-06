@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
-import { Button, Input } from '@/design-system/primitives';
+import { Button, Input, PasswordInput } from '@/design-system/primitives';
 import { useToast } from '@/design-system/primitives';
 import { AuthShell } from '@/features/auth/components/auth-shell';
 import { AuthTabs, MobileOtpComingSoonBanner } from '@/features/auth/components/auth-tabs';
@@ -220,16 +220,14 @@ export function ForgotPasswordPageContent() {
               <OtpInput value={otp} onChange={setOtp} disabled={resetPassword.isPending} />
             </>
           )}
-          <Input
+          <PasswordInput
             label="New Password"
-            type="password"
             autoComplete="new-password"
             error={resetForm.formState.errors.newPassword?.message}
             {...resetForm.register('newPassword')}
           />
-          <Input
+          <PasswordInput
             label="Confirm Password"
-            type="password"
             autoComplete="new-password"
             error={resetForm.formState.errors.confirmPassword?.message}
             {...resetForm.register('confirmPassword')}

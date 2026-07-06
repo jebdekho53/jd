@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useUiModalsStore } from '@/store/ui-modals-store';
 import { useSessionQuery } from '@/hooks/use-auth';
-import { Modal, Button, Input, useToast } from '@/design-system';
+import { Modal, Button, Input, PasswordInput, useToast } from '@/design-system';
 import { adminFetch } from '@/services/api/admin-client';
 
 type Method = 'password' | 'otp';
@@ -165,10 +165,10 @@ export function StepUpModal() {
 
         <form onSubmit={handleVerify} className="space-y-4">
           {method === 'password' ? (
-            <Input
+            <PasswordInput
               ref={passwordRef}
               label="Password"
-              type="password"
+              autoComplete="current-password"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

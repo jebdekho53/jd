@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Monitor, Shield, User } from 'lucide-react';
-import { Button, Input, useToast } from '@/design-system';
+import { Button, Input, PasswordInput, useToast } from '@/design-system';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import {
   useAdminSessionsQuery,
@@ -118,21 +118,21 @@ export function SecuritySettingsContent() {
             Changing your password will sign you out of all devices.
           </p>
           <div className="grid gap-4">
-            <Input
+            <PasswordInput
               label="Current password"
-              type="password"
+              autoComplete="current-password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
             />
-            <Input
+            <PasswordInput
               label="New password"
-              type="password"
+              autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />
-            <Input
+            <PasswordInput
               label="Confirm new password"
-              type="password"
+              autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />

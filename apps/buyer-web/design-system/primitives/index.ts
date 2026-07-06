@@ -1,5 +1,6 @@
 export { Button } from './button';
 export { Input } from './input';
+export { PasswordInput } from './password-input';
 export { Badge } from './badge';
 export { Card, CardHeader, CardBody } from './card';
 export { Text } from './text';
