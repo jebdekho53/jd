@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Button, Input } from '@/design-system/primitives';
+import { Button, Input, PasswordInput } from '@/design-system/primitives';
 import { useToast } from '@/design-system/primitives';
 import { AuthShell } from '@/features/auth/components/auth-shell';
 import { AuthTabs, MobileOtpComingSoonBanner } from '@/features/auth/components/auth-tabs';
@@ -278,17 +278,15 @@ export function SignupPageContent() {
             error={emailForm.formState.errors.email?.message}
             {...emailForm.register('email')}
           />
-          <Input
+          <PasswordInput
             label="Password"
-            type="password"
             autoComplete="new-password"
             placeholder="At least 8 characters"
             error={emailForm.formState.errors.password?.message}
             {...emailForm.register('password')}
           />
-          <Input
+          <PasswordInput
             label="Confirm Password"
-            type="password"
             autoComplete="new-password"
             placeholder="Re-enter password"
             error={emailForm.formState.errors.confirmPassword?.message}

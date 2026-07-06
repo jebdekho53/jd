@@ -1,6 +1,7 @@
 export { Button } from './button';
 export type { ButtonProps } from './button';
 export { Input } from './input';
+export { PasswordInput } from './password-input';
 export { Textarea } from './textarea';
 export { Select } from './select';
 export { Badge } from './badge';

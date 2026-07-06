@@ -1,6 +1,7 @@
 export { Button } from './button';
 export type { ButtonProps } from './button';
 export { Input } from './input';
+export { PasswordInput } from './password-input';
 export { Table, THead, TBody, Tr, Th, Td } from './table';
 export { Badge } from './badge';
 export type { BadgeProps } from './badge';

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useUiModalsStore } from '@/store/ui-modals-store';
 import { useAuthStore } from '@/store/auth-store';
-import { Modal, Button, Input } from '@/design-system/primitives';
+import { Modal, Button, Input, PasswordInput } from '@/design-system/primitives';
 import { useToast } from '@/design-system/primitives';
 import { requestOtp } from '@/services/auth/auth-api';
 import { getDeviceId } from '@/lib/device-id';
@@ -164,10 +164,10 @@ export function StepUpModal() {
 
         <form onSubmit={handleVerify} className="space-y-4">
           {method === 'password' ? (
-            <Input
+            <PasswordInput
               ref={passwordRef}
               label="Password"
-              type="password"
+              autoComplete="current-password"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

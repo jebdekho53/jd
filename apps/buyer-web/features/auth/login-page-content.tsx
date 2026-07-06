@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
-import { Button, Input } from '@/design-system/primitives';
+import { Button, Input, PasswordInput } from '@/design-system/primitives';
 import { useToast } from '@/design-system/primitives';
 import { AuthShell } from '@/features/auth/components/auth-shell';
 import { AuthTabs, MobileOtpComingSoonBanner } from '@/features/auth/components/auth-tabs';
@@ -251,9 +251,8 @@ export function LoginPageContent() {
             error={emailForm.formState.errors.email?.message}
             {...emailForm.register('email')}
           />
-          <Input
+          <PasswordInput
             label="Password"
-            type="password"
             autoComplete="current-password"
             placeholder="Enter your password"
             error={emailForm.formState.errors.password?.message}

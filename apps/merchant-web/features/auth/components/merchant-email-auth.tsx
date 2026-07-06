@@ -6,7 +6,7 @@ import { getSiteUrl } from '@jebdekho/web-config';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Button, Input } from '@/design-system/primitives';
+import { Button, Input, PasswordInput } from '@/design-system/primitives';
 import { useToast } from '@/design-system/primitives';
 import { useEmailLoginMutation, useEmailSignupMutation } from '@/hooks/use-auth';
 import { ApiError } from '@/services/api/merchant-client';
@@ -130,9 +130,8 @@ export function MerchantEmailAuth({
             error={loginForm.formState.errors.email?.message}
             {...loginForm.register('email')}
           />
-          <Input
+          <PasswordInput
             label="Password"
-            type="password"
             autoComplete="current-password"
             placeholder="Enter your password"
             error={loginForm.formState.errors.password?.message}
@@ -174,17 +173,15 @@ export function MerchantEmailAuth({
             error={signupForm.formState.errors.email?.message}
             {...signupForm.register('email')}
           />
-          <Input
+          <PasswordInput
             label="Password"
-            type="password"
             autoComplete="new-password"
             placeholder="At least 8 characters"
             error={signupForm.formState.errors.password?.message}
             {...signupForm.register('password')}
           />
-          <Input
+          <PasswordInput
             label="Confirm password"
-            type="password"
             autoComplete="new-password"
             placeholder="Re-enter password"
             error={signupForm.formState.errors.confirmPassword?.message}

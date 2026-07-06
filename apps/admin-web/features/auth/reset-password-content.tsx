@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
-import { Button, Input, useToast } from '@/design-system';
+import { ArrowLeft } from 'lucide-react';
+import { Button, PasswordInput, useToast } from '@/design-system';
 import { useResetPasswordMutation } from '@/hooks/use-auth';
 
 export function ResetPasswordContent() {
@@ -16,7 +16,6 @@ export function ResetPasswordContent() {
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,29 +70,20 @@ export function ResetPasswordContent() {
         <p className="mt-1 text-sm text-slate-500">Choose a strong new password for your admin account.</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div className="relative">
-            <Input
-              label="New password"
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError('');
-              }}
-              placeholder="At least 8 characters"
-              error={error}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-[34px] text-slate-400 hover:text-slate-600"
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-          <Input
+          <PasswordInput
+            label="New password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setError('');
+            }}
+            placeholder="At least 8 characters"
+            error={error}
+          />
+          <PasswordInput
             label="Confirm password"
-            type={showPassword ? 'text' : 'password'}
+            autoComplete="new-password"
             value={confirm}
             onChange={(e) => {
               setConfirm(e.target.value);

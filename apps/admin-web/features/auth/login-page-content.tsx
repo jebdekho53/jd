@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Eye, EyeOff, Lock, Shield, Store, ShoppingBag, Bike, Users } from 'lucide-react';
-import { Button, Input, useToast } from '@/design-system';
+import { Lock, Shield, Store, ShoppingBag, Bike, Users } from 'lucide-react';
+import { Button, Input, PasswordInput, useToast } from '@/design-system';
 import { BrandLockup } from '@/components/brand/brand-lockup';
 import { useLoginMutation, useLoginStatsQuery, useSessionQuery } from '@/hooks/use-auth';
 import { isAdminUser } from '@/types/admin';
@@ -26,7 +26,6 @@ export function LoginPageContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   useEffect(() => {
@@ -159,28 +158,17 @@ export function LoginPageContent() {
               error={errors.email}
             />
 
-            <div className="relative">
-              <Input
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (errors.password) setErrors((p) => ({ ...p, password: undefined }));
-                }}
-                placeholder="••••••••"
-                error={errors.password}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-[34px] text-slate-400 hover:text-slate-600"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
+            <PasswordInput
+              label="Password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errors.password) setErrors((p) => ({ ...p, password: undefined }));
+              }}
+              placeholder="••••••••"
+              error={errors.password}
+            />
 
             <div className="flex items-center justify-between text-sm">
               <label className="flex cursor-pointer items-center gap-2 text-slate-600">
