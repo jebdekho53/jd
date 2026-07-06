@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var RiderLocationService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RiderLocationService = void 0;
 const common_1 = require("@nestjs/common");
@@ -116,8 +117,6 @@ __decorate([
 exports.RiderLocationService = RiderLocationService = RiderLocationService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        redis_service_1.RedisService,
-        event_emitter_1.EventEmitter2,
-        delivery_tracking_service_1.DeliveryTrackingService])
+        redis_service_1.RedisService, typeof (_a = typeof event_emitter_1.EventEmitter2 !== "undefined" && event_emitter_1.EventEmitter2) === "function" ? _a : Object, delivery_tracking_service_1.DeliveryTrackingService])
 ], RiderLocationService);
 //# sourceMappingURL=rider-location.service.js.map

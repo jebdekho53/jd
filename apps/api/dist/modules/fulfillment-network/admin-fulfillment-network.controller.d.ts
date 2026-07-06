@@ -5,80 +5,27 @@ export declare class AdminFulfillmentNetworkController {
     dashboard(): Promise<{
         success: boolean;
         data: {
-            activeNetworks: number;
-            darkStores: number;
-            pendingTransfers: number;
+            activeNetworks: any;
+            darkStores: any;
+            pendingTransfers: any;
             splitOrderRatio: number;
-            recentActivity: ({
-                store: {
-                    name: string;
-                } | null;
-                order: {
-                    orderNumber: string;
-                } | null;
-            } & {
-                id: string;
-                action: import("@prisma/client").$Enums.FulfillmentAuditAction;
-                metadata: import("@prisma/client/runtime/library").JsonValue | null;
-                createdAt: Date;
-                storeId: string | null;
-                orderId: string | null;
-                networkId: string | null;
-            })[];
+            recentActivity: any;
         };
     }>;
     transfers(): Promise<{
         success: boolean;
-        data: ({
-            items: {
-                id: string;
-                variantId: string;
-                sku: string;
-                quantity: number;
-                transferId: string;
-            }[];
-            fromStore: {
-                name: string;
-                storeType: import("@prisma/client").$Enums.StoreType;
-            };
-            toStore: {
-                name: string;
-                storeType: import("@prisma/client").$Enums.StoreType;
-            };
-        } & {
-            id: string;
-            status: import("@prisma/client").$Enums.InventoryTransferStatus;
-            completedAt: Date | null;
-            cancelledAt: Date | null;
-            notes: string | null;
-            merchantProfileId: string;
-            requestedAt: Date;
-            requestedBy: string;
-            approvedBy: string | null;
-            approvedAt: Date | null;
-            fromStoreId: string;
-            toStoreId: string;
-        })[];
+        data: any;
     }>;
     capacity(): Promise<{
         success: boolean;
-        data: {
-            storeId: string;
-            storeName: string;
-            storeType: import("@prisma/client").$Enums.StoreType;
-            lat: number;
-            lng: number;
-            currentLoadPct: number;
-            peakLoadPct: number;
-            backlogCount: number;
-        }[];
+        data: any;
     }>;
     sla(): Promise<{
         success: boolean;
         data: {
             fulfillmentSlaPct: number;
             avgEtaMins: number;
-            ordersDelivered7d: number;
+            ordersDelivered7d: any;
             pickTimeMins: number;
             packTimeMins: number;
         };

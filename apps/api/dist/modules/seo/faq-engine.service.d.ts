@@ -3,44 +3,16 @@ export declare class FaqEngineService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     seedDefaultFaqs(): Promise<void>;
-    listFeatured(limit?: number): Promise<{
-        category: string | null;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        cityId: string | null;
-        slug: string;
-        impressions: number;
-        clicks: number;
-        pageId: string | null;
-        question: string;
-        answer: string;
-        featured: boolean;
-        aeoScore: number;
-    }[]>;
+    listFeatured(limit?: number): Promise<any>;
     generateFeaturedAnswer(question: string, context?: string): Promise<{
-        answer: string;
+        answer: any;
         direct: boolean;
-        snippet: string;
+        snippet: any;
     }>;
     getAeoMetrics(): Promise<{
-        total: number;
-        featured: number;
-        avgAeoScore: number;
-        topFaqs: {
-            category: string | null;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            cityId: string | null;
-            slug: string;
-            impressions: number;
-            clicks: number;
-            pageId: string | null;
-            question: string;
-            answer: string;
-            featured: boolean;
-            aeoScore: number;
-        }[];
+        total: any;
+        featured: any;
+        avgAeoScore: any;
+        topFaqs: any;
     }>;
 }

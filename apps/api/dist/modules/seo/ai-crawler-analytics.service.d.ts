@@ -6,37 +6,16 @@ export declare class AiCrawlerAnalyticsService {
         userAgent?: string;
         path: string;
         ipAddress?: string;
-    }): Promise<{
-        path: string;
-        id: string;
-        ipAddress: string | null;
-        createdAt: Date;
-        crawlerUserAgent: string;
-        crawlerType: import("@prisma/client").$Enums.AiCrawlerType;
-        indexedEntityType: string | null;
-        indexedEntityId: string | null;
-    } | null>;
+    }): Promise<any>;
     getMetrics(sinceDays?: number): Promise<{
-        total: number;
-        byType: (import("@prisma/client").Prisma.PickEnumerable<import("@prisma/client").Prisma.AiCrawlerVisitGroupByOutputType, "crawlerType"[]> & {
-            _count: {
-                id: number;
-            };
-        })[];
-        topPaths: (import("@prisma/client").Prisma.PickEnumerable<import("@prisma/client").Prisma.AiCrawlerVisitGroupByOutputType, "path"[]> & {
-            _count: {
-                id: number;
-            };
-        })[];
-        indexedEntities: (import("@prisma/client").Prisma.PickEnumerable<import("@prisma/client").Prisma.AiCrawlerVisitGroupByOutputType, "indexedEntityType"[]> & {
-            _count: {
-                id: number;
-            };
-        })[];
+        total: any;
+        byType: any;
+        topPaths: any;
+        indexedEntities: any;
     }>;
     getCrawlHealth(): Promise<{
-        visitsLast24h: number;
-        activeAiEngines: number;
+        visitsLast24h: any;
+        activeAiEngines: any;
         health: string;
     }>;
 }

@@ -1,1 +1,1 @@
-export declare const AuditAction: (action: string) => import("@nestjs/common").CustomDecorator<string>;
+export declare const AuditAction: (action: string) => any;

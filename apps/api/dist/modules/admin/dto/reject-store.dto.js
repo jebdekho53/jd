@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RejectStoreDto = void 0;
 const openapi = require("@nestjs/swagger");
@@ -37,6 +38,6 @@ __decorate([
             'FRAUD, DUPLICATE_ACCOUNT, and POLICY_VIOLATION permanently blacklist the merchant.',
     }),
     (0, class_validator_1.IsEnum)(client_1.RejectionType),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_a = typeof client_1.RejectionType !== "undefined" && client_1.RejectionType) === "function" ? _a : Object)
 ], RejectStoreDto.prototype, "rejectionType", void 0);
 //# sourceMappingURL=reject-store.dto.js.map

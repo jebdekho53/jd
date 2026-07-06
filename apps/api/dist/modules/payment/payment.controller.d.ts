@@ -27,13 +27,13 @@ export declare class PaymentController {
         success: boolean;
         data: {
             success: boolean;
-            orderId: string;
-            orderNumber: string;
+            orderId: any;
+            orderNumber: any;
             message: string;
         } | {
             success: boolean;
-            orderId: string;
-            orderNumber: string;
+            orderId: any;
+            orderNumber: any;
             message?: undefined;
         };
     }>;
@@ -41,8 +41,8 @@ export declare class PaymentController {
         success: boolean;
         data: {
             success: boolean;
-            orderId: string;
-            orderNumber: string;
+            orderId: any;
+            orderNumber: any;
             message: string;
         };
     }>;

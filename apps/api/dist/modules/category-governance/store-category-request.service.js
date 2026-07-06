@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var StoreCategoryRequestService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StoreCategoryRequestService = void 0;
 const common_1 = require("@nestjs/common");
@@ -287,8 +288,6 @@ exports.StoreCategoryRequestService = StoreCategoryRequestService = StoreCategor
         verification_blocklist_service_1.VerificationBlocklistService,
         audit_service_1.AuditService,
         domain_events_service_1.DomainEventsService,
-        store_category_access_service_1.StoreCategoryAccessService,
-        config_1.ConfigService,
-        vertical_service_1.VerticalService])
+        store_category_access_service_1.StoreCategoryAccessService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object, vertical_service_1.VerticalService])
 ], StoreCategoryRequestService);
 //# sourceMappingURL=store-category-request.service.js.map

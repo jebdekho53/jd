@@ -6,15 +6,6 @@ export declare class AdminStoreGeoController {
     constructor(geo: GeospatialService);
     updateRadius(user: RequestUser, storeId: string, dto: UpdateStoreRadiusDto): Promise<{
         success: boolean;
-        data: {
-            updatedBy: string;
-            id: string;
-            name: string;
-            latitude: number;
-            longitude: number;
-            slug: string;
-            locality: string | null;
-            deliveryRadiusKm: number;
-        };
+        data: any;
     }>;
 }

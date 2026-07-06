@@ -5,16 +5,16 @@ export declare class FleetBalancingService {
     constructor(prisma: PrismaService);
     getBalanceSuggestions(): Promise<{
         from: {
-            city: string;
-            locality: string;
-            riders: number;
+            city: any;
+            locality: any;
+            riders: any;
         };
         to: {
-            city: string;
-            locality: string;
-            orders: number;
+            city: any;
+            locality: any;
+            orders: any;
         };
         ridersToMove: number;
     }[]>;
-    countOnlineRiders(): Promise<number>;
+    countOnlineRiders(): Promise<any>;
 }

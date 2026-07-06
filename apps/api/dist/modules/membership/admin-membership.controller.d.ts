@@ -7,37 +7,8 @@ export declare class AdminMembershipController {
     overview(): Promise<{
         success: boolean;
         data: {
-            metrics: {
-                mrr: number;
-                activeSubscribers: number;
-                churnRate: number;
-                retention: number;
-                freeDeliverySavings: number;
-            };
-            subscribers: ({
-                user: {
-                    phone: string;
-                };
-                plan: {
-                    id: string;
-                    name: string;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    active: boolean;
-                    monthlyPrice: import("@prisma/client/runtime/library").Decimal;
-                    yearlyPrice: import("@prisma/client/runtime/library").Decimal;
-                };
-            } & {
-                id: string;
-                status: import("@prisma/client").$Enums.MembershipSubscriptionStatus;
-                createdAt: Date;
-                expiresAt: Date;
-                userId: string;
-                updatedAt: Date;
-                buyerProfileId: string | null;
-                planId: string;
-                startedAt: Date;
-            })[];
+            metrics: any;
+            subscribers: any;
         };
     }>;
 }
@@ -48,7 +19,7 @@ export declare class AdminMembershipAnalyticsController {
         success: boolean;
         data: {
             mrr: number;
-            activeSubscribers: number;
+            activeSubscribers: any;
             churnRate: number;
             retention: number;
             freeDeliverySavings: number;

@@ -22,26 +22,9 @@ export declare class BuyerInvoiceController {
     } | {
         success: boolean;
         data: {
-            orderNumber: string;
-            orderStatus: import("@prisma/client").$Enums.OrderStatus;
-            lines: {
-                id: string;
-                productName: string;
-                quantity: number;
-                unitPrice: import("@prisma/client/runtime/library").Decimal;
-                invoiceId: string;
-                orderItemId: string | null;
-                gstSlab: import("@prisma/client").$Enums.GstSlab;
-                hsnCode: string;
-                taxableAmount: import("@prisma/client/runtime/library").Decimal;
-                cgstAmount: import("@prisma/client/runtime/library").Decimal;
-                sgstAmount: import("@prisma/client/runtime/library").Decimal;
-                igstAmount: import("@prisma/client/runtime/library").Decimal;
-                cgstRate: import("@prisma/client/runtime/library").Decimal;
-                sgstRate: import("@prisma/client/runtime/library").Decimal;
-                igstRate: import("@prisma/client/runtime/library").Decimal;
-                lineTotal: import("@prisma/client/runtime/library").Decimal;
-            }[];
+            orderNumber: any;
+            orderStatus: any;
+            lines: any;
             id: string;
             invoiceNumber: string;
             orderId: string;

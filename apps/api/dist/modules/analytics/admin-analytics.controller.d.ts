@@ -90,11 +90,7 @@ export declare class AdminAnalyticsController {
         success: boolean;
         data: {
             source: string;
-            topStores: {
-                storeId: string | null;
-                date: Date;
-                metrics: import("@prisma/client/runtime/library").JsonValue;
-            }[];
+            topStores: any;
         };
     }>;
     getRiders(): Promise<{
@@ -212,69 +208,45 @@ export declare class AdminAnalyticsController {
         success: boolean;
         data: {
             source: string;
-            alerts: {
-                message: string;
-                id: string;
-                status: import("@prisma/client").$Enums.AnalyticsAlertStatus;
-                metadata: import("@prisma/client/runtime/library").JsonValue | null;
-                createdAt: Date;
-                severity: import("@prisma/client").$Enums.AnalyticsAlertSeverity;
-                title: string;
-                resolvedAt: Date | null;
-                alertType: string;
-            }[];
+            alerts: any;
         };
     }>;
     acknowledge(id: string): Promise<{
         success: boolean;
-        data: {
-            message: string;
-            id: string;
-            status: import("@prisma/client").$Enums.AnalyticsAlertStatus;
-            metadata: import("@prisma/client/runtime/library").JsonValue | null;
-            createdAt: Date;
-            severity: import("@prisma/client").$Enums.AnalyticsAlertSeverity;
-            title: string;
-            resolvedAt: Date | null;
-            alertType: string;
-        };
+        data: any;
     }>;
     export(query: AnalyticsExportQueryDto, res: Response): Promise<void>;
     getControlRoom(): Promise<{
         success: boolean;
         data: {
             orders: {
-                active: number;
-                today: number;
-                unassigned: number;
+                active: any;
+                today: any;
+                unassigned: any;
             };
             riders: {
-                online: number;
-                busy: number;
-                offline: number;
+                online: any;
+                busy: any;
+                offline: any;
             };
             deliveries: {
-                inProgress: number;
-                completedToday: number;
+                inProgress: any;
+                completedToday: any;
             };
             revenue: {
                 today: number;
                 lastHour: number;
             };
             storeActivity: {
-                activeStores: number;
-                preparingOrders: number;
+                activeStores: any;
+                preparingOrders: any;
             };
-            fraudAlerts: number;
+            fraudAlerts: any;
             systemHealth: {
                 api: string;
                 db: string;
             };
-            alerts: {
-                id: string;
-                title: string;
-                severity: string;
-            }[];
+            alerts: any[];
             updatedAt: string;
         };
     }>;

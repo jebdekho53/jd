@@ -4,7 +4,7 @@ export declare class MembershipAnalyticsService {
     constructor(prisma: PrismaService);
     getAdminAnalytics(): Promise<{
         mrr: number;
-        activeSubscribers: number;
+        activeSubscribers: any;
         churnRate: number;
         retention: number;
         freeDeliverySavings: number;
@@ -15,7 +15,7 @@ export declare class MembershipAnalyticsService {
         plan?: undefined;
     } | {
         savings: number;
-        usages: number;
-        plan: string;
+        usages: any;
+        plan: any;
     }>;
 }

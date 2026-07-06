@@ -18,54 +18,24 @@ export declare class MerchantSettlementController {
                 totalCommission: number;
                 totalNet: number;
             };
-            recentOrdersRevenue: {
-                orderId: string;
-                orderNumber: string;
-                orderTotal: number;
-                grossAmount: number;
-                netAmount: number;
-                createdAt: string;
-            }[];
-            settlementHistory: {
-                id: string;
-                orderId: string;
-                orderNumber: string;
-                grossAmount: number;
-                platformCommission: number;
-                netAmount: number;
-                status: import("@prisma/client").$Enums.SettlementLedgerStatus;
-                createdAt: string;
-            }[];
+            recentOrdersRevenue: any;
+            settlementHistory: any;
             openPayoutRequest: {
-                id: string;
+                id: any;
                 amount: number;
-                status: import("@prisma/client").$Enums.PayoutRequestStatus;
-                requestedAt: string;
+                status: any;
+                requestedAt: any;
             } | null;
         };
     }>;
     listSettlements(user: RequestUser, query: ListSettlementsQueryDto): Promise<{
         success: boolean;
         data: {
-            settlements: {
-                id: string;
-                orderId: string;
-                orderNumber: string;
-                grossAmount: number;
-                deliveryFee: number;
-                platformCommission: number;
-                taxAmount: number;
-                netAmount: number;
-                commissionPercent: number;
-                status: import("@prisma/client").$Enums.SettlementLedgerStatus;
-                eligibleAt: string;
-                settledAt: string | null;
-                createdAt: string;
-            }[];
+            settlements: any;
             meta: {
                 page: number;
                 limit: number;
-                total: number;
+                total: any;
                 totalPages: number;
             };
         };
@@ -73,33 +43,20 @@ export declare class MerchantSettlementController {
     createPayout(user: RequestUser, dto: CreatePayoutRequestDto): Promise<{
         success: boolean;
         data: {
-            id: string;
+            id: any;
             amount: number;
-            status: import("@prisma/client").$Enums.PayoutRequestStatus;
-            requestedAt: string;
+            status: any;
+            requestedAt: any;
         };
     }>;
     listPayouts(user: RequestUser, query: ListSettlementsQueryDto): Promise<{
         success: boolean;
         data: {
-            payouts: {
-                id: string;
-                amount: number;
-                status: import("@prisma/client").$Enums.PayoutRequestStatus;
-                rejectionReason: string | null;
-                requestedAt: string;
-                reviewedAt: string | null;
-                processedAt: string | null;
-                transaction: {
-                    id: string;
-                    status: import("@prisma/client").$Enums.PayoutTransactionStatus;
-                    referenceId: string | null;
-                } | null;
-            }[];
+            payouts: any;
             meta: {
                 page: number;
                 limit: number;
-                total: number;
+                total: any;
                 totalPages: number;
             };
         };

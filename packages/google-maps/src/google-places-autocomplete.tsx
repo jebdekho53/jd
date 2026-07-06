@@ -39,6 +39,7 @@ type GooglePlaceLike = {
   displayName?: string;
   formattedAddress?: string;
   location?: google.maps.LatLng;
+  viewport?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral;
   addressComponents?: Array<{
     longText?: string;
     shortText?: string;
@@ -46,6 +47,23 @@ type GooglePlaceLike = {
   }>;
   fetchFields?: (input: { fields: string[] }) => Promise<void>;
 };
+
+function toBoundsLiteral(
+  viewport: GooglePlaceLike['viewport'],
+): google.maps.LatLngBoundsLiteral | undefined {
+  if (!viewport) return undefined;
+  if ('getNorthEast' in viewport && 'getSouthWest' in viewport) {
+    const northEast = viewport.getNorthEast();
+    const southWest = viewport.getSouthWest();
+    return {
+      north: northEast.lat(),
+      east: northEast.lng(),
+      south: southWest.lat(),
+      west: southWest.lng(),
+    };
+  }
+  return viewport;
+}
 
 function toAddressComponents(
   components: GooglePlaceLike['addressComponents'],
@@ -69,6 +87,7 @@ function parseSelectedPlace(place: GooglePlaceLike): ParsedGoogleAddress | null 
   return {
     ...parsed,
     googlePlaceId: place.id,
+    viewport: toBoundsLiteral(place.viewport),
   };
 }
 
@@ -93,7 +112,7 @@ export function GooglePlacesAutocomplete({
       if (!place) return;
 
       await place.fetchFields?.({
-        fields: ['id', 'displayName', 'formattedAddress', 'location', 'addressComponents'],
+        fields: ['id', 'displayName', 'formattedAddress', 'location', 'viewport', 'addressComponents'],
       });
       const parsed = parseSelectedPlace(place);
       if (parsed) onPlaceSelect(parsed);

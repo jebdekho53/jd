@@ -7,46 +7,23 @@ export declare class AdminDeliveryCoverageController {
     overview(): Promise<{
         success: boolean;
         data: {
-            totalCoverageRows: number;
-            activeCoverageRows: number;
-            activeStores: number;
-            masterPincodes: number;
-            activeMasterPincodes: number;
-            servedPincodeCount: number;
+            totalCoverageRows: any;
+            activeCoverageRows: any;
+            activeStores: any;
+            masterPincodes: any;
+            activeMasterPincodes: any;
+            servedPincodeCount: any;
             coveragePercent: number;
             unservedPincodeCount: number;
-            topCoveredAreas: {
-                pincode: string;
-                storeCount: number;
-            }[];
-            leastCoveredAreas: {
-                pincode: string;
-                storeCount: number;
-            }[];
+            topCoveredAreas: any;
+            leastCoveredAreas: any;
         };
     }>;
     search(query: AdminCoverageSearchDto): Promise<{
         success: boolean;
         data: {
-            items: {
-                store: {
-                    id: string;
-                    name: string;
-                    slug: string;
-                };
-                id: string;
-                pincode: string;
-                city: string | null;
-                state: string | null;
-                deliveryFee: number | null;
-                minimumOrder: number | null;
-                estimatedMinutes: number | null;
-                priority: number;
-                isActive: boolean;
-                createdAt: string;
-                updatedAt: string;
-            }[];
-            total: number;
+            items: any;
+            total: any;
         };
     }>;
     setPincodeActive(user: RequestUser, pincode: string, body: {
@@ -57,7 +34,7 @@ export declare class AdminDeliveryCoverageController {
             pincode: string;
             isActive: boolean;
             updatedBy: string;
-            records: number;
+            records: any;
         };
     }>;
     adminImport(body: {

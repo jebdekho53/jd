@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
@@ -16,16 +15,16 @@ export declare class FoodCheckoutService {
     private readonly logger;
     constructor(prisma: PrismaService, foodCart: FoodCartService, audit: AuditService, domainEvents: DomainEventsService, geospatial: GeospatialService, orderFinancials: OrderFinancialsService);
     initiateCheckout(userId: string, dto: InitiateFoodCheckoutDto, idempotencyKey?: string): Promise<{
-        orderId: string;
-        orderNumber: string;
-        status: import("@prisma/client").$Enums.OrderStatus;
+        orderId: any;
+        orderNumber: any;
+        status: any;
         checkoutId?: undefined;
         totalAmount?: undefined;
         expiresAt?: undefined;
     } | {
-        checkoutId: string;
+        checkoutId: any;
         totalAmount: number;
-        expiresAt: Date;
+        expiresAt: any;
         orderId?: undefined;
         orderNumber?: undefined;
         status?: undefined;
@@ -38,8 +37,8 @@ export declare class FoodCheckoutService {
         razorpayOrderId: string | null;
         razorpaySignature?: string;
     }): Promise<{
-        orderId: string;
-        orderNumber: string;
+        orderId: any;
+        orderNumber: any;
     }>;
     createFoodOrderFromCart(params: {
         buyerProfileId: string;
@@ -51,38 +50,11 @@ export declare class FoodCheckoutService {
         couponDiscount: number;
         idempotencyKey?: string;
     }): Promise<{
-        orderId: string;
-        orderNumber: string;
-        status: import("@prisma/client").$Enums.OrderStatus;
+        orderId: any;
+        orderNumber: any;
+        status: any;
     }>;
-    getCheckoutStatus(checkoutId: string, userId: string): Promise<{
-        idempotencyKey: string | null;
-        id: string;
-        status: string;
-        createdAt: Date;
-        expiresAt: Date;
-        updatedAt: Date;
-        storeId: string;
-        buyerProfileId: string;
-        deliveryAddress: Prisma.JsonValue;
-        paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
-        deliveryLat: number;
-        deliveryLng: number;
-        couponId: string | null;
-        subtotal: Prisma.Decimal;
-        discountAmount: Prisma.Decimal;
-        deliveryFee: Prisma.Decimal;
-        taxAmount: Prisma.Decimal;
-        totalAmount: Prisma.Decimal;
-        packagingFee: Prisma.Decimal;
-        tipAmount: Prisma.Decimal;
-        scheduledDeliveryAt: Date | null;
-        specialInstructions: string | null;
-        restaurantNote: string | null;
-        orderId: string | null;
-        razorpayOrderId: string | null;
-        cartSnapshot: Prisma.JsonValue | null;
-    }>;
+    getCheckoutStatus(checkoutId: string, userId: string): Promise<any>;
     private effectiveMinOrder;
     private validateCartAvailability;
 }

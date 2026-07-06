@@ -10,37 +10,15 @@ export declare class WalletService {
     private readonly logger;
     constructor(prisma: PrismaService, domainEvents: DomainEventsService, events: EventEmitter2);
     generateReferralCode(): string;
-    getOrCreateWallet(buyerProfileId: string, referredByCode?: string): Promise<{
-        deviceFingerprint: string | null;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        buyerProfileId: string;
-        referralCode: string;
-        balance: Prisma.Decimal;
-        rewardPoints: number;
-        lifetimePoints: number;
-        tier: import("@prisma/client").$Enums.LoyaltyTier;
-        referredById: string | null;
-    }>;
+    getOrCreateWallet(buyerProfileId: string, referredByCode?: string): Promise<any>;
     getWalletSummary(buyerProfileId: string): Promise<{
         balance: number;
-        rewardPoints: number;
-        tier: import("@prisma/client").$Enums.LoyaltyTier;
-        referralCode: string;
-        lifetimePoints: number;
-        expiringCreditsCount: number;
-        transactions: {
-            id: string;
-            type: import("@prisma/client").$Enums.WalletTransactionType;
-            amount: number;
-            balanceAfter: number;
-            description: string | null;
-            referenceType: string | null;
-            referenceId: string | null;
-            expiresAt: string | null;
-            createdAt: string;
-        }[];
+        rewardPoints: any;
+        tier: any;
+        referralCode: any;
+        lifetimePoints: any;
+        expiringCreditsCount: any;
+        transactions: any;
     }>;
     creditWallet(tx: TxClient, walletId: string, amount: number, type: WalletTransactionType, opts: {
         referenceType?: string;
@@ -49,39 +27,13 @@ export declare class WalletService {
         idempotencyKey?: string;
         createdBy?: string;
         expiresAt?: Date;
-    }): Promise<{
-        idempotencyKey: string | null;
-        type: import("@prisma/client").$Enums.WalletTransactionType;
-        id: string;
-        createdAt: Date;
-        expiresAt: Date | null;
-        description: string | null;
-        amount: Prisma.Decimal;
-        walletId: string;
-        balanceAfter: Prisma.Decimal;
-        referenceType: string | null;
-        referenceId: string | null;
-        createdBy: string | null;
-    }>;
+    }): Promise<any>;
     debitWallet(tx: TxClient, walletId: string, amount: number, opts: {
         referenceType?: string;
         referenceId?: string;
         description?: string;
         idempotencyKey?: string;
-    }): Promise<{
-        idempotencyKey: string | null;
-        type: import("@prisma/client").$Enums.WalletTransactionType;
-        id: string;
-        createdAt: Date;
-        expiresAt: Date | null;
-        description: string | null;
-        amount: Prisma.Decimal;
-        walletId: string;
-        balanceAfter: Prisma.Decimal;
-        referenceType: string | null;
-        referenceId: string | null;
-        createdBy: string | null;
-    }>;
+    }): Promise<any>;
     emitWalletCredited(walletId: string, buyerProfileId: string, amount: number, referenceId?: string): Promise<void>;
     emitWalletDebited(walletId: string, buyerProfileId: string, amount: number, referenceId?: string): Promise<void>;
     resolveTier(lifetimePoints: number, thresholds: {

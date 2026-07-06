@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var AuthService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 exports.isBuyerFullyVerified = isBuyerFullyVerified;
@@ -593,7 +594,6 @@ exports.AuthService = AuthService = AuthService_1 = __decorate([
         domain_events_service_1.DomainEventsService,
         verification_blocklist_service_1.VerificationBlocklistService,
         trust_safety_hook_service_1.TrustSafetyHookService,
-        email_notification_service_1.EmailNotificationService,
-        config_1.ConfigService])
+        email_notification_service_1.EmailNotificationService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

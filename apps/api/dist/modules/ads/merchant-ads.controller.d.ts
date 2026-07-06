@@ -8,32 +8,7 @@ export declare class MerchantAdsController {
     private advertiserId;
     campaigns(user: RequestUser): Promise<{
         success: boolean;
-        data: ({
-            sponsoredProducts: {
-                id: string;
-                productId: string;
-                priority: number;
-                campaignId: string;
-            }[];
-            keywordBids: {
-                id: string;
-                createdAt: Date;
-                campaignId: string;
-                keyword: string;
-                bidAmount: import("@prisma/client/runtime/library").Decimal;
-            }[];
-        } & {
-            id: string;
-            status: import("@prisma/client").$Enums.AdCampaignStatus;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            spentAmount: import("@prisma/client/runtime/library").Decimal;
-            advertiserId: string;
-            budget: import("@prisma/client/runtime/library").Decimal;
-            startAt: Date | null;
-            endAt: Date | null;
-        })[];
+        data: any;
     }>;
     createCampaign(user: RequestUser, body: {
         name: string;
@@ -49,34 +24,11 @@ export declare class MerchantAdsController {
         data?: undefined;
     } | {
         success: boolean;
-        data: {
-            id: string;
-            status: import("@prisma/client").$Enums.AdCampaignStatus;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            spentAmount: import("@prisma/client/runtime/library").Decimal;
-            advertiserId: string;
-            budget: import("@prisma/client/runtime/library").Decimal;
-            startAt: Date | null;
-            endAt: Date | null;
-        };
+        data: any;
         message?: undefined;
     }>;
     analytics(user: RequestUser): Promise<{
         success: boolean;
-        data: {};
-    } | {
-        success: boolean;
-        data: {
-            ctr: number;
-            roas: number;
-            campaigns: number;
-            impressions: number;
-            clicks: number;
-            conversions: number;
-            revenue: number;
-            spend: number;
-        };
+        data: any;
     }>;
 }

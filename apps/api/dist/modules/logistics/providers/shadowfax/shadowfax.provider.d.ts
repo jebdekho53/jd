@@ -2,7 +2,7 @@ import type { CreateShipmentInput, ILogisticsProvider, PriceEstimateInput, Price
 import { ShadowfaxClient } from './shadowfax.client';
 export declare class ShadowfaxProvider implements ILogisticsProvider {
     private readonly client;
-    readonly type: "SHADOWFAX";
+    readonly type: any;
     private readonly logger;
     constructor(client: ShadowfaxClient);
     createShipment(input: CreateShipmentInput): Promise<ShipmentResult>;

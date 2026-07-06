@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var GeocodingCacheService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GeocodingCacheService = void 0;
 const common_1 = require("@nestjs/common");
@@ -107,7 +108,6 @@ let GeocodingCacheService = GeocodingCacheService_1 = class GeocodingCacheServic
 exports.GeocodingCacheService = GeocodingCacheService;
 exports.GeocodingCacheService = GeocodingCacheService = GeocodingCacheService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [redis_service_1.RedisService,
-        config_1.ConfigService])
+    __metadata("design:paramtypes", [redis_service_1.RedisService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
 ], GeocodingCacheService);
 //# sourceMappingURL=geocoding-cache.service.js.map

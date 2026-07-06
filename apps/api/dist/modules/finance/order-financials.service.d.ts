@@ -1,4 +1,4 @@
-import { PaymentMethod, Prisma } from '@prisma/client';
+import { PaymentMethod } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { FinanceCommissionService } from './finance-commission.service';
 import { LedgerService } from './ledger.service';
@@ -24,7 +24,7 @@ export declare class OrderFinancialsService {
     freezeOnOrderCreate(input: FreezeOrderInput): Promise<void>;
     recordOnlinePaymentConfirmed(orderId: string): Promise<void>;
     getOrderFinancials(orderId: string): Promise<{
-        orderId: string;
+        orderId: any;
         subtotal: number;
         discountAmount: number;
         offerSubsidy: number;
@@ -37,11 +37,11 @@ export declare class OrderFinancialsService {
         netMerchantEarnings: number;
         netPlatformEarnings: number;
         riderPayoutAmount: number;
-        frozenAt: string;
-        storeSnapshot: Prisma.JsonValue;
+        frozenAt: any;
+        storeSnapshot: any;
     } | null>;
     getOrderFinancialsForMerchant(orderId: string, merchantUserId: string): Promise<{
-        orderId: string;
+        orderId: any;
         subtotal: number;
         discountAmount: number;
         offerSubsidy: number;
@@ -54,8 +54,8 @@ export declare class OrderFinancialsService {
         netMerchantEarnings: number;
         netPlatformEarnings: number;
         riderPayoutAmount: number;
-        frozenAt: string;
-        storeSnapshot: Prisma.JsonValue;
+        frozenAt: any;
+        storeSnapshot: any;
     } | null>;
     private formatFinancials;
     private estimateRiderPayout;

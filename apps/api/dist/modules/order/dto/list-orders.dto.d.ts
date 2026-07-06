@@ -16,7 +16,7 @@ export declare class ListMerchantOrdersDto extends ListOrdersDto {
     paymentMethod?: PaymentMethod;
     q?: string;
 }
-declare const ListAdminOrdersDto_base: import("@nestjs/common").Type<Omit<ListOrdersDto, "statusGroup">>;
+declare const ListAdminOrdersDto_base: any;
 export declare class ListAdminOrdersDto extends ListAdminOrdersDto_base {
     today?: boolean;
     statusGroup?: 'pending' | 'preparing' | 'ready_for_pickup' | 'assigned' | 'delivered' | 'cancelled';

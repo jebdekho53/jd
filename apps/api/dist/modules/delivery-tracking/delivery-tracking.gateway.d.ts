@@ -21,7 +21,7 @@ export declare class DeliveryTrackingGateway implements OnGatewayConnection {
         id: string;
         orderId?: string;
     }): Promise<{
-        error: string;
+        error: any;
         subscribed?: undefined;
         orderId?: undefined;
     } | {

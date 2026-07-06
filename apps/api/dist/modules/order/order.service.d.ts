@@ -27,23 +27,11 @@ export declare class OrderService implements OnModuleInit {
     private readonly logger;
     constructor(prisma: PrismaService, audit: AuditService, domainEvents: DomainEventsService, cache: OrderCacheService, statusHistory: OrderStatusHistoryService, deliveryDispatch: DeliveryDispatchService, reservation: ReservationService, orderRefunds: OrderRefundService, buyerPush: BuyerPushNotificationService, deliveryTracking: DeliveryTrackingService);
     listBuyerOrders(userId: string, dto: ListOrdersDto): Promise<{
-        orders: {
-            id: any;
-            orderNumber: any;
-            status: any;
-            paymentMethod: any;
-            paymentStatus: any;
-            totalAmount: number;
-            createdAt: any;
-            store: any;
-            storeId: any;
-            buyerProfile: any;
-            items: any;
-        }[];
+        orders: any;
         meta: {
             page: number;
             limit: number;
-            total: number;
+            total: any;
             totalPages: number;
         };
     }>;
@@ -140,45 +128,14 @@ export declare class OrderService implements OnModuleInit {
     private auditActiveDeliveryCoordinates;
     cancelByBuyer(userId: string, orderId: string, dto: CancelOrderDto, ipAddress?: string): Promise<{
         orderId: string;
-        status: "CANCELLED_BY_BUYER";
+        status: any;
     }>;
     listMerchantOrders(userId: string, dto: ListMerchantOrdersDto): Promise<{
-        orders: {
-            updatedAt: any;
-            pipelineColumn: MerchantPipelineColumn;
-            buyerProfile: {
-                name: any;
-                phone: any;
-            } | null;
-            rider: {
-                id: any;
-                name: any;
-                phone: any;
-            } | null;
-            deliveryStatus: any;
-            awaitingRider: boolean;
-            riderWaitMins: number;
-            operations: {
-                orderAgeMins: number;
-                sinceAcceptedMins: number | null;
-                prepSla: import("./merchant-pipeline.util").SlaLevel;
-                riderWaitSla: import("./merchant-pipeline.util").SlaLevel;
-            };
-            id: any;
-            orderNumber: any;
-            status: any;
-            paymentMethod: any;
-            paymentStatus: any;
-            totalAmount: number;
-            createdAt: any;
-            store: any;
-            storeId: any;
-            items: any;
-        }[];
+        orders: any;
         meta: {
             page: number;
             limit: number;
-            total: number;
+            total: any;
             totalPages: number;
         };
     }>;
@@ -187,38 +144,11 @@ export declare class OrderService implements OnModuleInit {
         flagged: boolean;
     }>;
     listAdminOrders(dto: ListAdminOrdersDto): Promise<{
-        orders: {
-            id: string;
-            orderNumber: string;
-            status: import("@prisma/client").$Enums.OrderStatus;
-            paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
-            paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
-            totalAmount: number;
-            createdAt: Date;
-            updatedAt: Date;
-            deliveryStatus: import("@prisma/client").$Enums.DeliveryStatus | null;
-            store: {
-                id: string;
-                name: string;
-                slug: string;
-                merchant: {
-                    id: string;
-                    businessName: string;
-                };
-            } | null;
-            buyer: {
-                id: string;
-                name: string;
-            };
-            rider: {
-                id: string;
-                name: string;
-            } | null;
-        }[];
+        orders: any;
         meta: {
-            page: number;
-            limit: number;
-            total: number;
+            page: any;
+            limit: any;
+            total: any;
             totalPages: number;
         };
     }>;
@@ -312,9 +242,9 @@ export declare class OrderService implements OnModuleInit {
     }>;
     getMerchantOrder(userId: string, orderId: string): Promise<{
         customer: {
-            name: string | null;
-            phone: string | null;
-            orderCount: number;
+            name: any;
+            phone: any;
+            orderCount: any;
             lifetimeSpend: number;
         };
         operations: {
@@ -330,12 +260,12 @@ export declare class OrderService implements OnModuleInit {
         };
         fulfillmentBatch: {
             isBatched: boolean;
-            batchId: string;
-            batchStatus: import("@prisma/client").$Enums.DeliveryBatchStatus;
-            sequence: number;
-            totalOrders: number;
+            batchId: any;
+            batchStatus: any;
+            sequence: any;
+            totalOrders: any;
             label: string;
-            orders: string[];
+            orders: any;
         } | {
             isBatched: boolean;
             label: string;
@@ -434,11 +364,11 @@ export declare class OrderService implements OnModuleInit {
     }>;
     advanceMerchantOrder(userId: string, orderId: string, targetStatus: OrderStatus, note?: string, ipAddress?: string): Promise<{
         orderId: string;
-        status: import("@prisma/client").$Enums.OrderStatus;
+        status: OrderStatus;
     }>;
     cancelByMerchant(userId: string, orderId: string, dto: CancelOrderDto, ipAddress?: string): Promise<{
         orderId: string;
-        status: "CANCELLED_BY_MERCHANT";
+        status: any;
     }>;
     private getBuyerStoreStats;
     private requireBuyerProfile;

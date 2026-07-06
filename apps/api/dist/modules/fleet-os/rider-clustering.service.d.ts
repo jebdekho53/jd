@@ -5,24 +5,6 @@ export declare class RiderClusteringService {
     private readonly events;
     private readonly logger;
     constructor(prisma: PrismaService, events: EventEmitter2);
-    refreshClusters(): Promise<{
-        city: string;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        locality: string;
-        activeRiders: number;
-        activeOrders: number;
-        demandSupplyRatio: number;
-    }[]>;
-    listClusters(): Promise<{
-        city: string;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        locality: string;
-        activeRiders: number;
-        activeOrders: number;
-        demandSupplyRatio: number;
-    }[]>;
+    refreshClusters(): Promise<any[]>;
+    listClusters(): Promise<any>;
 }

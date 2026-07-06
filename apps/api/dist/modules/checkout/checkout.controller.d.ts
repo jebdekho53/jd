@@ -7,31 +7,31 @@ export declare class CheckoutController {
     initiateCheckout(user: RequestUser, dto: InitiateCheckoutDto, ip: string): Promise<{
         success: boolean;
         data: {
-            id: string;
-            checkoutId: string;
-            orderId: string;
-            status: import("@prisma/client").$Enums.CheckoutStatus;
+            id: any;
+            checkoutId: any;
+            orderId: any;
+            status: any;
             totalAmount: number;
-            expiresAt: Date;
+            expiresAt: any;
         };
     }>;
     initiateCodCheckout(user: RequestUser, dto: InitiateCheckoutDto, ip: string): Promise<{
         success: boolean;
         data: {
-            orderId: string;
-            orderNumber: string;
-            status: import("@prisma/client").$Enums.OrderStatus;
+            orderId: any;
+            orderNumber: any;
+            status: any;
         };
     }>;
     getCheckout(user: RequestUser, checkoutId: string): Promise<{
         success: boolean;
         data: {
-            id: string;
-            status: import("@prisma/client").$Enums.CheckoutStatus;
+            id: any;
+            status: any;
             totalAmount: number;
-            orderId: string | null;
-            expiresAt: Date;
-            buyerNote: string | null;
+            orderId: any;
+            expiresAt: any;
+            buyerNote: any;
         };
     }>;
 }

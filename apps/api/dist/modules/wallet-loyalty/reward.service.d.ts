@@ -20,21 +20,15 @@ export declare class RewardService {
     redeemPoints(tx: TxClient, walletId: string, points: number, orderId: string): Promise<number>;
     creditPointsForOrder(orderId: string): Promise<void>;
     getRewardsSummary(buyerProfileId: string): Promise<{
-        points: number;
-        tier: "silver" | "gold" | "platinum" | "bronze";
+        points: any;
+        tier: "bronze" | "silver" | "gold" | "platinum";
         nextTierPoints: number;
-        lifetimePoints: number;
-        history: {
-            id: string;
-            type: import("@prisma/client").$Enums.RewardTransactionType;
-            points: number;
-            description: string | null;
-            createdAt: string;
-        }[];
+        lifetimePoints: any;
+        history: any;
     }>;
     adminAdjustPoints(walletId: string, points: number, adminUserId: string, reason: string): Promise<{
         walletId: string;
-        pointsAfter: number;
+        pointsAfter: any;
     }>;
     refundWalletForOrder(orderId: string, actorId: string): Promise<void>;
 }

@@ -3,14 +3,14 @@ export declare class CorporateAnalyticsService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     getAdminAnalytics(): Promise<{
-        activeCompanies: number;
+        activeCompanies: any;
         totalSpend: number;
-        creditLimit: number;
+        creditLimit: any;
         creditUtilization: number;
-        invoices: number;
+        invoices: any;
     }>;
     getAccountSpend(accountId: string): Promise<{
-        totalSpend: number;
-        orderCount: number;
+        totalSpend: any;
+        orderCount: any;
     }>;
 }

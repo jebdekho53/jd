@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap } from '@react-google-maps/api';
-import { Loader2, MapPin } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useGoogleMaps } from './google-maps-context';
 import { MAP_INITIAL_VISUAL_CENTER, DEFAULT_MAP_ZOOM, GOOGLE_MAPS_MAP_ID } from './constants';
 import { cn } from './cn';
@@ -18,13 +18,14 @@ export interface GoogleMapPickerProps {
   className?: string;
   heightClassName?: string;
   disabled?: boolean;
+  viewport?: google.maps.LatLngBoundsLiteral | null;
+  address?: string;
+  focusZoom?: number;
 }
 
 const mapContainerStyle = { width: '100%', height: '100%' };
 
 const mapOptions: google.maps.MapOptions = {
-  // Advanced Markers / vector map require a Map ID.
-  mapId: GOOGLE_MAPS_MAP_ID,
   disableDefaultUI: true,
   zoomControl: true,
   mapTypeControl: false,
@@ -32,12 +33,12 @@ const mapOptions: google.maps.MapOptions = {
   fullscreenControl: false,
   clickableIcons: false,
   gestureHandling: 'greedy',
+  ...(GOOGLE_MAPS_MAP_ID ? { mapId: GOOGLE_MAPS_MAP_ID } : {}),
 };
 
 /**
- * Blinkit/Zepto-style location picker: the pin is fixed to the centre of the
- * map and the user moves the map underneath it. Whenever the map settles, the
- * new centre is emitted so the parent can reverse-geocode it.
+ * Reusable address map picker. Users can search in the paired Places input,
+ * click the map, or drag the marker to set the exact pin.
  */
 export function GoogleMapPicker({
   position,
@@ -45,14 +46,16 @@ export function GoogleMapPicker({
   className,
   heightClassName = 'h-64 sm:h-80',
   disabled,
+  viewport,
+  address,
+  focusZoom = 17,
 }: GoogleMapPickerProps) {
   const { isLoaded, loadError } = useGoogleMaps();
   const mapRef = useRef<google.maps.Map | null>(null);
+  const markerRef = useRef<google.maps.Marker | null>(null);
+  const markerDragListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const [, setReady] = useState(false);
 
-  // True while the user is actively panning — so a programmatic panTo doesn't
-  // get echoed back as a user move (which would fight the parent's position).
-  const userMovingRef = useRef(false);
   const onPositionChangeRef = useRef(onPositionChange);
   onPositionChangeRef.current = onPositionChange;
 
@@ -64,11 +67,60 @@ export function GoogleMapPicker({
     [position.lat, position.lng],
   );
 
-  // Recentre the map when the position changes from outside (search, GPS).
   useEffect(() => {
-    if (userMovingRef.current) return;
-    mapRef.current?.panTo(center);
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (viewport) {
+      const bounds = new google.maps.LatLngBounds(
+        { lat: viewport.south, lng: viewport.west },
+        { lat: viewport.north, lng: viewport.east },
+      );
+      map.fitBounds(bounds);
+      return;
+    }
+
+    map.panTo(center);
+    map.setZoom(focusZoom);
+  }, [center, focusZoom, viewport]);
+
+  useEffect(() => {
+    markerRef.current?.setPosition(center);
   }, [center]);
+
+  useEffect(() => {
+    markerRef.current?.setDraggable(!disabled);
+  }, [disabled]);
+
+  useEffect(() => {
+    markerRef.current?.setTitle(address || 'Selected location');
+  }, [address]);
+
+  const attachMarker = useCallback(
+    (map: google.maps.Map) => {
+      markerDragListenerRef.current?.remove();
+      markerRef.current?.setMap(null);
+
+      const marker = new google.maps.Marker({
+        map,
+        position: center,
+        draggable: !disabled,
+        title: address || 'Selected location',
+      });
+
+      markerDragListenerRef.current = marker.addListener('dragend', () => {
+        const markerPosition = marker.getPosition();
+        if (!markerPosition) return;
+        onPositionChangeRef.current({
+          lat: markerPosition.lat(),
+          lng: markerPosition.lng(),
+        });
+      });
+
+      markerRef.current = marker;
+    },
+    [address, center, disabled],
+  );
 
   if (loadError) {
     return (
@@ -114,30 +166,29 @@ export function GoogleMapPicker({
           options={{ ...mapOptions, draggable: !disabled }}
           onLoad={(map) => {
             mapRef.current = map;
+            attachMarker(map);
             setReady(true);
           }}
           onUnmount={() => {
+            markerDragListenerRef.current?.remove();
+            markerDragListenerRef.current = null;
+            markerRef.current?.setMap(null);
+            markerRef.current = null;
             mapRef.current = null;
           }}
-          onDragStart={() => {
-            if (!disabled) userMovingRef.current = true;
-          }}
-          onIdle={() => {
-            if (!userMovingRef.current) return;
-            userMovingRef.current = false;
-            const c = mapRef.current?.getCenter();
-            if (c) onPositionChangeRef.current({ lat: c.lat(), lng: c.lng() });
+          onClick={(event) => {
+            if (disabled || !event.latLng) return;
+            onPositionChangeRef.current({
+              lat: event.latLng.lat(),
+              lng: event.latLng.lng(),
+            });
           }}
         />
 
-        {/* Fixed centre pin — the map moves under it (pointer-events-none so it
-            never blocks dragging). Its tip sits exactly at the map centre. */}
-        <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-full flex-col items-center">
-          <div className="mb-1 whitespace-nowrap rounded-lg bg-slate-900 px-3 py-1.5 text-center text-xs font-semibold text-white shadow-lg">
-            Order will be delivered here
-            <div className="text-[10px] font-normal text-slate-300">Move the map to set the exact spot</div>
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center">
+          <div className="max-w-full rounded-lg bg-slate-900/90 px-3 py-1.5 text-center text-xs font-semibold text-white shadow-lg">
+            Click the map or drag the pin to set the exact spot
           </div>
-          <MapPin className="h-9 w-9 fill-rose-600 text-white drop-shadow-md" strokeWidth={1.5} />
         </div>
       </div>
     </div>

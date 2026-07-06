@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var ReferralService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReferralService = void 0;
 const common_1 = require("@nestjs/common");
@@ -169,7 +170,6 @@ exports.ReferralService = ReferralService = ReferralService_1 = __decorate([
         reward_service_1.RewardService,
         fraud_service_1.FraudService,
         trust_safety_hook_service_1.TrustSafetyHookService,
-        domain_events_service_1.DomainEventsService,
-        event_emitter_1.EventEmitter2])
+        domain_events_service_1.DomainEventsService, typeof (_a = typeof event_emitter_1.EventEmitter2 !== "undefined" && event_emitter_1.EventEmitter2) === "function" ? _a : Object])
 ], ReferralService);
 //# sourceMappingURL=referral.service.js.map

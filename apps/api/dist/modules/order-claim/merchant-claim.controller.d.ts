@@ -7,80 +7,11 @@ export declare class MerchantClaimController {
     listClaims(user: RequestUser, dto: ListMerchantClaimsDto): Promise<{
         success: boolean;
         data: {
-            items: {
-                id: string;
-                claimNumber: string;
-                orderId: string;
-                orderNumber: string;
-                storeId: string;
-                claimType: import("@prisma/client").$Enums.OrderClaimType;
-                status: import("@prisma/client").$Enums.OrderClaimStatus;
-                reason: import("@prisma/client").$Enums.ReturnClaimReason;
-                reasonNote: string | null;
-                requestedAmount: number;
-                approvedAmount: number | null;
-                restockingFee: number;
-                merchantNote: string | null;
-                adminNote: string | null;
-                replacementOrderId: string | null;
-                returnPickupEnabled: boolean;
-                resolvedAt: Date | null;
-                createdAt: Date;
-                updatedAt: Date;
-                items: {
-                    id: string;
-                    orderItemId: string;
-                    productId: string;
-                    productName: string;
-                    quantityClaimed: number;
-                    quantityApproved: number | null;
-                    unitPrice: number;
-                    refundAmount: number;
-                }[];
-                evidence: {
-                    id: string;
-                    createdAt: Date;
-                    kind: string;
-                    url: string;
-                    claimId: string;
-                }[];
-                history: {
-                    id: string;
-                    status: import("@prisma/client").$Enums.OrderClaimStatus;
-                    metadata: import("@prisma/client/runtime/library").JsonValue | null;
-                    createdAt: Date;
-                    actorId: string | null;
-                    actorType: import("@prisma/client").$Enums.ClaimActorType;
-                    note: string | null;
-                    claimId: string;
-                }[];
-                refund: {
-                    amount: number;
-                    walletAmount: number;
-                    razorpayAmount: number;
-                    idempotencyKey: string;
-                    id: string;
-                    status: import("@prisma/client").$Enums.PaymentStatus;
-                    processedAt: Date | null;
-                    createdAt: Date;
-                    claimId: string;
-                    razorpayRefundId: string | null;
-                    walletTxnId: string | null;
-                } | null;
-                replacement: {
-                    id: string;
-                    status: string;
-                    createdAt: Date;
-                    claimId: string;
-                    shipmentId: string | null;
-                    replacementOrderId: string;
-                    shippedAt: Date | null;
-                } | null;
-            }[];
+            items: any;
             pagination: {
                 page: number;
                 limit: number;
-                total: number;
+                total: any;
                 totalPages: number;
             };
         };
@@ -90,90 +21,40 @@ export declare class MerchantClaimController {
         data: {
             refundRatePct: number;
             replacementRatePct: number;
-            totalClaims: number;
+            totalClaims: any;
             refundCost: number;
-            replacementCount: number;
-            topReturnedProducts: {
-                productId: string;
-                productName: string;
-                claimCount: number;
-            }[];
-            statusBreakdown: (import("@prisma/client").Prisma.PickEnumerable<import("@prisma/client").Prisma.OrderClaimGroupByOutputType, ("status" | "claimType")[]> & {
-                _count: number;
-            })[];
+            replacementCount: any;
+            topReturnedProducts: any;
+            statusBreakdown: any;
         };
     }>;
     patchClaim(user: RequestUser, claimId: string, dto: PatchMerchantClaimDto): Promise<{
         success: boolean;
         data: {
-            id: string;
-            claimNumber: string;
-            orderId: string;
-            orderNumber: string;
-            storeId: string;
-            claimType: import("@prisma/client").$Enums.OrderClaimType;
-            status: import("@prisma/client").$Enums.OrderClaimStatus;
-            reason: import("@prisma/client").$Enums.ReturnClaimReason;
-            reasonNote: string | null;
+            id: any;
+            claimNumber: any;
+            orderId: any;
+            orderNumber: any;
+            storeId: any;
+            claimType: any;
+            status: any;
+            reason: any;
+            reasonNote: any;
             requestedAmount: number;
             approvedAmount: number | null;
             restockingFee: number;
-            merchantNote: string | null;
-            adminNote: string | null;
-            replacementOrderId: string | null;
-            returnPickupEnabled: boolean;
-            resolvedAt: Date | null;
-            createdAt: Date;
-            updatedAt: Date;
-            items: {
-                id: string;
-                orderItemId: string;
-                productId: string;
-                productName: string;
-                quantityClaimed: number;
-                quantityApproved: number | null;
-                unitPrice: number;
-                refundAmount: number;
-            }[];
-            evidence: {
-                id: string;
-                createdAt: Date;
-                kind: string;
-                url: string;
-                claimId: string;
-            }[];
-            history: {
-                id: string;
-                status: import("@prisma/client").$Enums.OrderClaimStatus;
-                metadata: import("@prisma/client/runtime/library").JsonValue | null;
-                createdAt: Date;
-                actorId: string | null;
-                actorType: import("@prisma/client").$Enums.ClaimActorType;
-                note: string | null;
-                claimId: string;
-            }[];
-            refund: {
-                amount: number;
-                walletAmount: number;
-                razorpayAmount: number;
-                idempotencyKey: string;
-                id: string;
-                status: import("@prisma/client").$Enums.PaymentStatus;
-                processedAt: Date | null;
-                createdAt: Date;
-                claimId: string;
-                razorpayRefundId: string | null;
-                walletTxnId: string | null;
-            } | null;
-            replacement: {
-                id: string;
-                status: string;
-                createdAt: Date;
-                claimId: string;
-                shipmentId: string | null;
-                replacementOrderId: string;
-                shippedAt: Date | null;
-            } | null;
+            merchantNote: any;
+            adminNote: any;
+            replacementOrderId: any;
+            returnPickupEnabled: any;
+            resolvedAt: any;
+            createdAt: any;
+            updatedAt: any;
+            items: any;
+            evidence: any;
+            history: any;
+            refund: any;
+            replacement: any;
         };
     }>;
 }

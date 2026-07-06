@@ -45,24 +45,7 @@ export declare class InventoryService {
         page?: number;
         limit?: number;
     }): Promise<{
-        items: ({
-            productId: string;
-            productName: string;
-            category: {
-                id: string;
-                name: string;
-            } | null;
-            variantId: string;
-            variantName: string;
-            sku: string;
-            availableQty: number;
-            reservedQty: number;
-            soldQty: number;
-            lowStockThreshold: number;
-            status: import("@prisma/client").$Enums.InventoryStatus;
-            stockLevel: StockLevel;
-            isActive: boolean;
-        } | null)[];
+        items: any;
         page: number;
         limit: number;
     }>;
@@ -73,23 +56,7 @@ export declare class InventoryService {
         page?: number;
         limit?: number;
     }): Promise<{
-        items: {
-            productId: string;
-            productName: string;
-            storeId: string;
-            storeName: string;
-            variantId: string;
-            sku: string;
-            availableQty: number;
-            reservedQty: number;
-            soldQty: number;
-            lowStockThreshold: number;
-            status: import("@prisma/client").$Enums.InventoryStatus;
-            stockLevel: StockLevel;
-            fssaiLicense: string | null;
-            countryOfOrigin: string | null;
-            shelfLife: string | null;
-        }[];
+        items: any;
         page: number;
         limit: number;
     }>;
@@ -98,20 +65,9 @@ export declare class InventoryService {
         totalReserved: number;
         totalSold: number;
         stockValue: number;
-        lowStockCount: number;
-        fastMoving: {
-            productName: string;
-            storeName: string;
-            sku: string;
-            soldQty: number;
-            availableQty: number;
-        }[];
-        slowMoving: {
-            productName: string;
-            storeName: string;
-            sku: string;
-            availableQty: number;
-        }[];
+        lowStockCount: any;
+        fastMoving: any;
+        slowMoving: any;
     }>;
     private afterInventoryChange;
 }

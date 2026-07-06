@@ -22,25 +22,14 @@ export declare class MerchantGstController {
         success: boolean;
         data: {
             summary: {
-                invoiceCount: number;
+                invoiceCount: any;
                 taxableSales: number;
                 gstCollected: number;
                 grossTotal: number;
             };
-            recentInvoices: {
-                id: string;
-                invoiceNumber: string;
-                orderNumber: string;
-                grandTotal: number;
-                invoiceDate: Date;
-            }[];
+            recentInvoices: any;
             tds: {
-                records: {
-                    periodMonth: string;
-                    taxableAmount: number;
-                    tdsRate: number;
-                    tdsAmount: number;
-                }[];
+                records: any;
                 totalTds: number;
             };
         };
@@ -53,15 +42,8 @@ export declare class MerchantGstController {
     } | {
         success: boolean;
         data: {
-            items: {
-                id: string;
-                invoiceNumber: string;
-                orderNumber: string;
-                grandTotal: number;
-                totalTax: number;
-                invoiceDate: Date;
-            }[];
-            total: number;
+            items: any;
+            total: any;
             page: number;
             limit: number;
         };
@@ -71,25 +53,11 @@ export declare class MerchantGstController {
     exportSummary(user: RequestUser, query: ExportComplianceQueryDto, res: Response): Promise<void>;
     hsn(q?: string): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            createdAt: Date;
-            description: string;
-            code: string;
-            isActive: boolean;
-            defaultGstSlab: import("@prisma/client").$Enums.GstSlab;
-        }[];
+        data: any;
     }>;
     ensureHsn(dto: EnsureHsnCodeDto): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            createdAt: Date;
-            description: string;
-            code: string;
-            isActive: boolean;
-            defaultGstSlab: import("@prisma/client").$Enums.GstSlab;
-        };
+        data: any;
     }>;
     updateProductTax(user: RequestUser, productId: string, dto: UpdateProductTaxDto): Promise<{
         success: boolean;
@@ -97,63 +65,7 @@ export declare class MerchantGstController {
         data?: undefined;
     } | {
         success: boolean;
-        data: {
-            hsnCodeRef: {
-                id: string;
-                createdAt: Date;
-                description: string;
-                code: string;
-                isActive: boolean;
-                defaultGstSlab: import("@prisma/client").$Enums.GstSlab;
-            } | null;
-        } & {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            description: string | null;
-            storeId: string;
-            categoryId: string | null;
-            isActive: boolean;
-            slug: string;
-            sku: string | null;
-            tags: string[];
-            sortOrder: number;
-            unit: string;
-            brand: string | null;
-            isReturnable: boolean;
-            isRefundable: boolean;
-            isReplaceable: boolean;
-            returnWindowHours: number | null;
-            approvalMode: import("@prisma/client").$Enums.ClaimApprovalMode;
-            proofRequired: import("@prisma/client").$Enums.ClaimProofRequirement;
-            autoApproveBelowAmount: import("@prisma/client/runtime/library").Decimal | null;
-            returnReasons: import("@prisma/client").$Enums.ReturnClaimReason[];
-            restockingFee: import("@prisma/client/runtime/library").Decimal;
-            refundMethod: import("@prisma/client").$Enums.ClaimRefundMethod;
-            returnPolicyText: string | null;
-            replacementPolicyText: string | null;
-            preparedFoodPolicy: import("@prisma/client").$Enums.PreparedFoodPolicy | null;
-            allowCustomerChangedMind: boolean;
-            imageUrls: string[];
-            basePrice: import("@prisma/client/runtime/library").Decimal;
-            mrp: import("@prisma/client/runtime/library").Decimal | null;
-            weightGrams: number | null;
-            isVeg: boolean | null;
-            hsnCodeId: string | null;
-            gstSlab: import("@prisma/client").$Enums.GstSlab | null;
-            taxCategory: import("@prisma/client").$Enums.ProductTaxCategory;
-            taxInclusive: boolean;
-            ingredients: string | null;
-            shelfLife: string | null;
-            countryOfOrigin: string | null;
-            manufacturerName: string | null;
-            manufacturerAddress: string | null;
-            fssaiLicense: string | null;
-            storageInstructions: string | null;
-            disclaimer: string | null;
-        };
+        data: any;
         message?: undefined;
     }>;
 }

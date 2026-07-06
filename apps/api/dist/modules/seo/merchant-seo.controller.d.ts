@@ -12,28 +12,10 @@ export declare class MerchantSeoController {
     } | {
         success: boolean;
         data: {
-            store: {
-                name: string;
-                description: string | null;
-                ratingAvg: number;
-                ratingCount: number;
-                slug: string;
-                logoUrl: string | null;
-            };
+            store: any;
             visibilityScore: number;
-            searchImpressions: number;
-            topKeywords: {
-                id: string;
-                createdAt: Date;
-                storeId: string | null;
-                impressions: number;
-                clicks: number;
-                keyword: string;
-                ctr: number;
-                pageId: string | null;
-                avgPosition: number | null;
-                trackedAt: Date;
-            }[];
+            searchImpressions: any;
+            topKeywords: any;
             missingMetadata: string[];
             recommendations: string[];
         } | null;

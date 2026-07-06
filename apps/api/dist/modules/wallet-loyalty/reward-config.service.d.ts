@@ -22,12 +22,6 @@ export declare class RewardConfigService {
     private cacheAt;
     constructor(prisma: PrismaService);
     getRules(): Promise<RewardProgramRules>;
-    updateConfig(key: string, value: unknown, adminUserId: string): Promise<{
-        id: string;
-        updatedAt: Date;
-        value: import("@prisma/client/runtime/library").JsonValue;
-        key: string;
-        updatedBy: string | null;
-    }>;
+    updateConfig(key: string, value: unknown, adminUserId: string): Promise<any>;
     invalidateCache(): void;
 }

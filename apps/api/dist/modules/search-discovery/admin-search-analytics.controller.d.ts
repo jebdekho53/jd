@@ -9,30 +9,13 @@ export declare class AdminSearchAnalyticsController {
         success: boolean;
         data: {
             period: "30d" | "7d" | "24h";
-            topSearches: {
-                query: string;
-                count: number;
-            }[];
-            noResultSearches: {
-                query: string;
-                count: number;
-            }[];
-            lowConversionSearches: {
-                query: string;
-                searches: number;
-            }[];
+            topSearches: any;
+            noResultSearches: any;
+            lowConversionSearches: any;
             conversionRate: number;
             clickThroughRate: number;
-            trendingCategories: {
-                categoryId: string | null;
-                name: string;
-                count: number;
-            }[];
-            trendingStores: {
-                storeId: string | null;
-                name: string;
-                count: number;
-            }[];
+            trendingCategories: any;
+            trendingStores: any;
         };
     }>;
 }

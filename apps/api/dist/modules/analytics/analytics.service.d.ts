@@ -91,11 +91,7 @@ export declare class AnalyticsService {
     }>;
     getMerchants(): Promise<{
         source: string;
-        topStores: {
-            storeId: string | null;
-            date: Date;
-            metrics: import("@prisma/client/runtime/library").JsonValue;
-        }[];
+        topStores: any;
     }>;
     getRiders(): Promise<{
         deliveriesCompleted: number;
@@ -195,29 +191,9 @@ export declare class AnalyticsService {
     }>;
     getAlerts(): Promise<{
         source: string;
-        alerts: {
-            message: string;
-            id: string;
-            status: import("@prisma/client").$Enums.AnalyticsAlertStatus;
-            metadata: import("@prisma/client/runtime/library").JsonValue | null;
-            createdAt: Date;
-            severity: import("@prisma/client").$Enums.AnalyticsAlertSeverity;
-            title: string;
-            resolvedAt: Date | null;
-            alertType: string;
-        }[];
+        alerts: any;
     }>;
-    acknowledgeAlert(id: string): Promise<{
-        message: string;
-        id: string;
-        status: import("@prisma/client").$Enums.AnalyticsAlertStatus;
-        metadata: import("@prisma/client/runtime/library").JsonValue | null;
-        createdAt: Date;
-        severity: import("@prisma/client").$Enums.AnalyticsAlertSeverity;
-        title: string;
-        resolvedAt: Date | null;
-        alertType: string;
-    }>;
+    acknowledgeAlert(id: string): Promise<any>;
     exportData(format: ExportFormat, range: ExportRange, type: string, from?: string, to?: string): Promise<{
         content: string;
         mime: string;
@@ -225,51 +201,39 @@ export declare class AnalyticsService {
     }>;
     getControlRoom(): Promise<{
         orders: {
-            active: number;
-            today: number;
-            unassigned: number;
+            active: any;
+            today: any;
+            unassigned: any;
         };
         riders: {
-            online: number;
-            busy: number;
-            offline: number;
+            online: any;
+            busy: any;
+            offline: any;
         };
         deliveries: {
-            inProgress: number;
-            completedToday: number;
+            inProgress: any;
+            completedToday: any;
         };
         revenue: {
             today: number;
             lastHour: number;
         };
         storeActivity: {
-            activeStores: number;
-            preparingOrders: number;
+            activeStores: any;
+            preparingOrders: any;
         };
-        fraudAlerts: number;
+        fraudAlerts: any;
         systemHealth: {
             api: string;
             db: string;
         };
-        alerts: {
-            id: string;
-            title: string;
-            severity: string;
-        }[];
+        alerts: any[];
         updatedAt: string;
     }>;
     getMerchantSnapshot(storeId: string, period?: '7d' | '30d'): Promise<{
         source: string;
         period: "30d" | "7d";
-        rollup: import("./analytics-metrics.types").MerchantRollupMetrics;
-        series: never[];
-    } | {
-        source: string;
-        period: "30d" | "7d";
-        series: {
-            date: Date;
-            metrics: import("@prisma/client/runtime/library").JsonValue;
-        }[];
-        rollup: import("@prisma/client/runtime/library").JsonValue;
+        series: any;
+        rollup: any;
     }>;
 }

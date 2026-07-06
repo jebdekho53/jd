@@ -9,33 +9,20 @@ export declare class MerchantAiWalletController {
     getWallet(user: RequestUser, page?: string, limit?: string): Promise<{
         success: boolean;
         data: {
-            balancePaise: number;
+            balancePaise: any;
             balanceRupee: number;
             minimumRechargePaise: number;
             minimumRechargeRupee: number;
             aiProductCostPaise: number;
             aiProductCostRupee: number;
-            totalSpentPaise: number;
-            totalRechargedPaise: number;
-            totalRefundedPaise: number;
-            transactions: {
-                id: string;
-                type: import("@prisma/client").$Enums.MerchantAiWalletTransactionType;
-                status: import("@prisma/client").$Enums.MerchantAiWalletTransactionStatus;
-                amountPaise: number;
-                amountRupee: number;
-                balanceBeforePaise: number;
-                balanceAfterPaise: number;
-                reason: string | null;
-                storeId: string | null;
-                analysisId: string | null;
-                productName: string | null;
-                createdAt: Date;
-            }[];
+            totalSpentPaise: any;
+            totalRechargedPaise: any;
+            totalRefundedPaise: any;
+            transactions: any;
             meta: {
                 page: number;
                 limit: number;
-                total: number;
+                total: any;
                 totalPages: number;
             };
         };
@@ -43,7 +30,7 @@ export declare class MerchantAiWalletController {
     createRechargeOrder(user: RequestUser, dto: CreateAiWalletRechargeDto, ip: string): Promise<{
         success: boolean;
         data: {
-            transactionId: string;
+            transactionId: any;
             razorpayOrderId: string;
             keyId: string;
             amount: number;
@@ -56,8 +43,8 @@ export declare class MerchantAiWalletController {
         data: {
             success: boolean;
             alreadyProcessed: boolean;
-            balancePaise: number;
-            transactionId: string;
+            balancePaise: any;
+            transactionId: any;
         };
     }>;
 }

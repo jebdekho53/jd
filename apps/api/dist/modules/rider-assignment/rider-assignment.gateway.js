@@ -12,6 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 var RiderAssignmentGateway_1;
+var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RiderAssignmentGateway = void 0;
 const common_1 = require("@nestjs/common");
@@ -49,7 +50,7 @@ let RiderAssignmentGateway = RiderAssignmentGateway_1 = class RiderAssignmentGat
 exports.RiderAssignmentGateway = RiderAssignmentGateway;
 __decorate([
     (0, websockets_1.WebSocketServer)(),
-    __metadata("design:type", socket_io_1.Server)
+    __metadata("design:type", typeof (_a = typeof socket_io_1.Server !== "undefined" && socket_io_1.Server) === "function" ? _a : Object)
 ], RiderAssignmentGateway.prototype, "server", void 0);
 __decorate([
     (0, event_emitter_1.OnEvent)(`ws.${rider_assignment_service_1.RIDER_ASSIGNMENT_EVENTS.ASSIGNED}`),
@@ -80,7 +81,7 @@ __decorate([
     __param(0, (0, websockets_1.ConnectedSocket)()),
     __param(1, (0, websockets_1.MessageBody)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:paramtypes", [typeof (_b = typeof socket_io_1.Socket !== "undefined" && socket_io_1.Socket) === "function" ? _b : Object, Object]),
     __metadata("design:returntype", void 0)
 ], RiderAssignmentGateway.prototype, "handleSubscribe", null);
 exports.RiderAssignmentGateway = RiderAssignmentGateway = RiderAssignmentGateway_1 = __decorate([

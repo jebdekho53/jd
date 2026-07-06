@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExportQueryDto = exports.MarkRiderPayoutPaidDto = exports.GenerateSettlementDto = exports.RejectCodDto = exports.CodSubmitDto = exports.ListFinanceQueryDto = void 0;
 const openapi = require("@nestjs/swagger");
@@ -37,7 +38,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.CodReconciliationStatus),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_a = typeof client_1.CodReconciliationStatus !== "undefined" && client_1.CodReconciliationStatus) === "function" ? _a : Object)
 ], ListFinanceQueryDto.prototype, "status", void 0);
 class CodSubmitDto {
     static _OPENAPI_METADATA_FACTORY() {
@@ -78,7 +79,7 @@ class GenerateSettlementDto {
 exports.GenerateSettlementDto = GenerateSettlementDto;
 __decorate([
     (0, class_validator_1.IsEnum)(client_1.SettlementCycle),
-    __metadata("design:type", String)
+    __metadata("design:type", typeof (_b = typeof client_1.SettlementCycle !== "undefined" && client_1.SettlementCycle) === "function" ? _b : Object)
 ], GenerateSettlementDto.prototype, "cycle", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),

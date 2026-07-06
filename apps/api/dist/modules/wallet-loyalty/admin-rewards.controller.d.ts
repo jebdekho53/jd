@@ -18,67 +18,27 @@ export declare class AdminRewardsController {
     }>;
     updateConfig(user: RequestUser, key: string, dto: UpdateRewardConfigDto): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            updatedAt: Date;
-            value: import("@prisma/client/runtime/library").JsonValue;
-            key: string;
-            updatedBy: string | null;
-        };
+        data: any;
     }>;
     analytics(): Promise<{
         success: boolean;
         data: {
             walletLiability: number;
-            walletHolders: number;
-            rewardPointsLiability: number;
-            completedReferrals: number;
-            totalBuyers: number;
+            walletHolders: any;
+            rewardPointsLiability: any;
+            completedReferrals: any;
+            totalBuyers: any;
             repeatPurchaseRate: number;
-            topLoyalCustomers: {
-                name: string;
-                tier: import("@prisma/client").$Enums.LoyaltyTier;
-                lifetimePoints: number;
-                balance: number;
-            }[];
+            topLoyalCustomers: any;
         };
     }>;
     fraudReviews(): Promise<{
         success: boolean;
-        data: ({
-            wallet: {
-                buyerProfile: {
-                    id: string;
-                    name: string;
-                    userId: string;
-                };
-                id: string;
-                referralCode: string;
-                balance: import("@prisma/client/runtime/library").Decimal;
-            };
-        } & {
-            id: string;
-            status: import("@prisma/client").$Enums.WalletFraudReviewStatus;
-            metadata: import("@prisma/client/runtime/library").JsonValue | null;
-            createdAt: Date;
-            walletId: string;
-            reviewedAt: Date | null;
-            reviewedBy: string | null;
-            reviewType: string;
-        })[];
+        data: any;
     }>;
     resolveFraud(user: RequestUser, id: string, dto: ResolveFraudReviewDto): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            status: import("@prisma/client").$Enums.WalletFraudReviewStatus;
-            metadata: import("@prisma/client/runtime/library").JsonValue | null;
-            createdAt: Date;
-            walletId: string;
-            reviewedAt: Date | null;
-            reviewedBy: string | null;
-            reviewType: string;
-        };
+        data: any;
     }>;
     creditWallet(user: RequestUser, walletId: string, dto: AdminAdjustWalletDto): Promise<{
         success: boolean;
@@ -96,7 +56,7 @@ export declare class AdminRewardsController {
         success: boolean;
         data: {
             walletId: string;
-            pointsAfter: number;
+            pointsAfter: any;
         };
     }>;
 }

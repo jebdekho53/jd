@@ -7,58 +7,26 @@ export declare class AdminLocationDirectoryController {
     list(query: ListAdminLocationsDto): Promise<{
         success: boolean;
         data: {
-            total: number;
+            total: any;
             page: number;
             limit: number;
-            items: {
-                isActive: boolean;
-                id: string;
-                label: string;
-                slug: string;
-                type: "pincode" | "area" | "city" | "alias";
-                pincode?: string;
-                postOffice?: string;
-                city: string;
-                citySlug: string;
-                area?: string;
-                areaSlug?: string;
-                district: string;
-                state: string;
-                latitude: number;
-                longitude: number;
-                deliveryRegion: import("@prisma/client").DeliveryRegion;
-                locationPincodeId?: string;
-                locationAreaId?: string;
-                locationCityId?: string;
-            }[];
+            items: any;
         };
     }>;
     stats(): Promise<{
         success: boolean;
         data: {
             totals: {
-                states: number;
-                districts: number;
-                cities: number;
-                areas: number;
-                pincodes: number;
-                aliases: number;
-                activePincodes: number;
+                states: any;
+                districts: any;
+                cities: any;
+                areas: any;
+                pincodes: any;
+                aliases: any;
+                activePincodes: any;
             };
-            regions: (import("@prisma/client").Prisma.PickEnumerable<import("@prisma/client").Prisma.LocationCityGroupByOutputType, "deliveryRegion"[]> & {
-                _count: {
-                    _all: number;
-                };
-            })[];
-            cityBreakdown: {
-                id: string;
-                name: string;
-                _count: {
-                    pincodes: number;
-                    areas: number;
-                };
-                slug: string;
-            }[];
+            regions: any;
+            cityBreakdown: any;
         };
     }>;
     export(res: Response): Promise<void>;

@@ -3,8 +3,8 @@ export declare class ProcurementAnalyticsService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     getMerchantAnalytics(merchantProfileId: string, storeId?: string): Promise<{
-        totalSpend: number;
-        orderCount: number;
+        totalSpend: any;
+        orderCount: any;
         fulfillmentRate: number;
         vendorComparison: {
             name: string;

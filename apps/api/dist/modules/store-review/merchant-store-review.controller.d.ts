@@ -7,8 +7,8 @@ export declare class MerchantStoreReviewController {
     overview(user: RequestUser, storeId: string): Promise<{
         success: boolean;
         data: {
-            lowRatingAlerts: number;
-            recentReviews: number;
+            lowRatingAlerts: any;
+            recentReviews: any;
             averageRating: number;
             totalReviews: number;
             distribution: Record<"1" | "2" | "3" | "4" | "5", number>;
@@ -20,43 +20,11 @@ export declare class MerchantStoreReviewController {
     }>;
     list(user: RequestUser, storeId: string, dto: ListStoreReviewsDto): Promise<{
         success: boolean;
-        data: {
-            id: any;
-            orderId: any;
-            storeId: any;
-            rating: any;
-            storeExperience: any;
-            deliveryExperience: any;
-            productQuality: any;
-            title: any;
-            review: any;
-            images: any;
-            verifiedPurchase: any;
-            merchantReply: any;
-            merchantRepliedAt: any;
-            status: any;
-            reportedAt: any;
-            reportReason: any;
-            buyer: {
-                id: any;
-                name: any;
-            } | null;
-            order: {
-                id: any;
-                orderNumber: any;
-            } | null;
-            store: {
-                id: any;
-                name: any;
-                slug: any;
-            } | null;
-            createdAt: any;
-            updatedAt: any;
-        }[];
+        data: any;
         meta: {
             page: number;
             limit: number;
-            total: number;
+            total: any;
         };
     }>;
     reply(user: RequestUser, storeId: string, reviewId: string, dto: MerchantReplyDto): Promise<{

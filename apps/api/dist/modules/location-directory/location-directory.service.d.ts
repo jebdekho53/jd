@@ -1,4 +1,4 @@
-import { DeliveryRegion, Prisma } from '@prisma/client';
+import { DeliveryRegion } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 export interface LocationSearchResult {
     id: string;
@@ -51,7 +51,7 @@ export declare class LocationDirectoryService {
         latitude?: number;
         longitude?: number;
     }): Promise<ResolvedPincodeLocation>;
-    getByPincode(pincode: string): Promise<LocationSearchResult[]>;
+    getByPincode(pincode: string): Promise<any>;
     getBySlug(slug: string): Promise<LocationSearchResult>;
     validatePincode(params: {
         pincode: string;
@@ -59,25 +59,9 @@ export declare class LocationDirectoryService {
         locationAreaId?: string;
     }): Promise<LocationSearchResult>;
     listFilters(): Promise<{
-        states: {
-            id: string;
-            name: string;
-            code: string;
-            slug: string;
-        }[];
-        districts: {
-            id: string;
-            name: string;
-            slug: string;
-            stateId: string;
-        }[];
-        cities: {
-            id: string;
-            name: string;
-            slug: string;
-            stateId: string;
-            districtId: string;
-        }[];
+        states: any;
+        districts: any;
+        cities: any;
     }>;
     adminList(params: {
         q?: string;
@@ -87,55 +71,23 @@ export declare class LocationDirectoryService {
         page?: number;
         limit?: number;
     }): Promise<{
-        total: number;
+        total: any;
         page: number;
         limit: number;
-        items: {
-            isActive: boolean;
-            id: string;
-            label: string;
-            slug: string;
-            type: "pincode" | "area" | "city" | "alias";
-            pincode?: string;
-            postOffice?: string;
-            city: string;
-            citySlug: string;
-            area?: string;
-            areaSlug?: string;
-            district: string;
-            state: string;
-            latitude: number;
-            longitude: number;
-            deliveryRegion: DeliveryRegion;
-            locationPincodeId?: string;
-            locationAreaId?: string;
-            locationCityId?: string;
-        }[];
+        items: any;
     }>;
     adminStats(): Promise<{
         totals: {
-            states: number;
-            districts: number;
-            cities: number;
-            areas: number;
-            pincodes: number;
-            aliases: number;
-            activePincodes: number;
+            states: any;
+            districts: any;
+            cities: any;
+            areas: any;
+            pincodes: any;
+            aliases: any;
+            activePincodes: any;
         };
-        regions: (Prisma.PickEnumerable<Prisma.LocationCityGroupByOutputType, "deliveryRegion"[]> & {
-            _count: {
-                _all: number;
-            };
-        })[];
-        cityBreakdown: {
-            id: string;
-            name: string;
-            _count: {
-                pincodes: number;
-                areas: number;
-            };
-            slug: string;
-        }[];
+        regions: any;
+        cityBreakdown: any;
     }>;
     setPincodeActive(id: string, isActive: boolean): Promise<LocationSearchResult>;
     exportCsv(): Promise<string>;

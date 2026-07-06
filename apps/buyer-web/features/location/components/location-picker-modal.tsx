@@ -28,6 +28,7 @@ export function LocationPickerModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mapPosition, setMapPosition] = useState<{ lat: number; lng: number }>(MAP_INITIAL_VISUAL_CENTER);
+  const [placeViewport, setPlaceViewport] = useState<google.maps.LatLngBoundsLiteral | null>(null);
   const [preview, setPreview] = useState<{
     lat: number;
     lng: number;
@@ -41,6 +42,7 @@ export function LocationPickerModal({
     if (!open) {
       setError(null);
       setPreview(null);
+      setPlaceViewport(null);
       return;
     }
 
@@ -54,11 +56,13 @@ export function LocationPickerModal({
         city: savedLocation.city,
         area: savedLocation.area,
       });
+      setPlaceViewport(null);
       return;
     }
 
     setMapPosition(MAP_INITIAL_VISUAL_CENTER);
     setPreview(null);
+    setPlaceViewport(null);
   }, [
     open,
     savedLocation.area,
@@ -90,6 +94,7 @@ export function LocationPickerModal({
   const handleGps = async () => {
     setLoading(true);
     setError(null);
+    setPlaceViewport(null);
     try {
       const pos = await requestBrowserLocation();
       if (isConfigured) {
@@ -119,6 +124,7 @@ export function LocationPickerModal({
 
   const handleGooglePlace = (address: ParsedGoogleAddress) => {
     setMapPosition({ lat: address.lat, lng: address.lng });
+    setPlaceViewport(address.viewport ?? null);
     setPreview({
       lat: address.lat,
       lng: address.lng,
@@ -131,6 +137,7 @@ export function LocationPickerModal({
 
   const handleMapMove = async (coords: { lat: number; lng: number }) => {
     setMapPosition(coords);
+    setPlaceViewport(null);
     if (!isConfigured) return;
     const parsed = await geocode(coords.lat, coords.lng);
     if (parsed) {
@@ -182,6 +189,8 @@ export function LocationPickerModal({
               onPositionChange={handleMapMove}
               heightClassName="h-40 sm:h-48"
               disabled={isGeocoding}
+              viewport={placeViewport}
+              address={preview?.label}
             />
             {preview && (
               <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">

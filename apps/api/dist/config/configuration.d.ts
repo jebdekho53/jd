@@ -1,22 +1,22 @@
 import { ConfigService } from '@nestjs/config';
 export declare function getConfig(configService: ConfigService): {
-    readonly nodeEnv: string;
-    readonly port: number;
+    readonly nodeEnv: any;
+    readonly port: any;
     readonly jwt: {
         readonly privateKey: string;
         readonly publicKey: string;
-        readonly keyId: string;
-        readonly accessExpiresIn: string;
-        readonly refreshExpiresIn: string;
-        readonly issuer: string;
-        readonly audience: string;
+        readonly keyId: any;
+        readonly accessExpiresIn: any;
+        readonly refreshExpiresIn: any;
+        readonly issuer: any;
+        readonly audience: any;
     };
     readonly otp: {
-        readonly length: number;
-        readonly expiresMinutes: number;
-        readonly maxAttempts: number;
-        readonly rateLimitRequests: number;
-        readonly rateLimitWindowMinutes: number;
+        readonly length: any;
+        readonly expiresMinutes: any;
+        readonly maxAttempts: any;
+        readonly rateLimitRequests: any;
+        readonly rateLimitWindowMinutes: any;
     };
     readonly auth: {
         readonly emailEnabled: boolean;
@@ -26,80 +26,80 @@ export declare function getConfig(configService: ConfigService): {
         readonly msg91Enabled: boolean;
     };
     readonly sms: {
-        readonly provider: string;
+        readonly provider: any;
         readonly msg91: {
-            readonly authKey: string;
-            readonly senderId: string;
-            readonly templateId: string;
-            readonly dltTeId: string;
+            readonly authKey: any;
+            readonly senderId: any;
+            readonly templateId: any;
+            readonly dltTeId: any;
         };
     };
     readonly whatsapp: {
         readonly otpEnabled: boolean;
-        readonly phoneNumberId: string;
-        readonly businessAccountId: string;
-        readonly appId: string;
-        readonly testRecipient: string;
-        readonly graphVersion: string;
-        readonly otpTemplateName: string;
-        readonly otpTemplateLang: string;
+        readonly phoneNumberId: any;
+        readonly businessAccountId: any;
+        readonly appId: any;
+        readonly testRecipient: any;
+        readonly graphVersion: any;
+        readonly otpTemplateName: any;
+        readonly otpTemplateLang: any;
     };
     readonly cors: {
-        readonly origins: string[];
+        readonly origins: any;
     };
     readonly storage: {
-        readonly provider: string;
-        readonly uploadDir: string;
-        readonly uploadPublicUrl: string;
+        readonly provider: any;
+        readonly uploadDir: any;
+        readonly uploadPublicUrl: any;
     };
     readonly trustProxy: boolean;
     readonly logging: {
-        readonly level: string;
+        readonly level: any;
     };
     readonly throttle: {
-        readonly ttl: number;
-        readonly limit: number;
-        readonly authLimit: number;
+        readonly ttl: any;
+        readonly limit: any;
+        readonly authLimit: any;
     };
     readonly razorpay: {
-        readonly keyId: string;
-        readonly keySecret: string;
-        readonly webhookSecret: string;
+        readonly keyId: any;
+        readonly keySecret: any;
+        readonly webhookSecret: any;
     };
     readonly logistics: {
-        readonly deliveryProvider: string;
+        readonly deliveryProvider: any;
         readonly enableOwnFleet: boolean;
         readonly enableShadowfax: boolean;
         readonly enablePorter: boolean;
         readonly enableDelhivery: boolean;
         readonly enableBorzo: boolean;
         readonly shadowfax: {
-            readonly apiUrl: string;
-            readonly apiMode: string;
-            readonly creditsKey: string;
-            readonly clientId: string;
-            readonly clientSecret: string;
-            readonly testToken: string;
-            readonly productionToken: string;
-            readonly webhookSecret: string;
-            readonly preallocatedAwbs: string;
-            readonly preallocatedReverseAwbs: string;
+            readonly apiUrl: any;
+            readonly apiMode: any;
+            readonly creditsKey: any;
+            readonly clientId: any;
+            readonly clientSecret: any;
+            readonly testToken: any;
+            readonly productionToken: any;
+            readonly webhookSecret: any;
+            readonly preallocatedAwbs: any;
+            readonly preallocatedReverseAwbs: any;
         };
     };
-    readonly buyerSiteUrl: string;
+    readonly buyerSiteUrl: any;
     readonly webPush: {
-        readonly publicKey: string;
-        readonly privateKey: string;
-        readonly subject: string;
+        readonly publicKey: any;
+        readonly privateKey: any;
+        readonly subject: any;
     };
     readonly smtp: {
         enabled: boolean;
-        host: string;
-        port: number;
+        host: any;
+        port: any;
         secure: boolean;
-        user: string;
-        pass: string;
-        from: string;
+        user: any;
+        pass: any;
+        from: any;
     };
 };
 export type AppConfig = ReturnType<typeof getConfig>;

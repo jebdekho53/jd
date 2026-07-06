@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var MerchantAiWalletService_1;
+var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MerchantAiWalletService = exports.INSUFFICIENT_AI_WALLET_MESSAGE = void 0;
 const common_1 = require("@nestjs/common");
@@ -476,9 +477,7 @@ let MerchantAiWalletService = MerchantAiWalletService_1 = class MerchantAiWallet
 exports.MerchantAiWalletService = MerchantAiWalletService;
 exports.MerchantAiWalletService = MerchantAiWalletService = MerchantAiWalletService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        config_1.ConfigService,
-        razorpay_service_1.RazorpayService,
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object, razorpay_service_1.RazorpayService,
         audit_service_1.AuditService])
 ], MerchantAiWalletService);
 //# sourceMappingURL=merchant-ai-wallet.service.js.map

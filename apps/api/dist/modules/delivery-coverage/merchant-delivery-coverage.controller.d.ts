@@ -7,29 +7,17 @@ export declare class MerchantDeliveryCoverageController {
     list(user: RequestUser, storeId: string, query: ListDeliveryAreasDto): Promise<{
         success: boolean;
         data: {
-            items: {
-                id: string;
-                pincode: string;
-                city: string | null;
-                state: string | null;
-                deliveryFee: number | null;
-                minimumOrder: number | null;
-                estimatedMinutes: number | null;
-                priority: number;
-                isActive: boolean;
-                createdAt: string;
-                updatedAt: string;
-            }[];
-            total: number;
-            coverageCount: number;
-            maxAreas: number;
+            items: any;
+            total: any;
+            coverageCount: any;
+            maxAreas: any;
         };
     }>;
     analytics(user: RequestUser, storeId: string): Promise<{
         success: boolean;
         data: {
-            coverageCount: number;
-            reachPincodes: number;
+            coverageCount: any;
+            reachPincodes: any;
             topPincodes: {
                 pincode: string;
                 orders: number;

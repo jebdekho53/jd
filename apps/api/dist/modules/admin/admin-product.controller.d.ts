@@ -5,91 +5,60 @@ export declare class AdminProductController {
     detail(id: string): Promise<{
         success: boolean;
         data: {
-            id: string;
-            name: string;
-            slug: string;
-            brand: string | null;
-            isActive: boolean;
+            id: any;
+            name: any;
+            slug: any;
+            brand: any;
+            isActive: any;
             visibility: {
-                buyerVisible: boolean;
-                storeStatus: import("@prisma/client").$Enums.StoreStatus;
-                storeActive: boolean;
+                buyerVisible: any;
+                storeStatus: any;
+                storeActive: any;
             };
             metadata: {
-                ingredients: string | null;
-                shelfLife: string | null;
-                countryOfOrigin: string | null;
-                manufacturerName: string | null;
-                manufacturerAddress: string | null;
-                fssaiLicense: string | null;
-                storageInstructions: string | null;
-                disclaimer: string | null;
-                taxInclusive: boolean;
+                ingredients: any;
+                shelfLife: any;
+                countryOfOrigin: any;
+                manufacturerName: any;
+                manufacturerAddress: any;
+                fssaiLicense: any;
+                storageInstructions: any;
+                disclaimer: any;
+                taxInclusive: any;
             };
             tax: {
-                hsnCode: string | null;
-                hsnCodeId: string | null;
-                hsnDescription: string | null;
-                gstSlab: import("@prisma/client").$Enums.GstSlab | null;
-                taxCategory: import("@prisma/client").$Enums.ProductTaxCategory;
+                hsnCode: any;
+                hsnCodeId: any;
+                hsnDescription: any;
+                gstSlab: any;
+                taxCategory: any;
             };
-            inventory: {
-                variantId: string;
-                sku: string;
-                name: string;
-                price: number;
-                availableQty: number;
-                reservedQty: number;
-                status: import("@prisma/client").$Enums.InventoryStatus | null;
-            }[];
+            inventory: any;
             reviews: {
                 aggregate: {
-                    ratingAvg: number;
-                    ratingCount: number;
+                    ratingAvg: any;
+                    ratingCount: any;
                 };
-                recent: {
-                    id: string;
-                    rating: number;
-                    comment: string | null;
-                    images: string[];
-                    buyerName: string;
-                    createdAt: string;
-                }[];
+                recent: any;
             };
             offers: {
-                storePromotions: {
-                    id: string;
-                    name: string;
-                    offerType: import("@prisma/client").$Enums.PromotionOfferType;
-                }[];
-                coupons: {
-                    id: string;
-                    code: string;
-                    name: string;
-                }[];
-                campaignOffers: {
-                    id: string;
-                    name: string;
-                    kind: import("@prisma/client").$Enums.OfferKind;
-                }[];
+                storePromotions: any;
+                coupons: any;
+                campaignOffers: any;
             };
             store: {
-                id: string;
-                name: string;
-                slug: string;
-                pincode: string;
+                id: any;
+                name: any;
+                slug: any;
+                pincode: any;
             };
             merchant: {
-                id: string;
-                businessName: string;
-                email: string | null;
-                phone: string;
+                id: any;
+                businessName: any;
+                email: any;
+                phone: any;
             } | null;
-            category: {
-                id: string;
-                name: string;
-                slug: string;
-            } | null;
+            category: any;
             pdpPreviewUrl: string;
         };
     }>;

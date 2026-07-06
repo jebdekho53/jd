@@ -7,63 +7,15 @@ export declare class MerchantController {
     constructor(merchantService: MerchantService);
     createProfile(user: RequestUser, dto: CreateMerchantProfileDto, ip: string): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            createdAt: Date;
-            userId: string;
-            updatedAt: Date;
-            businessName: string;
-            gstNumber: string | null;
-            panNumber: string | null;
-            kycStatus: import("@prisma/client").$Enums.KycStatus;
-            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-            isBlacklisted: boolean;
-            blacklistReason: string | null;
-            blacklistedAt: Date | null;
-            blacklistedBy: string | null;
-            blacklistRemovedAt: Date | null;
-            blacklistRemovedBy: string | null;
-        };
+        data: MerchantProfile;
     }>;
     getProfile(user: RequestUser): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            createdAt: Date;
-            userId: string;
-            updatedAt: Date;
-            businessName: string;
-            gstNumber: string | null;
-            panNumber: string | null;
-            kycStatus: import("@prisma/client").$Enums.KycStatus;
-            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-            isBlacklisted: boolean;
-            blacklistReason: string | null;
-            blacklistedAt: Date | null;
-            blacklistedBy: string | null;
-            blacklistRemovedAt: Date | null;
-            blacklistRemovedBy: string | null;
-        };
+        data: MerchantProfile;
     }>;
     updateProfile(user: RequestUser, dto: UpdateMerchantProfileDto, ip: string): Promise<{
         success: boolean;
-        data: {
-            id: string;
-            createdAt: Date;
-            userId: string;
-            updatedAt: Date;
-            businessName: string;
-            gstNumber: string | null;
-            panNumber: string | null;
-            kycStatus: import("@prisma/client").$Enums.KycStatus;
-            kycDocuments: import("@prisma/client/runtime/library").JsonValue | null;
-            isBlacklisted: boolean;
-            blacklistReason: string | null;
-            blacklistedAt: Date | null;
-            blacklistedBy: string | null;
-            blacklistRemovedAt: Date | null;
-            blacklistRemovedBy: string | null;
-        };
+        data: MerchantProfile;
     }>;
     updateBankAccount(user: RequestUser, dto: any): Promise<{
         success: boolean;
