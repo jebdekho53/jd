@@ -39,6 +39,9 @@ function loadEnv(): Record<string, string> {
     if (!existsSync(p)) continue;
     parseEnvFile(readFileSync(p, 'utf8'), out);
   }
+  for (const [key, value] of Object.entries(out)) {
+    process.env[key] ??= value;
+  }
   return out;
 }
 
@@ -132,7 +135,13 @@ function checkPayments(env: Record<string, string>) {
   if (IS_PROD && !isLive) record('Razorpay', 'FAIL', 'production must use rzp_live_ keys');
   else if (!IS_PROD && isLive) record('Razorpay', 'WARN', 'LIVE keys in a non-production env — real charges possible');
   else record('Razorpay', 'PASS', isLive ? 'live keys' : 'test keys');
-  if (!env.RAZORPAY_WEBHOOK_SECRET) record('Razorpay webhook', 'WARN', 'RAZORPAY_WEBHOOK_SECRET not set');
+  if (!env.RAZORPAY_WEBHOOK_SECRET) {
+    record(
+      'Razorpay webhook',
+      IS_PROD ? 'FAIL' : 'WARN',
+      'RAZORPAY_WEBHOOK_SECRET not set — payment status webhooks cannot be trusted',
+    );
+  }
 }
 
 function checkInfra(env: Record<string, string>) {
@@ -144,7 +153,8 @@ function checkInfra(env: Record<string, string>) {
 // ── source scan: no demo/fallback regressions ────────────────────────────────
 function scanSource() {
   // Demo-auth reintroduction — any reference is a fail.
-  const demoRe = /demo-auth|DEMO_OTP|DEMO_PHONE|isDemoPhone|Use demo number|Demo login/;
+  const demoRe =
+    /demo-auth|DEMO_OTP|DEMO_PHONE|FIXED_OTP|STATIC_OTP|TEST_OTP|fixedOtp|staticOtp|testOtp|isDemoPhone|Use demo number|Demo login/;
   // Hardcoded Connaught Place / Delhi fallback. The coords also appear legitimately as:
   //   - Swagger `example:` values in DTOs (docs, not logic)
   //   - anti-fallback GUARDS that compare against the old default to REJECT it
