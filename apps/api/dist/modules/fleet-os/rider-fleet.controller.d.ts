@@ -14,12 +14,53 @@ export declare class RiderFleetController {
     } | {
         success: boolean;
         data: {
-            currentBatch: any;
-            upcomingOrders: any;
+            currentBatch: ({
+                items: ({
+                    order: {
+                        id: string;
+                        status: import("@prisma/client").$Enums.OrderStatus;
+                        orderNumber: string;
+                    };
+                } & {
+                    id: string;
+                    orderId: string;
+                    batchId: string;
+                    sequence: number;
+                })[];
+            } & {
+                id: string;
+                status: import("@prisma/client").$Enums.DeliveryBatchStatus;
+                createdAt: Date;
+                updatedAt: Date;
+                completedAt: Date | null;
+                riderId: string;
+                totalOrders: number;
+            }) | null;
+            upcomingOrders: ({
+                order: {
+                    id: string;
+                    status: import("@prisma/client").$Enums.OrderStatus;
+                    orderNumber: string;
+                };
+            } & {
+                id: string;
+                orderId: string;
+                batchId: string;
+                sequence: number;
+            })[];
         };
     }>;
     route(user: RequestUser): Promise<{
         success: boolean;
-        data: any;
+        data: {
+            id: string;
+            createdAt: Date;
+            distanceKm: number;
+            estimatedMinutes: number;
+            batchId: string | null;
+            riderId: string;
+            optimized: boolean;
+            routeSequence: import("@prisma/client/runtime/library").JsonValue | null;
+        } | null;
     }>;
 }

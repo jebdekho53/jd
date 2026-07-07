@@ -154,11 +154,43 @@ export declare class PublicStoreReviewController {
     constructor(service: StoreReviewService);
     list(slug: string, dto: ListStoreReviewsDto): Promise<{
         success: boolean;
-        data: any;
+        data: {
+            id: any;
+            orderId: any;
+            storeId: any;
+            rating: any;
+            storeExperience: any;
+            deliveryExperience: any;
+            productQuality: any;
+            title: any;
+            review: any;
+            images: any;
+            verifiedPurchase: any;
+            merchantReply: any;
+            merchantRepliedAt: any;
+            status: any;
+            reportedAt: any;
+            reportReason: any;
+            buyer: {
+                id: any;
+                name: any;
+            } | null;
+            order: {
+                id: any;
+                orderNumber: any;
+            } | null;
+            store: {
+                id: any;
+                name: any;
+                slug: any;
+            } | null;
+            createdAt: any;
+            updatedAt: any;
+        }[];
         meta: {
             page: number;
             limit: number;
-            total: any;
+            total: number;
         };
     }>;
     reputation(slug: string): Promise<{

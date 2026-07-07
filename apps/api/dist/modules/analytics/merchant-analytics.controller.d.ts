@@ -11,8 +11,16 @@ export declare class MerchantAnalyticsController {
         data: {
             source: string;
             period: "30d" | "7d";
-            series: any;
-            rollup: any;
+            rollup: import("./analytics-metrics.types").MerchantRollupMetrics;
+            series: never[];
+        } | {
+            source: string;
+            period: "30d" | "7d";
+            series: {
+                date: Date;
+                metrics: import("@prisma/client/runtime/library").JsonValue;
+            }[];
+            rollup: import("@prisma/client/runtime/library").JsonValue;
         };
     }>;
     getStore(user: RequestUser, storeId: string, query: MerchantAnalyticsQueryDto): Promise<{
@@ -20,8 +28,16 @@ export declare class MerchantAnalyticsController {
         data: {
             source: string;
             period: "30d" | "7d";
-            series: any;
-            rollup: any;
+            rollup: import("./analytics-metrics.types").MerchantRollupMetrics;
+            series: never[];
+        } | {
+            source: string;
+            period: "30d" | "7d";
+            series: {
+                date: Date;
+                metrics: import("@prisma/client/runtime/library").JsonValue;
+            }[];
+            rollup: import("@prisma/client/runtime/library").JsonValue;
         };
     }>;
 }

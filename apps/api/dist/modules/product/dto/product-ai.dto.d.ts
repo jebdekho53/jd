@@ -23,7 +23,26 @@ export declare class ConfirmAiProductDto {
     gstSlab?: GstSlab;
     taxCategory?: 'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED';
     confirmReturnPolicy?: boolean;
+    primaryImageUrl?: string;
+    supplementComplianceConfirmed?: boolean;
+    lowStockThreshold?: number;
+    manufacturerAddress?: string;
+    disclaimer?: string;
+    taxInclusive?: boolean;
+    isReturnable?: boolean;
+    isRefundable?: boolean;
+    isReplaceable?: boolean;
+    returnWindowHours?: number;
+    approvalMode?: string;
+    proofRequired?: string;
+    refundMethod?: string;
+    allowCustomerChangedMind?: boolean;
+    returnPolicyText?: string;
+    replacementPolicyText?: string;
     publish: boolean;
+}
+export declare class GenerateProductImageDto {
+    mode?: 'bg_removal' | 'ai_edit';
 }
 export declare class ListAiHistoryDto {
     storeId?: string;

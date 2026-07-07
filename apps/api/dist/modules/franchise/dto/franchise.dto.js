@@ -8,7 +8,6 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AssignTerritoryDto = exports.CreateCityLaunchDto = exports.UpdateFranchiseDto = exports.CreateFranchiseDto = void 0;
 const openapi = require("@nestjs/swagger");
@@ -56,7 +55,7 @@ class UpdateFranchiseDto {
 exports.UpdateFranchiseDto = UpdateFranchiseDto;
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", typeof (_a = typeof client_1.FranchisePartnerStatus !== "undefined" && client_1.FranchisePartnerStatus) === "function" ? _a : Object)
+    __metadata("design:type", String)
 ], UpdateFranchiseDto.prototype, "status", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -84,7 +83,7 @@ __decorate([
 ], CreateCityLaunchDto.prototype, "state", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", typeof (_b = typeof client_1.CityLaunchStatus !== "undefined" && client_1.CityLaunchStatus) === "function" ? _b : Object)
+    __metadata("design:type", String)
 ], CreateCityLaunchDto.prototype, "launchStatus", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),

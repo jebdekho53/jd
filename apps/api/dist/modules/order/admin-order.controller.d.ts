@@ -6,11 +6,38 @@ export declare class AdminOrderController {
     listOrders(dto: ListAdminOrdersDto): Promise<{
         success: boolean;
         data: {
-            orders: any;
+            orders: {
+                id: string;
+                orderNumber: string;
+                status: import("@prisma/client").$Enums.OrderStatus;
+                paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
+                paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
+                totalAmount: number;
+                createdAt: Date;
+                updatedAt: Date;
+                deliveryStatus: import("@prisma/client").$Enums.DeliveryStatus | null;
+                store: {
+                    id: string;
+                    name: string;
+                    slug: string;
+                    merchant: {
+                        id: string;
+                        businessName: string;
+                    };
+                } | null;
+                buyer: {
+                    id: string;
+                    name: string;
+                };
+                rider: {
+                    id: string;
+                    name: string;
+                } | null;
+            }[];
             meta: {
-                page: any;
-                limit: any;
-                total: any;
+                page: number;
+                limit: number;
+                total: number;
                 totalPages: number;
             };
         };

@@ -27,16 +27,46 @@ export declare class MerchantGrowthService {
         ratingTrend?: undefined;
         visibilityScore?: undefined;
     } | {
-        healthScore: any;
-        breakdown: any;
-        metrics: any;
-        inventoryHealth: any;
-        fulfillmentRate: any;
-        cancellationPct: any;
-        ratingTrend: any;
-        visibilityScore: any;
+        healthScore: number;
+        breakdown: import("./store-health.service").HealthBreakdown;
+        metrics: {
+            fulfillmentRate: number;
+            cancellationRate: number;
+            averageRating: number;
+            ratingTrend: "up" | "down" | "stable";
+            lowStockSkus: number;
+            outOfStockSkus: number;
+            repeatCustomerPct: number;
+            avgDeliveryMins: number;
+            deliverySlaPct: number;
+            visibilityScore: number;
+            campaignActivityPct: number;
+        };
+        inventoryHealth: {
+            totalProducts: number;
+            activeProducts: number;
+            outOfStock: number;
+            lowStock: number;
+            hiddenProducts: number;
+            draftProducts: number;
+        };
+        fulfillmentRate: number;
+        cancellationPct: number;
+        ratingTrend: "up" | "down" | "stable";
+        visibilityScore: number;
         actionCenter: import("./growth-recommendations.service").GrowthAction[];
-        alerts: any;
+        alerts: {
+            message: string;
+            id: string;
+            status: import("@prisma/client").$Enums.AnalyticsAlertStatus;
+            metadata: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            storeId: string;
+            severity: import("@prisma/client").$Enums.AnalyticsAlertSeverity;
+            title: string;
+            resolvedAt: Date | null;
+            alertType: import("@prisma/client").$Enums.MerchantGrowthAlertType;
+        }[];
     }>;
     getRecommendations(userId: string, storeId?: string): Promise<{
         recommendations: import("./growth-recommendations.service").GrowthRecommendation[];
@@ -50,14 +80,20 @@ export declare class MerchantGrowthService {
         visibilityScore: number;
         insights: {
             period: "30d" | "7d";
-            impressions: any;
-            clicks: any;
+            impressions: number;
+            clicks: number;
             ctr: number;
-            addToCart: any;
-            orders: any;
+            addToCart: number;
+            orders: number;
             conversionRate: number;
-            topSearchedProducts: any;
-            lostSearches: any;
+            topSearchedProducts: {
+                query: string;
+                count: number;
+            }[];
+            lostSearches: {
+                query: string;
+                count: number;
+            }[];
         };
         hiddenLocalities: string[];
         tips: (string | null)[];
@@ -67,24 +103,45 @@ export declare class MerchantGrowthService {
         expansion: never[];
         retention: never[];
     } | {
-        revenue: any[];
+        revenue: ({
+            title: string;
+            count: number;
+            type: string;
+        } | {
+            title: string;
+            count: number;
+            potential: string;
+        } | {
+            title: string;
+            count: number;
+            potential?: undefined;
+        })[];
         expansion: ({
             title: string;
-            current: any;
+            current: number;
             recommended: number;
-            city: any;
+            city: string | undefined;
             topSearches?: undefined;
         } | {
             title: string;
-            topSearches: any;
+            topSearches: {
+                query: string;
+                count: number;
+            }[];
             current?: undefined;
             recommended?: undefined;
             city?: undefined;
         })[];
         retention: {
-            repeatCustomers: any;
-            loyaltyMembers: any;
-            topSpenders: any;
+            repeatCustomers: number;
+            loyaltyMembers: number;
+            topSpenders: {
+                userId: string | undefined;
+                name: string | undefined;
+                phone: string | undefined;
+                totalSpent: number;
+                orderCount: number;
+            }[];
         };
     }>;
     getBenchmark(userId: string, storeId?: string): Promise<{
@@ -94,10 +151,10 @@ export declare class MerchantGrowthService {
         percentile?: undefined;
     } | {
         store: {
-            healthScore: any;
-            visibilityScore: any;
-            cancellationRate: any;
-            repeatCustomerPct: any;
+            healthScore: number;
+            visibilityScore: number;
+            cancellationRate: number;
+            repeatCustomerPct: number;
         };
         platform: {
             avgHealthScore: number;

@@ -28,18 +28,224 @@ export declare class BuyerSearchController {
             };
         } | {
             products: {
+                id: string;
+                name: string;
+                slug: string;
+                brand: string | null;
+                imageUrls: string[];
+                basePrice: number;
+                mrp: number | null;
+                variantId: string;
+                category: {
+                    id: string;
+                    name: string;
+                    slug: string;
+                } | null;
+                store: {
+                    id: string;
+                    name: string;
+                    slug: string;
+                    distanceKm: number | undefined;
+                    ratingAvg: number;
+                    avgPrepTimeMins: number;
+                    etaMins: number;
+                    hasOffer: boolean;
+                };
+                inStock: boolean;
+                availableQty: number;
                 score: number;
                 sortPrice: number;
                 sortEta: number;
                 sortRating: number;
                 sortDistance: number;
             }[];
-            stores: any;
-            categories: any;
-            subcategories: any;
-            brands: any;
-            menuItems: any;
-            restaurants: any;
+            stores: {
+                id: string;
+                name: string;
+                slug: string;
+                logoUrl: string | null;
+                bannerUrl: string | null;
+                ratingAvg: number;
+                distanceKm: number;
+                etaMins: number;
+                hasOffer: boolean;
+                categories: {
+                    id: string;
+                    name: string;
+                }[];
+            }[];
+            categories: {
+                id: string;
+                name: string;
+                slug: string;
+                parentId: string | null;
+                imageUrl: string | null;
+            }[];
+            subcategories: {
+                id: string;
+                name: string;
+                slug: string;
+                parentId: string | null;
+                imageUrl: string | null;
+            }[];
+            brands: {
+                name: string;
+            }[];
+            menuItems: {
+                id: string;
+                name: string;
+                basePrice: number;
+                dietType: string;
+                store: ({
+                    hours: {
+                        id: string;
+                        storeId: string;
+                        dayOfWeek: import("@prisma/client").$Enums.DayOfWeek;
+                        openTime: string;
+                        closeTime: string;
+                        isClosed: boolean;
+                    }[];
+                    storeServiceAreas: ({
+                        serviceArea: {
+                            centerLat: number;
+                            centerLng: number;
+                            radiusKm: number;
+                        };
+                    } & {
+                        id: string;
+                        storeId: string;
+                        serviceAreaId: string;
+                    })[];
+                    deliveryAreas: {
+                        deliveryFee: import("@prisma/client/runtime/library").Decimal | null;
+                        isActive: boolean;
+                        pincode: string;
+                        priority: number;
+                        minimumOrder: import("@prisma/client/runtime/library").Decimal | null;
+                        estimatedMinutes: number | null;
+                    }[];
+                } & {
+                    id: string;
+                    status: import("@prisma/client").$Enums.StoreStatus;
+                    name: string;
+                    createdAt: Date;
+                    email: string | null;
+                    phone: string | null;
+                    updatedAt: Date;
+                    deletedAt: Date | null;
+                    description: string | null;
+                    deliveryFee: import("@prisma/client/runtime/library").Decimal;
+                    minOrderAmount: import("@prisma/client/runtime/library").Decimal;
+                    isActive: boolean;
+                    ratingAvg: number;
+                    ratingCount: number;
+                    latitude: number;
+                    longitude: number;
+                    submittedAt: Date | null;
+                    rejectionReason: string | null;
+                    merchantProfileId: string;
+                    cityId: string;
+                    slug: string;
+                    logoUrl: string | null;
+                    bannerUrl: string | null;
+                    line1: string;
+                    line2: string | null;
+                    pincode: string;
+                    locality: string | null;
+                    locationPincodeId: string | null;
+                    locationAreaId: string | null;
+                    locationCityId: string | null;
+                    deliveryRadiusKm: number;
+                    storeType: import("@prisma/client").$Enums.StoreType;
+                    reviewedAt: Date | null;
+                    reviewedBy: string | null;
+                    rejectionType: import("@prisma/client").$Enums.RejectionType | null;
+                    rejectionRevokedAt: Date | null;
+                    rejectionRevokedBy: string | null;
+                    rejectionRevokeReason: string | null;
+                    documentRequestReason: string | null;
+                    documentRequestAt: Date | null;
+                    documentRequestBy: string | null;
+                    requestedDocumentTypes: import("@prisma/client/runtime/library").JsonValue | null;
+                    avgPrepTimeMins: number;
+                    reputationStats: import("@prisma/client/runtime/library").JsonValue | null;
+                }) | undefined;
+                type: "menu_item";
+            }[];
+            restaurants: {
+                type: "restaurant";
+                hours: {
+                    id: string;
+                    storeId: string;
+                    dayOfWeek: import("@prisma/client").$Enums.DayOfWeek;
+                    openTime: string;
+                    closeTime: string;
+                    isClosed: boolean;
+                }[];
+                storeServiceAreas: ({
+                    serviceArea: {
+                        centerLat: number;
+                        centerLng: number;
+                        radiusKm: number;
+                    };
+                } & {
+                    id: string;
+                    storeId: string;
+                    serviceAreaId: string;
+                })[];
+                deliveryAreas: {
+                    deliveryFee: import("@prisma/client/runtime/library").Decimal | null;
+                    isActive: boolean;
+                    pincode: string;
+                    priority: number;
+                    minimumOrder: import("@prisma/client/runtime/library").Decimal | null;
+                    estimatedMinutes: number | null;
+                }[];
+                id: string;
+                status: import("@prisma/client").$Enums.StoreStatus;
+                name: string;
+                createdAt: Date;
+                email: string | null;
+                phone: string | null;
+                updatedAt: Date;
+                deletedAt: Date | null;
+                description: string | null;
+                deliveryFee: import("@prisma/client/runtime/library").Decimal;
+                minOrderAmount: import("@prisma/client/runtime/library").Decimal;
+                isActive: boolean;
+                ratingAvg: number;
+                ratingCount: number;
+                latitude: number;
+                longitude: number;
+                submittedAt: Date | null;
+                rejectionReason: string | null;
+                merchantProfileId: string;
+                cityId: string;
+                slug: string;
+                logoUrl: string | null;
+                bannerUrl: string | null;
+                line1: string;
+                line2: string | null;
+                pincode: string;
+                locality: string | null;
+                locationPincodeId: string | null;
+                locationAreaId: string | null;
+                locationCityId: string | null;
+                deliveryRadiusKm: number;
+                storeType: import("@prisma/client").$Enums.StoreType;
+                reviewedAt: Date | null;
+                reviewedBy: string | null;
+                rejectionType: import("@prisma/client").$Enums.RejectionType | null;
+                rejectionRevokedAt: Date | null;
+                rejectionRevokedBy: string | null;
+                rejectionRevokeReason: string | null;
+                documentRequestReason: string | null;
+                documentRequestAt: Date | null;
+                documentRequestBy: string | null;
+                requestedDocumentTypes: import("@prisma/client/runtime/library").JsonValue | null;
+                avgPrepTimeMins: number;
+                reputationStats: import("@prisma/client/runtime/library").JsonValue | null;
+            }[];
             meta: {
                 page: number;
                 limit: number;
@@ -53,10 +259,26 @@ export declare class BuyerSearchController {
     suggestions(dto: SearchSuggestionsDto): Promise<{
         success: boolean;
         data: {
-            popularSearches: any;
-            products: any;
-            categories: any;
-            stores: any;
+            popularSearches: string[];
+            products: {
+                id: string;
+                name: string;
+                slug: string;
+                brand: string | null;
+                imageUrls: string[];
+            }[];
+            categories: {
+                id: string;
+                name: string;
+                slug: string;
+                imageUrl: string | null;
+            }[];
+            stores: {
+                id: string;
+                name: string;
+                slug: string;
+                logoUrl: string | null;
+            }[];
         };
     }>;
     trending(dto: SearchTrendingDto): Promise<{
@@ -152,6 +374,31 @@ export declare class BuyerDiscoverController {
                 }[];
             }[];
             recommendedForYou: {
+                id: string;
+                name: string;
+                slug: string;
+                brand: string | null;
+                imageUrls: string[];
+                basePrice: number;
+                mrp: number | null;
+                variantId: string;
+                category: {
+                    id: string;
+                    name: string;
+                    slug: string;
+                } | null;
+                store: {
+                    id: string;
+                    name: string;
+                    slug: string;
+                    distanceKm: number | undefined;
+                    ratingAvg: number;
+                    avgPrepTimeMins: number;
+                    etaMins: number;
+                    hasOffer: boolean;
+                };
+                inStock: boolean;
+                availableQty: number;
                 score: number;
                 sortPrice: number;
                 sortEta: number;
@@ -170,10 +417,35 @@ export declare class BuyerDiscoverController {
             }[];
             sponsoredBanner: {
                 title: string;
-                stores: any;
+                stores: {
+                    sponsored: boolean;
+                    campaignId: string;
+                    priority: number;
+                    id: string;
+                    name: string;
+                    slug: string;
+                    logoUrl: string | null;
+                }[];
             };
-            featuredStore: any;
-            sponsoredProducts: any;
+            featuredStore: {
+                sponsored: boolean;
+                campaignId: string;
+                priority: number;
+                id: string;
+                name: string;
+                slug: string;
+                logoUrl: string | null;
+            };
+            sponsoredProducts: {
+                sponsored: boolean;
+                campaignId: string;
+                id: string;
+                name: string;
+                storeId: string;
+                slug: string;
+                imageUrls: string[];
+                basePrice: import("@prisma/client/runtime/library").Decimal;
+            }[];
         };
     }>;
 }

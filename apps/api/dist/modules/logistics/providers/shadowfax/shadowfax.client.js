@@ -9,7 +9,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var ShadowfaxClient_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ShadowfaxClient = void 0;
 const common_1 = require("@nestjs/common");
@@ -361,7 +360,7 @@ let ShadowfaxClient = ShadowfaxClient_1 = class ShadowfaxClient {
 exports.ShadowfaxClient = ShadowfaxClient;
 exports.ShadowfaxClient = ShadowfaxClient = ShadowfaxClient_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
+    __metadata("design:paramtypes", [config_1.ConfigService])
 ], ShadowfaxClient);
 function summarizeProviderBody(body) {
     if (!body || typeof body !== 'object')

@@ -12,7 +12,6 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 var DeliveryTrackingGateway_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeliveryTrackingGateway = void 0;
 const common_1 = require("@nestjs/common");
@@ -110,7 +109,7 @@ let DeliveryTrackingGateway = DeliveryTrackingGateway_1 = class DeliveryTracking
 exports.DeliveryTrackingGateway = DeliveryTrackingGateway;
 __decorate([
     (0, websockets_1.WebSocketServer)(),
-    __metadata("design:type", typeof (_a = typeof socket_io_1.Server !== "undefined" && socket_io_1.Server) === "function" ? _a : Object)
+    __metadata("design:type", socket_io_1.Server)
 ], DeliveryTrackingGateway.prototype, "server", void 0);
 __decorate([
     (0, websockets_1.SubscribeMessage)('subscribe'),

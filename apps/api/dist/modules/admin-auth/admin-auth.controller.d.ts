@@ -9,18 +9,18 @@ export declare class AdminAuthController {
         success: boolean;
         data: {
             user: {
-                id: any;
-                phone: any;
-                email: any;
-                status: any;
-                phoneVerified: any;
-                roles: any;
+                id: string;
+                phone: string;
+                email: string | null;
+                status: import("@prisma/client").$Enums.UserStatus;
+                phoneVerified: boolean;
+                roles: import("@prisma/client").$Enums.RoleName[];
                 permissions: string[];
-                createdAt: any;
+                createdAt: Date;
                 adminProfile: {
-                    name: any;
-                    department: any;
-                    isSuperAdmin: any;
+                    name: string;
+                    department: string | null;
+                    isSuperAdmin: boolean;
                 } | null;
             };
             accessToken: string;
@@ -44,52 +44,52 @@ export declare class AdminAuthController {
     loginStats(): Promise<{
         success: boolean;
         data: {
-            activeStores: any;
-            totalOrders: any;
-            activeRiders: any;
-            merchants: any;
+            activeStores: number;
+            totalOrders: number;
+            activeRiders: number;
+            merchants: number;
         };
     }>;
     me(user: RequestUser): Promise<{
         success: boolean;
         data: {
-            id: any;
-            phone: any;
-            email: any;
-            status: any;
-            phoneVerified: any;
-            roles: any;
+            id: string;
+            phone: string;
+            email: string | null;
+            status: import("@prisma/client").$Enums.UserStatus;
+            phoneVerified: boolean;
+            roles: import("@prisma/client").$Enums.RoleName[];
             permissions: string[];
-            createdAt: any;
+            createdAt: Date;
             adminProfile: {
-                name: any;
-                department: any;
-                isSuperAdmin: any;
+                name: string;
+                department: string | null;
+                isSuperAdmin: boolean;
             } | null;
         };
     }>;
     getSettings(user: RequestUser): Promise<{
         success: boolean;
         data: {
-            name: any;
-            email: any;
-            phone: any;
-            department: any;
-            credentialSource: any;
-            lastLoginAt: any;
-            passwordChangedAt: any;
+            name: string;
+            email: string | null;
+            phone: string;
+            department: string | null;
+            credentialSource: import("@prisma/client").$Enums.AdminCredentialSource;
+            lastLoginAt: Date | null;
+            passwordChangedAt: Date | null;
         };
     }>;
     updateSettings(user: RequestUser, dto: UpdateAdminSettingsDto, ip: string): Promise<{
         success: boolean;
         data: {
-            name: any;
-            email: any;
-            phone: any;
-            department: any;
-            credentialSource: any;
-            lastLoginAt: any;
-            passwordChangedAt: any;
+            name: string;
+            email: string | null;
+            phone: string;
+            department: string | null;
+            credentialSource: import("@prisma/client").$Enums.AdminCredentialSource;
+            lastLoginAt: Date | null;
+            passwordChangedAt: Date | null;
         };
     }>;
     changePassword(user: RequestUser, dto: AdminChangePasswordDto, ip: string): Promise<{
@@ -100,7 +100,15 @@ export declare class AdminAuthController {
     }>;
     sessions(user: RequestUser): Promise<{
         success: boolean;
-        data: any;
+        data: {
+            id: string;
+            deviceName: string | null | undefined;
+            ipAddress: string | null | undefined;
+            rememberMe: boolean;
+            lastActiveAt: Date;
+            createdAt: Date;
+            expiresAt: Date | undefined;
+        }[];
     }>;
     revokeSession(user: RequestUser, sessionId: string): Promise<{
         success: boolean;

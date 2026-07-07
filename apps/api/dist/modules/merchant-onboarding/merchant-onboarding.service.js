@@ -239,7 +239,7 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
     async updateStep(userId, dto, ipAddress) {
         await this.getOrCreateApplication(userId);
         const app = await this.requireDraftApplication(userId);
-        const stepKey = this.normalizeStepKey(dto.stepKey);
+        const stepKey = dto.stepKey ? this.normalizeStepKey(dto.stepKey) : undefined;
         const ownerName = dto.ownerName ?? dto.ownerFullName;
         const ownerPhone = dto.ownerPhone ?? dto.contactMobile ?? dto.storePhone;
         const ownerEmail = dto.ownerEmail ?? dto.storeEmail;
@@ -325,7 +325,9 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
                 include: this.applicationInclude(),
             });
             await this.saveBankPayloadIfComplete(tx, app, dto);
-            await this.markStepCompleted(tx, app.id, stepKey, dto);
+            if (stepKey) {
+                await this.markStepCompleted(tx, app.id, stepKey, dto);
+            }
             return result;
         });
         if (stepKey === client_1.MerchantOnboardingStepKey.BUSINESS && businessName && panNumber) {
@@ -813,7 +815,7 @@ let MerchantOnboardingService = MerchantOnboardingService_1 = class MerchantOnbo
     }
     async markStepCompleted(tx, applicationId, stepKey, dto) {
         const payload = JSON.parse(JSON.stringify(dto));
-        const keys = new Set([stepKey, dto.stepKey]);
+        const keys = new Set([stepKey, dto.stepKey].filter((k) => Boolean(k)));
         for (const key of keys) {
             await tx.merchantOnboardingStep.upsert({
                 where: { applicationId_stepKey: { applicationId, stepKey: key } },

@@ -8,7 +8,6 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateAddressDto = exports.CreateAddressDto = exports.UpdateStoreRadiusDto = exports.CheckDeliverabilityDto = exports.MapStoresQueryDto = void 0;
 const openapi = require("@nestjs/swagger");
@@ -111,7 +110,7 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.AddressLabel }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.AddressLabel),
-    __metadata("design:type", typeof (_a = typeof client_1.AddressLabel !== "undefined" && client_1.AddressLabel) === "function" ? _a : Object)
+    __metadata("design:type", String)
 ], CreateAddressDto.prototype, "label", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
@@ -191,7 +190,7 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.AddressLabel }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.AddressLabel),
-    __metadata("design:type", typeof (_b = typeof client_1.AddressLabel !== "undefined" && client_1.AddressLabel) === "function" ? _b : Object)
+    __metadata("design:type", String)
 ], UpdateAddressDto.prototype, "label", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),

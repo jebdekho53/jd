@@ -9,7 +9,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var RiderAssignmentService_1;
-var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RiderAssignmentService = exports.RIDER_ASSIGNMENT_EVENTS = void 0;
 const common_1 = require("@nestjs/common");
@@ -762,6 +761,9 @@ exports.RiderAssignmentService = RiderAssignmentService = RiderAssignmentService
         audit_service_1.AuditService,
         domain_events_service_1.DomainEventsService,
         order_status_history_service_1.OrderStatusHistoryService,
-        rider_assignment_cache_service_1.RiderAssignmentCacheService, typeof (_a = typeof event_emitter_1.EventEmitter2 !== "undefined" && event_emitter_1.EventEmitter2) === "function" ? _a : Object, buyer_push_notification_service_1.BuyerPushNotificationService, typeof (_b = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _b : Object])
+        rider_assignment_cache_service_1.RiderAssignmentCacheService,
+        event_emitter_1.EventEmitter2,
+        buyer_push_notification_service_1.BuyerPushNotificationService,
+        config_1.ConfigService])
 ], RiderAssignmentService);
 //# sourceMappingURL=rider-assignment.service.js.map

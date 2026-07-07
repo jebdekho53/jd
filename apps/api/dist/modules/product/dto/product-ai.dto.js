@@ -8,28 +8,28 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ListAiHistoryDto = exports.ConfirmAiProductDto = exports.AnalyzeProductImageDto = void 0;
+exports.ListAiHistoryDto = exports.GenerateProductImageDto = exports.ConfirmAiProductDto = exports.AnalyzeProductImageDto = void 0;
 const openapi = require("@nestjs/swagger");
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const client_1 = require("@prisma/client");
+const MAX_AI_IMAGE_DATA_URL_LENGTH = 7_100_000;
 class AnalyzeProductImageDto {
     static _OPENAPI_METADATA_FACTORY() {
-        return { dataUrl: { required: true, type: () => String, minLength: 32, maxLength: 7000000 } };
+        return { dataUrl: { required: true, type: () => String, minLength: 32, maxLength: MAX_AI_IMAGE_DATA_URL_LENGTH } };
     }
 }
 exports.AnalyzeProductImageDto = AnalyzeProductImageDto;
 __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Base64 data URL of product photo (JPEG/PNG/WebP, max 5MB)' }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Length)(32, 7_000_000),
+    (0, class_validator_1.Length)(32, MAX_AI_IMAGE_DATA_URL_LENGTH),
     __metadata("design:type", String)
 ], AnalyzeProductImageDto.prototype, "dataUrl", void 0);
 class ConfirmAiProductDto {
     static _OPENAPI_METADATA_FACTORY() {
-        return { name: { required: true, type: () => String, minLength: 2, maxLength: 200 }, description: { required: false, type: () => String }, brand: { required: false, type: () => String }, sku: { required: false, type: () => String }, categoryId: { required: false, type: () => String }, basePrice: { required: true, type: () => Number, minimum: 0 }, mrp: { required: false, type: () => Number, minimum: 0 }, unit: { required: false, type: () => String }, quantity: { required: false, type: () => Number, minimum: 0 }, tags: { required: false, type: () => [String] }, ingredients: { required: false, type: () => String }, shelfLife: { required: false, type: () => String }, countryOfOrigin: { required: false, type: () => String }, manufacturerName: { required: false, type: () => String }, fssaiLicense: { required: false, type: () => String }, storageInstructions: { required: false, type: () => String }, hsnCodeId: { required: true, type: () => String }, gstSlab: { required: false, type: () => Object }, taxCategory: { required: false, type: () => Object }, confirmReturnPolicy: { required: false, type: () => Boolean }, publish: { required: true, type: () => Boolean } };
+        return { name: { required: true, type: () => String, minLength: 2, maxLength: 200 }, description: { required: false, type: () => String }, brand: { required: false, type: () => String }, sku: { required: false, type: () => String }, categoryId: { required: false, type: () => String }, basePrice: { required: true, type: () => Number, minimum: 0 }, mrp: { required: false, type: () => Number, minimum: 0 }, unit: { required: false, type: () => String }, quantity: { required: false, type: () => Number, minimum: 0 }, tags: { required: false, type: () => [String] }, ingredients: { required: false, type: () => String }, shelfLife: { required: false, type: () => String }, countryOfOrigin: { required: false, type: () => String }, manufacturerName: { required: false, type: () => String }, fssaiLicense: { required: false, type: () => String }, storageInstructions: { required: false, type: () => String }, hsnCodeId: { required: true, type: () => String }, gstSlab: { required: false, type: () => Object }, taxCategory: { required: false, type: () => Object }, confirmReturnPolicy: { required: false, type: () => Boolean }, primaryImageUrl: { required: false, type: () => String }, supplementComplianceConfirmed: { required: false, type: () => Boolean }, lowStockThreshold: { required: false, type: () => Number, minimum: 0 }, manufacturerAddress: { required: false, type: () => String }, disclaimer: { required: false, type: () => String }, taxInclusive: { required: false, type: () => Boolean }, isReturnable: { required: false, type: () => Boolean }, isRefundable: { required: false, type: () => Boolean }, isReplaceable: { required: false, type: () => Boolean }, returnWindowHours: { required: false, type: () => Number, minimum: 0 }, approvalMode: { required: false, type: () => String }, proofRequired: { required: false, type: () => String }, refundMethod: { required: false, type: () => String }, allowCustomerChangedMind: { required: false, type: () => Boolean }, returnPolicyText: { required: false, type: () => String }, replacementPolicyText: { required: false, type: () => String }, publish: { required: true, type: () => Boolean } };
     }
 }
 exports.ConfirmAiProductDto = ConfirmAiProductDto;
@@ -142,7 +142,7 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: client_1.GstSlab }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.GstSlab),
-    __metadata("design:type", typeof (_a = typeof client_1.GstSlab !== "undefined" && client_1.GstSlab) === "function" ? _a : Object)
+    __metadata("design:type", String)
 ], ConfirmAiProductDto.prototype, "gstSlab", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: ['GOODS', 'SERVICES', 'EXEMPT', 'NIL_RATED'] }),
@@ -160,10 +160,129 @@ __decorate([
     __metadata("design:type", Boolean)
 ], ConfirmAiProductDto.prototype, "confirmReturnPolicy", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Optional image URL to use as the product photo (e.g. an AI-generated image from this analysis)',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ConfirmAiProductDto.prototype, "primaryImageUrl", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Merchant attests they have verified ingredients, FSSAI and compliance details. Required to publish a supplement whose label could not be auto-read.',
+        default: false,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], ConfirmAiProductDto.prototype, "supplementComplianceConfirmed", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ConfirmAiProductDto.prototype, "lowStockThreshold", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ConfirmAiProductDto.prototype, "manufacturerAddress", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ConfirmAiProductDto.prototype, "disclaimer", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], ConfirmAiProductDto.prototype, "taxInclusive", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], ConfirmAiProductDto.prototype, "isReturnable", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], ConfirmAiProductDto.prototype, "isRefundable", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], ConfirmAiProductDto.prototype, "isReplaceable", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ConfirmAiProductDto.prototype, "returnWindowHours", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ConfirmAiProductDto.prototype, "approvalMode", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ConfirmAiProductDto.prototype, "proofRequired", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ConfirmAiProductDto.prototype, "refundMethod", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], ConfirmAiProductDto.prototype, "allowCustomerChangedMind", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ConfirmAiProductDto.prototype, "returnPolicyText", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ConfirmAiProductDto.prototype, "replacementPolicyText", void 0);
+__decorate([
     (0, swagger_1.ApiProperty)({ description: 'Publish immediately (true) or save as draft (false)' }),
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], ConfirmAiProductDto.prototype, "publish", void 0);
+class GenerateProductImageDto {
+    static _OPENAPI_METADATA_FACTORY() {
+        return { mode: { required: false, type: () => Object } };
+    }
+}
+exports.GenerateProductImageDto = GenerateProductImageDto;
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        enum: ['bg_removal', 'ai_edit'],
+        default: 'bg_removal',
+        description: 'bg_removal = clean the uploaded photo background (keeps label); ai_edit = regenerate via AI',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(['bg_removal', 'ai_edit']),
+    __metadata("design:type", String)
+], GenerateProductImageDto.prototype, "mode", void 0);
 class ListAiHistoryDto {
     static _OPENAPI_METADATA_FACTORY() {
         return { storeId: { required: false, type: () => String }, page: { required: false, type: () => Number, minimum: 1 }, limit: { required: false, type: () => Number, minimum: 1 } };

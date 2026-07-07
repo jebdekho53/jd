@@ -383,6 +383,57 @@ let PaymentService = PaymentService_1 = class PaymentService {
         }
         return this.getBuyerContact(userId);
     }
+    async captureRazorpayContact(opts) {
+        try {
+            const payment = await this.prisma.payment.findUnique({
+                where: { id: opts.paymentId },
+                select: { razorpayOrderId: true },
+            });
+            if (!payment?.razorpayOrderId)
+                return;
+            const payments = await this.razorpay.fetchOrderPayments(payment.razorpayOrderId);
+            const match = payments.find((p) => p.id === opts.razorpayPaymentId) ??
+                payments.find((p) => p.status === 'captured') ??
+                payments[0];
+            const contact = (match?.contact ?? '').replace(/\D/g, '').slice(-10);
+            if (contact.length !== 10)
+                return;
+            const order = await this.prisma.order.findUnique({
+                where: { id: opts.orderId },
+                select: { deliveryAddress: true },
+            });
+            if (order?.deliveryAddress && typeof order.deliveryAddress === 'object') {
+                const addr = { ...order.deliveryAddress, phone: contact };
+                await this.prisma.order.update({
+                    where: { id: opts.orderId },
+                    data: { deliveryAddress: addr },
+                });
+            }
+            const checkout = await this.prisma.checkout.findUnique({
+                where: { id: opts.checkoutId },
+                select: { cartSnapshot: true },
+            });
+            if (checkout?.cartSnapshot) {
+                const wasString = typeof checkout.cartSnapshot === 'string';
+                const snap = (wasString
+                    ? JSON.parse(checkout.cartSnapshot)
+                    : { ...checkout.cartSnapshot });
+                snap.payerContact = {
+                    ...(snap.payerContact ?? {}),
+                    phone: contact,
+                };
+                await this.prisma.checkout.update({
+                    where: { id: opts.checkoutId },
+                    data: {
+                        cartSnapshot: (wasString ? JSON.stringify(snap) : snap),
+                    },
+                });
+            }
+        }
+        catch (err) {
+            this.logger.warn({ err, orderId: opts.orderId }, 'Failed to capture Razorpay contact number (non-fatal)');
+        }
+    }
     async finalizeOnlinePayment(opts) {
         const order = opts.checkout.order;
         if (!order)
@@ -400,6 +451,12 @@ let PaymentService = PaymentService_1 = class PaymentService {
                 where: { id: opts.checkout.id },
                 data: { status: client_1.CheckoutStatus.COMPLETED },
             });
+        });
+        await this.captureRazorpayContact({
+            orderId: order.id,
+            checkoutId: opts.checkout.id,
+            paymentId: opts.payment.id,
+            razorpayPaymentId: opts.razorpayPaymentId,
         });
         await this.statusHistory.transition({
             orderId: order.id,

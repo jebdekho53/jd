@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
@@ -17,35 +18,136 @@ export declare class DeliveryService {
     private readonly buyerPush;
     private readonly logger;
     constructor(prisma: PrismaService, audit: AuditService, domainEvents: DomainEventsService, orderDelivered: OrderDeliveredHandlerService, reservation: ReservationService, statusHistory: OrderStatusHistoryService, tracking: DeliveryTrackingService, buyerPush: BuyerPushNotificationService);
-    getRiderDeliveries(userId: string): Promise<any>;
-    getRiderDeliveryByOrderId(userId: string, orderId: string): Promise<any>;
+    getRiderDeliveries(userId: string): Promise<({
+        order: {
+            store: {
+                id: string;
+                name: string;
+                phone: string | null;
+                latitude: number;
+                longitude: number;
+            };
+            id: string;
+            status: import("@prisma/client").$Enums.OrderStatus;
+            deliveryAddress: Prisma.JsonValue;
+            paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
+            orderNumber: string;
+            totalAmount: Prisma.Decimal;
+            buyerNote: string | null;
+        };
+    } & {
+        id: string;
+        status: import("@prisma/client").$Enums.DeliveryStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        assignedAt: Date | null;
+        assignedBy: string | null;
+        deliveryLat: number;
+        deliveryLng: number;
+        orderId: string;
+        riderProfileId: string | null;
+        fulfillmentStoreId: string | null;
+        pickupLat: number;
+        pickupLng: number;
+        distanceKm: number | null;
+        estimatedMins: number | null;
+        estimatedArrivalAt: Date | null;
+        arrivedAtStoreAt: Date | null;
+        pickedUpAt: Date | null;
+        arrivedAtCustomerAt: Date | null;
+        deliveredAt: Date | null;
+        deliveryProofUrl: string | null;
+        riderEarning: Prisma.Decimal | null;
+    })[]>;
+    getRiderDeliveryByOrderId(userId: string, orderId: string): Promise<{
+        order: {
+            store: {
+                id: string;
+                name: string;
+                phone: string | null;
+                latitude: number;
+                longitude: number;
+            };
+            id: string;
+            status: import("@prisma/client").$Enums.OrderStatus;
+            items: {
+                productName: string;
+                variantName: string;
+                quantity: number;
+            }[];
+            deliveryAddress: Prisma.JsonValue;
+            paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
+            deliveryLat: number;
+            deliveryLng: number;
+            orderNumber: string;
+            totalAmount: Prisma.Decimal;
+            buyerNote: string | null;
+        };
+        assignments: {
+            id: string;
+            status: import("@prisma/client").$Enums.AssignmentStatus;
+            expiresAt: Date;
+            assignedBy: string | null;
+            riderProfileId: string;
+            deliveryId: string;
+            offeredAt: Date;
+            respondedAt: Date | null;
+        }[];
+    } & {
+        id: string;
+        status: import("@prisma/client").$Enums.DeliveryStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        assignedAt: Date | null;
+        assignedBy: string | null;
+        deliveryLat: number;
+        deliveryLng: number;
+        orderId: string;
+        riderProfileId: string | null;
+        fulfillmentStoreId: string | null;
+        pickupLat: number;
+        pickupLng: number;
+        distanceKm: number | null;
+        estimatedMins: number | null;
+        estimatedArrivalAt: Date | null;
+        arrivedAtStoreAt: Date | null;
+        pickedUpAt: Date | null;
+        arrivedAtCustomerAt: Date | null;
+        deliveredAt: Date | null;
+        deliveryProofUrl: string | null;
+        riderEarning: Prisma.Decimal | null;
+    }>;
     acceptDelivery(userId: string, orderId: string, ipAddress?: string): Promise<{
-        deliveryId: any;
-        status: any;
+        deliveryId: string;
+        status: "ACCEPTED";
     }>;
     arrivedAtStore(userId: string, orderId: string, ipAddress?: string): Promise<{
-        deliveryId: any;
-        status: any;
+        deliveryId: string;
+        status: "ARRIVED_AT_STORE";
     }>;
     pickedUp(userId: string, orderId: string, ipAddress?: string): Promise<{
-        deliveryId: any;
-        status: any;
+        deliveryId: string;
+        status: "PICKED_UP";
     }>;
     arrivedAtCustomer(userId: string, orderId: string, ipAddress?: string): Promise<{
-        deliveryId: any;
-        status: any;
+        deliveryId: string;
+        status: "ARRIVED_AT_CUSTOMER";
     }>;
     markDelivered(userId: string, orderId: string, ipAddress?: string): Promise<{
-        deliveryId: any;
-        status: any;
+        deliveryId: string;
+        status: "DELIVERED";
     }>;
     markFailed(userId: string, orderId: string, reason?: string, ipAddress?: string): Promise<{
-        deliveryId: any;
-        status: any;
+        deliveryId: string;
+        status: "FAILED";
     }>;
     private applyTransition;
     private assertCanAdvance;
     private toDomainEvent;
-    requireRiderProfile(userId: string): Promise<any>;
+    requireRiderProfile(userId: string): Promise<{
+        id: string;
+        status: import("@prisma/client").$Enums.RiderStatus;
+        kycStatus: import("@prisma/client").$Enums.KycStatus;
+    }>;
     private requireRiderOwnershipByOrder;
 }

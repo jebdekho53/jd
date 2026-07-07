@@ -14,10 +14,22 @@ export declare class DeliveryCoverageService {
     private resolvePincodeMeta;
     private serializeArea;
     listForStore(userId: string, storeId: string, dto: ListDeliveryAreasDto): Promise<{
-        items: any;
-        total: any;
-        coverageCount: any;
-        maxAreas: any;
+        items: {
+            id: string;
+            pincode: string;
+            city: string | null;
+            state: string | null;
+            deliveryFee: number | null;
+            minimumOrder: number | null;
+            estimatedMinutes: number | null;
+            priority: number;
+            isActive: boolean;
+            createdAt: string;
+            updatedAt: string;
+        }[];
+        total: number;
+        coverageCount: number;
+        maxAreas: number;
     }>;
     addArea(userId: string, storeId: string, dto: AddDeliveryAreaDto): Promise<{
         id: string;
@@ -75,8 +87,8 @@ export declare class DeliveryCoverageService {
         estimatedMinutes?: number;
     }): Promise<void>;
     getMerchantAnalytics(userId: string, storeId: string): Promise<{
-        coverageCount: any;
-        reachPincodes: any;
+        coverageCount: number;
+        reachPincodes: number;
         topPincodes: {
             pincode: string;
             orders: number;
@@ -94,26 +106,49 @@ export declare class DeliveryCoverageService {
         }[];
     }>;
     getAdminOverview(): Promise<{
-        totalCoverageRows: any;
-        activeCoverageRows: any;
-        activeStores: any;
-        masterPincodes: any;
-        activeMasterPincodes: any;
-        servedPincodeCount: any;
+        totalCoverageRows: number;
+        activeCoverageRows: number;
+        activeStores: number;
+        masterPincodes: number;
+        activeMasterPincodes: number;
+        servedPincodeCount: number;
         coveragePercent: number;
         unservedPincodeCount: number;
-        topCoveredAreas: any;
-        leastCoveredAreas: any;
+        topCoveredAreas: {
+            pincode: string;
+            storeCount: number;
+        }[];
+        leastCoveredAreas: {
+            pincode: string;
+            storeCount: number;
+        }[];
     }>;
     adminSearchCoverage(dto: AdminCoverageSearchDto): Promise<{
-        items: any;
-        total: any;
+        items: {
+            store: {
+                id: string;
+                name: string;
+                slug: string;
+            };
+            id: string;
+            pincode: string;
+            city: string | null;
+            state: string | null;
+            deliveryFee: number | null;
+            minimumOrder: number | null;
+            estimatedMinutes: number | null;
+            priority: number;
+            isActive: boolean;
+            createdAt: string;
+            updatedAt: string;
+        }[];
+        total: number;
     }>;
     adminSetPincodeActive(pincode: string, isActive: boolean, adminUserId: string): Promise<{
         pincode: string;
         isActive: boolean;
         updatedBy: string;
-        records: any;
+        records: number;
     }>;
     findStoreIdsForPincode(pincode: string): Promise<string[]>;
     private invalidateStoreCaches;

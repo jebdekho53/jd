@@ -24,7 +24,7 @@ export declare class PickupAddressDto {
     formattedAddress?: string;
 }
 export declare class UpdateOnboardingStepDto {
-    stepKey: MerchantOnboardingStepKey;
+    stepKey?: MerchantOnboardingStepKey;
     ownerName?: string;
     ownerEmail?: string;
     ownerPhone?: string;

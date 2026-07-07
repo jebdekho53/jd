@@ -14,36 +14,64 @@ export declare class BuyerWalletController {
         success: boolean;
         data: {
             balance: number;
-            rewardPoints: any;
-            tier: any;
-            referralCode: any;
-            lifetimePoints: any;
-            expiringCreditsCount: any;
-            transactions: any;
+            rewardPoints: number;
+            tier: import("@prisma/client").$Enums.LoyaltyTier;
+            referralCode: string;
+            lifetimePoints: number;
+            expiringCreditsCount: number;
+            transactions: {
+                id: string;
+                type: import("@prisma/client").$Enums.WalletTransactionType;
+                amount: number;
+                balanceAfter: number;
+                description: string | null;
+                referenceType: string | null;
+                referenceId: string | null;
+                expiresAt: string | null;
+                createdAt: string;
+            }[];
         };
     }>;
     getRewards(user: RequestUser): Promise<{
         success: boolean;
         data: {
-            points: any;
-            tier: "bronze" | "silver" | "gold" | "platinum";
+            points: number;
+            tier: "silver" | "gold" | "platinum" | "bronze";
             nextTierPoints: number;
-            lifetimePoints: any;
-            history: any;
+            lifetimePoints: number;
+            history: {
+                id: string;
+                type: import("@prisma/client").$Enums.RewardTransactionType;
+                points: number;
+                description: string | null;
+                createdAt: string;
+            }[];
         };
     }>;
     getReferrals(user: RequestUser): Promise<{
         success: boolean;
         data: {
-            code: any;
-            inviteCount: any;
-            earnings: any;
-            pendingCount: any;
+            code: string;
+            inviteCount: number;
+            earnings: number;
+            pendingCount: number;
         };
     }>;
     applyReferral(user: RequestUser, dto: ApplyReferralDto): Promise<{
         success: boolean;
-        data: any;
+        data: {
+            deviceFingerprint: string | null;
+            id: string;
+            status: import("@prisma/client").$Enums.ReferralStatus;
+            createdAt: Date;
+            referrerWalletId: string;
+            referredWalletId: string;
+            completedAt: Date | null;
+            referrerWalletCredit: import("@prisma/client/runtime/library").Decimal | null;
+            referredWalletCredit: import("@prisma/client/runtime/library").Decimal | null;
+            referrerRewardPoints: number | null;
+            referredRewardPoints: number | null;
+        };
     }>;
     private requireBuyerProfile;
 }

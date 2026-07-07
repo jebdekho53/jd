@@ -10,42 +10,87 @@ export declare class FranchisePortalController {
     dashboard(user: RequestUser): Promise<{
         success: boolean;
         data: {
-            businessName: any;
-            status: any;
+            businessName: string;
+            status: import("@prisma/client").$Enums.FranchisePartnerStatus;
             gmv30d: number;
-            orders30d: any;
+            orders30d: number;
             revenueShare: number;
-            commissionPercent: any;
-            storeCount: any;
-            riderCount: any;
-            territories: any;
-            pincodes: any;
+            commissionPercent: number;
+            storeCount: number;
+            riderCount: number;
+            territories: {
+                city: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                state: string;
+                pincodes: string[];
+                country: string;
+                franchiseId: string;
+                exclusivityEnabled: boolean;
+                launchDate: Date | null;
+            }[];
+            pincodes: string[];
         } | null;
     }>;
     stores(user: RequestUser): Promise<{
         success: boolean;
         data: {
-            businessName: any;
-            status: any;
+            businessName: string;
+            status: import("@prisma/client").$Enums.FranchisePartnerStatus;
             gmv30d: number;
-            orders30d: any;
+            orders30d: number;
             revenueShare: number;
-            commissionPercent: any;
-            storeCount: any;
-            riderCount: any;
-            territories: any;
-            pincodes: any;
+            commissionPercent: number;
+            storeCount: number;
+            riderCount: number;
+            territories: {
+                city: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                state: string;
+                pincodes: string[];
+                country: string;
+                franchiseId: string;
+                exclusivityEnabled: boolean;
+                launchDate: Date | null;
+            }[];
+            pincodes: string[];
         } | null;
     }>;
     territory(user: RequestUser): Promise<{
         success: boolean;
         data: {
-            territories: any;
-            pincodes: any;
+            territories: {
+                city: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                state: string;
+                pincodes: string[];
+                country: string;
+                franchiseId: string;
+                exclusivityEnabled: boolean;
+                launchDate: Date | null;
+            }[];
+            pincodes: string[];
         };
     }>;
     finance(user: RequestUser): Promise<{
         success: boolean;
-        data: any;
+        data: {
+            id: string;
+            status: import("@prisma/client").$Enums.FranchiseSettlementStatus;
+            createdAt: Date;
+            paidAt: Date | null;
+            franchiseId: string;
+            periodStart: Date;
+            periodEnd: Date;
+            ledgerJournalId: string | null;
+            grossGmv: import("@prisma/client/runtime/library").Decimal;
+            franchiseShare: import("@prisma/client/runtime/library").Decimal;
+            platformShare: import("@prisma/client/runtime/library").Decimal;
+        }[];
     }>;
 }

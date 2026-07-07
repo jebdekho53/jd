@@ -1,4 +1,4 @@
-import { CampaignEventType } from '@prisma/client';
+import { CampaignEventType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 export declare class CampaignAnalyticsService {
     private readonly prisma;
@@ -11,25 +11,44 @@ export declare class CampaignAnalyticsService {
         storeId?: string;
         metadata?: Record<string, unknown>;
     }): Promise<void>;
-    getLeaderboard(limit?: number): Promise<any>;
+    getLeaderboard(limit?: number): Promise<{
+        rank: number;
+        campaignId: string;
+        name: string;
+        scope: import("@prisma/client").$Enums.CampaignScope;
+        store: {
+            id: string;
+            name: string;
+            slug: string;
+        } | null;
+        gmvGenerated: number;
+        orderCount: number;
+        impressions: number;
+        clicks: number;
+        conversion: number;
+    }[]>;
     getFraudSignals(): Promise<{
-        couponAbuseCandidates: any;
-        offerAbuseCandidates: any;
+        couponAbuseCandidates: number;
+        offerAbuseCandidates: number;
         refundImpactAmount: number;
-        refundAffectedRedemptions: any;
-        topOfferAbusers: any;
+        refundAffectedRedemptions: number;
+        topOfferAbusers: (Prisma.PickEnumerable<Prisma.OfferUsageGroupByOutputType, ("buyerProfileId" | "offerId")[]> & {
+            _count: {
+                id: number;
+            };
+        })[];
     }>;
     getPlatformSummary(): Promise<{
-        totalCampaigns: any;
+        totalCampaigns: number;
         totalGmv: number;
         totalSpent: number;
-        impressions: any;
-        clicks: any;
-        redemptions: any;
+        impressions: number;
+        clicks: number;
+        redemptions: number;
         discountGiven: number;
         incrementalRevenue: number;
         events: {
-            [k: string]: any;
+            [k: string]: number;
         };
     }>;
 }

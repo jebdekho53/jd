@@ -16,21 +16,86 @@ export declare class MerchantAIController {
     private storeIds;
     forecast(user: RequestUser, storeId?: string): Promise<{
         success: boolean;
-        data: any;
+        data: ({
+            product: {
+                id: string;
+                name: string;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            storeId: string;
+            productId: string;
+            forecastDate: Date;
+            predictedDemand: number;
+            confidenceScore: number;
+            actualDemand: number | null;
+        })[];
     }>;
     inventoryForecast(user: RequestUser, storeId?: string): Promise<{
         success: boolean;
-        data: any;
+        data: ({
+            product: {
+                id: string;
+                name: string;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            storeId: string;
+            productId: string;
+            daysUntilStockout: number;
+            recommendedQty: number;
+            urgency: import("@prisma/client").$Enums.InventoryForecastUrgency;
+        })[];
     }>;
     pricingRecs(user: RequestUser, storeId?: string): Promise<{
         success: boolean;
-        data: any;
+        data: ({
+            product: {
+                id: string;
+                name: string;
+            };
+        } & {
+            id: string;
+            status: import("@prisma/client").$Enums.PricingRecommendationStatus;
+            createdAt: Date;
+            updatedAt: Date;
+            storeId: string;
+            productId: string;
+            currentPrice: import("@prisma/client/runtime/library").Decimal;
+            recommendedPrice: import("@prisma/client/runtime/library").Decimal;
+            expectedLiftPercent: number;
+        })[];
     }>;
     opportunities(user: RequestUser, storeId?: string): Promise<{
         success: boolean;
         data: {
-            recommendations: any;
-            hotspots: any;
+            recommendations: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                description: string;
+                title: string;
+                priority: import("@prisma/client").$Enums.AIRecommendationPriority;
+                entityType: import("@prisma/client").$Enums.AIRecommendationEntityType;
+                entityId: string;
+            }[];
+            hotspots: ({
+                category: {
+                    name: string;
+                } | null;
+            } & {
+                city: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                categoryId: string | null;
+                locality: string;
+                demandScore: number;
+            })[];
         };
     }>;
 }

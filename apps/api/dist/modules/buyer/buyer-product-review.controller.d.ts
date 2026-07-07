@@ -6,14 +6,30 @@ export declare class BuyerProductReviewController {
     constructor(reviews: ProductReviewService);
     list(productId: string, dto: ListProductReviewsDto): Promise<{
         success: boolean;
-        data: any;
+        data: {
+            id: string;
+            productId: string;
+            rating: number;
+            comment: string | null;
+            images: string[];
+            verifiedPurchase: boolean;
+            buyer: {
+                id: string;
+                name: string;
+            } | null;
+            order: {
+                id: string;
+                orderNumber: string;
+            } | null;
+            createdAt: string;
+        }[];
         meta: {
             page: number;
             limit: number;
-            total: any;
+            total: number;
             aggregate: {
-                ratingAvg: any;
-                ratingCount: any;
+                ratingAvg: number;
+                ratingCount: number;
             };
         };
     }>;

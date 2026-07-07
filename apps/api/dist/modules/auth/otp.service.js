@@ -9,7 +9,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var OtpService_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OtpService = void 0;
 const common_1 = require("@nestjs/common");
@@ -127,6 +126,7 @@ exports.OtpService = OtpService = OtpService_1 = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         redis_service_1.RedisService,
         msg91_service_1.Msg91Service,
-        whatsapp_service_1.WhatsAppService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
+        whatsapp_service_1.WhatsAppService,
+        config_1.ConfigService])
 ], OtpService);
 //# sourceMappingURL=otp.service.js.map

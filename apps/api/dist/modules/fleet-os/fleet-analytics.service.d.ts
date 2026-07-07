@@ -7,7 +7,11 @@ export declare class FleetAnalyticsService {
         avgBatchSize: number;
         routeEfficiency: number;
         deliveryCostSavings: number;
-        clusterDemandRatios: any;
-        activeBatches: any;
+        clusterDemandRatios: {
+            city: string;
+            locality: string;
+            ratio: number;
+        }[];
+        activeBatches: number;
     }>;
 }

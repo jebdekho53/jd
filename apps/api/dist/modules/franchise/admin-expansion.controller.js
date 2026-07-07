@@ -11,7 +11,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminFranchiseAnalyticsController = exports.AdminExpansionController = void 0;
 const openapi = require("@nestjs/swagger");
@@ -93,7 +92,7 @@ __decorate([
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, common_1.Query)('status')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [typeof (_a = typeof client_1.FranchisePartnerStatus !== "undefined" && client_1.FranchisePartnerStatus) === "function" ? _a : Object]),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AdminExpansionController.prototype, "franchises", null);
 __decorate([

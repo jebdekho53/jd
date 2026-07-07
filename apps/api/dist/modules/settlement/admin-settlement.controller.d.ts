@@ -8,26 +8,62 @@ export declare class AdminSettlementController {
         success: boolean;
         data: {
             summary: {
-                pendingPayouts: any;
-                completedPayouts: any;
+                pendingPayouts: number;
+                completedPayouts: number;
                 totalMerchantLiability: number;
                 availableLiability: number;
                 pendingLiability: number;
                 totalSettledToday: number;
-                settlementsSettledToday: any;
+                settlementsSettledToday: number;
             };
-            merchantWallets: any;
-            settlementLedger: any;
+            merchantWallets: {
+                merchantProfileId: string;
+                businessName: string;
+                availableBalance: number;
+                pendingBalance: number;
+                totalEarned: number;
+                totalPaidOut: number;
+            }[];
+            settlementLedger: {
+                id: string;
+                orderNumber: string;
+                merchant: string;
+                netAmount: number;
+                status: import("@prisma/client").$Enums.SettlementLedgerStatus;
+                createdAt: string;
+            }[];
         };
     }>;
     listPayoutRequests(query: ListSettlementsQueryDto): Promise<{
         success: boolean;
         data: {
-            payoutRequests: any;
+            payoutRequests: {
+                id: string;
+                merchant: string;
+                merchantProfileId: string;
+                gstNumber: string | null;
+                amount: number;
+                status: import("@prisma/client").$Enums.PayoutRequestStatus;
+                bankDetails: import("@prisma/client/runtime/library").JsonValue;
+                rejectionReason: string | null;
+                requestedAt: string;
+                reviewedAt: string | null;
+                processedAt: string | null;
+                transaction: {
+                    id: string;
+                    status: import("@prisma/client").$Enums.PayoutTransactionStatus;
+                    processedAt: Date | null;
+                    createdAt: Date;
+                    amount: import("@prisma/client/runtime/library").Decimal;
+                    referenceId: string | null;
+                    failureReason: string | null;
+                    payoutRequestId: string;
+                };
+            }[];
             meta: {
                 page: number;
                 limit: number;
-                total: any;
+                total: number;
                 totalPages: number;
             };
         };
@@ -35,24 +71,24 @@ export declare class AdminSettlementController {
     approve(user: RequestUser, id: string): Promise<{
         success: boolean;
         data: {
-            id: any;
-            status: any;
+            id: string;
+            status: import("@prisma/client").$Enums.PayoutRequestStatus;
         };
     }>;
     reject(user: RequestUser, id: string, dto: RejectPayoutRequestDto): Promise<{
         success: boolean;
         data: {
-            id: any;
-            status: any;
+            id: string;
+            status: import("@prisma/client").$Enums.PayoutRequestStatus;
         };
     }>;
     process(user: RequestUser, id: string): Promise<{
         success: boolean;
         data: {
             id: string;
-            status: any;
-            referenceId: any;
-            transactionId: any;
+            status: "COMPLETED";
+            referenceId: string;
+            transactionId: string;
         };
     }>;
 }

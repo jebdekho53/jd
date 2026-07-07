@@ -8,7 +8,6 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateProductDto = exports.CreateVariantDto = void 0;
 const openapi = require("@nestjs/swagger");
@@ -260,7 +259,7 @@ __decorate([
     (0, swagger_1.ApiProperty)({ required: false, enum: client_1.GstSlab }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.GstSlab),
-    __metadata("design:type", typeof (_a = typeof client_1.GstSlab !== "undefined" && client_1.GstSlab) === "function" ? _a : Object)
+    __metadata("design:type", String)
 ], CreateProductDto.prototype, "gstSlab", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ required: false, enum: ['GOODS', 'SERVICES', 'EXEMPT', 'NIL_RATED'] }),
@@ -297,13 +296,13 @@ __decorate([
     (0, swagger_1.ApiProperty)({ required: false, enum: claim_policy_enums_1.ClaimApprovalModeEnum }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(claim_policy_enums_1.ClaimApprovalModeEnum),
-    __metadata("design:type", Object)
+    __metadata("design:type", String)
 ], CreateProductDto.prototype, "approvalMode", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ required: false, enum: claim_policy_enums_1.ClaimProofRequirementEnum }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(claim_policy_enums_1.ClaimProofRequirementEnum),
-    __metadata("design:type", Object)
+    __metadata("design:type", String)
 ], CreateProductDto.prototype, "proofRequired", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ required: false }),
@@ -330,7 +329,7 @@ __decorate([
     (0, swagger_1.ApiProperty)({ required: false, enum: claim_policy_enums_1.ClaimRefundMethodEnum }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(claim_policy_enums_1.ClaimRefundMethodEnum),
-    __metadata("design:type", Object)
+    __metadata("design:type", String)
 ], CreateProductDto.prototype, "refundMethod", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ required: false }),
@@ -350,7 +349,7 @@ __decorate([
     (0, swagger_1.ApiProperty)({ required: false, enum: claim_policy_enums_1.PreparedFoodPolicyEnum }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(claim_policy_enums_1.PreparedFoodPolicyEnum),
-    __metadata("design:type", Object)
+    __metadata("design:type", String)
 ], CreateProductDto.prototype, "preparedFoodPolicy", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ required: false, default: false }),

@@ -7,8 +7,32 @@ export declare class AdminCorporateController {
     overview(): Promise<{
         success: boolean;
         data: {
-            metrics: any;
-            companies: any;
+            metrics: {
+                activeCompanies: number;
+                totalSpend: number;
+                creditLimit: number;
+                creditUtilization: number;
+                invoices: number;
+            };
+            companies: ({
+                _count: {
+                    users: number;
+                };
+                wallet: {
+                    id: string;
+                    updatedAt: Date;
+                    balance: import("@prisma/client/runtime/library").Decimal;
+                    accountId: string;
+                } | null;
+            } & {
+                id: string;
+                status: import("@prisma/client").$Enums.CorporateAccountStatus;
+                createdAt: Date;
+                updatedAt: Date;
+                gstin: string | null;
+                companyName: string;
+                creditLimit: import("@prisma/client/runtime/library").Decimal;
+            })[];
         };
     }>;
 }
@@ -18,11 +42,11 @@ export declare class AdminCorporateAnalyticsController {
     corporate(): Promise<{
         success: boolean;
         data: {
-            activeCompanies: any;
+            activeCompanies: number;
             totalSpend: number;
-            creditLimit: any;
+            creditLimit: number;
             creditUtilization: number;
-            invoices: any;
+            invoices: number;
         };
     }>;
 }

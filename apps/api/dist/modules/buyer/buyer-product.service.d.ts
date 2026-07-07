@@ -110,9 +110,27 @@ export declare class BuyerProductService {
     compareProduct(productId: string, dto: CompareProductDto): Promise<import("./compare-product.util").CompareProductResult | null>;
     getProductOffers(productId: string, userId?: string): Promise<{
         productId: string;
-        storePromotions: any;
-        campaignOffers: any;
-        coupons: any;
+        storePromotions: {
+            id: string;
+            name: string;
+            description: string | null;
+            offerType: import("@prisma/client").$Enums.PromotionOfferType;
+            badge: string;
+        }[];
+        campaignOffers: {
+            id: string;
+            name: string;
+            description: string | null;
+            kind: import("@prisma/client").$Enums.OfferKind;
+            campaignName: string;
+            minOrderAmount: number;
+        }[];
+        coupons: {
+            id: string;
+            code: string;
+            name: string;
+            minOrderAmount: number;
+        }[];
         walletCashbackPercent: number | null;
         walletCashbackEligible: boolean;
         rewardPoints: number | null;
@@ -124,7 +142,7 @@ export declare class BuyerProductService {
             description: string | null;
             kind: string;
         }[];
-        freeDeliveryEligible: any;
+        freeDeliveryEligible: boolean;
     } | null>;
     private promotionBadge;
     private assertCategoryInCatalog;

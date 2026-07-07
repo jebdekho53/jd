@@ -9,7 +9,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var StoreService_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StoreService = void 0;
 const common_1 = require("@nestjs/common");
@@ -594,6 +593,7 @@ exports.StoreService = StoreService = StoreService_1 = __decorate([
         domain_events_service_1.DomainEventsService,
         buyer_cache_service_1.BuyerCacheService,
         verification_blocklist_service_1.VerificationBlocklistService,
-        location_directory_service_1.LocationDirectoryService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
+        location_directory_service_1.LocationDirectoryService,
+        config_1.ConfigService])
 ], StoreService);
 //# sourceMappingURL=store.service.js.map

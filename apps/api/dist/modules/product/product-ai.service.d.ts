@@ -27,25 +27,33 @@ export declare class ProductAiService {
         message: string | null;
         code: string | null;
         pricePaise: number;
-        walletBalancePaise: any;
+        walletBalancePaise: number;
         walletBalanceRupee: number;
         minimumRechargePaise: number;
         minimumRechargeRupee: number;
         hasSufficientBalance: boolean;
+        imageGenerationPricePaise: number;
+        imageGenerationPriceRupee: number;
     }>;
     analyzeImage(userId: string, storeId: string, dataUrl: string, ipAddress?: string): Promise<{
+        analysisId: string;
         id: string;
         storeId: string;
+        ocrText: string;
+        fields: object;
+        missingFields: any[];
+        warnings: any[];
         uploadedImageUrl: string;
         originalImageUrl: string | null | undefined;
         optimizedImageUrl: string | null | undefined;
         thumbnailImageUrl: string | null | undefined;
+        generatedImages: any[];
         extracted: {
             [x: string]: unknown;
         };
         categoryMatch: {} | null;
         confidence: number | null;
-        status: AIProductAnalysisStatus;
+        status: import("@prisma/client").$Enums.AIProductAnalysisStatus;
         errorMessage: string | null;
         createdProductId: string | null;
         chargeAmountPaise: number;
@@ -61,22 +69,28 @@ export declare class ProductAiService {
         labelReadable: {} | null;
         canPublishDirectly: boolean;
         imageQualityScore: {} | null;
-        detectedProductType: any;
-        productType: any;
+        detectedProductType: import("@prisma/client").$Enums.AIProductType | null | undefined;
+        productType: {} | null | undefined;
     }>;
     getAnalysis(userId: string, storeId: string, analysisId: string): Promise<{
+        analysisId: string;
         id: string;
         storeId: string;
+        ocrText: string;
+        fields: object;
+        missingFields: any[];
+        warnings: any[];
         uploadedImageUrl: string;
         originalImageUrl: string | null | undefined;
         optimizedImageUrl: string | null | undefined;
         thumbnailImageUrl: string | null | undefined;
+        generatedImages: any[];
         extracted: {
             [x: string]: unknown;
         };
         categoryMatch: {} | null;
         confidence: number | null;
-        status: AIProductAnalysisStatus;
+        status: import("@prisma/client").$Enums.AIProductAnalysisStatus;
         errorMessage: string | null;
         createdProductId: string | null;
         chargeAmountPaise: number;
@@ -92,22 +106,22 @@ export declare class ProductAiService {
         labelReadable: {} | null;
         canPublishDirectly: boolean;
         imageQualityScore: {} | null;
-        detectedProductType: any;
-        productType: any;
+        detectedProductType: import("@prisma/client").$Enums.AIProductType | null | undefined;
+        productType: {} | null | undefined;
     }>;
     confirmAnalysis(userId: string, storeId: string, analysisId: string, dto: ConfirmAiProductDto, ipAddress?: string): Promise<{
         alreadyConfirmed: boolean;
-        productId: any;
+        productId: string | null;
         charged: boolean;
-        amountPaise: any;
+        amountPaise: number;
         productName?: undefined;
         publish?: undefined;
         chargedAt?: undefined;
         analysisId?: undefined;
         receipt?: undefined;
     } | {
-        productId: any;
-        productName: any;
+        productId: string;
+        productName: string;
         charged: boolean;
         amountPaise: number;
         publish: boolean;
@@ -115,7 +129,7 @@ export declare class ProductAiService {
         analysisId: string;
         receipt: {
             analysisId: string;
-            productName: any;
+            productName: string;
             amountPaise: number;
             amountRupee: number;
             chargedAt: string;
@@ -126,27 +140,59 @@ export declare class ProductAiService {
     cancelAnalysis(userId: string, storeId: string, analysisId: string, ipAddress?: string): Promise<{
         cancelled: boolean;
     }>;
+    generateProductImage(userId: string, storeId: string, analysisId: string, mode?: 'bg_removal' | 'ai_edit', ipAddress?: string): Promise<{
+        imageUrl: string;
+        thumbnailUrl: string;
+        generatedImages: unknown[];
+        amountPaise: number;
+        amountRupee: number;
+        walletBalancePaise: number;
+        walletBalanceRupee: number;
+    }>;
+    private buildImageEditPrompt;
     listHistory(userId: string, storeId: string | undefined, page?: number, limit?: number): Promise<{
-        items: any;
+        items: {
+            id: string;
+            status: import("@prisma/client").$Enums.AIProductAnalysisStatus;
+            errorMessage: string | null;
+            createdAt: Date;
+            storeId: string;
+            uploadedImageUrl: string;
+            confidence: number | null;
+            createdProductId: string | null;
+            chargeAmountPaise: number;
+            chargedAt: Date | null;
+        }[];
         meta: {
             page: number;
             limit: number;
-            total: any;
+            total: number;
             totalPages: number;
         };
     }>;
     listBilling(userId: string, storeId: string, page?: number, limit?: number): Promise<{
-        items: any;
+        items: {
+            analysisId: string | null;
+            productName: string;
+            amountPaise: number;
+            amountRupee: number;
+            status: import("@prisma/client").$Enums.MerchantAiWalletTransactionStatus;
+            type: import("@prisma/client").$Enums.MerchantAiWalletTransactionType;
+            chargedAt: Date | null;
+            refundedAt: Date | null;
+            reason: string | null;
+            createdAt: Date;
+        }[];
         meta: {
             page: number;
             limit: number;
-            total: any;
+            total: number;
             totalPages: number;
         };
-        walletBalancePaise: any;
+        walletBalancePaise: number;
         summary: {
-            grossRevenuePaise: any;
-            refundedPaise: any;
+            grossRevenuePaise: number;
+            refundedPaise: number;
             netRevenuePaise: number;
         };
     }>;
@@ -154,5 +200,18 @@ export declare class ProductAiService {
     private findOwnedAnalysis;
     private assertStoreOwnership;
     private toMerchantView;
+    private buildFieldSuggestions;
+    private field;
+    private findMissingFields;
+    private buildWarnings;
+    private defaultDescription;
+    private defaultDisclaimer;
+    private buildSku;
+    private unitFromWeight;
+    private normalizeHsnCode;
+    private gstPercentToSlab;
+    private clamp01;
+    private normalizeClaimEnum;
+    private normalizeProofRequirement;
     private mapProductType;
 }

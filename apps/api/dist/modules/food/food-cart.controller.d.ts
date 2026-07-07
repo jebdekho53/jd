@@ -1,4 +1,3 @@
-import { Body } from '@nestjs/common';
 import { RequestUser } from '../../common/types';
 import { FoodCartService } from './food-cart.service';
 import { AddFoodCartItemDto, UpdateFoodCartItemDto } from './dto/add-food-cart-item.dto';
@@ -18,8 +17,8 @@ export declare class FoodCartController {
                 name: string;
                 slug: string;
                 restaurantProfile: {
-                    packagingFee: Body;
-                    minOrderAmount: Body | null;
+                    packagingFee: import("@prisma/client/runtime/library").Decimal;
+                    minOrderAmount: import("@prisma/client/runtime/library").Decimal | null;
                 } | null;
             };
             items: {
@@ -65,8 +64,8 @@ export declare class FoodCartController {
                 name: string;
                 slug: string;
                 restaurantProfile: {
-                    packagingFee: Body;
-                    minOrderAmount: Body | null;
+                    packagingFee: import("@prisma/client/runtime/library").Decimal;
+                    minOrderAmount: import("@prisma/client/runtime/library").Decimal | null;
                 } | null;
             };
             items: {
@@ -112,8 +111,8 @@ export declare class FoodCartController {
                 name: string;
                 slug: string;
                 restaurantProfile: {
-                    packagingFee: Body;
-                    minOrderAmount: Body | null;
+                    packagingFee: import("@prisma/client/runtime/library").Decimal;
+                    minOrderAmount: import("@prisma/client/runtime/library").Decimal | null;
                 } | null;
             };
             items: {
@@ -159,8 +158,8 @@ export declare class FoodCartController {
                 name: string;
                 slug: string;
                 restaurantProfile: {
-                    packagingFee: Body;
-                    minOrderAmount: Body | null;
+                    packagingFee: import("@prisma/client/runtime/library").Decimal;
+                    minOrderAmount: import("@prisma/client/runtime/library").Decimal | null;
                 } | null;
             };
             items: {

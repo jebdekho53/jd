@@ -4,5 +4,14 @@ export declare class TicketAssignmentService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     resolveTeam(categoryCode: string, actorType: SupportActorType): SupportTeam;
-    assignTicket(ticketId: string, team: SupportTeam, assignedBy?: string): Promise<any>;
+    assignTicket(ticketId: string, team: SupportTeam, assignedBy?: string): Promise<{
+        id: string;
+        assignedAt: Date;
+        assignedBy: string | null;
+        isActive: boolean;
+        ticketId: string;
+        note: string | null;
+        unassignedAt: Date | null;
+        agentId: string;
+    } | null>;
 }

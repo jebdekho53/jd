@@ -3,7 +3,33 @@ import { DeliverableStoreWithCoverage } from '../../common/utils/delivery-covera
 import type { DeliverabilityResult } from '../../common/utils/geospatial.util';
 export declare const STORE_VISIBLE_WHERE: Prisma.StoreWhereInput;
 export declare const PRODUCT_VISIBLE_WHERE: Prisma.ProductWhereInput;
-export declare const STORE_DISCOVERY_INCLUDE: Prisma.StoreInclude;
+export declare const STORE_DISCOVERY_INCLUDE: {
+    hours: true;
+    storeServiceAreas: {
+        include: {
+            serviceArea: {
+                select: {
+                    centerLat: true;
+                    centerLng: true;
+                    radiusKm: true;
+                };
+            };
+        };
+    };
+    deliveryAreas: {
+        where: {
+            isActive: true;
+        };
+        select: {
+            pincode: true;
+            isActive: true;
+            deliveryFee: true;
+            minimumOrder: true;
+            estimatedMinutes: true;
+            priority: true;
+        };
+    };
+};
 export declare const DEFAULT_BUYER_DISCOVERY_RADIUS_KM = 20;
 export declare const UNLIMITED_DISCOVERY_RADIUS_KM: number;
 export interface BuyerLocationContext {

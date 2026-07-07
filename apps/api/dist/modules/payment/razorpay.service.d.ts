@@ -22,6 +22,8 @@ export declare class RazorpayService implements OnModuleInit {
     fetchOrderPayments(razorpayOrderId: string): Promise<Array<{
         id: string;
         status: string;
+        contact?: string;
+        email?: string;
     }>>;
     createRefund(razorpayPaymentId: string, amountRupees: number, notes?: Record<string, string>): Promise<{
         id: string;

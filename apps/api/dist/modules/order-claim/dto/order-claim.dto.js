@@ -57,12 +57,12 @@ exports.CreateOrderClaimDto = CreateOrderClaimDto;
 __decorate([
     (0, swagger_1.ApiProperty)({ enum: claim_policy_enums_1.OrderClaimTypeEnum }),
     (0, class_validator_1.IsEnum)(claim_policy_enums_1.OrderClaimTypeEnum),
-    __metadata("design:type", Object)
+    __metadata("design:type", String)
 ], CreateOrderClaimDto.prototype, "claimType", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ enum: claim_policy_enums_1.ReturnClaimReasonEnum }),
     (0, class_validator_1.IsEnum)(claim_policy_enums_1.ReturnClaimReasonEnum),
-    __metadata("design:type", Object)
+    __metadata("design:type", String)
 ], CreateOrderClaimDto.prototype, "reason", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
@@ -109,13 +109,13 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: claim_policy_enums_1.OrderClaimStatusEnum }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(claim_policy_enums_1.OrderClaimStatusEnum),
-    __metadata("design:type", Object)
+    __metadata("design:type", String)
 ], ListMerchantClaimsDto.prototype, "status", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: claim_policy_enums_1.OrderClaimTypeEnum }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(claim_policy_enums_1.OrderClaimTypeEnum),
-    __metadata("design:type", Object)
+    __metadata("design:type", String)
 ], ListMerchantClaimsDto.prototype, "claimType", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),

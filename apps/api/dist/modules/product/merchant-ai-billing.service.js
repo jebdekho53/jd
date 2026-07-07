@@ -9,7 +9,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var MerchantAiBillingService_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MerchantAiBillingService = void 0;
 const common_1 = require("@nestjs/common");
@@ -57,6 +56,8 @@ let MerchantAiBillingService = MerchantAiBillingService_1 = class MerchantAiBill
 exports.MerchantAiBillingService = MerchantAiBillingService;
 exports.MerchantAiBillingService = MerchantAiBillingService = MerchantAiBillingService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object, merchant_ai_wallet_service_1.MerchantAiWalletService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        config_1.ConfigService,
+        merchant_ai_wallet_service_1.MerchantAiWalletService])
 ], MerchantAiBillingService);
 //# sourceMappingURL=merchant-ai-billing.service.js.map

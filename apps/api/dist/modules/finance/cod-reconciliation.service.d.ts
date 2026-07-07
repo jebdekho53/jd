@@ -1,4 +1,4 @@
-import { CodReconciliationStatus, DeliveryProviderType } from '@prisma/client';
+import { CodReconciliationStatus, DeliveryProviderType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { LedgerService } from './ledger.service';
 import { FinanceAlertService } from './finance-alert.service';
@@ -13,28 +13,72 @@ export declare class CodReconciliationService {
         amountDeposited: number;
         notes?: string;
     }): Promise<{
-        submitted: any;
+        submitted: number;
         expected: number;
         deposited: number;
         mismatch: number;
     }>;
-    verify(adminUserId: string, id: string): Promise<any>;
-    reject(adminUserId: string, id: string, reason: string): Promise<any>;
+    verify(adminUserId: string, id: string): Promise<{
+        id: string;
+        status: import("@prisma/client").$Enums.CodReconciliationStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        orderId: string | null;
+        riderProfileId: string | null;
+        providerType: import("@prisma/client").$Enums.DeliveryProviderType | null;
+        amountExpected: Prisma.Decimal;
+        amountCollected: Prisma.Decimal;
+        amountDeposited: Prisma.Decimal;
+        mismatchAmount: Prisma.Decimal;
+        submittedAt: Date | null;
+        verifiedAt: Date | null;
+        verifiedBy: string | null;
+        rejectionReason: string | null;
+        notes: string | null;
+    }>;
+    reject(adminUserId: string, id: string, reason: string): Promise<{
+        id: string;
+        status: import("@prisma/client").$Enums.CodReconciliationStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        orderId: string | null;
+        riderProfileId: string | null;
+        providerType: import("@prisma/client").$Enums.DeliveryProviderType | null;
+        amountExpected: Prisma.Decimal;
+        amountCollected: Prisma.Decimal;
+        amountDeposited: Prisma.Decimal;
+        mismatchAmount: Prisma.Decimal;
+        submittedAt: Date | null;
+        verifiedAt: Date | null;
+        verifiedBy: string | null;
+        rejectionReason: string | null;
+        notes: string | null;
+    }>;
     listAdmin(status?: CodReconciliationStatus, page?: number, limit?: number): Promise<{
-        records: any;
+        records: {
+            id: string;
+            rider: string;
+            orderNumber: string | null;
+            amountExpected: number;
+            amountCollected: number;
+            amountDeposited: number;
+            mismatchAmount: number;
+            status: import("@prisma/client").$Enums.CodReconciliationStatus;
+            submittedAt: string | null;
+        }[];
         meta: {
             page: number;
             limit: number;
-            total: any;
+            total: number;
         };
     }>;
     getSummary(): Promise<{
         codPending: number;
-        codPendingCount: any;
+        codPendingCount: number;
         codSubmitted: number;
-        codSubmittedCount: any;
+        codSubmittedCount: number;
         codDeposited: number;
-        codVerifiedCount: any;
-        mismatchCount: any;
+        codVerifiedCount: number;
+        mismatchCount: number;
     }>;
 }

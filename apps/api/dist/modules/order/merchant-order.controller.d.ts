@@ -9,11 +9,42 @@ export declare class MerchantOrderController {
     listOrders(user: RequestUser, dto: ListMerchantOrdersDto): Promise<{
         success: boolean;
         data: {
-            orders: any;
+            orders: {
+                updatedAt: any;
+                pipelineColumn: import("./merchant-pipeline.util").MerchantPipelineColumn;
+                buyerProfile: {
+                    name: any;
+                    phone: any;
+                } | null;
+                rider: {
+                    id: any;
+                    name: any;
+                    phone: any;
+                } | null;
+                deliveryStatus: any;
+                awaitingRider: boolean;
+                riderWaitMins: number;
+                operations: {
+                    orderAgeMins: number;
+                    sinceAcceptedMins: number | null;
+                    prepSla: import("./merchant-pipeline.util").SlaLevel;
+                    riderWaitSla: import("./merchant-pipeline.util").SlaLevel;
+                };
+                id: any;
+                orderNumber: any;
+                status: any;
+                paymentMethod: any;
+                paymentStatus: any;
+                totalAmount: number;
+                createdAt: any;
+                store: any;
+                storeId: any;
+                items: any;
+            }[];
             meta: {
                 page: number;
                 limit: number;
-                total: any;
+                total: number;
                 totalPages: number;
             };
         };
@@ -22,9 +53,9 @@ export declare class MerchantOrderController {
         success: boolean;
         data: {
             customer: {
-                name: any;
-                phone: any;
-                orderCount: any;
+                name: string | null;
+                phone: string | null;
+                orderCount: number;
                 lifetimeSpend: number;
             };
             operations: {
@@ -40,12 +71,12 @@ export declare class MerchantOrderController {
             };
             fulfillmentBatch: {
                 isBatched: boolean;
-                batchId: any;
-                batchStatus: any;
-                sequence: any;
-                totalOrders: any;
+                batchId: string;
+                batchStatus: import("@prisma/client").$Enums.DeliveryBatchStatus;
+                sequence: number;
+                totalOrders: number;
                 label: string;
-                orders: any;
+                orders: string[];
             } | {
                 isBatched: boolean;
                 label: string;
@@ -147,35 +178,35 @@ export declare class MerchantOrderController {
         success: boolean;
         data: {
             orderId: string;
-            status: OrderStatus;
+            status: import("@prisma/client").$Enums.OrderStatus;
         };
     }>;
     markPreparing(user: RequestUser, orderId: string, ip: string): Promise<{
         success: boolean;
         data: {
             orderId: string;
-            status: OrderStatus;
+            status: import("@prisma/client").$Enums.OrderStatus;
         };
     }>;
     markPacking(user: RequestUser, orderId: string, ip: string): Promise<{
         success: boolean;
         data: {
             orderId: string;
-            status: OrderStatus;
+            status: import("@prisma/client").$Enums.OrderStatus;
         };
     }>;
     markReady(user: RequestUser, orderId: string, ip: string): Promise<{
         success: boolean;
         data: {
             orderId: string;
-            status: OrderStatus;
+            status: import("@prisma/client").$Enums.OrderStatus;
         };
     }>;
     cancelOrder(user: RequestUser, orderId: string, dto: CancelOrderDto, ip: string): Promise<{
         success: boolean;
         data: {
             orderId: string;
-            status: any;
+            status: "CANCELLED_BY_MERCHANT";
         };
     }>;
     markIssue(user: RequestUser, orderId: string, dto: MarkOrderIssueDto, ip: string): Promise<{

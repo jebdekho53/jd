@@ -36,11 +36,23 @@ export declare class OrderRefundService {
     }>;
     retryFailedRefunds(): Promise<number>;
     listFailedRefunds(page?: number, limit?: number): Promise<{
-        refunds: any;
+        refunds: {
+            id: string;
+            orderId: string;
+            orderNumber: string;
+            amount: number;
+            razorpayAmount: number;
+            walletAmount: number;
+            status: import("@prisma/client").$Enums.OrderRefundStatus;
+            retryCount: number;
+            lastError: string | null;
+            razorpayRefundId: string | null;
+            createdAt: string;
+        }[];
         meta: {
             page: number;
             limit: number;
-            total: any;
+            total: number;
         };
     }>;
     reconcileRazorpayRefund(payload: Record<string, unknown> | undefined): Promise<void>;

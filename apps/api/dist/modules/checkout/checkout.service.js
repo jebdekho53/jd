@@ -428,6 +428,10 @@ let CheckoutService = CheckoutService_1 = class CheckoutService {
                         line2: address.line2,
                         city: address.city,
                         pincode: address.pincode,
+                        recipientName: cart?.payerContact?.name ?? undefined,
+                        phone: cart?.payerContact?.phone
+                            ? String(cart.payerContact.phone).replace(/\D/g, '').slice(-10)
+                            : undefined,
                     },
                     deliveryLat: address.lat ?? 0,
                     deliveryLng: address.lng ?? 0,

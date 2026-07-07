@@ -7,11 +7,21 @@ export declare class AdminMerchantAiWalletController {
     list(page?: string, limit?: string): Promise<{
         success: boolean;
         data: {
-            items: any;
+            items: {
+                merchantProfileId: string;
+                businessName: string;
+                email: string | null;
+                phone: string;
+                balancePaise: number;
+                totalRechargedPaise: number;
+                totalSpentPaise: number;
+                totalRefundedPaise: number;
+                updatedAt: Date;
+            }[];
             meta: {
                 page: number;
                 limit: number;
-                total: any;
+                total: number;
                 totalPages: number;
             };
         };
@@ -19,36 +29,56 @@ export declare class AdminMerchantAiWalletController {
     stats(): Promise<{
         success: boolean;
         data: {
-            totalRechargesPaise: any;
-            totalRechargeCount: any;
-            totalAiSpendPaise: any;
-            totalDebitCount: any;
-            totalRefundsPaise: any;
-            totalRefundCount: any;
-            outstandingBalancePaise: any;
-            merchantsWithBalance: any;
-            topMerchantsBySpend: any;
+            totalRechargesPaise: number;
+            totalRechargeCount: number;
+            totalAiSpendPaise: number;
+            totalDebitCount: number;
+            totalRefundsPaise: number;
+            totalRefundCount: number;
+            outstandingBalancePaise: number;
+            merchantsWithBalance: number;
+            topMerchantsBySpend: (import("@prisma/client").Prisma.PickEnumerable<import("@prisma/client").Prisma.MerchantAiWalletTransactionGroupByOutputType, "merchantProfileId"[]> & {
+                _count: number;
+                _sum: {
+                    amountPaise: number | null;
+                };
+            })[];
         };
     }>;
     detail(merchantId: string): Promise<{
         success: boolean;
         data: {
             merchantProfileId: string;
-            businessName: any;
-            email: any;
-            phone: any;
-            balancePaise: any;
-            totalRechargedPaise: any;
-            totalSpentPaise: any;
-            totalRefundedPaise: any;
-            transactions: any;
+            businessName: string | undefined;
+            email: string | null | undefined;
+            phone: string | undefined;
+            balancePaise: number;
+            totalRechargedPaise: number;
+            totalSpentPaise: number;
+            totalRefundedPaise: number;
+            transactions: {
+                idempotencyKey: string;
+                type: import("@prisma/client").$Enums.MerchantAiWalletTransactionType;
+                id: string;
+                status: import("@prisma/client").$Enums.MerchantAiWalletTransactionStatus;
+                createdAt: Date;
+                reason: string | null;
+                storeId: string | null;
+                merchantProfileId: string;
+                analysisId: string | null;
+                razorpayOrderId: string | null;
+                razorpayPaymentId: string | null;
+                amountPaise: number;
+                balanceBeforePaise: number;
+                balanceAfterPaise: number;
+            }[];
         };
     }>;
     adjust(user: RequestUser, merchantId: string, dto: AdminAdjustAiWalletDto, ip: string): Promise<{
         success: boolean;
         data: {
-            balancePaise: any;
-            transactionId: any;
+            balancePaise: number;
+            transactionId: string;
         };
     }>;
 }

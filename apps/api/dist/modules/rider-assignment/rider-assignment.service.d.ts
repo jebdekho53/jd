@@ -38,27 +38,107 @@ export declare class RiderAssignmentService {
     }>;
     unassign(orderId: string, actorId: string, ipAddress?: string): Promise<void>;
     findBestRider(orderId: string): Promise<ScoredRider | null>;
-    getAvailableRiders(storeId: string): Promise<any>;
+    getAvailableRiders(storeId: string): Promise<({
+        id: string;
+        name: string;
+        status: import("@prisma/client").$Enums.RiderStatus;
+        inZone: boolean;
+        activeDeliveries: number;
+        distanceKm: number;
+        currentLat: number | null;
+        currentLng: number | null;
+        lastLocationAt: Date | null;
+        updatedAt: Date;
+    } | {
+        zones: {
+            id: string;
+            name: string;
+        }[];
+        id: string;
+        name: string;
+        status: import("@prisma/client").$Enums.RiderStatus;
+        inZone: boolean;
+        activeDeliveries: number;
+        distanceKm: number;
+        currentLat: number | null;
+        currentLng: number | null;
+        lastLocationAt: Date | null;
+        updatedAt: Date;
+    })[]>;
     listUnassignedOrders(page?: number, limit?: number): Promise<{
-        orders: any;
+        orders: {
+            totalAmount: number;
+            merchant: {
+                id: string;
+                businessName: string;
+            };
+            zones: {
+                id: string;
+                name: string;
+            }[];
+            availableRiderCount: number;
+            needsRider: boolean;
+            buyerProfile: {
+                name: string;
+            };
+            store: {
+                merchantProfile: {
+                    id: string;
+                    businessName: string;
+                };
+                id: string;
+                name: string;
+                slug: string;
+                storeZones: {
+                    zone: {
+                        id: string;
+                        name: string;
+                    };
+                }[];
+            };
+            id: string;
+            status: import("@prisma/client").$Enums.OrderStatus;
+            createdAt: Date;
+            paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
+            orderNumber: string;
+        }[];
         meta: {
             page: number;
             limit: number;
-            total: any;
+            total: number;
             totalPages: number;
         };
     }>;
     listLiveRiders(filters?: {
         status?: string;
-    }): Promise<any>;
+    }): Promise<{
+        id: string;
+        name: string;
+        phone: string;
+        userStatus: import("@prisma/client").$Enums.UserStatus;
+        zone: string;
+        status: import("@prisma/client").$Enums.RiderStatus;
+        kycStatus: import("@prisma/client").$Enums.KycStatus;
+        vehicleType: import("@prisma/client").$Enums.VehicleType;
+        currentDelivery: {
+            orderNumber: string;
+            status: import("@prisma/client").$Enums.DeliveryStatus;
+        } | null;
+        lastLocation: {
+            lat: number;
+            lng: number;
+        } | null;
+        lastSeen: Date;
+        activeDeliveries: number;
+    }[]>;
     getMetrics(): Promise<{
-        unassignedOrders: any;
-        onlineRiders: any;
-        busyRiders: any;
-        idleRiders: any;
+        unassignedOrders: number;
+        onlineRiders: number;
+        busyRiders: number;
+        idleRiders: number;
         assignmentSuccessRate: number;
-        avgAssignmentTimeMins: any;
-        assignmentsToday: any;
+        avgAssignmentTimeMins: number;
+        assignmentsToday: number;
     }>;
     processPendingOffers(): Promise<void>;
     rejectOffer(userId: string, orderId: string): Promise<void>;
@@ -70,8 +150,34 @@ export declare class RiderAssignmentService {
         deliveryId: string;
         riderProfileId: string;
     }>;
-    listAvailableRidersForStore: (storeId: string) => Promise<any>;
-    countAvailableRidersForStore: (storeId: string) => Promise<any>;
+    listAvailableRidersForStore: (storeId: string) => Promise<({
+        id: string;
+        name: string;
+        status: import("@prisma/client").$Enums.RiderStatus;
+        inZone: boolean;
+        activeDeliveries: number;
+        distanceKm: number;
+        currentLat: number | null;
+        currentLng: number | null;
+        lastLocationAt: Date | null;
+        updatedAt: Date;
+    } | {
+        zones: {
+            id: string;
+            name: string;
+        }[];
+        id: string;
+        name: string;
+        status: import("@prisma/client").$Enums.RiderStatus;
+        inZone: boolean;
+        activeDeliveries: number;
+        distanceKm: number;
+        currentLat: number | null;
+        currentLng: number | null;
+        lastLocationAt: Date | null;
+        updatedAt: Date;
+    })[]>;
+    countAvailableRidersForStore: (storeId: string) => Promise<number>;
     private autoAcceptOffer;
     private expireOffer;
     private getEligibleRidersForStore;

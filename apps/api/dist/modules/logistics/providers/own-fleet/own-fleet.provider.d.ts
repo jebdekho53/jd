@@ -1,6 +1,6 @@
 import type { ILogisticsProvider } from '../../interfaces/logistics-provider.interface';
 export declare class OwnFleetProvider implements ILogisticsProvider {
-    readonly type: any;
+    readonly type: "OWN_FLEET";
     private notViaApi;
     createShipment(): never;
     cancelShipment(): never;

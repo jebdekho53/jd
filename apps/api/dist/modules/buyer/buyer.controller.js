@@ -12,7 +12,6 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 var BuyerController_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BuyerController = void 0;
 const openapi = require("@nestjs/swagger");
@@ -285,6 +284,7 @@ exports.BuyerController = BuyerController = BuyerController_1 = __decorate([
     (0, public_decorator_1.Public)(),
     (0, common_1.Controller)('buyer'),
     __metadata("design:paramtypes", [buyer_store_service_1.BuyerStoreService,
-        buyer_product_service_1.BuyerProductService, typeof (_a = typeof jwt_1.JwtService !== "undefined" && jwt_1.JwtService) === "function" ? _a : Object])
+        buyer_product_service_1.BuyerProductService,
+        jwt_1.JwtService])
 ], BuyerController);
 //# sourceMappingURL=buyer.controller.js.map

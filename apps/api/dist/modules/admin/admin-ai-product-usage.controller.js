@@ -11,7 +11,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminAiProductUsageController = void 0;
 const openapi = require("@nestjs/swagger");
@@ -87,7 +86,7 @@ __decorate([
     __param(4, (0, common_1.Query)('charged')),
     __param(5, (0, common_1.Query)('failed')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [typeof (_a = typeof client_1.AIProductAnalysisStatus !== "undefined" && client_1.AIProductAnalysisStatus) === "function" ? _a : Object, String, String, String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], AdminAiProductUsageController.prototype, "exportCsv", null);
 __decorate([
@@ -104,7 +103,7 @@ __decorate([
     __param(6, (0, common_1.Query)('page')),
     __param(7, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [typeof (_b = typeof client_1.AIProductAnalysisStatus !== "undefined" && client_1.AIProductAnalysisStatus) === "function" ? _b : Object, String, String, String, String, String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], AdminAiProductUsageController.prototype, "list", null);
 __decorate([

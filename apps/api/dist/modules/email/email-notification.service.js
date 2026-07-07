@@ -9,7 +9,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var EmailNotificationService_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmailNotificationService = void 0;
 const common_1 = require("@nestjs/common");
@@ -477,6 +476,7 @@ exports.EmailNotificationService = EmailNotificationService = EmailNotificationS
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [email_service_1.EmailService,
         email_template_service_1.EmailTemplateService,
-        prisma_service_1.PrismaService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
+        prisma_service_1.PrismaService,
+        config_1.ConfigService])
 ], EmailNotificationService);
 //# sourceMappingURL=email-notification.service.js.map
