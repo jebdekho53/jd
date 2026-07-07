@@ -90,7 +90,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <BrandLockup subtitle="Admin" href="/dashboard" inverted />
       </div>
 
-      <nav className="flex-1 space-y-0.5 p-2">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
           return (

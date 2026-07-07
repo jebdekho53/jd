@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { proxyGet } from '@/lib/auth/bff-proxy';
+import { proxyGet, proxyPatch, proxyPost } from '@/lib/auth/bff-proxy';
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ segments: string[] }> }) {
   const { segments } = await ctx.params;
@@ -16,4 +16,14 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ segments: s
   }
   const apiPath = map[sub] ?? `/admin/trust-safety/${sub}`;
   return proxyGet(apiPath, req.nextUrl.searchParams);
+}
+
+export async function POST(req: NextRequest, ctx: { params: Promise<{ segments: string[] }> }) {
+  const { segments } = await ctx.params;
+  return proxyPost(req, `/admin/trust-safety/${segments.join('/')}`);
+}
+
+export async function PATCH(req: NextRequest, ctx: { params: Promise<{ segments: string[] }> }) {
+  const { segments } = await ctx.params;
+  return proxyPatch(req, `/admin/trust-safety/${segments.join('/')}`);
 }
