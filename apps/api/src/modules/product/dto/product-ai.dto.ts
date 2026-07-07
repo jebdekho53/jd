@@ -13,10 +13,12 @@ import {
 } from 'class-validator';
 import { GstSlab } from '@prisma/client';
 
+const MAX_AI_IMAGE_DATA_URL_LENGTH = 7_100_000;
+
 export class AnalyzeProductImageDto {
   @ApiProperty({ description: 'Base64 data URL of product photo (JPEG/PNG/WebP, max 5MB)' })
   @IsString()
-  @Length(32, 7_000_000)
+  @Length(32, MAX_AI_IMAGE_DATA_URL_LENGTH)
   dataUrl!: string;
 }
 

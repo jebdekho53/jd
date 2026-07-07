@@ -99,6 +99,19 @@ export interface CreateProductPayload {
   hsnCodeId: string;
   gstSlab?: string;
   taxCategory?: 'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED';
+  isReturnable?: boolean;
+  isRefundable?: boolean;
+  isReplaceable?: boolean;
+  returnWindowHours?: number;
+  approvalMode?: string;
+  proofRequired?: string;
+  autoApproveBelowAmount?: number;
+  returnReasons?: string[];
+  refundMethod?: string;
+  preparedFoodPolicy?: string;
+  allowCustomerChangedMind?: boolean;
+  returnPolicyText?: string;
+  replacementPolicyText?: string;
 }
 
 export interface UpdateProductPayload extends Partial<CreateProductPayload> {
