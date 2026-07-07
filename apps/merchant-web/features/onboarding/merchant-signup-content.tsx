@@ -398,6 +398,64 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
     }
   };
 
+  // Build a draft payload (no stepKey) from the current form so in-progress
+  // fields can be persisted server-side without marking a step complete.
+  const buildDraftPayload = useCallback((): Record<string, unknown> => {
+    const city = cities.find((c) => c.id === form.cityId);
+    const payload: Record<string, unknown> = {
+      ownerName: form.ownerName.trim() || undefined,
+      businessName: form.businessName.trim() || undefined,
+      businessTypes: form.businessTypes.length ? form.businessTypes : undefined,
+      gstNumber: form.gstNumber.trim() || undefined,
+      panNumber: form.panNumber.trim() || undefined,
+      storeName: form.storeName.trim() || undefined,
+      storeAddress: form.storeAddress.trim() || undefined,
+      storeLogoUrl: form.storeLogoUrl || undefined,
+      storeBannerUrl: form.storeBannerUrl || undefined,
+      deliveryRadiusKm: form.deliveryRadiusKm,
+      locality: form.locality.trim() || undefined,
+      state: form.state.trim() || undefined,
+      city: (city?.name ?? form.operationalCityName ?? form.city) || undefined,
+      cityId: form.cityId || undefined,
+      pincode: form.pincode.trim() || undefined,
+      locationPincodeId: form.locationPincodeId || undefined,
+      locationAreaId: form.locationAreaId || undefined,
+      locationCityId: form.locationCityId || undefined,
+    };
+    if (form.latitude != null) payload.latitude = form.latitude;
+    if (form.longitude != null) payload.longitude = form.longitude;
+    if (form.storeAddress.trim() || form.pincode.trim()) {
+      payload.pickupAddress = {
+        addressLine1: form.storeAddress.trim(),
+        addressLine2: form.addressLine2.trim() || undefined,
+        locality: form.locality.trim(),
+        landmark: form.landmark.trim(),
+        city: city?.name ?? (form.operationalCityName || form.city),
+        state: form.state.trim(),
+        pincode: form.pincode.trim(),
+        latitude: form.latitude,
+        longitude: form.longitude,
+        pickupInstructions: form.pickupInstructions.trim() || undefined,
+        googlePlaceId: form.googlePlaceId || undefined,
+        formattedAddress: form.formattedAddress || undefined,
+      };
+    }
+    return payload;
+  }, [form, cities]);
+
+  // Debounced autosave: continuously persist the merchant's in-progress fields
+  // as a draft so nothing is lost if the browser is handed to another account
+  // mid-onboarding (e.g. a referrer switching to their own login).
+  useEffect(() => {
+    if (booting || step < 1) return;
+    const handle = setTimeout(() => {
+      void updateOnboardingStep(buildDraftPayload()).catch(() => {
+        /* draft autosave is best-effort; step saves remain authoritative */
+      });
+    }, 1500);
+    return () => clearTimeout(handle);
+  }, [booting, step, buildDraftPayload]);
+
   const nextFromBusiness = async () => {
     if (!form.ownerName.trim()) {
       setFieldErrors((prev) => ({ ...prev, ownerName: 'Owner full name is required.' }));
