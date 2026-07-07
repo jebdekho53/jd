@@ -37,7 +37,7 @@ function getDisplayPrice(product: ProductItem) {
 
 function stockLabel(availableQty: number): string | null {
   if (availableQty <= 0) return 'Out of Stock';
-  if (availableQty <= 10) return 'Low Stock';
+  // Low-stock is a merchant-only signal — never shown to buyers.
   return null;
 }
 
