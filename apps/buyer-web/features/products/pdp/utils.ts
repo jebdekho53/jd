@@ -17,7 +17,8 @@ export function getVariantLabel(variant: BuyerVariant, unit: string): string {
 
 export function getStockStatus(availableQty: number): StockStatus {
   if (availableQty <= 0) return 'out_of_stock';
-  if (availableQty <= 10) return 'low_stock';
+  // Low-stock scarcity is intentionally NOT surfaced to buyers (merchant-only
+  // signal). Treat anything in stock as plain in_stock.
   return 'in_stock';
 }
 
