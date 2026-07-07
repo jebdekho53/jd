@@ -21,6 +21,29 @@ import { HsnPicker, type HsnOption } from './hsn-picker';
 const AI_UNAVAILABLE_MSG =
   'AI product add is temporarily unavailable. Manual and CSV upload are still free.';
 
+type AiFieldMeta = NonNullable<AiAnalysisResult['fields']>[string];
+
+function fieldValue(data: AiAnalysisResult, key: string): unknown {
+  return data.fields?.[key]?.value ?? data.extracted[key];
+}
+
+function fieldHint(meta?: AiFieldMeta) {
+  if (!meta) return undefined;
+  const source = meta.source.replace('_', ' ');
+  const confidence = Math.round((meta.confidence ?? 0) * 100);
+  return `${meta.requiresReview ? 'AI suggested — please verify. ' : ''}Source: ${source}. Confidence: ${confidence}%.`;
+}
+
+function stringField(data: AiAnalysisResult, key: string) {
+  const value = fieldValue(data, key);
+  return value == null ? '' : String(value);
+}
+
+function numberField(data: AiAnalysisResult, key: string) {
+  const value = fieldValue(data, key);
+  return value == null || value === '' ? '' : String(value);
+}
+
 interface Props {
   storeId: string;
   open: boolean;
@@ -36,11 +59,32 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
   const [rechargeOpen, setRechargeOpen] = useState(false);
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
+  const [sku, setSku] = useState('');
   const [description, setDescription] = useState('');
   const [basePrice, setBasePrice] = useState('');
   const [mrp, setMrp] = useState('');
   const [unit, setUnit] = useState('piece');
   const [quantity, setQuantity] = useState('0');
+  const [lowStockThreshold, setLowStockThreshold] = useState('5');
+  const [taxCategory, setTaxCategory] = useState<'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED'>('GOODS');
+  const [ingredients, setIngredients] = useState('');
+  const [shelfLife, setShelfLife] = useState('');
+  const [countryOfOrigin, setCountryOfOrigin] = useState('');
+  const [manufacturerName, setManufacturerName] = useState('');
+  const [manufacturerAddress, setManufacturerAddress] = useState('');
+  const [storageInstructions, setStorageInstructions] = useState('');
+  const [disclaimer, setDisclaimer] = useState('');
+  const [taxInclusive, setTaxInclusive] = useState(true);
+  const [returnAllowed, setReturnAllowed] = useState(false);
+  const [refundAllowed, setRefundAllowed] = useState(true);
+  const [replacementAllowed, setReplacementAllowed] = useState(true);
+  const [returnWindowHours, setReturnWindowHours] = useState('24');
+  const [proofRequired, setProofRequired] = useState('PHOTO_OR_VIDEO');
+  const [approvalMode, setApprovalMode] = useState('MANUAL');
+  const [refundMethod, setRefundMethod] = useState('ORIGINAL_PAYMENT');
+  const [allowCustomerChangedMind, setAllowCustomerChangedMind] = useState(false);
+  const [returnPolicyText, setReturnPolicyText] = useState('');
+  const [replacementPolicyText, setReplacementPolicyText] = useState('');
   const [parentCategoryId, setParentCategoryId] = useState('');
   const [subCategoryId, setSubCategoryId] = useState('');
   const [hsn, setHsn] = useState<HsnOption | null>(null);
@@ -80,14 +124,35 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
       return confirmAiProduct(storeId, analysis.id, {
         name,
         brand: brand || undefined,
+        sku: sku || undefined,
         description: description || undefined,
         categoryId,
         basePrice: Number(basePrice),
         mrp: mrp ? Number(mrp) : undefined,
         unit,
         quantity: Number(quantity) || 0,
+        lowStockThreshold: Number(lowStockThreshold) || undefined,
+        ingredients: ingredients || undefined,
+        shelfLife: shelfLife || undefined,
+        countryOfOrigin: countryOfOrigin || undefined,
+        manufacturerName: manufacturerName || undefined,
+        manufacturerAddress: manufacturerAddress || undefined,
+        storageInstructions: storageInstructions || undefined,
+        disclaimer: disclaimer || undefined,
+        taxInclusive,
         hsnCodeId: hsn.id,
         gstSlab: hsn.defaultGstSlab,
+        taxCategory,
+        isReturnable: returnAllowed,
+        isRefundable: refundAllowed,
+        isReplaceable: replacementAllowed,
+        returnWindowHours: Number(returnWindowHours) || undefined,
+        approvalMode,
+        proofRequired,
+        refundMethod,
+        allowCustomerChangedMind,
+        returnPolicyText: returnPolicyText || undefined,
+        replacementPolicyText: replacementPolicyText || undefined,
         publish,
       });
     },
@@ -134,12 +199,34 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
 
   const applyExtracted = (data: AiAnalysisResult) => {
     const ex = data.extracted;
-    setName(String(ex.name ?? ''));
-    setBrand(String(ex.brand ?? ''));
-    setDescription(String(ex.description ?? ''));
-    if (ex.sellingPrice != null) setBasePrice(String(ex.sellingPrice));
-    if (ex.mrp != null) setMrp(String(ex.mrp));
-    if (ex.unit) setUnit(String(ex.unit));
+    setName(stringField(data, 'productName') || stringField(data, 'name'));
+    setBrand(stringField(data, 'brand'));
+    setSku(stringField(data, 'sku'));
+    setDescription(stringField(data, 'description'));
+    setBasePrice(numberField(data, 'basePrice') || numberField(data, 'price'));
+    setMrp(numberField(data, 'mrp'));
+    setUnit(stringField(data, 'unit') || 'piece');
+    setQuantity(numberField(data, 'quantity') || numberField(data, 'openingStock') || '10');
+    setLowStockThreshold(numberField(data, 'lowStockThreshold') || numberField(data, 'lowStockAlert') || '5');
+    setTaxCategory((stringField(data, 'taxCategory') as typeof taxCategory) || 'GOODS');
+    setIngredients(stringField(data, 'ingredients'));
+    setShelfLife(stringField(data, 'shelfLife'));
+    setCountryOfOrigin(stringField(data, 'countryOfOrigin'));
+    setManufacturerName(stringField(data, 'manufacturerName'));
+    setManufacturerAddress(stringField(data, 'manufacturerAddress'));
+    setStorageInstructions(stringField(data, 'storageInstructions'));
+    setDisclaimer(stringField(data, 'disclaimer'));
+    setTaxInclusive(Boolean(fieldValue(data, 'priceInclusiveOfTax') ?? true));
+    setReturnAllowed(Boolean(fieldValue(data, 'returnAllowed') ?? false));
+    setRefundAllowed(Boolean(fieldValue(data, 'refundAllowed') ?? true));
+    setReplacementAllowed(Boolean(fieldValue(data, 'replacementAllowed') ?? true));
+    setReturnWindowHours(numberField(data, 'returnWindowHours') || '24');
+    setProofRequired(stringField(data, 'proofRequired') || 'PHOTO_OR_VIDEO');
+    setApprovalMode(stringField(data, 'approvalMode') || 'MANUAL');
+    setRefundMethod(stringField(data, 'refundMethod') || 'ORIGINAL_PAYMENT');
+    setAllowCustomerChangedMind(Boolean(fieldValue(data, 'allowCustomerChangedMind') ?? false));
+    setReturnPolicyText(stringField(data, 'returnPolicyText'));
+    setReplacementPolicyText(stringField(data, 'replacementPolicyText'));
     const matched = data.categoryMatch?.matchedCategoryId;
     if (matched && categories) {
       for (const parent of categories) {
@@ -224,11 +311,18 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
               <p className="text-sm text-slate-600">Upload a product photo for free AI analysis</p>
               <Button onClick={() => fileRef.current?.click()} disabled={analyzeMutation.isPending}>
                 {analyzeMutation.isPending ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing…</>
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Uploading image…</>
                 ) : (
                   <><Upload className="h-4 w-4" /> Upload photo</>
                 )}
               </Button>
+              {analyzeMutation.isPending && (
+                <div className="space-y-1 text-center text-xs text-slate-500">
+                  <p>Extracting OCR text…</p>
+                  <p>Enriching product fields…</p>
+                  <p>Applying suggestions…</p>
+                </div>
+              )}
               <input
                 ref={fileRef}
                 type="file"
@@ -253,6 +347,23 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
                 <p className="text-sm text-slate-600">
                   Confidence: <strong>{((analysis.confidence ?? 0) * 100).toFixed(0)}%</strong>
                 </p>
+                <p className="mt-1 text-xs text-slate-500">Analysis ID: {analysis.analysisId ?? analysis.id}</p>
+                {analysis.ocrText && (
+                  <details className="mt-2 rounded-lg border border-slate-200 p-2 text-xs text-slate-600">
+                    <summary className="cursor-pointer font-medium text-slate-700">OCR text</summary>
+                    <pre className="mt-2 max-h-40 whitespace-pre-wrap overflow-auto">{analysis.ocrText}</pre>
+                  </details>
+                )}
+                {(analysis.warnings?.length ?? 0) > 0 && (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+                    {analysis.warnings?.map((warning) => <p key={warning}>{warning}</p>)}
+                  </div>
+                )}
+                {(analysis.missingFields?.length ?? 0) > 0 && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Missing or merchant-required: {analysis.missingFields?.slice(0, 12).join(', ')}
+                  </p>
+                )}
                 {supplementWarning && (
                   <p className="mt-1 flex items-center gap-1 text-sm text-amber-700">
                     <AlertTriangle className="h-4 w-4" /> {supplementWarning}
@@ -277,15 +388,19 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
               </div>
 
               <div className="space-y-3">
-                <Input label="Product name" value={name} onChange={(e) => setName(e.target.value)} />
-                <Input label="Brand" value={brand} onChange={(e) => setBrand(e.target.value)} />
-                <Textarea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+                <Input label="Product name" value={name} onChange={(e) => setName(e.target.value)} hint={fieldHint(analysis.fields?.productName ?? analysis.fields?.name)} />
+                <Input label="Brand" value={brand} onChange={(e) => setBrand(e.target.value)} hint={fieldHint(analysis.fields?.brand)} />
+                <Textarea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} hint={fieldHint(analysis.fields?.description)} />
+                <Input label="SKU" value={sku} onChange={(e) => setSku(e.target.value)} hint={fieldHint(analysis.fields?.sku)} />
                 <div className="grid grid-cols-2 gap-2">
-                  <Input label="Selling price (₹)" type="number" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} />
-                  <Input label="MRP (₹)" type="number" value={mrp} onChange={(e) => setMrp(e.target.value)} />
+                  <Input label="Selling price (₹)" type="number" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} hint={fieldHint(analysis.fields?.basePrice ?? analysis.fields?.price)} />
+                  <Input label="MRP (₹)" type="number" value={mrp} onChange={(e) => setMrp(e.target.value)} hint={fieldHint(analysis.fields?.mrp)} />
                 </div>
-                <Input label="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
-                <Input label="Stock" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+                <div className="grid grid-cols-3 gap-2">
+                  <Input label="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} hint={fieldHint(analysis.fields?.unit)} />
+                  <Input label="Stock" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} hint={fieldHint(analysis.fields?.quantity)} />
+                  <Input label="Low stock" type="number" value={lowStockThreshold} onChange={(e) => setLowStockThreshold(e.target.value)} hint={fieldHint(analysis.fields?.lowStockThreshold)} />
+                </div>
                 <Select
                   label="Category"
                   value={parentCategoryId}
@@ -307,6 +422,16 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
                     ))}
                   </Select>
                 )}
+                <div className="grid grid-cols-2 gap-2">
+                  <Select label="Tax category" value={taxCategory} onChange={(e) => setTaxCategory(e.target.value as typeof taxCategory)} hint={fieldHint(analysis.fields?.taxCategory)}>
+                    <option value="GOODS">Goods</option>
+                    <option value="SERVICES">Services</option>
+                    <option value="EXEMPT">Exempt</option>
+                    <option value="NIL_RATED">Nil rated</option>
+                  </Select>
+                  <Input label="GST suggestion" value={String(fieldValue(analysis, 'gstPercent') ?? fieldValue(analysis, 'gstSlab') ?? '')} readOnly hint={fieldHint(analysis.fields?.gstPercent ?? analysis.fields?.gstSlab)} />
+                </div>
+                <Input label="HSN suggestion" value={String(fieldValue(analysis, 'hsnCode') ?? '')} readOnly hint={fieldHint(analysis.fields?.hsnCode)} />
                 <HsnPicker
                   value={hsn?.id}
                   selectedOption={hsn}
@@ -317,6 +442,36 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
                     setHsnError(null);
                   }}
                 />
+                <details open className="rounded-lg border border-slate-200 p-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-800">Return & refund suggestions</summary>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={returnAllowed} onChange={(e) => setReturnAllowed(e.target.checked)} /> Return allowed</label>
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={refundAllowed} onChange={(e) => setRefundAllowed(e.target.checked)} /> Refund allowed</label>
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={replacementAllowed} onChange={(e) => setReplacementAllowed(e.target.checked)} /> Replacement allowed</label>
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={allowCustomerChangedMind} onChange={(e) => setAllowCustomerChangedMind(e.target.checked)} /> Changed mind allowed</label>
+                    <Input label="Return window hours" type="number" value={returnWindowHours} onChange={(e) => setReturnWindowHours(e.target.value)} />
+                    <Input label="Proof required" value={proofRequired} onChange={(e) => setProofRequired(e.target.value)} />
+                    <Input label="Approval mode" value={approvalMode} onChange={(e) => setApprovalMode(e.target.value)} />
+                    <Input label="Refund method" value={refundMethod} onChange={(e) => setRefundMethod(e.target.value)} />
+                  </div>
+                  <Textarea className="mt-2" label="Return policy text" value={returnPolicyText} onChange={(e) => setReturnPolicyText(e.target.value)} rows={2} />
+                  <Textarea className="mt-2" label="Replacement policy text" value={replacementPolicyText} onChange={(e) => setReplacementPolicyText(e.target.value)} rows={2} />
+                </details>
+                <details open className="rounded-lg border border-slate-200 p-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-800">Compliance suggestions</summary>
+                  <div className="mt-3 space-y-2">
+                    <Textarea label="Ingredients" value={ingredients} onChange={(e) => setIngredients(e.target.value)} rows={2} hint={fieldHint(analysis.fields?.ingredients)} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input label="Shelf life" value={shelfLife} onChange={(e) => setShelfLife(e.target.value)} hint={fieldHint(analysis.fields?.shelfLife)} />
+                      <Input label="Country of origin" value={countryOfOrigin} onChange={(e) => setCountryOfOrigin(e.target.value)} hint={fieldHint(analysis.fields?.countryOfOrigin)} />
+                    </div>
+                    <Input label="Manufacturer name" value={manufacturerName} onChange={(e) => setManufacturerName(e.target.value)} hint={fieldHint(analysis.fields?.manufacturerName)} />
+                    <Textarea label="Manufacturer address" value={manufacturerAddress} onChange={(e) => setManufacturerAddress(e.target.value)} rows={2} hint={fieldHint(analysis.fields?.manufacturerAddress)} />
+                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={taxInclusive} onChange={(e) => setTaxInclusive(e.target.checked)} /> Price inclusive of tax</label>
+                    <Textarea label="Storage instructions" value={storageInstructions} onChange={(e) => setStorageInstructions(e.target.value)} rows={2} hint={fieldHint(analysis.fields?.storageInstructions)} />
+                    <Textarea label="Disclaimer" value={disclaimer} onChange={(e) => setDisclaimer(e.target.value)} rows={2} hint={fieldHint(analysis.fields?.disclaimer)} />
+                  </div>
+                </details>
               </div>
             </div>
           )}

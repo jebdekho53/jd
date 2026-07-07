@@ -27,8 +27,18 @@ export interface CsvImportResult {
 }
 
 export interface AiAnalysisResult {
+  analysisId?: string;
   id: string;
   storeId: string;
+  ocrText?: string;
+  fields?: Record<string, {
+    value: unknown;
+    confidence: number;
+    source: 'ocr' | 'ai_inferred' | 'default' | 'merchant_required';
+    requiresReview?: boolean;
+  }>;
+  missingFields?: string[];
+  warnings?: string[];
   uploadedImageUrl: string;
   extracted: Record<string, unknown>;
   categoryMatch: { matchedCategoryId: string | null; warning: string | null } | null;

@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { AIProductAnalysisStatus, AIProductType, MerchantAiWalletTransactionStatus, MerchantAiWalletTransactionType } from '@prisma/client';
+import { AIProductAnalysisStatus, AIProductType, MerchantAiWalletTransactionStatus, MerchantAiWalletTransactionType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { MerchantService } from '../merchant/merchant.service';
@@ -16,6 +16,7 @@ import { MerchantAiBillingService } from './merchant-ai-billing.service';
 import { MerchantAiWalletService } from './merchant-ai-wallet.service';
 import { AiProductImageService } from './ai-product-image.service';
 import { OpenAiVisionClient } from './openai-vision.client';
+import type { AiExtractedProduct } from './openai-vision.client';
 import { ConfirmAiProductDto } from './dto/product-ai.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { suggestDefaultReturnPolicy } from '../../common/utils/product-return-policy.util';
@@ -24,6 +25,17 @@ import {
   AI_NOT_CONFIGURED_CODE,
   AI_PRODUCT_UNAVAILABLE_MESSAGE,
 } from './product-ai.constants';
+
+type AiFieldSource = 'ocr' | 'ai_inferred' | 'default' | 'merchant_required';
+
+type AiSuggestionField<T = unknown> = {
+  value: T | null;
+  confidence: number;
+  source: AiFieldSource;
+  requiresReview?: boolean;
+};
+
+type AiProductFieldSuggestions = Record<string, AiSuggestionField>;
 
 @Injectable()
 export class ProductAiService {
@@ -94,6 +106,7 @@ export class ProductAiService {
     try {
       const extracted = await this.visionClient.analyzeProductImage(images.aiAnalysisUrl);
       const categoryMatch = await this.matchCategory(storeId, userId, extracted);
+      const suggestions = this.buildFieldSuggestions(extracted, categoryMatch);
       const detectedProductType = this.mapProductType(extracted.productType, extracted.isSupplement);
 
       const updated = await this.prisma.aIProductAnalysis.update({
@@ -103,7 +116,10 @@ export class ProductAiService {
           extractedJson: {
             ...extracted,
             categoryMatch,
-          },
+            fields: suggestions.fields,
+            missingFields: suggestions.missingFields,
+            warnings: suggestions.warnings,
+          } as Prisma.InputJsonValue,
           confidence: extracted.confidence,
           detectedProductType,
         },
@@ -124,22 +140,29 @@ export class ProductAiService {
       return this.toMerchantView(updated, categoryMatch);
     } catch (e) {
       const message = (e as Error).message;
-      await this.prisma.aIProductAnalysis.update({
-        where: { id: analysis.id },
-        data: {
-          status: AIProductAnalysisStatus.FAILED,
-          errorMessage: message,
-        },
-      });
+      try {
+        await this.prisma.aIProductAnalysis.update({
+          where: { id: analysis.id },
+          data: {
+            status: AIProductAnalysisStatus.FAILED,
+            errorMessage: message,
+          },
+        });
 
-      await this.audit.log({
-        actorId: userId,
-        action: 'AI_PRODUCT_ANALYSIS_FAILED',
-      resourceType: 'AIProductAnalysis',
-      resourceId: analysis.id,
-        ipAddress,
-        metadata: { storeId, error: message },
-      });
+        await this.audit.log({
+          actorId: userId,
+          action: 'AI_PRODUCT_ANALYSIS_FAILED',
+          resourceType: 'AIProductAnalysis',
+          resourceId: analysis.id,
+          ipAddress,
+          metadata: { storeId, error: message },
+        });
+      } catch (recordFailureError) {
+        this.logger.error(
+          `Failed to record AI product analysis failure for ${analysis.id}`,
+          recordFailureError instanceof Error ? recordFailureError.stack : undefined,
+        );
+      }
 
       throw e;
     }
@@ -553,14 +576,28 @@ export class ProductAiService {
   ) {
     const extracted = (analysis.extractedJson ?? {}) as Record<string, unknown>;
     const { categoryMatch: _cm, ...fields } = extracted;
+    const suggestions = (extracted.fields && typeof extracted.fields === 'object')
+      ? extracted.fields
+      : this.buildFieldSuggestions(fields as unknown as AiExtractedProduct, (categoryMatch ?? _cm) as { matchedCategoryId?: string | null; warning?: string | null } | undefined).fields;
+    const missingFields = Array.isArray(extracted.missingFields)
+      ? extracted.missingFields
+      : this.findMissingFields(suggestions as AiProductFieldSuggestions);
+    const warnings = Array.isArray(extracted.warnings)
+      ? extracted.warnings
+      : this.buildWarnings(fields as Record<string, unknown>, categoryMatch ?? _cm);
 
     const supplementBlocked =
       Boolean(fields.isSupplement) &&
       (fields.canPublishDirectly === false || fields.labelReadable === false);
 
     return {
+      analysisId: analysis.id,
       id: analysis.id,
       storeId: analysis.storeId,
+      ocrText: typeof fields.ocrText === 'string' ? fields.ocrText : '',
+      fields: suggestions,
+      missingFields,
+      warnings,
       uploadedImageUrl: analysis.uploadedImageUrl,
       originalImageUrl: analysis.originalImageUrl,
       optimizedImageUrl: analysis.optimizedImageUrl,
@@ -593,6 +630,160 @@ export class ProductAiService {
       detectedProductType: analysis.detectedProductType,
       productType: fields.productType ?? analysis.detectedProductType,
     };
+  }
+
+  private buildFieldSuggestions(
+    extracted: Partial<AiExtractedProduct>,
+    categoryMatch?: { matchedCategoryId?: string | null; warning?: string | null } | null,
+  ): { fields: AiProductFieldSuggestions; missingFields: string[]; warnings: string[] } {
+    const confidence = this.clamp01(extracted.confidence);
+    const hasOcr = Boolean(extracted.ocrText?.trim());
+    const ocrConfidence = hasOcr ? Math.max(confidence, 0.65) : confidence;
+    const safeSku = this.buildSku(extracted.brand, extracted.name, extracted.barcode);
+    const categoryId = categoryMatch?.matchedCategoryId ?? null;
+    const hsnCode = this.normalizeHsnCode(extracted.hsnCode);
+    const gstSlab = this.gstPercentToSlab(extracted.gstPercent);
+
+    const fields: AiProductFieldSuggestions = {
+      name: this.field(extracted.name || null, confidence, extracted.name ? 'ocr' : 'merchant_required'),
+      productName: this.field(extracted.name || null, confidence, extracted.name ? 'ocr' : 'merchant_required'),
+      description: this.field(extracted.description || this.defaultDescription(extracted), extracted.description ? ocrConfidence : 0.55, extracted.description ? 'ocr' : 'ai_inferred', !extracted.description),
+      brand: this.field(extracted.brand || null, confidence, extracted.brand ? 'ocr' : 'merchant_required'),
+      sku: this.field(extracted.sku || safeSku, extracted.sku ? ocrConfidence : 0.6, extracted.sku ? 'ocr' : 'ai_inferred', !extracted.sku),
+      categoryId: this.field(categoryId, categoryId ? 0.8 : 0, categoryId ? 'ai_inferred' : 'merchant_required', Boolean(categoryId)),
+      subcategoryId: this.field(categoryId, categoryId ? 0.8 : 0, categoryId ? 'ai_inferred' : 'merchant_required', Boolean(categoryId)),
+      price: this.field(extracted.sellingPrice, extracted.sellingPrice == null ? 0 : ocrConfidence, extracted.sellingPrice == null ? 'merchant_required' : 'ocr'),
+      basePrice: this.field(extracted.sellingPrice, extracted.sellingPrice == null ? 0 : ocrConfidence, extracted.sellingPrice == null ? 'merchant_required' : 'ocr'),
+      mrp: this.field(extracted.mrp, extracted.mrp == null ? 0 : ocrConfidence, extracted.mrp == null ? 'merchant_required' : 'ocr'),
+      unit: this.field(extracted.unit || this.unitFromWeight(extracted.weight) || 'piece', extracted.unit ? ocrConfidence : 0.5, extracted.unit ? 'ocr' : 'default', !extracted.unit),
+      openingStock: this.field(10, 0.4, 'default', true),
+      quantity: this.field(10, 0.4, 'default', true),
+      lowStockAlert: this.field(5, 0.4, 'default', true),
+      lowStockThreshold: this.field(5, 0.4, 'default', true),
+      taxCategory: this.field('GOODS', 0.8, 'default', true),
+      hsnCode: this.field(hsnCode, hsnCode ? 0.55 : 0, hsnCode ? 'ocr' : 'merchant_required', true),
+      gstPercent: this.field(extracted.gstPercent ?? null, extracted.gstPercent == null ? 0 : 0.55, extracted.gstPercent == null ? 'merchant_required' : 'ocr', true),
+      gstSlab: this.field(gstSlab, gstSlab ? 0.55 : 0, gstSlab ? 'ocr' : 'merchant_required', true),
+      ingredients: this.field(extracted.ingredients, extracted.ingredients ? ocrConfidence : 0, extracted.ingredients ? 'ocr' : 'merchant_required', Boolean(extracted.ingredients)),
+      shelfLife: this.field(extracted.shelfLife, extracted.shelfLife ? ocrConfidence : 0, extracted.shelfLife ? 'ocr' : 'merchant_required', Boolean(extracted.shelfLife)),
+      countryOfOrigin: this.field(extracted.countryOfOrigin, extracted.countryOfOrigin ? ocrConfidence : 0, extracted.countryOfOrigin ? 'ocr' : 'merchant_required', Boolean(extracted.countryOfOrigin)),
+      manufacturerName: this.field(extracted.manufacturerName, extracted.manufacturerName ? ocrConfidence : 0, extracted.manufacturerName ? 'ocr' : 'merchant_required', Boolean(extracted.manufacturerName)),
+      manufacturerAddress: this.field(extracted.manufacturerAddress, extracted.manufacturerAddress ? ocrConfidence : 0, extracted.manufacturerAddress ? 'ocr' : 'merchant_required', Boolean(extracted.manufacturerAddress)),
+      storageInstructions: this.field(extracted.storageInstructions, extracted.storageInstructions ? ocrConfidence : 0, extracted.storageInstructions ? 'ocr' : 'merchant_required', Boolean(extracted.storageInstructions)),
+      disclaimer: this.field(
+        extracted.disclaimer || this.defaultDisclaimer(extracted),
+        extracted.disclaimer ? ocrConfidence : 0.6,
+        extracted.disclaimer ? 'ocr' : 'ai_inferred',
+        true,
+      ),
+      returnAllowed: this.field(!extracted.isSupplement && extracted.productType !== 'RESTAURANT_FOOD', 0.55, 'default', true),
+      refundAllowed: this.field(true, 0.55, 'default', true),
+      replacementAllowed: this.field(true, 0.55, 'default', true),
+      returnWindowHours: this.field(extracted.productType === 'FRESH_FOOD' ? 2 : 24, 0.5, 'default', true),
+      proofRequired: this.field('PHOTO_OR_VIDEO', 0.5, 'default', true),
+      approvalMode: this.field('MANUAL', 0.5, 'default', true),
+      autoApproveBelow: this.field(null, 0, 'merchant_required', true),
+      refundMethod: this.field('ORIGINAL_PAYMENT', 0.5, 'default', true),
+      foodPolicy: this.field(extracted.productType === 'RESTAURANT_FOOD' ? 'REFUND_ONLY' : null, extracted.productType === 'RESTAURANT_FOOD' ? 0.5 : 0, extracted.productType === 'RESTAURANT_FOOD' ? 'default' : 'merchant_required', true),
+      allowCustomerChangedMind: this.field(false, 0.6, 'default', true),
+      eligibleReturnReasons: this.field(
+        ['WRONG_ITEM', 'DAMAGED', 'MISSING_ITEM', 'QUALITY_ISSUE', 'EXPIRED_PRODUCT', 'PACKAGING_DAMAGED', 'NOT_AS_DESCRIBED', 'OTHER'],
+        0.55,
+        'default',
+        true,
+      ),
+      returnPolicyText: this.field('AI suggested return rules. Merchant must verify category, shelf-life, and regulatory restrictions before saving.', 0.5, 'default', true),
+      replacementPolicyText: this.field('Replacement is suggested only for wrong, damaged, missing, or not-as-described items after merchant review.', 0.5, 'default', true),
+      priceInclusiveOfTax: this.field(true, 0.5, 'default', true),
+    };
+
+    return {
+      fields,
+      missingFields: this.findMissingFields(fields),
+      warnings: this.buildWarnings(extracted as unknown as Record<string, unknown>, categoryMatch),
+    };
+  }
+
+  private field<T>(
+    value: T | null | undefined,
+    confidence: number,
+    source: AiFieldSource,
+    requiresReview = source !== 'ocr',
+  ): AiSuggestionField<T> {
+    return {
+      value: value === undefined ? null : value,
+      confidence: this.clamp01(confidence),
+      source,
+      ...(requiresReview ? { requiresReview: true } : {}),
+    };
+  }
+
+  private findMissingFields(fields: AiProductFieldSuggestions): string[] {
+    return Object.entries(fields)
+      .filter(([, field]) => field.source === 'merchant_required' || field.value === null || field.value === '')
+      .map(([key]) => key);
+  }
+
+  private buildWarnings(extracted: Record<string, unknown>, categoryMatch?: unknown): string[] {
+    const warnings: string[] = [];
+    const match = categoryMatch as { warning?: string | null; matchedCategoryId?: string | null } | undefined;
+    if (match?.warning) warnings.push(match.warning);
+    if (!match?.matchedCategoryId) warnings.push('Category could not be confidently mapped to approved store categories.');
+    if (!extracted.mrp && !extracted.sellingPrice) warnings.push('Price/MRP was not visible. Merchant must enter price before saving.');
+    if (!extracted.hsnCode) warnings.push('HSN/GST was not visible. Merchant must verify tax details before saving.');
+    if (extracted.isSupplement) warnings.push('Supplement/regulatory fields are sensitive. Verify ingredients, allergens, FSSAI, manufacturer, and label details.');
+    return [...new Set(warnings)];
+  }
+
+  private defaultDescription(extracted: Partial<AiExtractedProduct>): string | null {
+    const parts = [extracted.brand, extracted.name, extracted.weight || extracted.unit].filter(Boolean);
+    return parts.length >= 2 ? parts.join(' ') : null;
+  }
+
+  private defaultDisclaimer(extracted: Partial<AiExtractedProduct>): string {
+    return extracted.isSupplement
+      ? 'AI suggested supplement details from the uploaded label. Merchant must verify ingredients, allergens, FSSAI/regulatory details, manufacturer information, pricing, and claims before saving.'
+      : 'AI suggested product details from the uploaded image. Merchant must verify label, pricing, tax, manufacturer, and regulatory details before saving.';
+  }
+
+  private buildSku(brand?: string, name?: string, barcode?: string | null): string | null {
+    if (barcode) return barcode.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 50) || null;
+    const text = [brand, name].filter(Boolean).join(' ');
+    const slug = text
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40);
+    return slug ? `${slug}-${Date.now().toString().slice(-6)}` : null;
+  }
+
+  private unitFromWeight(weight?: string): string | null {
+    const value = weight?.trim().toLowerCase();
+    if (!value) return null;
+    if (/\b(kg|g|gram|grams)\b/.test(value)) return value;
+    if (/\b(ml|l|litre|liter)\b/.test(value)) return value;
+    return null;
+  }
+
+  private normalizeHsnCode(value?: string | null): string | null {
+    const normalized = value?.replace(/[^\d]/g, '') ?? '';
+    return /^\d{4}(\d{2}){0,2}$/.test(normalized) ? normalized : null;
+  }
+
+  private gstPercentToSlab(value?: number | null): string | null {
+    if (value == null) return null;
+    if (value === 0) return 'ZERO';
+    if (value === 5) return 'FIVE';
+    if (value === 12) return 'TWELVE';
+    if (value === 18) return 'EIGHTEEN';
+    if (value === 28) return 'TWENTY_EIGHT';
+    return null;
+  }
+
+  private clamp01(value: unknown): number {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return Math.min(1, Math.max(0, n));
   }
 
   private mapProductType(productType?: string, isSupplement?: boolean): AIProductType {

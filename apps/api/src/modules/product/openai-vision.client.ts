@@ -7,6 +7,7 @@ import {
 } from './product-ai.constants';
 
 export interface AiExtractedProduct {
+  ocrText?: string;
   name: string;
   brand: string;
   categoryName: string;
@@ -23,6 +24,13 @@ export interface AiExtractedProduct {
   manufacturerName: string | null;
   fssaiLicense: string | null;
   barcode: string | null;
+  sku?: string | null;
+  countryOfOrigin?: string | null;
+  manufacturerAddress?: string | null;
+  storageInstructions?: string | null;
+  disclaimer?: string | null;
+  hsnCode?: string | null;
+  gstPercent?: number | null;
   isSupplement: boolean;
   requiresClearLabel: boolean;
   labelReadable: boolean | null;
@@ -41,13 +49,15 @@ const VISION_PROMPT = `You are a product catalog vision assistant for an Indian 
 The input image has been pre-processed for analysis: square 1:1 framing, white/clean background where possible, centered product, max 1200×1200. Evaluate THIS image as-is.
 
 Your job:
-1. Detect productType: PACKAGED_PRODUCT | FRESH_FOOD | RESTAURANT_FOOD | SUPPLEMENT | ELECTRONICS | BEAUTY | PET | FLOWERS | UNKNOWN
-2. For RESTAURANT_FOOD (prepared dish photos): extract dish name, cuisine, veg/non-veg, estimated prep time, serving size, short description. Do NOT hallucinate ingredients.
-3. Assess image quality and extract only clearly readable information.
-4. Return strict JSON only — no markdown, no commentary.
+1. OCR/extract all clearly visible product/package text first.
+2. Detect productType: PACKAGED_PRODUCT | FRESH_FOOD | RESTAURANT_FOOD | SUPPLEMENT | ELECTRONICS | BEAUTY | PET | FLOWERS | UNKNOWN
+3. Parse visible label/package text into product facts.
+4. Enrich only safe marketplace fields from OCR facts. Do not invent regulatory or price facts.
+5. Return strict JSON only — no markdown, no commentary.
 
 Schema (use exactly these keys):
 {
+  "ocrText": "",
   "productType": "PACKAGED_PRODUCT",
   "name": "",
   "brand": "",
@@ -65,6 +75,13 @@ Schema (use exactly these keys):
   "manufacturerName": null,
   "fssaiLicense": null,
   "barcode": null,
+  "sku": null,
+  "countryOfOrigin": null,
+  "manufacturerAddress": null,
+  "storageInstructions": null,
+  "disclaimer": null,
+  "hsnCode": null,
+  "gstPercent": null,
   "isSupplement": false,
   "requiresClearLabel": false,
   "labelReadable": null,
@@ -79,11 +96,14 @@ Schema (use exactly these keys):
 
 Critical rules — never violate:
 - Return JSON only.
+- ocrText: include all clearly readable package/label text, preserving useful line breaks. If no text is readable, return "".
 - If text on the package is blurry, cropped, obscured, or not clearly readable → use null for that field.
-- NEVER invent or guess: price, MRP, ingredients, FSSAI license, manufacturer, barcode, weight, or shelf life.
+- NEVER invent or guess: price, MRP, ingredients, FSSAI license, manufacturer, manufacturer address, barcode, weight, shelf life, country of origin, HSN, GST, or storage instructions.
 - Only populate fields you can directly read from the image.
-- description: factual summary from visible packaging only; do not add marketing claims not shown.
+- description: clean marketplace description from visible packaging facts only; do not add marketing claims not shown.
 - highlights/tags: only from visible text on the package.
+- sku: only if barcode/SKU is visible. If not visible, return null; the backend may suggest a reviewable SKU.
+- hsnCode/gstPercent: only if printed on the pack. If not printed, return null.
 
 Supplement / health nutrition detection:
 - Set "isSupplement": true for protein powder, whey, vitamins, health supplements, sports nutrition, ayurvedic capsules/tablets sold as supplements.
@@ -136,8 +156,7 @@ export class OpenAiVisionClient {
     const model = this.configService.get<string>('OPENAI_VISION_MODEL', 'gpt-4o-mini');
     const apiKey = this.configService.get<string>('OPENAI_API_KEY', '')!;
 
-    const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
+    const response = await this.postVisionRequest(
       {
         model,
         max_tokens: 1200,
@@ -153,13 +172,8 @@ export class OpenAiVisionClient {
         ],
         response_format: { type: 'json_object' },
       },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 90_000,
-      },
+      apiKey,
+      90_000,
     );
 
     const content = response.data?.choices?.[0]?.message?.content;
@@ -176,8 +190,7 @@ export class OpenAiVisionClient {
     const model = this.configService.get<string>('OPENAI_VISION_MODEL', 'gpt-4o-mini');
     const apiKey = this.configService.get<string>('OPENAI_API_KEY', '')!;
 
-    const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
+    const response = await this.postVisionRequest(
       {
         model,
         max_tokens: 4000,
@@ -193,13 +206,8 @@ export class OpenAiVisionClient {
         ],
         response_format: { type: 'json_object' },
       },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 120_000,
-      },
+      apiKey,
+      120_000,
     );
 
     const content = response.data?.choices?.[0]?.message?.content;
@@ -212,6 +220,47 @@ export class OpenAiVisionClient {
     } catch {
       throw new BadRequestException('AI returned invalid JSON');
     }
+  }
+
+  private async postVisionRequest(
+    payload: Record<string, unknown>,
+    apiKey: string,
+    timeout: number,
+  ) {
+    try {
+      return await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout,
+        },
+      );
+    } catch (error) {
+      this.logger.warn(`OpenAI vision request failed: ${this.describeOpenAiFailure(error)}`);
+      throw new ServiceUnavailableException({
+        message: AI_PRODUCT_UNAVAILABLE_MESSAGE,
+        code: AI_NOT_CONFIGURED_CODE,
+      });
+    }
+  }
+
+  private describeOpenAiFailure(error: unknown): string {
+    if (!axios.isAxiosError(error)) {
+      return error instanceof Error ? error.message : 'unknown error';
+    }
+    const status = error.response?.status;
+    const code = error.code;
+    const upstreamMessage =
+      typeof error.response?.data?.error?.message === 'string'
+        ? error.response.data.error.message
+        : error.message;
+    return [status ? `status=${status}` : null, code ? `code=${code}` : null, upstreamMessage]
+      .filter(Boolean)
+      .join(' ');
   }
 
   parseExtractedJson(raw: string): AiExtractedProduct {
@@ -236,6 +285,7 @@ export class OpenAiVisionClient {
         : Boolean(parsed.canPublishDirectly);
 
     return {
+      ocrText: String(parsed.ocrText ?? '').slice(0, 8000),
       name: String(parsed.name ?? '').slice(0, 200),
       brand: String(parsed.brand ?? '').slice(0, 100),
       categoryName: String(parsed.categoryName ?? '').slice(0, 100),
@@ -256,6 +306,13 @@ export class OpenAiVisionClient {
       manufacturerName: this.nullableString(parsed.manufacturerName, 200),
       fssaiLicense: this.nullableString(parsed.fssaiLicense, 50),
       barcode: this.nullableString(parsed.barcode, 50),
+      sku: this.nullableString(parsed.sku, 50),
+      countryOfOrigin: this.nullableString(parsed.countryOfOrigin, 100),
+      manufacturerAddress: this.nullableString(parsed.manufacturerAddress, 1000),
+      storageInstructions: this.nullableString(parsed.storageInstructions, 2000),
+      disclaimer: this.nullableString(parsed.disclaimer, 2000),
+      hsnCode: this.nullableString(parsed.hsnCode, 8),
+      gstPercent: this.parseNullableNumber(parsed.gstPercent),
       isSupplement,
       requiresClearLabel,
       labelReadable,
