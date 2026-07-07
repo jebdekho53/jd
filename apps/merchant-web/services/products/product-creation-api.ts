@@ -57,6 +57,27 @@ export interface AiAnalysisResult {
   missingPrice: boolean;
   optimizedImageUrl?: string | null;
   canPublishDirectly?: boolean;
+  generatedImages?: AiGeneratedImage[];
+  isSupplement?: boolean;
+  productType?: string | null;
+  detectedProductType?: string | null;
+}
+
+export interface AiGeneratedImage {
+  url: string;
+  thumbnailUrl?: string;
+  prompt?: string;
+  createdAt?: string;
+}
+
+export interface AiGenerateImageResult {
+  imageUrl: string;
+  thumbnailUrl: string;
+  generatedImages: AiGeneratedImage[];
+  amountPaise: number;
+  amountRupee: number;
+  walletBalancePaise: number;
+  walletBalanceRupee: number;
 }
 
 export interface AiChargeReceipt {
@@ -91,10 +112,14 @@ export interface AiAvailability {
   minimumRechargePaise?: number;
   minimumRechargeRupee?: number;
   hasSufficientBalance?: boolean;
+  imageGenerationPricePaise?: number;
+  imageGenerationPriceRupee?: number;
 }
 
 export interface AiConfirmPayload extends Omit<CreateProductPayload, 'imageUrls'> {
   publish: boolean;
+  primaryImageUrl?: string;
+  supplementComplianceConfirmed?: boolean;
 }
 
 export async function downloadProductCsvTemplate(storeId: string): Promise<string> {
@@ -165,6 +190,18 @@ export async function confirmAiProduct(
     method: 'POST',
     body: JSON.stringify(payload),
   });
+  return res.data;
+}
+
+export async function generateAiProductImage(
+  storeId: string,
+  analysisId: string,
+  mode: 'bg_removal' | 'ai_edit' = 'bg_removal',
+): Promise<AiGenerateImageResult> {
+  const res = await merchantFetch<ApiResponse<AiGenerateImageResult>>(
+    `/api/merchant/stores/${storeId}/products/ai/${analysisId}/generate-image`,
+    { method: 'POST', body: JSON.stringify({ mode }) },
+  );
   return res.data;
 }
 

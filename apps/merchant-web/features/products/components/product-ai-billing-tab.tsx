@@ -9,6 +9,14 @@ interface Props {
   storeId: string;
 }
 
+function chargeTypeLabel(item: AiBillingItem): string {
+  const reason = (item.reason ?? '').toLowerCase();
+  if (item.type === 'RECHARGE') return 'Wallet recharge';
+  if (item.type === 'REFUND') return 'Refund';
+  if (reason.includes('image')) return 'Image generation';
+  return 'Product creation';
+}
+
 export function ProductAiBillingTab({ storeId }: Props) {
   const { data, isLoading } = useQuery({
     queryKey: ['merchant', 'ai-billing', storeId],
@@ -41,6 +49,7 @@ export function ProductAiBillingTab({ storeId }: Props) {
         <thead className="border-b bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
             <th className="p-3">Product</th>
+            <th className="p-3">Type</th>
             <th className="p-3">Amount</th>
             <th className="p-3">Status</th>
             <th className="p-3">Charged</th>
@@ -51,6 +60,7 @@ export function ProductAiBillingTab({ storeId }: Props) {
           {data.items.map((item, idx) => (
             <tr key={`${item.analysisId}-${idx}`} className="border-b">
               <td className="p-3">{item.productName}</td>
+              <td className="p-3 text-xs text-slate-600">{chargeTypeLabel(item)}</td>
               <td className="p-3">₹{(item.amountPaise / 100).toFixed(2)}</td>
               <td className="p-3">
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{item.status}</span>

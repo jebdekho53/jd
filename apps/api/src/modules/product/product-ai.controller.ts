@@ -20,7 +20,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { RequestUser } from '../../common/types';
 import { ApiTags as Tags } from '../../common/constants';
 import { ProductAiService } from './product-ai.service';
-import { AnalyzeProductImageDto, ConfirmAiProductDto, ListAiHistoryDto } from './dto/product-ai.dto';
+import { AnalyzeProductImageDto, ConfirmAiProductDto, GenerateProductImageDto, ListAiHistoryDto } from './dto/product-ai.dto';
 
 const STORE_PARAM = ':storeId';
 
@@ -130,6 +130,24 @@ export class ProductAiController {
       dto,
       ip,
     );
+    return { success: true, data };
+  }
+
+  @Post(':analysisId/generate-image')
+  @HttpCode(HttpStatus.CREATED)
+  @Permissions('products:write')
+  @ApiParam({ name: 'storeId' })
+  @ApiParam({ name: 'analysisId' })
+  @ApiOperation({ summary: 'Generate a professional product image with AI (paid per image)' })
+  async generateImage(
+    @CurrentUser() user: RequestUser,
+    @Param('storeId') storeId: string,
+    @Param('analysisId') analysisId: string,
+    @Body() dto: GenerateProductImageDto,
+    @Ip() ip: string,
+  ) {
+    const mode = dto.mode === 'ai_edit' ? 'ai_edit' : 'bg_removal';
+    const data = await this.aiService.generateProductImage(user.id, storeId, analysisId, mode, ip);
     return { success: true, data };
   }
 

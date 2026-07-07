@@ -54,3 +54,4 @@ apps/api/dist/
 
 .env.production
 .env.production.save
+.venv-rembg/

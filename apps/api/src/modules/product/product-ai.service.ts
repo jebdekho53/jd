@@ -1,10 +1,13 @@
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { AIProductAnalysisStatus, AIProductType, MerchantAiWalletTransactionStatus, MerchantAiWalletTransactionType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -69,6 +72,8 @@ export class ProductAiService {
       minimumRechargePaise: this.billing.getMinRechargePaise(),
       minimumRechargeRupee: this.billing.getMinRechargePaise() / 100,
       hasSufficientBalance: wallet.balancePaise >= this.billing.getPricePaise(),
+      imageGenerationPricePaise: this.wallet.getImageGenerationCostPaise(),
+      imageGenerationPriceRupee: this.wallet.getImageGenerationCostPaise() / 100,
     };
   }
 
@@ -205,9 +210,9 @@ export class ProductAiService {
         extracted.labelReadable === false ||
         (analysis.confidence ?? 0) < AI_LOW_CONFIDENCE_THRESHOLD);
 
-    if (dto.publish && supplementBlocked) {
+    if (dto.publish && supplementBlocked && !dto.supplementComplianceConfirmed) {
       throw new BadRequestException(
-        'Supplement label is not clear. Please upload a clearer front-label image or save as draft.',
+        'Supplement label is not clear. Confirm you have verified ingredients, FSSAI and compliance details, or save as draft.',
       );
     }
 
@@ -251,27 +256,59 @@ export class ProductAiService {
       data: { chargedAt: new Date() },
     });
 
+    // Allow the merchant to publish with an AI-generated image, but only if the
+    // URL actually belongs to this analysis (prevents arbitrary URL injection).
+    const allowedImageUrls = new Set<string>(
+      [
+        analysis.optimizedImageUrl,
+        analysis.uploadedImageUrl,
+        ...(Array.isArray(extracted.generatedImages)
+          ? (extracted.generatedImages as { url?: string }[]).map((g) => g?.url)
+          : []),
+      ].filter((u): u is string => Boolean(u)),
+    );
+    const primaryImageUrl =
+      dto.primaryImageUrl && allowedImageUrls.has(dto.primaryImageUrl)
+        ? dto.primaryImageUrl
+        : (analysis.optimizedImageUrl ?? analysis.uploadedImageUrl);
+
     const createDto: CreateProductDto = {
       name: dto.name,
       description: dto.description,
       brand: dto.brand,
       sku: dto.sku,
       categoryId: dto.categoryId,
-      imageUrls: [analysis.optimizedImageUrl ?? analysis.uploadedImageUrl],
+      imageUrls: [primaryImageUrl],
       basePrice: dto.basePrice,
       mrp: dto.mrp,
       unit: dto.unit ?? 'piece',
       quantity: dto.quantity ?? 0,
+      lowStockThreshold: dto.lowStockThreshold,
       tags: dto.tags,
       ingredients: dto.ingredients ?? (extracted.ingredients as string | undefined) ?? undefined,
       shelfLife: dto.shelfLife,
       countryOfOrigin: dto.countryOfOrigin,
       manufacturerName: dto.manufacturerName,
+      manufacturerAddress: dto.manufacturerAddress,
       fssaiLicense: dto.fssaiLicense,
       storageInstructions: dto.storageInstructions,
+      disclaimer: dto.disclaimer,
+      taxInclusive: dto.taxInclusive,
       hsnCodeId: dto.hsnCodeId,
       gstSlab: dto.gstSlab,
       taxCategory: dto.taxCategory,
+      // Merchant-edited return/refund policy — enum-ish values are normalized so
+      // a stray value (e.g. the legacy "PHOTO_OR_VIDEO") can't break creation.
+      isReturnable: dto.isReturnable,
+      isRefundable: dto.isRefundable,
+      isReplaceable: dto.isReplaceable,
+      returnWindowHours: dto.returnWindowHours,
+      approvalMode: this.normalizeClaimEnum(dto.approvalMode, ['AUTO', 'MANUAL']) as CreateProductDto['approvalMode'],
+      proofRequired: this.normalizeProofRequirement(dto.proofRequired) as CreateProductDto['proofRequired'],
+      refundMethod: this.normalizeClaimEnum(dto.refundMethod, ['ORIGINAL_PAYMENT', 'WALLET', 'BOTH']) as CreateProductDto['refundMethod'],
+      allowCustomerChangedMind: dto.allowCustomerChangedMind,
+      returnPolicyText: dto.returnPolicyText,
+      replacementPolicyText: dto.replacementPolicyText,
       ...(dto.confirmReturnPolicy
         ? (suggestDefaultReturnPolicy({
             productName: dto.name,
@@ -371,6 +408,111 @@ export class ProductAiService {
     });
 
     return { cancelled: true };
+  }
+
+  async generateProductImage(
+    userId: string,
+    storeId: string,
+    analysisId: string,
+    mode: 'bg_removal' | 'ai_edit' = 'bg_removal',
+    ipAddress?: string,
+  ) {
+    const profile = await this.merchantService.requireMerchantProfile(userId);
+    const analysis = await this.findOwnedAnalysis(profile.id, storeId, analysisId);
+
+    const cost = this.wallet.getImageGenerationCostPaise();
+    const wallet = await this.wallet.getOrCreateWallet(profile.id);
+    if (wallet.balancePaise < cost) {
+      throw new HttpException(
+        {
+          message: 'Insufficient AI wallet balance to generate an image. Please recharge.',
+          code: 'INSUFFICIENT_AI_WALLET',
+        },
+        HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
+
+    const extracted = (analysis.extractedJson ?? {}) as Record<string, unknown>;
+    // Source is the merchant's own uploaded photo (prefer the untouched original).
+    const sourceUrl =
+      analysis.originalImageUrl ?? analysis.optimizedImageUrl ?? analysis.uploadedImageUrl;
+
+    // Produce first, then charge — so a merchant is never billed on failure.
+    // Balance was pre-checked above.
+    let images: { originalUrl: string; optimizedUrl: string; thumbnailUrl: string };
+    let prompt = 'background-removal';
+    if (mode === 'ai_edit') {
+      this.visionClient.assertConfigured();
+      prompt = this.buildImageEditPrompt(extracted);
+      const source = await this.imageService.loadStoredImage(sourceUrl);
+      const buffer = await this.visionClient.editProductImage(source, prompt);
+      images = await this.imageService.saveGeneratedImage(buffer);
+    } else {
+      // Keep the real product + label, only clean the background.
+      images = await this.imageService.cleanBackgroundFromStored(sourceUrl);
+    }
+
+    const charge = await this.wallet.debitForImageGeneration(
+      profile.id,
+      storeId,
+      analysisId,
+      randomUUID(),
+      userId,
+      ipAddress,
+    );
+
+    const previous = Array.isArray(extracted.generatedImages)
+      ? (extracted.generatedImages as unknown[])
+      : [];
+    const generatedImages = [
+      ...previous,
+      {
+        url: images.optimizedUrl,
+        thumbnailUrl: images.thumbnailUrl,
+        mode,
+        prompt,
+        createdAt: new Date().toISOString(),
+      },
+    ].slice(-10);
+
+    await this.prisma.aIProductAnalysis.update({
+      where: { id: analysisId },
+      data: {
+        extractedJson: { ...extracted, generatedImages } as Prisma.InputJsonValue,
+      },
+    });
+
+    await this.audit.log({
+      actorId: userId,
+      action: 'AI_PRODUCT_IMAGE_GENERATED',
+      resourceType: 'AIProductAnalysis',
+      resourceId: analysisId,
+      ipAddress,
+      metadata: { storeId, amountPaise: charge.amountPaise },
+    });
+
+    return {
+      imageUrl: images.optimizedUrl,
+      thumbnailUrl: images.thumbnailUrl,
+      generatedImages,
+      amountPaise: charge.amountPaise,
+      amountRupee: charge.amountPaise / 100,
+      walletBalancePaise: charge.balancePaise,
+      walletBalanceRupee: charge.balancePaise / 100,
+    };
+  }
+
+  private buildImageEditPrompt(extracted: Record<string, unknown>): string {
+    const category = (extracted.categoryName as string) || 'product';
+    // Edit prompt: keep THIS product and its exact label/text, only improve the
+    // scene/background — do not invent a different product.
+    return (
+      `Keep this exact ${category} product and its printed label and text unchanged. ` +
+      `Do not alter, redraw, or replace any text, logo, or packaging design. ` +
+      `Only replace the background with a clean, seamless, bright white studio backdrop, ` +
+      `with soft even studio lighting and a subtle natural shadow beneath the product. ` +
+      `Photorealistic, commercial-grade product shot. No extra props, no watermarks.`
+    );
   }
 
   async listHistory(
@@ -602,6 +744,7 @@ export class ProductAiService {
       originalImageUrl: analysis.originalImageUrl,
       optimizedImageUrl: analysis.optimizedImageUrl,
       thumbnailImageUrl: analysis.thumbnailImageUrl,
+      generatedImages: Array.isArray(extracted.generatedImages) ? extracted.generatedImages : [],
       extracted: fields,
       categoryMatch: categoryMatch ?? _cm ?? null,
       confidence: analysis.confidence,
@@ -680,7 +823,7 @@ export class ProductAiService {
       refundAllowed: this.field(true, 0.55, 'default', true),
       replacementAllowed: this.field(true, 0.55, 'default', true),
       returnWindowHours: this.field(extracted.productType === 'FRESH_FOOD' ? 2 : 24, 0.5, 'default', true),
-      proofRequired: this.field('PHOTO_OR_VIDEO', 0.5, 'default', true),
+      proofRequired: this.field('PHOTO_AND_VIDEO', 0.5, 'default', true),
       approvalMode: this.field('MANUAL', 0.5, 'default', true),
       autoApproveBelow: this.field(null, 0, 'merchant_required', true),
       refundMethod: this.field('ORIGINAL_PAYMENT', 0.5, 'default', true),
@@ -696,6 +839,24 @@ export class ProductAiService {
       replacementPolicyText: this.field('Replacement is suggested only for wrong, damaged, missing, or not-as-described items after merchant review.', 0.5, 'default', true),
       priceInclusiveOfTax: this.field(true, 0.5, 'default', true),
     };
+
+    // Relabel fields the vision model inferred from product knowledge (rather
+    // than read off the label) so the merchant sees an honest source, while
+    // still keeping the value pre-filled.
+    const inferred = new Set((extracted.inferredFields ?? []).map((f) => String(f)));
+    const aliasToSchemaKey: Record<string, string> = {
+      productName: 'name',
+      basePrice: 'sellingPrice',
+      price: 'sellingPrice',
+      gstSlab: 'gstPercent',
+    };
+    for (const [key, f] of Object.entries(fields)) {
+      const schemaKey = aliasToSchemaKey[key] ?? key;
+      if (f.source === 'ocr' && inferred.has(schemaKey)) {
+        f.source = 'ai_inferred';
+        f.requiresReview = true;
+      }
+    }
 
     return {
       fields,
@@ -784,6 +945,21 @@ export class ProductAiService {
     const n = Number(value);
     if (!Number.isFinite(n)) return 0;
     return Math.min(1, Math.max(0, n));
+  }
+
+  private normalizeClaimEnum(value: string | undefined, allowed: string[]): string | undefined {
+    if (!value) return undefined;
+    const upper = value.trim().toUpperCase();
+    return allowed.includes(upper) ? upper : undefined;
+  }
+
+  private normalizeProofRequirement(value: string | undefined): string | undefined {
+    if (!value) return undefined;
+    const upper = value.trim().toUpperCase();
+    // Legacy/frontend value that is not a real enum member.
+    if (upper === 'PHOTO_AND_VIDEO' || upper === 'PHOTO_VIDEO') return 'PHOTO_AND_VIDEO';
+    const allowed = ['NONE', 'PHOTO', 'VIDEO', 'PHOTO_AND_VIDEO'];
+    return allowed.includes(upper) ? upper : undefined;
   }
 
   private mapProductType(productType?: string, isSupplement?: boolean): AIProductType {
