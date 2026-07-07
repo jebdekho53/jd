@@ -143,9 +143,13 @@ export class PickupAddressDto {
 }
 
 export class UpdateOnboardingStepDto {
-  @ApiProperty({ enum: MerchantOnboardingStepKey })
+  @ApiPropertyOptional({
+    enum: MerchantOnboardingStepKey,
+    description: 'Omit to save an in-progress draft without marking the step complete',
+  })
+  @IsOptional()
   @IsEnum(MerchantOnboardingStepKey)
-  stepKey: MerchantOnboardingStepKey;
+  stepKey?: MerchantOnboardingStepKey;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -303,7 +303,10 @@ export class MerchantOnboardingService {
   async updateStep(userId: string, dto: UpdateOnboardingStepDto, ipAddress?: string) {
     await this.getOrCreateApplication(userId);
     const app = await this.requireDraftApplication(userId);
-    const stepKey = this.normalizeStepKey(dto.stepKey);
+    // stepKey is optional: when omitted, this is a draft save that persists the
+    // merchant's in-progress fields WITHOUT marking the step complete (used for
+    // autosave so progress survives an account switch mid-onboarding).
+    const stepKey = dto.stepKey ? this.normalizeStepKey(dto.stepKey) : undefined;
     const ownerName = dto.ownerName ?? dto.ownerFullName;
     const ownerPhone = dto.ownerPhone ?? dto.contactMobile ?? dto.storePhone;
     const ownerEmail = dto.ownerEmail ?? dto.storeEmail;
@@ -372,7 +375,9 @@ export class MerchantOnboardingService {
       });
 
       await this.saveBankPayloadIfComplete(tx, app, dto);
-      await this.markStepCompleted(tx, app.id, stepKey, dto);
+      if (stepKey) {
+        await this.markStepCompleted(tx, app.id, stepKey, dto);
+      }
 
       return result;
     });
@@ -957,7 +962,11 @@ export class MerchantOnboardingService {
     dto: UpdateOnboardingStepDto,
   ) {
     const payload = JSON.parse(JSON.stringify(dto)) as Prisma.InputJsonValue;
-    const keys = new Set([stepKey, dto.stepKey]);
+    const keys = new Set(
+      [stepKey, dto.stepKey].filter(
+        (k): k is MerchantOnboardingStepKey => Boolean(k),
+      ),
+    );
 
     for (const key of keys) {
       await tx.merchantOnboardingStep.upsert({
