@@ -118,8 +118,8 @@ export function ProductTable({ storeId, products, isLoading, onEdit }: Props) {
               </Td>
               <Td>
                 <div className="flex flex-wrap items-center gap-1">
-                  <Badge tone={p.isActive ? 'success' : 'neutral'}>
-                    {p.isActive ? 'Active' : 'Inactive'}
+                  <Badge tone={p.isActive ? 'success' : 'warning'}>
+                    {p.isActive ? 'Active' : 'Draft'}
                   </Badge>
                   {visibilityGaps.length > 0 && (
                     <Badge

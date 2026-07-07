@@ -129,9 +129,111 @@ export class ConfirmAiProductDto {
   @IsBoolean()
   confirmReturnPolicy?: boolean;
 
+  @ApiPropertyOptional({
+    description: 'Optional image URL to use as the product photo (e.g. an AI-generated image from this analysis)',
+  })
+  @IsOptional()
+  @IsString()
+  primaryImageUrl?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Merchant attests they have verified ingredients, FSSAI and compliance details. Required to publish a supplement whose label could not be auto-read.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  supplementComplianceConfirmed?: boolean;
+
+  // --- Inventory / compliance extras (merchant-editable in the AI modal) ---
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  lowStockThreshold?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  manufacturerAddress?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  disclaimer?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  taxInclusive?: boolean;
+
+  // --- Return / refund / replacement policy (kept as loose types here and
+  // normalized in the service so a stray value can never 400 the whole save) ---
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isReturnable?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isRefundable?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isReplaceable?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  returnWindowHours?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  approvalMode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  proofRequired?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  refundMethod?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  allowCustomerChangedMind?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  returnPolicyText?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  replacementPolicyText?: string;
+
   @ApiProperty({ description: 'Publish immediately (true) or save as draft (false)' })
   @IsBoolean()
   publish!: boolean;
+}
+
+export class GenerateProductImageDto {
+  @ApiPropertyOptional({
+    enum: ['bg_removal', 'ai_edit'],
+    default: 'bg_removal',
+    description: 'bg_removal = clean the uploaded photo background (keeps label); ai_edit = regenerate via AI',
+  })
+  @IsOptional()
+  @IsEnum(['bg_removal', 'ai_edit'])
+  mode?: 'bg_removal' | 'ai_edit';
 }
 
 export class ListAiHistoryDto {

@@ -176,7 +176,7 @@ export function ProductsPageContent() {
         <Card>
           <div className="border-b border-slate-100 px-4 py-3">
             <p className="text-sm text-slate-600">
-              AI product charges (₹1.50 per confirmed product). Manual and CSV uploads are always free.
+              AI charges: ₹1.50 per confirmed product and ₹5.00 per AI-generated image. Analysis preview, manual and CSV uploads are always free.
             </p>
           </div>
           <ProductAiBillingTab storeId={currentStore.id} />

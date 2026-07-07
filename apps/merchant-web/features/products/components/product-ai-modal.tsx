@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { AlertTriangle, Loader2, Sparkles, Upload } from 'lucide-react';
+import { AlertTriangle, ImagePlus, Loader2, Sparkles, Upload } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Modal, Button, Input, Textarea, Select } from '@/design-system/primitives';
 import { useToast } from '@/design-system/primitives';
@@ -11,9 +11,11 @@ import {
   analyzeProductPhoto,
   cancelAiAnalysis,
   confirmAiProduct,
+  generateAiProductImage,
   getAiAvailability,
   type AiAnalysisResult,
   type AiChargeReceipt,
+  type AiGeneratedImage,
 } from '@/services/products/product-creation-api';
 import { AiWalletRechargeModal } from './ai-wallet-recharge-modal';
 import { HsnPicker, type HsnOption } from './hsn-picker';
@@ -27,11 +29,10 @@ function fieldValue(data: AiAnalysisResult, key: string): unknown {
   return data.fields?.[key]?.value ?? data.extracted[key];
 }
 
-function fieldHint(meta?: AiFieldMeta) {
-  if (!meta) return undefined;
-  const source = meta.source.replace('_', ' ');
-  const confidence = Math.round((meta.confidence ?? 0) * 100);
-  return `${meta.requiresReview ? 'AI suggested — please verify. ' : ''}Source: ${source}. Confidence: ${confidence}%.`;
+function fieldHint(_meta?: AiFieldMeta): string | undefined {
+  // Field-level source/confidence hints are intentionally hidden — the AI now
+  // pre-fills a complete draft and merchants review the values directly.
+  return undefined;
 }
 
 function stringField(data: AiAnalysisResult, key: string) {
@@ -79,7 +80,7 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
   const [refundAllowed, setRefundAllowed] = useState(true);
   const [replacementAllowed, setReplacementAllowed] = useState(true);
   const [returnWindowHours, setReturnWindowHours] = useState('24');
-  const [proofRequired, setProofRequired] = useState('PHOTO_OR_VIDEO');
+  const [proofRequired, setProofRequired] = useState('PHOTO_AND_VIDEO');
   const [approvalMode, setApprovalMode] = useState('MANUAL');
   const [refundMethod, setRefundMethod] = useState('ORIGINAL_PAYMENT');
   const [allowCustomerChangedMind, setAllowCustomerChangedMind] = useState(false);
@@ -89,6 +90,9 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
   const [subCategoryId, setSubCategoryId] = useState('');
   const [hsn, setHsn] = useState<HsnOption | null>(null);
   const [hsnError, setHsnError] = useState<string | null>(null);
+  const [generatedImages, setGeneratedImages] = useState<AiGeneratedImage[]>([]);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [supplementCompliance, setSupplementCompliance] = useState(false);
   const { data: categories } = useApprovedCategoriesQuery(storeId);
 
   const { data: availability, isLoading: availabilityLoading } = useQuery({
@@ -109,6 +113,9 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
     onSuccess: (data) => {
       setAnalysis(data);
       applyExtracted(data);
+      setGeneratedImages(data.generatedImages ?? []);
+      setSelectedImageUrl(null);
+      setSupplementCompliance(false);
     },
     onError: (e: Error) => {
       const msg = e.message.includes('temporarily unavailable') ? AI_UNAVAILABLE_MSG : e.message;
@@ -153,6 +160,8 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
         allowCustomerChangedMind,
         returnPolicyText: returnPolicyText || undefined,
         replacementPolicyText: replacementPolicyText || undefined,
+        primaryImageUrl: selectedImageUrl ?? undefined,
+        supplementComplianceConfirmed: supplementCompliance,
         publish,
       });
     },
@@ -166,7 +175,14 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
           : `Draft saved. ₹${(data.amountPaise / 100).toFixed(2)} charged`,
         'success',
       );
-      qc.invalidateQueries({ queryKey: ['products', storeId] });
+      // Products list is cached under ['merchant', userId, storeId, 'products', …];
+      // match it by predicate so the new draft/product shows without a reload.
+      qc.invalidateQueries({
+        predicate: (q) => {
+          const k = q.queryKey;
+          return Array.isArray(k) && k[0] === 'merchant' && k[2] === storeId && k[3] === 'products';
+        },
+      });
       qc.invalidateQueries({ queryKey: ['merchant', 'ai-billing', storeId] });
       qc.invalidateQueries({ queryKey: ['merchant', 'ai-wallet'] });
       qc.invalidateQueries({ queryKey: ['merchant', 'ai-availability', storeId] });
@@ -174,6 +190,21 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
       setHsn(null);
       setHsnError(null);
       onClose();
+    },
+    onError: (e: Error) => toast(e.message, 'error'),
+  });
+
+  const generateImageMutation = useMutation({
+    mutationFn: (mode: 'bg_removal' | 'ai_edit') => {
+      if (!analysis) throw new Error('No analysis');
+      return generateAiProductImage(storeId, analysis.id, mode);
+    },
+    onSuccess: (data) => {
+      setGeneratedImages(data.generatedImages ?? []);
+      setSelectedImageUrl(data.imageUrl);
+      toast(`Image ready. ₹${(data.amountPaise / 100).toFixed(2)} charged`, 'success');
+      qc.invalidateQueries({ queryKey: ['merchant', 'ai-wallet'] });
+      qc.invalidateQueries({ queryKey: ['merchant', 'ai-availability', storeId] });
     },
     onError: (e: Error) => toast(e.message, 'error'),
   });
@@ -221,7 +252,7 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
     setRefundAllowed(Boolean(fieldValue(data, 'refundAllowed') ?? true));
     setReplacementAllowed(Boolean(fieldValue(data, 'replacementAllowed') ?? true));
     setReturnWindowHours(numberField(data, 'returnWindowHours') || '24');
-    setProofRequired(stringField(data, 'proofRequired') || 'PHOTO_OR_VIDEO');
+    setProofRequired(stringField(data, 'proofRequired') || 'PHOTO_AND_VIDEO');
     setApprovalMode(stringField(data, 'approvalMode') || 'MANUAL');
     setRefundMethod(stringField(data, 'refundMethod') || 'ORIGINAL_PAYMENT');
     setAllowCustomerChangedMind(Boolean(fieldValue(data, 'allowCustomerChangedMind') ?? false));
@@ -256,6 +287,9 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
       setAnalysis(null);
       setHsn(null);
       setHsnError(null);
+      setGeneratedImages([]);
+      setSelectedImageUrl(null);
+      setSupplementCompliance(false);
     }
   }, [open]);
 
@@ -264,12 +298,21 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
   const lowConfidence = analysis?.lowConfidence;
   const supplementBlocked = analysis?.supplementBlocked;
   const supplementWarning = analysis?.supplementWarning;
-  const publishBlocked = analysis?.publishBlocked ?? lowConfidence ?? supplementBlocked;
+  const backendPublishBlocked = analysis?.publishBlocked ?? lowConfidence ?? supplementBlocked;
+  // A merchant compliance attestation can bypass ONLY the supplement "unclear
+  // label" block — never low-confidence or restaurant-food blocks.
+  const restaurantBlocked =
+    analysis?.productType === 'RESTAURANT_FOOD' ||
+    analysis?.detectedProductType === 'RESTAURANT_FOOD';
+  const hardPublishBlocked = Boolean(lowConfidence) || Boolean(restaurantBlocked);
+  const needsSupplementConfirm = Boolean(supplementBlocked) && !hardPublishBlocked;
+  const publishBlocked = hardPublishBlocked || (Boolean(supplementBlocked) && !supplementCompliance);
   const missingPrice = analysis?.missingPrice;
   const aiUnavailable = availability && !availability.available;
   const insufficientBalance = availability && availability.hasSufficientBalance === false;
   const walletBalance = availability?.walletBalanceRupee;
-  const displayImage = analysis?.optimizedImageUrl ?? analysis?.uploadedImageUrl ?? '';
+  const displayImage = selectedImageUrl ?? analysis?.optimizedImageUrl ?? analysis?.uploadedImageUrl ?? '';
+  const imageGenPriceRupee = availability?.imageGenerationPriceRupee ?? 5;
 
   return (
     <>
@@ -342,8 +385,72 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
                 {displayImage && (
                 <div className="relative mb-3 aspect-square overflow-hidden rounded-xl border">
                   <Image src={displayImage} alt="" fill className="object-cover" unoptimized />
+                  {selectedImageUrl && (
+                    <span className="absolute left-2 top-2 rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-medium text-white">
+                      AI generated
+                    </span>
+                  )}
                 </div>
                 )}
+
+                <div className="mb-3 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    disabled={generateImageMutation.isPending || insufficientBalance}
+                    onClick={() => generateImageMutation.mutate('bg_removal')}
+                  >
+                    {generateImageMutation.isPending && generateImageMutation.variables === 'bg_removal' ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Cleaning background…</>
+                    ) : (
+                      <><ImagePlus className="h-4 w-4" /> Clean background — ₹{imageGenPriceRupee.toFixed(2)}</>
+                    )}
+                  </Button>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Removes the background from your uploaded photo and places the same product on a clean white background — your label and text stay exactly the same. Charged per image.
+                  </p>
+                  {generatedImages.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 w-full"
+                      disabled={generateImageMutation.isPending || insufficientBalance}
+                      onClick={() => generateImageMutation.mutate('ai_edit')}
+                    >
+                      {generateImageMutation.isPending && generateImageMutation.variables === 'ai_edit' ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Regenerating with AI…</>
+                      ) : (
+                        <>Don&apos;t like it? Regenerate with AI — ₹{imageGenPriceRupee.toFixed(2)}</>
+                      )}
+                    </Button>
+                  )}
+                  {generatedImages.length > 0 && (
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedImageUrl(null)}
+                        className={`relative aspect-square overflow-hidden rounded-lg border-2 ${selectedImageUrl === null ? 'border-indigo-500' : 'border-transparent'}`}
+                        title="Use original photo"
+                      >
+                        <Image src={analysis.optimizedImageUrl ?? analysis.uploadedImageUrl} alt="original" fill className="object-cover" unoptimized />
+                        <span className="absolute inset-x-0 bottom-0 bg-black/50 py-0.5 text-center text-[10px] text-white">Original</span>
+                      </button>
+                      {generatedImages.map((img) => (
+                        <button
+                          key={img.url}
+                          type="button"
+                          onClick={() => setSelectedImageUrl(img.url)}
+                          className={`relative aspect-square overflow-hidden rounded-lg border-2 ${selectedImageUrl === img.url ? 'border-indigo-500' : 'border-transparent'}`}
+                          title="Use this generated image"
+                        >
+                          <Image src={img.thumbnailUrl ?? img.url} alt="generated" fill className="object-cover" unoptimized />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <p className="text-sm text-slate-600">
                   Confidence: <strong>{((analysis.confidence ?? 0) * 100).toFixed(0)}%</strong>
                 </p>
@@ -476,6 +583,25 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
             </div>
           )}
 
+          {analysis && needsSupplementConfirm && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <label className="flex items-start gap-2 text-sm text-amber-900">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={supplementCompliance}
+                  onChange={(e) => setSupplementCompliance(e.target.checked)}
+                />
+                <span>
+                  This is a supplement and its label could not be auto-verified. I confirm I have
+                  reviewed the <strong>ingredients, allergens, FSSAI license, manufacturer and
+                  regulatory details</strong> and take responsibility for their accuracy before
+                  publishing.
+                </span>
+              </label>
+            </div>
+          )}
+
           <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
             <Button variant="outline" onClick={handleClose}>Cancel</Button>
             {analysis && (
@@ -508,6 +634,8 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
                       ? 'Recharge AI wallet to continue'
                       : !hsn
                         ? 'Select an HSN code before saving'
+                      : needsSupplementConfirm && !supplementCompliance
+                        ? 'Tick the supplement compliance confirmation to publish'
                       : publishBlocked
                         ? 'Cannot publish — save as draft only'
                         : undefined
