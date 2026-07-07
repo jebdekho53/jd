@@ -240,36 +240,74 @@ async function runTestShipment(): Promise<number> {
   const client = assertBaseConfig('test-shipment');
   if (!client) return 1;
   try {
+    const pickup = {
+      name: 'JebDekho Test Pickup',
+      contact: process.env.SHADOWFAX_TEST_PICKUP_PHONE ?? '9999999999',
+      address_line_1: process.env.SHADOWFAX_TEST_PICKUP_ADDRESS ?? 'Test pickup address',
+      city: process.env.SHADOWFAX_TEST_PICKUP_CITY ?? 'Bengaluru',
+      state: process.env.SHADOWFAX_TEST_PICKUP_STATE ?? 'Karnataka',
+      pincode: process.env.SHADOWFAX_TEST_PICKUP_PINCODE ?? '560077',
+      latitude: Number(process.env.SHADOWFAX_TEST_PICKUP_LAT ?? 13.0206),
+      longitude: Number(process.env.SHADOWFAX_TEST_PICKUP_LNG ?? 77.6479),
+    };
+    const drop = {
+      name: 'JebDekho Test Customer',
+      contact: process.env.SHADOWFAX_TEST_DROPOFF_PHONE ?? '9999999998',
+      address_line_1: process.env.SHADOWFAX_TEST_DROPOFF_ADDRESS ?? 'Test drop address',
+      city: process.env.SHADOWFAX_TEST_DROPOFF_CITY ?? 'Bengaluru',
+      state: process.env.SHADOWFAX_TEST_DROPOFF_STATE ?? 'Karnataka',
+      pincode: process.env.SHADOWFAX_TEST_DROPOFF_PINCODE ?? '560007',
+      latitude: Number(process.env.SHADOWFAX_TEST_DROPOFF_LAT ?? 12.9611),
+      longitude: Number(process.env.SHADOWFAX_TEST_DROPOFF_LNG ?? 77.6387),
+    };
+    const productDetails = [
+      {
+        product_name: 'JebDekho Test Item',
+        name: 'JebDekho Test Item',
+        sku_name: 'JD-TEST-SKU',
+        description: 'Test item',
+        sku: 'JD-TEST-SKU',
+        quantity: 1,
+        price: 100,
+        unit_price: 100,
+        value: 100,
+        item_value: 100,
+        product_value: 100,
+      },
+    ];
     const result = await client.createShipment({
       order_details: {
         client_order_id: `JD-TEST-${Date.now()}`,
         paid: true,
         payment_mode: 'PREPAID',
-        order_value: 1,
-        pickup_details: {
-          name: 'JebDekho Test Pickup',
-          contact: process.env.SHADOWFAX_TEST_PICKUP_PHONE ?? '9999999999',
-          address_line_1: process.env.SHADOWFAX_TEST_PICKUP_ADDRESS ?? 'Test pickup address',
-          city: process.env.SHADOWFAX_TEST_PICKUP_CITY ?? 'New Delhi',
-          state: process.env.SHADOWFAX_TEST_PICKUP_STATE ?? 'Delhi',
-          pincode: process.env.SHADOWFAX_TEST_PICKUP_PINCODE ?? '110001',
-          latitude: Number(process.env.SHADOWFAX_TEST_PICKUP_LAT ?? 28.6139),
-          longitude: Number(process.env.SHADOWFAX_TEST_PICKUP_LNG ?? 77.209),
-        },
-        drop_details: {
-          name: 'JebDekho Test Customer',
-          contact: process.env.SHADOWFAX_TEST_DROPOFF_PHONE ?? '9999999998',
-          address_line_1: process.env.SHADOWFAX_TEST_DROPOFF_ADDRESS ?? 'Test drop address',
-          city: process.env.SHADOWFAX_TEST_DROPOFF_CITY ?? 'New Delhi',
-          state: process.env.SHADOWFAX_TEST_DROPOFF_STATE ?? 'Delhi',
-          pincode: process.env.SHADOWFAX_TEST_DROPOFF_PINCODE ?? '110002',
-          latitude: Number(process.env.SHADOWFAX_TEST_DROPOFF_LAT ?? 28.62),
-          longitude: Number(process.env.SHADOWFAX_TEST_DROPOFF_LNG ?? 77.22),
-        },
+        order_value: 100,
+        product_value: 100,
+        declared_value: 100,
+        invoice_value: 100,
+        payable_amount: 100,
+        weight: 500,
+        pickup_details: pickup,
+        drop_details: drop,
+        order_items: productDetails,
       },
+      customer_details: drop,
+      pickup_details: pickup,
+      rts_details: pickup,
+      product_details: productDetails,
     });
+    const awb = JSON.stringify(result).match(/"awb_number":\s*"([^"]+)"/)?.[1];
+    let track: unknown = null;
+    if (awb) {
+      try {
+        track = await client.trackShipment(awb);
+      } catch (e) {
+        track = { trackError: e instanceof Error ? e.message : 'track failed' };
+      }
+    }
     printResult(true, 'Shadowfax test shipment created', {
-      providerResponseKeys: Object.keys(result),
+      awb,
+      trackStatusKeys: track && typeof track === 'object' ? Object.keys(track) : null,
+      track,
     });
     return 0;
   } catch (err) {
