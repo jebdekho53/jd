@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap } from '@react-google-maps/api';
 import { Loader2 } from 'lucide-react';
 import { useGoogleMaps } from './google-maps-context';
 import { MAP_INITIAL_VISUAL_CENTER, DEFAULT_MAP_ZOOM, GOOGLE_MAPS_MAP_ID } from './constants';
 import { cn } from './cn';
+import { AdvancedMarker } from './advanced-marker';
 
 export interface MapPickerPosition {
   lat: number;
@@ -52,9 +53,7 @@ export function GoogleMapPicker({
 }: GoogleMapPickerProps) {
   const { isLoaded, loadError } = useGoogleMaps();
   const mapRef = useRef<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.Marker | null>(null);
-  const markerDragListenerRef = useRef<google.maps.MapsEventListener | null>(null);
-  const [, setReady] = useState(false);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
 
   const onPositionChangeRef = useRef(onPositionChange);
   onPositionChangeRef.current = onPositionChange;
@@ -83,44 +82,6 @@ export function GoogleMapPicker({
     map.panTo(center);
     map.setZoom(focusZoom);
   }, [center, focusZoom, viewport]);
-
-  useEffect(() => {
-    markerRef.current?.setPosition(center);
-  }, [center]);
-
-  useEffect(() => {
-    markerRef.current?.setDraggable(!disabled);
-  }, [disabled]);
-
-  useEffect(() => {
-    markerRef.current?.setTitle(address || 'Selected location');
-  }, [address]);
-
-  const attachMarker = useCallback(
-    (map: google.maps.Map) => {
-      markerDragListenerRef.current?.remove();
-      markerRef.current?.setMap(null);
-
-      const marker = new google.maps.Marker({
-        map,
-        position: center,
-        draggable: !disabled,
-        title: address || 'Selected location',
-      });
-
-      markerDragListenerRef.current = marker.addListener('dragend', () => {
-        const markerPosition = marker.getPosition();
-        if (!markerPosition) return;
-        onPositionChangeRef.current({
-          lat: markerPosition.lat(),
-          lng: markerPosition.lng(),
-        });
-      });
-
-      markerRef.current = marker;
-    },
-    [address, center, disabled],
-  );
 
   if (loadError) {
     return (
@@ -166,14 +127,10 @@ export function GoogleMapPicker({
           options={{ ...mapOptions, draggable: !disabled }}
           onLoad={(map) => {
             mapRef.current = map;
-            attachMarker(map);
-            setReady(true);
+            setMap(map);
           }}
           onUnmount={() => {
-            markerDragListenerRef.current?.remove();
-            markerDragListenerRef.current = null;
-            markerRef.current?.setMap(null);
-            markerRef.current = null;
+            setMap(null);
             mapRef.current = null;
           }}
           onClick={(event) => {
@@ -183,7 +140,16 @@ export function GoogleMapPicker({
               lng: event.latLng.lng(),
             });
           }}
-        />
+        >
+          <AdvancedMarker
+            map={map}
+            position={center}
+            draggable={!disabled}
+            title={address || 'Selected location'}
+            color="#16a34a"
+            onDragEnd={(nextPosition) => onPositionChangeRef.current(nextPosition)}
+          />
+        </GoogleMap>
 
         <div className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center">
           <div className="max-w-full rounded-lg bg-slate-900/90 px-3 py-1.5 text-center text-xs font-semibold text-white shadow-lg">
