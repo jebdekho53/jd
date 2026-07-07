@@ -1,9 +1,5 @@
 import { PrismaService } from '../../database/prisma.service';
 import { MerchantDashboardAnalyticsQueryDto, MerchantDashboardOrdersQueryDto, MerchantDashboardStoreQueryDto } from './dto/merchant-dashboard-query.dto';
-type SparkPoint = {
-    date: string;
-    value: number;
-};
 interface StoreContext {
     storeIds: string[];
     merchantProfileId: string | null;
@@ -14,32 +10,52 @@ export declare class MerchantDashboardService {
     constructor(prisma: PrismaService);
     resolveStoreContext(userId: string, storeId?: string): Promise<StoreContext>;
     getOverview(userId: string, query: MerchantDashboardStoreQueryDto): Promise<{
-        todayOrders: any;
+        todayOrders: number;
         todayRevenue: number;
-        pendingOrders: any;
-        preparingOrders: any;
-        packingOrders: any;
-        readyForPickup: any;
-        deliveredToday: any;
-        cancelledOrders: any;
+        pendingOrders: number;
+        preparingOrders: number;
+        packingOrders: number;
+        readyForPickup: number;
+        deliveredToday: number;
+        cancelledOrders: number;
         avgOrderValue: number;
         customerRating: number;
-        ratingCount: any;
+        ratingCount: number;
         growth: {
             ordersPct: number;
             revenuePct: number;
         };
-        sparkline: SparkPoint[];
+        sparkline: {
+            date: string;
+            value: number;
+        }[];
     }>;
     getOrders(userId: string, query: MerchantDashboardOrdersQueryDto): Promise<{
-        orders: any;
+        orders: {
+            id: string;
+            orderNumber: string;
+            customerName: string;
+            customerPhone: string;
+            itemsCount: number;
+            amount: number;
+            createdAt: string;
+            status: import("@prisma/client").$Enums.OrderStatus;
+            rider: {
+                id: string;
+                name: string;
+                phone: string;
+                status: import("@prisma/client").$Enums.RiderStatus;
+            } | null;
+            deliveryStatus: import("@prisma/client").$Enums.DeliveryStatus | null;
+            etaMinutes: number | null;
+        }[];
         tabs: {
-            [k: string]: any;
+            [k: string]: number;
         };
         meta: {
             page: number;
             limit: number;
-            total: any;
+            total: number;
             totalPages: number;
         };
     }>;
@@ -50,43 +66,86 @@ export declare class MerchantDashboardService {
             outOfStock: number;
             lowStock: number;
             hiddenProducts: number;
-            draftProducts: any;
+            draftProducts: number;
         };
-        lowStockProducts: any;
-        topSelling: any;
+        lowStockProducts: {
+            productId: string;
+            productName: string;
+            variantId: string;
+            quantity: number;
+            threshold: number;
+        }[];
+        topSelling: {
+            productId: string;
+            productName: string;
+            unitsSold: number;
+        }[];
     }>;
     getRiders(userId: string, query: MerchantDashboardStoreQueryDto): Promise<{
-        assignedRiders: any;
-        onlineRiders: any;
-        currentDeliveries: any;
-        riders: any;
+        assignedRiders: number;
+        onlineRiders: number;
+        currentDeliveries: number;
+        riders: {
+            riderId: string;
+            name: string;
+            phone: string;
+            status: import("@prisma/client").$Enums.RiderStatus;
+            currentOrder: {
+                id: string;
+                orderNumber: string;
+            };
+            deliveryStatus: import("@prisma/client").$Enums.DeliveryStatus;
+            etaMinutes: number | null;
+            lastLocation: {
+                lat: number;
+                lng: number;
+                recordedAt: string;
+            } | null;
+        }[];
     }>;
     getAnalytics(userId: string, query: MerchantDashboardAnalyticsQueryDto): Promise<{
         period: "30d" | "7d";
-        ordersToday: any;
-        ordersThisWeek: any;
-        ordersThisMonth: any;
+        ordersToday: number;
+        ordersThisWeek: number;
+        ordersThisMonth: number;
         avgPrepTimeMins: number;
         cancellationRate: number;
         acceptanceRate: number;
-        revenueSeries: any;
-        categorySales: any;
-        hourlyDemand: any;
+        revenueSeries: {
+            date: string;
+            revenue: number;
+            orders: number;
+        }[];
+        categorySales: {
+            category: string;
+            revenue: number;
+            units: number;
+        }[];
+        hourlyDemand: {
+            hour: number;
+            orders: number;
+        }[];
         bestSellers: {
-            productId: any;
-            productName: any;
-            units: any;
+            productId: string;
+            productName: string;
+            units: number;
             revenue: number;
         }[];
         worstSellers: {
-            productId: any;
-            productName: any;
-            units: any;
+            productId: string;
+            productName: string;
+            units: number;
             revenue: number;
         }[];
     }>;
     getCustomers(userId: string, query: MerchantDashboardStoreQueryDto): Promise<{
-        recentReviews: any;
+        recentReviews: {
+            id: string;
+            rating: number;
+            comment: string | null;
+            customerName: string;
+            createdAt: string;
+        }[];
         totalCustomers: number;
         returningCustomers: number;
         newCustomers: number;
@@ -104,11 +163,17 @@ export declare class MerchantDashboardService {
         repeatPurchasePct: number;
         topCustomers: {
             id: string;
-            name: any;
-            phone: any;
+            name: string;
+            phone: string | undefined;
             orderCount: number;
         }[];
-        recentReviews: any;
+        recentReviews: {
+            id: string;
+            rating: number;
+            comment: string | null;
+            customerName: string;
+            createdAt: string;
+        }[];
         recentComplaints: never[];
     }>;
     getCompliance(userId: string, query: MerchantDashboardStoreQueryDto): Promise<{
@@ -121,22 +186,61 @@ export declare class MerchantDashboardService {
         };
         alerts: never[];
     } | {
-        stores: any;
+        stores: {
+            id: string;
+            name: string;
+            approvalStatus: import("@prisma/client").$Enums.StoreStatus;
+            kycStatus: import("@prisma/client").$Enums.KycStatus;
+            gstProvided: boolean;
+            fssaiProvided: boolean;
+            documents: {
+                type: import("@prisma/client").$Enums.StoreDocumentType;
+                uploadedAt: string;
+            }[];
+            timeline: ({
+                event: string;
+                at: string;
+                note?: undefined;
+            } | {
+                event: string;
+                at: string;
+                note: string | null;
+            } | null)[];
+        }[];
         categoryRequests: {
-            approved: any;
-            pending: any;
-            underReview: any;
-            rejected: any;
-            documentsRequired: any;
+            approved: number;
+            pending: number;
+            underReview: number;
+            rejected: number;
+            documentsRequired: number;
         };
-        alerts: any;
+        alerts: {
+            storeId: string;
+            storeName: string;
+            status: import("@prisma/client").$Enums.StoreStatus;
+            message: string;
+        }[];
     }>;
     getNotifications(userId: string, query: MerchantDashboardStoreQueryDto): Promise<{
-        recentOrders: any;
-        newReviews: any;
-        inventoryAlerts: any;
-        complianceAlerts: any;
-        categoryRequests: any;
+        recentOrders: {
+            id: string;
+            orderNumber: string;
+            status: import("@prisma/client").$Enums.OrderStatus;
+            createdAt: string;
+        }[];
+        newReviews: {
+            id: string;
+            rating: number;
+            createdAt: string;
+        }[];
+        inventoryAlerts: number;
+        complianceAlerts: never[] | {
+            storeId: string;
+            storeName: string;
+            status: import("@prisma/client").$Enums.StoreStatus;
+            message: string;
+        }[];
+        categoryRequests: number;
     }>;
 }
 export {};

@@ -8,11 +8,23 @@ export declare class BuyerOrderController {
     listOrders(user: RequestUser, dto: ListOrdersDto): Promise<{
         success: boolean;
         data: {
-            orders: any;
+            orders: {
+                id: any;
+                orderNumber: any;
+                status: any;
+                paymentMethod: any;
+                paymentStatus: any;
+                totalAmount: number;
+                createdAt: any;
+                store: any;
+                storeId: any;
+                buyerProfile: any;
+                items: any;
+            }[];
             meta: {
                 page: number;
                 limit: number;
-                total: any;
+                total: number;
                 totalPages: number;
             };
         };
@@ -112,7 +124,7 @@ export declare class BuyerOrderController {
         success: boolean;
         data: {
             orderId: string;
-            status: any;
+            status: "CANCELLED_BY_BUYER";
         };
     }>;
 }

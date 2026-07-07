@@ -13,32 +13,85 @@ export declare class TrustSafetyService {
     constructor(prisma: PrismaService, cases: FraudCaseService, actions: FraudActionService, risk: RiskEngineService, alerts: TrustAlertService);
     getDashboard(): Promise<{
         metrics: {
-            openCases: any;
-            blockedUsers: any;
-            blockedMerchants: any;
-            activeRestrictions: any;
-            fraudPrevented: any;
-            walletAbusePrevented: any;
-            referralAbusePrevented: any;
-            codLossAvoided: any;
+            openCases: number;
+            blockedUsers: number;
+            blockedMerchants: number;
+            activeRestrictions: number;
+            fraudPrevented: number;
+            walletAbusePrevented: number;
+            referralAbusePrevented: number;
+            codLossAvoided: number;
         };
-        alerts: any;
+        alerts: {
+            message: string;
+            id: string;
+            status: string;
+            metadata: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            severity: string;
+            title: string;
+            resolvedAt: Date | null;
+            alertType: import("@prisma/client").$Enums.TrustAlertType;
+        }[];
     }>;
     listRiskProfiles(page?: number, limit?: number, status?: RiskProfileStatus): Promise<{
-        items: any;
-        total: any;
+        items: {
+            id: string;
+            status: import("@prisma/client").$Enums.RiskProfileStatus;
+            metadata: import("@prisma/client/runtime/library").JsonValue | null;
+            createdAt: Date;
+            userId: string;
+            updatedAt: Date;
+            riskScore: number;
+            trustScore: number;
+            fraudScore: number;
+            codEnabled: boolean;
+            walletFrozen: boolean;
+            referralFrozen: boolean;
+            couponFrozen: boolean;
+            lastEvaluatedAt: Date | null;
+        }[];
+        total: number;
         page: number;
         limit: number;
     }>;
     listCases(category?: FraudCaseCategory, page?: number, limit?: number): Promise<{
-        items: any;
-        total: any;
+        items: {
+            category: import("@prisma/client").$Enums.FraudCaseCategory;
+            idempotencyKey: string | null;
+            id: string;
+            status: import("@prisma/client").$Enums.FraudCaseStatus;
+            createdAt: Date;
+            userId: string | null;
+            updatedAt: Date;
+            description: string;
+            severity: string;
+            subjectType: string | null;
+            subjectId: string | null;
+            caseNumber: string;
+            title: string;
+            resolvedAt: Date | null;
+            resolvedBy: string | null;
+            resolution: string | null;
+        }[];
+        total: number;
         page: number;
         limit: number;
     }>;
     listBlockedAccounts(page?: number, limit?: number): Promise<{
-        items: any;
-        total: any;
+        items: {
+            id: string;
+            createdAt: Date;
+            expiresAt: Date | null;
+            userId: string;
+            reason: string;
+            active: boolean;
+            restrictionType: import("@prisma/client").$Enums.AccountRestrictionType;
+            appliedBy: string | null;
+            liftedAt: Date | null;
+            liftedBy: string | null;
+        }[];
+        total: number;
         page: number;
         limit: number;
     }>;

@@ -4,7 +4,27 @@ export declare class FranchiseService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     resolveFranchiseId(userId: string): Promise<string>;
-    listFranchises(status?: FranchisePartnerStatus): Promise<any>;
+    listFranchises(status?: FranchisePartnerStatus): Promise<({
+        city: {
+            name: string;
+        } | null;
+        _count: {
+            stores: number;
+            territories: number;
+        };
+    } & {
+        id: string;
+        status: import("@prisma/client").$Enums.FranchisePartnerStatus;
+        createdAt: Date;
+        userId: string;
+        updatedAt: Date;
+        businessName: string;
+        cityId: string | null;
+        commissionPercent: number;
+        gstin: string | null;
+        pan: string | null;
+        onboardingCompleted: boolean;
+    })[]>;
     createFranchise(input: {
         userId: string;
         businessName: string;
@@ -12,17 +32,51 @@ export declare class FranchiseService {
         pan?: string;
         cityId?: string;
         commissionPercent?: number;
-    }): Promise<any>;
+    }): Promise<{
+        id: string;
+        status: import("@prisma/client").$Enums.FranchisePartnerStatus;
+        createdAt: Date;
+        userId: string;
+        updatedAt: Date;
+        businessName: string;
+        cityId: string | null;
+        commissionPercent: number;
+        gstin: string | null;
+        pan: string | null;
+        onboardingCompleted: boolean;
+    }>;
     updateFranchise(id: string, input: Partial<{
         status: FranchisePartnerStatus;
         commissionPercent: number;
         onboardingCompleted: boolean;
-    }>, actorId?: string): Promise<any>;
-    linkStore(franchiseId: string, storeId: string): Promise<any>;
+    }>, actorId?: string): Promise<{
+        id: string;
+        status: import("@prisma/client").$Enums.FranchisePartnerStatus;
+        createdAt: Date;
+        userId: string;
+        updatedAt: Date;
+        businessName: string;
+        cityId: string | null;
+        commissionPercent: number;
+        gstin: string | null;
+        pan: string | null;
+        onboardingCompleted: boolean;
+    }>;
+    linkStore(franchiseId: string, storeId: string): Promise<{
+        store: {
+            name: string;
+            pincode: string;
+        };
+    } & {
+        id: string;
+        storeId: string;
+        franchiseId: string;
+        linkedAt: Date;
+    }>;
     getOverview(): Promise<{
-        active: any;
-        pending: any;
-        suspended: any;
-        openConflicts: any;
+        active: number;
+        pending: number;
+        suspended: number;
+        openConflicts: number;
     }>;
 }

@@ -12,14 +12,20 @@ export declare class MerchantSearchInsightsController {
         success: boolean;
         data: {
             period: "30d" | "7d";
-            impressions: any;
-            clicks: any;
+            impressions: number;
+            clicks: number;
             ctr: number;
-            addToCart: any;
-            orders: any;
+            addToCart: number;
+            orders: number;
             conversionRate: number;
-            topSearchedProducts: any;
-            lostSearches: any;
+            topSearchedProducts: {
+                query: string;
+                count: number;
+            }[];
+            lostSearches: {
+                query: string;
+                count: number;
+            }[];
         };
     }>;
 }

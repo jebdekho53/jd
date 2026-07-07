@@ -11,7 +11,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminTrustSafetyController = void 0;
 const openapi = require("@nestjs/swagger");
@@ -104,7 +103,7 @@ __decorate([
     __param(0, (0, common_1.Param)('category')),
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [typeof (_a = typeof client_1.FraudCaseCategory !== "undefined" && client_1.FraudCaseCategory) === "function" ? _a : Object, trust_safety_dto_1.ListTrustQueryDto]),
+    __metadata("design:paramtypes", [String, trust_safety_dto_1.ListTrustQueryDto]),
     __metadata("design:returntype", Promise)
 ], AdminTrustSafetyController.prototype, "fraudCasesByCategory", null);
 __decorate([

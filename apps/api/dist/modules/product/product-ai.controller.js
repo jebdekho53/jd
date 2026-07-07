@@ -54,6 +54,11 @@ let ProductAiController = class ProductAiController {
         const data = await this.aiService.confirmAnalysis(user.id, storeId, analysisId, dto, ip);
         return { success: true, data };
     }
+    async generateImage(user, storeId, analysisId, dto, ip) {
+        const mode = dto.mode === 'ai_edit' ? 'ai_edit' : 'bg_removal';
+        const data = await this.aiService.generateProductImage(user.id, storeId, analysisId, mode, ip);
+        return { success: true, data };
+    }
     async cancel(user, storeId, analysisId, ip) {
         const data = await this.aiService.cancelAnalysis(user.id, storeId, analysisId, ip);
         return { success: true, data };
@@ -145,6 +150,23 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String, product_ai_dto_1.ConfirmAiProductDto, String]),
     __metadata("design:returntype", Promise)
 ], ProductAiController.prototype, "confirm", null);
+__decorate([
+    (0, common_1.Post)(':analysisId/generate-image'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, permissions_decorator_1.Permissions)('products:write'),
+    (0, swagger_1.ApiParam)({ name: 'storeId' }),
+    (0, swagger_1.ApiParam)({ name: 'analysisId' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Generate a professional product image with AI (paid per image)' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.CREATED }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('storeId')),
+    __param(2, (0, common_1.Param)('analysisId')),
+    __param(3, (0, common_1.Body)()),
+    __param(4, (0, common_1.Ip)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String, product_ai_dto_1.GenerateProductImageDto, String]),
+    __metadata("design:returntype", Promise)
+], ProductAiController.prototype, "generateImage", null);
 __decorate([
     (0, common_1.Post)(':analysisId/cancel'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

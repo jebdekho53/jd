@@ -1,4 +1,3 @@
-import { Body } from '@nestjs/common';
 import { RequestUser } from '../../common/types';
 import { CartService } from '../cart/cart.service';
 import { PromotionCartService } from './promotion-cart.service';
@@ -14,7 +13,7 @@ export declare class BuyerPromotionController {
         data: {
             valid: boolean;
             message?: string;
-            coupon?: Body;
+            coupon?: import("@prisma/client").Coupon;
         };
     }>;
     applyCoupon(user: RequestUser, dto: ApplyCouponDto): Promise<{
@@ -27,6 +26,26 @@ export declare class BuyerPromotionController {
     }>;
     recommended(user: RequestUser, lat?: string, lng?: string): Promise<{
         success: boolean;
-        data: any;
+        data: {
+            id: string;
+            campaignId: string;
+            storeId: string | null;
+            name: string;
+            description: string | null;
+            kind: import("@prisma/client").$Enums.OfferKind;
+            target: import("@prisma/client").$Enums.PromotionTarget;
+            discountValue: number;
+            cashbackAmount: number | null;
+            rewardPointsBonus: number | null;
+            minOrderAmount: number;
+            maxDiscount: number | null;
+            flashQtyLimit: number | null;
+            flashQtyRemaining: number | null;
+            startsAt: string;
+            expiresAt: string;
+            badge: string;
+            store: {} | null;
+            product: {} | null;
+        }[];
     }>;
 }

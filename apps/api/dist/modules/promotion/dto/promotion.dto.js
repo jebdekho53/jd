@@ -8,7 +8,6 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var _a, _b, _c, _d, _e, _f;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ListAdminPromotionsDto = exports.MerchantReplyDto = exports.ListPromotionsDto = exports.CreateCouponDto = exports.UpdateStorePromotionDto = exports.CreateStorePromotionDto = exports.ApplyCouponDto = void 0;
 const openapi = require("@nestjs/swagger");
@@ -44,11 +43,11 @@ __decorate([
 ], CreateStorePromotionDto.prototype, "description", void 0);
 __decorate([
     (0, class_validator_1.IsEnum)(client_1.PromotionOfferType),
-    __metadata("design:type", typeof (_a = typeof client_1.PromotionOfferType !== "undefined" && client_1.PromotionOfferType) === "function" ? _a : Object)
+    __metadata("design:type", String)
 ], CreateStorePromotionDto.prototype, "offerType", void 0);
 __decorate([
     (0, class_validator_1.IsEnum)(client_1.PromotionTarget),
-    __metadata("design:type", typeof (_b = typeof client_1.PromotionTarget !== "undefined" && client_1.PromotionTarget) === "function" ? _b : Object)
+    __metadata("design:type", String)
 ], CreateStorePromotionDto.prototype, "target", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -189,21 +188,21 @@ __decorate([
 ], CreateCouponDto.prototype, "description", void 0);
 __decorate([
     (0, class_validator_1.IsEnum)(client_1.CouponType),
-    __metadata("design:type", typeof (_c = typeof client_1.CouponType !== "undefined" && client_1.CouponType) === "function" ? _c : Object)
+    __metadata("design:type", String)
 ], CreateCouponDto.prototype, "type", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.CouponKind),
-    __metadata("design:type", typeof (_d = typeof client_1.CouponKind !== "undefined" && client_1.CouponKind) === "function" ? _d : Object)
+    __metadata("design:type", String)
 ], CreateCouponDto.prototype, "kind", void 0);
 __decorate([
     (0, class_validator_1.IsEnum)(client_1.CouponScope),
-    __metadata("design:type", typeof (_e = typeof client_1.CouponScope !== "undefined" && client_1.CouponScope) === "function" ? _e : Object)
+    __metadata("design:type", String)
 ], CreateCouponDto.prototype, "scope", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.OfferSponsor),
-    __metadata("design:type", typeof (_f = typeof client_1.OfferSponsor !== "undefined" && client_1.OfferSponsor) === "function" ? _f : Object)
+    __metadata("design:type", String)
 ], CreateCouponDto.prototype, "sponsor", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),

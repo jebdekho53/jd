@@ -20,18 +20,18 @@ export declare class AdminAuthService {
     constructor(prisma: PrismaService, redis: RedisService, tokenService: TokenService, passwordService: AdminPasswordService, audit: AuditService, domainEvents: DomainEventsService, emailNotifications: EmailNotificationService, configService: ConfigService);
     login(dto: AdminLoginDto, ipAddress?: string, userAgent?: string): Promise<{
         user: {
-            id: any;
-            phone: any;
-            email: any;
-            status: any;
-            phoneVerified: any;
-            roles: any;
+            id: string;
+            phone: string;
+            email: string | null;
+            status: import("@prisma/client").$Enums.UserStatus;
+            phoneVerified: boolean;
+            roles: import("@prisma/client").$Enums.RoleName[];
             permissions: string[];
-            createdAt: any;
+            createdAt: Date;
             adminProfile: {
-                name: any;
-                department: any;
-                isSuperAdmin: any;
+                name: string;
+                department: string | null;
+                isSuperAdmin: boolean;
             } | null;
         };
         accessToken: string;
@@ -49,39 +49,47 @@ export declare class AdminAuthService {
         message: string;
     }>;
     getMe(userId: string): Promise<{
-        id: any;
-        phone: any;
-        email: any;
-        status: any;
-        phoneVerified: any;
-        roles: any;
+        id: string;
+        phone: string;
+        email: string | null;
+        status: import("@prisma/client").$Enums.UserStatus;
+        phoneVerified: boolean;
+        roles: import("@prisma/client").$Enums.RoleName[];
         permissions: string[];
-        createdAt: any;
+        createdAt: Date;
         adminProfile: {
-            name: any;
-            department: any;
-            isSuperAdmin: any;
+            name: string;
+            department: string | null;
+            isSuperAdmin: boolean;
         } | null;
     }>;
     getSettingsForUser(userId: string): Promise<{
-        name: any;
-        email: any;
-        phone: any;
-        department: any;
-        credentialSource: any;
-        lastLoginAt: any;
-        passwordChangedAt: any;
+        name: string;
+        email: string | null;
+        phone: string;
+        department: string | null;
+        credentialSource: import("@prisma/client").$Enums.AdminCredentialSource;
+        lastLoginAt: Date | null;
+        passwordChangedAt: Date | null;
     }>;
     updateSettings(userId: string, dto: UpdateAdminSettingsDto, ipAddress?: string): Promise<{
-        name: any;
-        email: any;
-        phone: any;
-        department: any;
-        credentialSource: any;
-        lastLoginAt: any;
-        passwordChangedAt: any;
+        name: string;
+        email: string | null;
+        phone: string;
+        department: string | null;
+        credentialSource: import("@prisma/client").$Enums.AdminCredentialSource;
+        lastLoginAt: Date | null;
+        passwordChangedAt: Date | null;
     }>;
-    listSessions(userId: string): Promise<any>;
+    listSessions(userId: string): Promise<{
+        id: string;
+        deviceName: string | null | undefined;
+        ipAddress: string | null | undefined;
+        rememberMe: boolean;
+        lastActiveAt: Date;
+        createdAt: Date;
+        expiresAt: Date | undefined;
+    }[]>;
     revokeSession(userId: string, sessionId: string): Promise<{
         success: boolean;
     }>;
@@ -92,10 +100,10 @@ export declare class AdminAuthService {
         success: boolean;
     }>;
     getLoginStats(): Promise<{
-        activeStores: any;
-        totalOrders: any;
-        activeRiders: any;
-        merchants: any;
+        activeStores: number;
+        totalOrders: number;
+        activeRiders: number;
+        merchants: number;
     }>;
     private getSettings;
     private hasAnyAdminUser;

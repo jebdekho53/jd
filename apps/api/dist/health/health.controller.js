@@ -8,7 +8,6 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HealthController = void 0;
 const openapi = require("@nestjs/swagger");
@@ -119,7 +118,9 @@ __decorate([
 exports.HealthController = HealthController = __decorate([
     (0, swagger_1.ApiExcludeController)(),
     (0, common_1.Controller)('health'),
-    __metadata("design:paramtypes", [typeof (_a = typeof terminus_1.HealthCheckService !== "undefined" && terminus_1.HealthCheckService) === "function" ? _a : Object, typeof (_b = typeof terminus_1.MemoryHealthIndicator !== "undefined" && terminus_1.MemoryHealthIndicator) === "function" ? _b : Object, prisma_service_1.PrismaService,
+    __metadata("design:paramtypes", [terminus_1.HealthCheckService,
+        terminus_1.MemoryHealthIndicator,
+        prisma_service_1.PrismaService,
         redis_service_1.RedisService])
 ], HealthController);
 //# sourceMappingURL=health.controller.js.map

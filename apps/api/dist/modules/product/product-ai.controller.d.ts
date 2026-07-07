@@ -1,6 +1,6 @@
 import { RequestUser } from '../../common/types';
 import { ProductAiService } from './product-ai.service';
-import { AnalyzeProductImageDto, ConfirmAiProductDto, ListAiHistoryDto } from './dto/product-ai.dto';
+import { AnalyzeProductImageDto, ConfirmAiProductDto, GenerateProductImageDto, ListAiHistoryDto } from './dto/product-ai.dto';
 export declare class ProductAiController {
     private readonly aiService;
     constructor(aiService: ProductAiService);
@@ -11,27 +11,40 @@ export declare class ProductAiController {
             message: string | null;
             code: string | null;
             pricePaise: number;
-            walletBalancePaise: any;
+            walletBalancePaise: number;
             walletBalanceRupee: number;
             minimumRechargePaise: number;
             minimumRechargeRupee: number;
             hasSufficientBalance: boolean;
+            imageGenerationPricePaise: number;
+            imageGenerationPriceRupee: number;
         };
     }>;
     billing(user: RequestUser, storeId: string, page?: string, limit?: string): Promise<{
         success: boolean;
         data: {
-            items: any;
+            items: {
+                analysisId: string | null;
+                productName: string;
+                amountPaise: number;
+                amountRupee: number;
+                status: import("@prisma/client").$Enums.MerchantAiWalletTransactionStatus;
+                type: import("@prisma/client").$Enums.MerchantAiWalletTransactionType;
+                chargedAt: Date | null;
+                refundedAt: Date | null;
+                reason: string | null;
+                createdAt: Date;
+            }[];
             meta: {
                 page: number;
                 limit: number;
-                total: any;
+                total: number;
                 totalPages: number;
             };
-            walletBalancePaise: any;
+            walletBalancePaise: number;
             summary: {
-                grossRevenuePaise: any;
-                refundedPaise: any;
+                grossRevenuePaise: number;
+                refundedPaise: number;
                 netRevenuePaise: number;
             };
         };
@@ -39,18 +52,24 @@ export declare class ProductAiController {
     analyze(user: RequestUser, storeId: string, dto: AnalyzeProductImageDto, ip: string): Promise<{
         success: boolean;
         data: {
+            analysisId: string;
             id: string;
             storeId: string;
+            ocrText: string;
+            fields: object;
+            missingFields: any[];
+            warnings: any[];
             uploadedImageUrl: string;
             originalImageUrl: string | null | undefined;
             optimizedImageUrl: string | null | undefined;
             thumbnailImageUrl: string | null | undefined;
+            generatedImages: any[];
             extracted: {
                 [x: string]: unknown;
             };
             categoryMatch: {} | null;
             confidence: number | null;
-            status: AIProductAnalysisStatus;
+            status: import("@prisma/client").$Enums.AIProductAnalysisStatus;
             errorMessage: string | null;
             createdProductId: string | null;
             chargeAmountPaise: number;
@@ -66,18 +85,29 @@ export declare class ProductAiController {
             labelReadable: {} | null;
             canPublishDirectly: boolean;
             imageQualityScore: {} | null;
-            detectedProductType: any;
-            productType: any;
+            detectedProductType: import("@prisma/client").$Enums.AIProductType | null | undefined;
+            productType: {} | null | undefined;
         };
     }>;
     history(user: RequestUser, storeId: string, query: ListAiHistoryDto): Promise<{
         success: boolean;
         data: {
-            items: any;
+            items: {
+                id: string;
+                status: import("@prisma/client").$Enums.AIProductAnalysisStatus;
+                errorMessage: string | null;
+                createdAt: Date;
+                storeId: string;
+                uploadedImageUrl: string;
+                confidence: number | null;
+                createdProductId: string | null;
+                chargeAmountPaise: number;
+                chargedAt: Date | null;
+            }[];
             meta: {
                 page: number;
                 limit: number;
-                total: any;
+                total: number;
                 totalPages: number;
             };
         };
@@ -85,18 +115,24 @@ export declare class ProductAiController {
     getAnalysis(user: RequestUser, storeId: string, analysisId: string): Promise<{
         success: boolean;
         data: {
+            analysisId: string;
             id: string;
             storeId: string;
+            ocrText: string;
+            fields: object;
+            missingFields: any[];
+            warnings: any[];
             uploadedImageUrl: string;
             originalImageUrl: string | null | undefined;
             optimizedImageUrl: string | null | undefined;
             thumbnailImageUrl: string | null | undefined;
+            generatedImages: any[];
             extracted: {
                 [x: string]: unknown;
             };
             categoryMatch: {} | null;
             confidence: number | null;
-            status: AIProductAnalysisStatus;
+            status: import("@prisma/client").$Enums.AIProductAnalysisStatus;
             errorMessage: string | null;
             createdProductId: string | null;
             chargeAmountPaise: number;
@@ -112,25 +148,25 @@ export declare class ProductAiController {
             labelReadable: {} | null;
             canPublishDirectly: boolean;
             imageQualityScore: {} | null;
-            detectedProductType: any;
-            productType: any;
+            detectedProductType: import("@prisma/client").$Enums.AIProductType | null | undefined;
+            productType: {} | null | undefined;
         };
     }>;
     confirm(user: RequestUser, storeId: string, analysisId: string, dto: ConfirmAiProductDto, ip: string): Promise<{
         success: boolean;
         data: {
             alreadyConfirmed: boolean;
-            productId: any;
+            productId: string | null;
             charged: boolean;
-            amountPaise: any;
+            amountPaise: number;
             productName?: undefined;
             publish?: undefined;
             chargedAt?: undefined;
             analysisId?: undefined;
             receipt?: undefined;
         } | {
-            productId: any;
-            productName: any;
+            productId: string;
+            productName: string;
             charged: boolean;
             amountPaise: number;
             publish: boolean;
@@ -138,13 +174,25 @@ export declare class ProductAiController {
             analysisId: string;
             receipt: {
                 analysisId: string;
-                productName: any;
+                productName: string;
                 amountPaise: number;
                 amountRupee: number;
                 chargedAt: string;
                 status: string;
             };
             alreadyConfirmed?: undefined;
+        };
+    }>;
+    generateImage(user: RequestUser, storeId: string, analysisId: string, dto: GenerateProductImageDto, ip: string): Promise<{
+        success: boolean;
+        data: {
+            imageUrl: string;
+            thumbnailUrl: string;
+            generatedImages: unknown[];
+            amountPaise: number;
+            amountRupee: number;
+            walletBalancePaise: number;
+            walletBalanceRupee: number;
         };
     }>;
     cancel(user: RequestUser, storeId: string, analysisId: string, ip: string): Promise<{

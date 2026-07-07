@@ -16,11 +16,18 @@ export declare class MerchantFulfillmentNetworkController {
             networkName: null;
             microFulfillment?: undefined;
         } | {
-            networkName: any;
-            stores: any;
-            darkStores: any;
-            warehouses: any;
-            microFulfillment: any;
+            networkName: string;
+            stores: {
+                id: string;
+                name: string;
+                isActive: boolean;
+                latitude: number;
+                longitude: number;
+                storeType: import("@prisma/client").$Enums.StoreType;
+            }[];
+            darkStores: number;
+            warehouses: number;
+            microFulfillment: number;
             splitOrderRatio: number;
         };
     }>;
@@ -28,17 +35,48 @@ export declare class MerchantFulfillmentNetworkController {
         success: boolean;
         data: {
             storeId: string;
-            ordersPerHour: any;
-            pickersAvailable: any;
-            packingStations: any;
-            currentLoadPct: any;
-            peakLoadPct: any;
-            backlogCount: any;
+            ordersPerHour: number;
+            pickersAvailable: number;
+            packingStations: number;
+            currentLoadPct: number;
+            peakLoadPct: number;
+            backlogCount: number;
         }[];
     }>;
     transfersList(user: RequestUser, query: NetworkQueryDto): Promise<{
         success: boolean;
-        data: any;
+        data: ({
+            items: {
+                id: string;
+                variantId: string;
+                sku: string;
+                quantity: number;
+                transferId: string;
+            }[];
+            fromStore: {
+                id: string;
+                name: string;
+                storeType: import("@prisma/client").$Enums.StoreType;
+            };
+            toStore: {
+                id: string;
+                name: string;
+                storeType: import("@prisma/client").$Enums.StoreType;
+            };
+        } & {
+            id: string;
+            status: import("@prisma/client").$Enums.InventoryTransferStatus;
+            completedAt: Date | null;
+            cancelledAt: Date | null;
+            notes: string | null;
+            merchantProfileId: string;
+            requestedAt: Date;
+            requestedBy: string;
+            approvedBy: string | null;
+            approvedAt: Date | null;
+            fromStoreId: string;
+            toStoreId: string;
+        })[];
     }>;
     rebalancing(user: RequestUser, query: NetworkQueryDto): Promise<{
         success: boolean;
@@ -48,8 +86,8 @@ export declare class MerchantFulfillmentNetworkController {
         success: boolean;
         data: {
             fulfillmentAccuracy: number;
-            transferSuccessRate: any;
-            darkStorePerformance: any;
+            transferSuccessRate: number;
+            darkStorePerformance: number;
             avgPickTimeMins: number;
             avgPackTimeMins: number;
             capacityUtilization: number;
@@ -57,18 +95,118 @@ export declare class MerchantFulfillmentNetworkController {
     }>;
     createTransfer(user: RequestUser, dto: CreateTransferDto): Promise<{
         success: boolean;
-        data: any;
+        data: {
+            items: {
+                id: string;
+                variantId: string;
+                sku: string;
+                quantity: number;
+                transferId: string;
+            }[];
+            fromStore: {
+                name: string;
+            };
+            toStore: {
+                name: string;
+            };
+        } & {
+            id: string;
+            status: import("@prisma/client").$Enums.InventoryTransferStatus;
+            completedAt: Date | null;
+            cancelledAt: Date | null;
+            notes: string | null;
+            merchantProfileId: string;
+            requestedAt: Date;
+            requestedBy: string;
+            approvedBy: string | null;
+            approvedAt: Date | null;
+            fromStoreId: string;
+            toStoreId: string;
+        };
     }>;
     listInventoryTransfers(user: RequestUser, query: NetworkQueryDto): Promise<{
         success: boolean;
-        data: any;
+        data: ({
+            items: {
+                id: string;
+                variantId: string;
+                sku: string;
+                quantity: number;
+                transferId: string;
+            }[];
+            fromStore: {
+                id: string;
+                name: string;
+                storeType: import("@prisma/client").$Enums.StoreType;
+            };
+            toStore: {
+                id: string;
+                name: string;
+                storeType: import("@prisma/client").$Enums.StoreType;
+            };
+        } & {
+            id: string;
+            status: import("@prisma/client").$Enums.InventoryTransferStatus;
+            completedAt: Date | null;
+            cancelledAt: Date | null;
+            notes: string | null;
+            merchantProfileId: string;
+            requestedAt: Date;
+            requestedBy: string;
+            approvedBy: string | null;
+            approvedAt: Date | null;
+            fromStoreId: string;
+            toStoreId: string;
+        })[];
     }>;
     approveTransfer(user: RequestUser, id: string): Promise<{
         success: boolean;
-        data: any;
+        data: {
+            items: {
+                id: string;
+                variantId: string;
+                sku: string;
+                quantity: number;
+                transferId: string;
+            }[];
+        } & {
+            id: string;
+            status: import("@prisma/client").$Enums.InventoryTransferStatus;
+            completedAt: Date | null;
+            cancelledAt: Date | null;
+            notes: string | null;
+            merchantProfileId: string;
+            requestedAt: Date;
+            requestedBy: string;
+            approvedBy: string | null;
+            approvedAt: Date | null;
+            fromStoreId: string;
+            toStoreId: string;
+        };
     }>;
     completeTransfer(user: RequestUser, id: string): Promise<{
         success: boolean;
-        data: any;
+        data: ({
+            items: {
+                id: string;
+                variantId: string;
+                sku: string;
+                quantity: number;
+                transferId: string;
+            }[];
+        } & {
+            id: string;
+            status: import("@prisma/client").$Enums.InventoryTransferStatus;
+            completedAt: Date | null;
+            cancelledAt: Date | null;
+            notes: string | null;
+            merchantProfileId: string;
+            requestedAt: Date;
+            requestedBy: string;
+            approvedBy: string | null;
+            approvedAt: Date | null;
+            fromStoreId: string;
+            toStoreId: string;
+        }) | null;
     }>;
 }

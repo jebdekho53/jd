@@ -4,16 +4,40 @@ export declare class AdminMediaService {
     constructor(prisma: PrismaService);
     getCoverageReport(): Promise<{
         totals: {
-            productsWithoutImages: any;
-            storesWithoutLogo: any;
-            storesWithoutBanner: any;
-            categoriesWithoutImages: any;
+            productsWithoutImages: number;
+            storesWithoutLogo: number;
+            storesWithoutBanner: number;
+            categoriesWithoutImages: number;
         };
         samples: {
-            products: any;
-            storesMissingLogo: any;
-            storesMissingBanner: any;
-            categories: any;
+            products: {
+                store: {
+                    name: string;
+                };
+                id: string;
+                name: string;
+                storeId: string;
+                isActive: boolean;
+            }[];
+            storesMissingLogo: {
+                id: string;
+                status: import("@prisma/client").$Enums.StoreStatus;
+                name: string;
+            }[];
+            storesMissingBanner: {
+                id: string;
+                status: import("@prisma/client").$Enums.StoreStatus;
+                name: string;
+            }[];
+            categories: {
+                id: string;
+                name: string;
+                isActive: boolean;
+                parentId: string | null;
+                parent: {
+                    name: string;
+                } | null;
+            }[];
         };
     }>;
 }

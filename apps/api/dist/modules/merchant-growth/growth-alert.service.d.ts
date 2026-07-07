@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { StoreHealthService } from './store-health.service';
 import { SearchAnalyticsService } from '../search-discovery/search-analytics.service';
@@ -9,7 +10,18 @@ export declare class GrowthAlertService {
     private readonly dashboard;
     private readonly logger;
     constructor(prisma: PrismaService, health: StoreHealthService, search: SearchAnalyticsService, dashboard: MerchantDashboardService);
-    listForStore(storeId: string, limit?: number): Promise<any>;
+    listForStore(storeId: string, limit?: number): Promise<{
+        message: string;
+        id: string;
+        status: import("@prisma/client").$Enums.AnalyticsAlertStatus;
+        metadata: Prisma.JsonValue | null;
+        createdAt: Date;
+        storeId: string;
+        severity: import("@prisma/client").$Enums.AnalyticsAlertSeverity;
+        title: string;
+        resolvedAt: Date | null;
+        alertType: import("@prisma/client").$Enums.MerchantGrowthAlertType;
+    }[]>;
     evaluateAllStores(): Promise<void>;
     evaluateStore(storeId: string, userId: string): Promise<void>;
     private raise;

@@ -16,7 +16,7 @@ export declare class MerchantFinanceController {
     overview(user: RequestUser): Promise<{
         success: boolean;
         data: {
-            todayEarnings: any;
+            todayEarnings: number;
             wallet: {
                 availableBalance: number;
                 pendingBalance: number;
@@ -30,24 +30,58 @@ export declare class MerchantFinanceController {
             };
             pendingSettlement: number;
             paidSettlement: number;
-            recentOrders: any;
-            settlementBatches: any;
+            recentOrders: {
+                orderId: string;
+                orderNumber: string;
+                orderTotal: number;
+                grossAmount: number;
+                netAmount: number;
+                createdAt: string;
+            }[];
+            settlementBatches: {
+                id: string;
+                merchant: string;
+                merchantProfileId: string;
+                cycle: import("@prisma/client").$Enums.SettlementCycle;
+                status: import("@prisma/client").$Enums.SettlementBatchStatus;
+                grossAmount: number;
+                commissionAmount: number;
+                netAmount: number;
+                itemCount: number;
+                periodStart: string;
+                periodEnd: string;
+                processedAt: string | null;
+            }[];
             openPayout: {
-                id: any;
+                id: string;
                 amount: number;
-                status: any;
-                requestedAt: any;
+                status: import("@prisma/client").$Enums.PayoutRequestStatus;
+                requestedAt: string;
             } | null;
         };
     }>;
     settlements(user: RequestUser, query: ListFinanceQueryDto): Promise<{
         success: boolean;
         data: {
-            settlements: any;
+            settlements: {
+                id: string;
+                orderId: string;
+                orderNumber: string;
+                grossAmount: number;
+                deliveryFee: number;
+                platformCommission: number;
+                taxAmount: number;
+                netAmount: number;
+                commissionPercent: number;
+                status: import("@prisma/client").$Enums.SettlementLedgerStatus;
+                eligibleAt: string;
+                settledAt: string | null;
+                createdAt: string;
+            }[];
             meta: {
                 page: number;
                 limit: number;
-                total: any;
+                total: number;
                 totalPages: number;
             };
         };
@@ -55,11 +89,24 @@ export declare class MerchantFinanceController {
     payouts(user: RequestUser, query: ListFinanceQueryDto): Promise<{
         success: boolean;
         data: {
-            payouts: any;
+            payouts: {
+                id: string;
+                amount: number;
+                status: import("@prisma/client").$Enums.PayoutRequestStatus;
+                rejectionReason: string | null;
+                requestedAt: string;
+                reviewedAt: string | null;
+                processedAt: string | null;
+                transaction: {
+                    id: string;
+                    status: import("@prisma/client").$Enums.PayoutTransactionStatus;
+                    referenceId: string | null;
+                } | null;
+            }[];
             meta: {
                 page: number;
                 limit: number;
-                total: any;
+                total: number;
                 totalPages: number;
             };
         };
@@ -67,7 +114,7 @@ export declare class MerchantFinanceController {
     orderBreakdown(user: RequestUser, orderId: string): Promise<{
         success: boolean;
         data: {
-            orderId: any;
+            orderId: string;
             subtotal: number;
             discountAmount: number;
             offerSubsidy: number;
@@ -80,8 +127,8 @@ export declare class MerchantFinanceController {
             netMerchantEarnings: number;
             netPlatformEarnings: number;
             riderPayoutAmount: number;
-            frozenAt: any;
-            storeSnapshot: any;
+            frozenAt: string;
+            storeSnapshot: import("@prisma/client/runtime/library").JsonValue;
         } | null;
     }>;
     downloadStatement(user: RequestUser, res: Response): Promise<void>;

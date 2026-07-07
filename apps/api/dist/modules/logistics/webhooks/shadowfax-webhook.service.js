@@ -9,7 +9,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var ShadowfaxWebhookService_1;
-var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ShadowfaxWebhookService = void 0;
 const common_1 = require("@nestjs/common");
@@ -200,6 +199,8 @@ exports.ShadowfaxWebhookService = ShadowfaxWebhookService;
 exports.ShadowfaxWebhookService = ShadowfaxWebhookService = ShadowfaxWebhookService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        delivery_orchestrator_service_1.DeliveryOrchestratorService, typeof (_a = typeof event_emitter_1.EventEmitter2 !== "undefined" && event_emitter_1.EventEmitter2) === "function" ? _a : Object, typeof (_b = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _b : Object])
+        delivery_orchestrator_service_1.DeliveryOrchestratorService,
+        event_emitter_1.EventEmitter2,
+        config_1.ConfigService])
 ], ShadowfaxWebhookService);
 //# sourceMappingURL=shadowfax-webhook.service.js.map

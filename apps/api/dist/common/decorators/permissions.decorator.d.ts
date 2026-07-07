@@ -1,1 +1,1 @@
-export declare const Permissions: (...permissions: string[]) => any;
+export declare const Permissions: (...permissions: string[]) => import("@nestjs/common").CustomDecorator<string>;

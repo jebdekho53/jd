@@ -13,7 +13,24 @@ export declare class MerchantInventoryController {
     list(user: RequestUser, storeId: string, dto: ListStoreInventoryDto): Promise<{
         success: boolean;
         data: {
-            items: any;
+            items: ({
+                productId: string;
+                productName: string;
+                category: {
+                    id: string;
+                    name: string;
+                } | null;
+                variantId: string;
+                variantName: string;
+                sku: string;
+                availableQty: number;
+                reservedQty: number;
+                soldQty: number;
+                lowStockThreshold: number;
+                status: import("@prisma/client").$Enums.InventoryStatus;
+                stockLevel: import("./inventory.service").StockLevel;
+                isActive: boolean;
+            } | null)[];
             page: number;
             limit: number;
         };

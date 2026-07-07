@@ -26,13 +26,33 @@ export declare class AdminTrackingController {
     getFleetLive(status?: string): Promise<{
         success: boolean;
         data: {
-            riders: any;
+            riders: {
+                id: string;
+                name: string;
+                phone: string;
+                status: string;
+                vehicleType: import("@prisma/client").$Enums.VehicleType;
+                zone: string;
+                location: {
+                    lat: number;
+                    lng: number;
+                    heading: number | null;
+                    speed: number | null;
+                    lastLocationAt: string | null;
+                } | null;
+                currentDelivery: {
+                    orderId: string;
+                    orderNumber: string;
+                    status: import("@prisma/client").$Enums.DeliveryStatus;
+                    etaMins: number | null;
+                } | null;
+            }[];
             stats: {
-                onlineRiders: any;
-                busyRiders: any;
-                offlineRiders: any;
-                activeOrders: any;
-                unassignedOrders: any;
+                onlineRiders: number;
+                busyRiders: number;
+                offlineRiders: number;
+                activeOrders: number;
+                unassignedOrders: number;
             };
             updatedAt: string;
         };
@@ -42,10 +62,13 @@ export declare class AdminTrackingController {
         data: {
             avgEtaMins: number;
             avgDeliveryTimeMins: number;
-            lateDeliveries: any;
-            onlineRiders: any;
-            busyRiders: any;
-            deliveriesPerRider: any;
+            lateDeliveries: number;
+            onlineRiders: number;
+            busyRiders: number;
+            deliveriesPerRider: {
+                riderProfileId: string | null;
+                count: number;
+            }[];
         };
     }>;
 }

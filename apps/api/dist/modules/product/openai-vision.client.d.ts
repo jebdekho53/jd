@@ -1,5 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 export interface AiExtractedProduct {
+    ocrText?: string;
+    inferredFields?: string[];
     name: string;
     brand: string;
     categoryName: string;
@@ -16,6 +18,13 @@ export interface AiExtractedProduct {
     manufacturerName: string | null;
     fssaiLicense: string | null;
     barcode: string | null;
+    sku?: string | null;
+    countryOfOrigin?: string | null;
+    manufacturerAddress?: string | null;
+    storageInstructions?: string | null;
+    disclaimer?: string | null;
+    hsnCode?: string | null;
+    gstPercent?: number | null;
     isSupplement: boolean;
     requiresClearLabel: boolean;
     labelReadable: boolean | null;
@@ -36,8 +45,14 @@ export declare class OpenAiVisionClient {
     assertConfigured(): void;
     analyzeProductImage(imageUrl: string): Promise<AiExtractedProduct>;
     analyzeWithCustomPrompt(imageUrl: string, prompt: string): Promise<Record<string, unknown>>;
+    generateProductImage(prompt: string): Promise<Buffer>;
+    editProductImage(image: Buffer, prompt: string): Promise<Buffer>;
+    private postVisionRequest;
+    private describeOpenAiFailure;
     parseExtractedJson(raw: string): AiExtractedProduct;
     private nullableString;
+    private static readonly PLACEHOLDER_VALUES;
+    private stripPlaceholder;
     private parseNullableNumber;
     private clamp01;
 }

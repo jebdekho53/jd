@@ -68,9 +68,27 @@ export declare class BuyerController {
         success: boolean;
         data: {
             productId: string;
-            storePromotions: any;
-            campaignOffers: any;
-            coupons: any;
+            storePromotions: {
+                id: string;
+                name: string;
+                description: string | null;
+                offerType: import("@prisma/client").$Enums.PromotionOfferType;
+                badge: string;
+            }[];
+            campaignOffers: {
+                id: string;
+                name: string;
+                description: string | null;
+                kind: import("@prisma/client").$Enums.OfferKind;
+                campaignName: string;
+                minOrderAmount: number;
+            }[];
+            coupons: {
+                id: string;
+                code: string;
+                name: string;
+                minOrderAmount: number;
+            }[];
             walletCashbackPercent: number | null;
             walletCashbackEligible: boolean;
             rewardPoints: number | null;
@@ -82,7 +100,7 @@ export declare class BuyerController {
                 description: string | null;
                 kind: string;
             }[];
-            freeDeliveryEligible: any;
+            freeDeliveryEligible: boolean;
         };
     }>;
     listCategoryStores(categoryId: string, dto: DiscoverStoresDto, subcategoryId?: string): Promise<{

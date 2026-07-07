@@ -9,16 +9,25 @@ export declare class AdminLogisticsController {
     dashboard(): Promise<{
         success: boolean;
         data: {
-            registeredProviders: DeliveryProviderType[];
-            activeProvider: DeliveryProviderType;
-            todayShipments: any;
+            registeredProviders: import("@prisma/client").$Enums.DeliveryProviderType[];
+            activeProvider: import("@prisma/client").$Enums.DeliveryProviderType;
+            todayShipments: number;
             successRate: number;
             failureRate: number;
             averageDeliveryCost: number | null;
-            averageEtaMins: any;
-            webhookFailures: any;
-            providerHealth: any;
-            retryQueue: any;
+            averageEtaMins: number | null;
+            webhookFailures: number;
+            providerHealth: {
+                id: string;
+                metadata: import("@prisma/client/runtime/library").JsonValue | null;
+                providerType: import("@prisma/client").$Enums.DeliveryProviderType;
+                latencyMs: number | null;
+                providerId: string;
+                lastError: string | null;
+                isHealthy: boolean;
+                lastCheckedAt: Date;
+            } | null;
+            retryQueue: number;
         };
     }>;
     healthCheck(): Promise<{
@@ -27,12 +36,20 @@ export declare class AdminLogisticsController {
             healthy: boolean;
             latencyMs?: number;
             message?: string;
-            provider: DeliveryProviderType;
+            provider: import("@prisma/client").$Enums.DeliveryProviderType;
         };
     }>;
     recentWebhooks(): Promise<{
         success: boolean;
-        data: any;
+        data: {
+            id: string;
+            eventId: string | null;
+            status: import("@prisma/client").$Enums.ProviderWebhookStatus;
+            errorMessage: string | null;
+            processedAt: Date | null;
+            createdAt: Date;
+            providerType: import("@prisma/client").$Enums.DeliveryProviderType;
+        }[];
     }>;
     retryShipment(shipmentId: string): Promise<{
         success: boolean;

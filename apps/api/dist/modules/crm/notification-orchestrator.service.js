@@ -12,7 +12,6 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 var NotificationOrchestratorService_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationOrchestratorService = void 0;
 const common_1 = require("@nestjs/common");
@@ -233,6 +232,7 @@ exports.NotificationOrchestratorService = NotificationOrchestratorService = Noti
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         email_service_1.EmailService,
         msg91_service_1.Msg91Service,
-        buyer_push_notification_service_1.BuyerPushNotificationService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object])
+        buyer_push_notification_service_1.BuyerPushNotificationService,
+        config_1.ConfigService])
 ], NotificationOrchestratorService);
 //# sourceMappingURL=notification-orchestrator.service.js.map

@@ -4,18 +4,49 @@ export declare class AdminMerchantSuccessService {
     constructor(prisma: PrismaService);
     getDashboard(): Promise<{
         summary: {
-            storesTracked: any;
+            storesTracked: number;
             avgHealthScore: number;
-            atRiskCount: any;
-            topPerformerCount: any;
-            expansionReadyCount: any;
-            fraudProneCount: any;
+            atRiskCount: number;
+            topPerformerCount: number;
+            expansionReadyCount: number;
+            fraudProneCount: number;
         };
-        atRisk: any;
-        topPerformers: any;
-        expansionReady: any;
-        fraudProne: any;
-        alertsByType: any;
+        atRisk: {
+            storeId: string;
+            storeName: string;
+            merchantName: string;
+            phone: string;
+            healthScore: number;
+            visibilityScore: number;
+        }[];
+        topPerformers: {
+            storeId: string;
+            storeName: string;
+            merchantName: string;
+            phone: string;
+            healthScore: number;
+            visibilityScore: number;
+        }[];
+        expansionReady: {
+            storeId: string;
+            storeName: string;
+            merchantName: string;
+            phone: string;
+            healthScore: number;
+            visibilityScore: number;
+        }[];
+        fraudProne: {
+            storeId: string;
+            storeName: string;
+            merchantName: string;
+            phone: string;
+            healthScore: number;
+            visibilityScore: number;
+        }[];
+        alertsByType: {
+            type: import("@prisma/client").$Enums.MerchantGrowthAlertType;
+            count: number;
+        }[];
     }>;
     private mapRow;
 }

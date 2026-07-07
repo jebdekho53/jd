@@ -9,7 +9,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var MerchantAiWalletService_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MerchantAiWalletService = exports.INSUFFICIENT_AI_WALLET_MESSAGE = void 0;
 const common_1 = require("@nestjs/common");
@@ -32,6 +31,9 @@ let MerchantAiWalletService = MerchantAiWalletService_1 = class MerchantAiWallet
     }
     getProductCostPaise() {
         return this.config.get('AI_PRODUCT_ANALYSIS_PRICE_PAISE', 150);
+    }
+    getImageGenerationCostPaise() {
+        return this.config.get('AI_IMAGE_GENERATION_PRICE_PAISE', 500);
     }
     buildDebitIdempotencyKey(merchantProfileId, storeId, analysisId) {
         return `${merchantProfileId}:${storeId}:${analysisId}:AI_PRODUCT_CREATE`;
@@ -275,6 +277,67 @@ let MerchantAiWalletService = MerchantAiWalletService_1 = class MerchantAiWallet
             throw e;
         }
     }
+    async debitForImageGeneration(merchantProfileId, storeId, analysisId, idempotencyToken, userId, ip) {
+        const amountPaise = this.getImageGenerationCostPaise();
+        const idempotencyKey = `${merchantProfileId}:${storeId}:${analysisId}:${idempotencyToken}:AI_IMAGE_GEN`;
+        const existing = await this.prisma.merchantAiWalletTransaction.findUnique({
+            where: { idempotencyKey },
+        });
+        if (existing?.status === client_1.MerchantAiWalletTransactionStatus.SUCCESS) {
+            return {
+                charged: false,
+                amountPaise: existing.amountPaise,
+                transactionId: existing.id,
+                balancePaise: existing.balanceAfterPaise,
+            };
+        }
+        const result = await this.prisma.$transaction(async (tx) => {
+            const wallet = await tx.merchantAiWallet.upsert({
+                where: { merchantProfileId },
+                create: { merchantProfileId },
+                update: {},
+            });
+            if (wallet.balancePaise < amountPaise) {
+                throw new common_1.HttpException({ message: exports.INSUFFICIENT_AI_WALLET_MESSAGE, code: 'INSUFFICIENT_AI_WALLET' }, common_1.HttpStatus.PAYMENT_REQUIRED);
+            }
+            const updatedWallet = await tx.merchantAiWallet.update({
+                where: { merchantProfileId },
+                data: {
+                    balancePaise: { decrement: amountPaise },
+                    totalSpentPaise: { increment: amountPaise },
+                },
+            });
+            const walletTx = await tx.merchantAiWalletTransaction.create({
+                data: {
+                    merchantProfileId,
+                    storeId,
+                    analysisId,
+                    type: client_1.MerchantAiWalletTransactionType.DEBIT,
+                    amountPaise,
+                    balanceBeforePaise: wallet.balancePaise,
+                    balanceAfterPaise: updatedWallet.balancePaise,
+                    status: client_1.MerchantAiWalletTransactionStatus.SUCCESS,
+                    reason: 'AI product image generation',
+                    idempotencyKey,
+                },
+            });
+            return { walletTx, balancePaise: updatedWallet.balancePaise };
+        });
+        await this.audit.log({
+            actorId: userId,
+            action: 'AI_WALLET_DEBIT_IMAGE_GEN',
+            resourceType: 'merchant_ai_wallet_transaction',
+            resourceId: result.walletTx.id,
+            ipAddress: ip,
+            metadata: { analysisId, storeId, amountPaise },
+        });
+        return {
+            charged: true,
+            amountPaise,
+            transactionId: result.walletTx.id,
+            balancePaise: result.balancePaise,
+        };
+    }
     async refundOnProductCreationFailure(merchantProfileId, storeId, analysisId, reason, userId, ip) {
         const debitKey = this.buildDebitIdempotencyKey(merchantProfileId, storeId, analysisId);
         const debit = await this.prisma.merchantAiWalletTransaction.findUnique({
@@ -477,7 +540,9 @@ let MerchantAiWalletService = MerchantAiWalletService_1 = class MerchantAiWallet
 exports.MerchantAiWalletService = MerchantAiWalletService;
 exports.MerchantAiWalletService = MerchantAiWalletService = MerchantAiWalletService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService, typeof (_a = typeof config_1.ConfigService !== "undefined" && config_1.ConfigService) === "function" ? _a : Object, razorpay_service_1.RazorpayService,
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        config_1.ConfigService,
+        razorpay_service_1.RazorpayService,
         audit_service_1.AuditService])
 ], MerchantAiWalletService);
 //# sourceMappingURL=merchant-ai-wallet.service.js.map

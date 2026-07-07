@@ -45,19 +45,19 @@ export declare class PaymentService {
     }>;
     verifyPayment(userId: string, dto: VerifyPaymentDto, ipAddress?: string): Promise<{
         success: boolean;
-        orderId: any;
-        orderNumber: any;
+        orderId: string;
+        orderNumber: string;
         message: string;
     } | {
         success: boolean;
-        orderId: any;
-        orderNumber: any;
+        orderId: string;
+        orderNumber: string;
         message?: undefined;
     }>;
     syncCheckoutPayment(userId: string, checkoutId: string, ipAddress?: string): Promise<{
         success: boolean;
-        orderId: any;
-        orderNumber: any;
+        orderId: string;
+        orderNumber: string;
         message: string;
     }>;
     handleWebhook(rawBody: Buffer, signature: string): Promise<void>;
@@ -65,6 +65,7 @@ export declare class PaymentService {
     private handlePaymentFailed;
     private getBuyerContact;
     private resolvePayerContact;
+    private captureRazorpayContact;
     private finalizeOnlinePayment;
     private buildRazorpayOrderResponse;
     private requireOwnedCheckout;

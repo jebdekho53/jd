@@ -8,7 +8,6 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var _a, _b, _c, _d;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BulkCategoryRequestActionDto = exports.ListCategoryRequestsDto = exports.RevokeCategoryRejectionDto = exports.RequestCategoryDocumentsDto = exports.RejectCategoryRequestDto = exports.UploadCategoryDocumentDto = exports.RequestCategoryAccessDto = exports.RequestStoreCategoryAccessDto = exports.UpdateGlobalCategoryDto = exports.CreateGlobalCategoryDto = void 0;
 const openapi = require("@nestjs/swagger");
@@ -57,7 +56,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.CategoryCatalogKind),
-    __metadata("design:type", typeof (_a = typeof client_1.CategoryCatalogKind !== "undefined" && client_1.CategoryCatalogKind) === "function" ? _a : Object)
+    __metadata("design:type", String)
 ], CreateGlobalCategoryDto.prototype, "catalogKind", void 0);
 class UpdateGlobalCategoryDto {
     static _OPENAPI_METADATA_FACTORY() {
@@ -102,7 +101,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.CategoryCatalogKind),
-    __metadata("design:type", typeof (_b = typeof client_1.CategoryCatalogKind !== "undefined" && client_1.CategoryCatalogKind) === "function" ? _b : Object)
+    __metadata("design:type", String)
 ], UpdateGlobalCategoryDto.prototype, "catalogKind", void 0);
 class RequestStoreCategoryAccessDto {
     static _OPENAPI_METADATA_FACTORY() {
@@ -151,7 +150,7 @@ class UploadCategoryDocumentDto {
 exports.UploadCategoryDocumentDto = UploadCategoryDocumentDto;
 __decorate([
     (0, class_validator_1.IsEnum)(client_1.StoreDocumentType),
-    __metadata("design:type", typeof (_c = typeof client_1.StoreDocumentType !== "undefined" && client_1.StoreDocumentType) === "function" ? _c : Object)
+    __metadata("design:type", String)
 ], UploadCategoryDocumentDto.prototype, "documentType", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
@@ -223,7 +222,7 @@ exports.ListCategoryRequestsDto = ListCategoryRequestsDto;
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.StoreCategoryRequestStatus),
-    __metadata("design:type", typeof (_d = typeof client_1.StoreCategoryRequestStatus !== "undefined" && client_1.StoreCategoryRequestStatus) === "function" ? _d : Object)
+    __metadata("design:type", String)
 ], ListCategoryRequestsDto.prototype, "status", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),

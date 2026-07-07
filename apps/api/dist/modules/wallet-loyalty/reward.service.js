@@ -9,7 +9,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var RewardService_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RewardService = void 0;
 const common_1 = require("@nestjs/common");
@@ -270,6 +269,8 @@ exports.RewardService = RewardService = RewardService_1 = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         reward_config_service_1.RewardConfigService,
         wallet_service_1.WalletService,
-        domain_events_service_1.DomainEventsService, typeof (_a = typeof event_emitter_1.EventEmitter2 !== "undefined" && event_emitter_1.EventEmitter2) === "function" ? _a : Object, membership_benefit_service_1.MembershipBenefitService])
+        domain_events_service_1.DomainEventsService,
+        event_emitter_1.EventEmitter2,
+        membership_benefit_service_1.MembershipBenefitService])
 ], RewardService);
 //# sourceMappingURL=reward.service.js.map

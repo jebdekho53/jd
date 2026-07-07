@@ -9,7 +9,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var WalletService_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WalletService = void 0;
 const common_1 = require("@nestjs/common");
@@ -220,6 +219,7 @@ exports.WalletService = WalletService;
 exports.WalletService = WalletService = WalletService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        domain_events_service_1.DomainEventsService, typeof (_a = typeof event_emitter_1.EventEmitter2 !== "undefined" && event_emitter_1.EventEmitter2) === "function" ? _a : Object])
+        domain_events_service_1.DomainEventsService,
+        event_emitter_1.EventEmitter2])
 ], WalletService);
 //# sourceMappingURL=wallet.service.js.map

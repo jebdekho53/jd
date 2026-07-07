@@ -9,7 +9,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var DeliveryTrackingService_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeliveryTrackingService = void 0;
 const common_1 = require("@nestjs/common");
@@ -668,7 +667,9 @@ __decorate([
 ], DeliveryTrackingService.prototype, "summarizeOldRoutes", null);
 exports.DeliveryTrackingService = DeliveryTrackingService = DeliveryTrackingService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService, typeof (_a = typeof event_emitter_1.EventEmitter2 !== "undefined" && event_emitter_1.EventEmitter2) === "function" ? _a : Object, delivery_tracking_cache_service_1.DeliveryTrackingCacheService,
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        event_emitter_1.EventEmitter2,
+        delivery_tracking_cache_service_1.DeliveryTrackingCacheService,
         order_cache_service_1.OrderCacheService])
 ], DeliveryTrackingService);
 //# sourceMappingURL=delivery-tracking.service.js.map

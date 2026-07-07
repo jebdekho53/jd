@@ -19,16 +19,48 @@ export declare class FinanceService {
     private readonly exports;
     constructor(prisma: PrismaService, settlement: SettlementService, ledger: LedgerService, cache: FinanceCacheService, alerts: FinanceAlertService, cod: CodReconciliationService, batches: SettlementBatchService, riderPayouts: RiderPayoutService, exports: FinanceExportService);
     getControlTower(): Promise<{
-        revenue: any;
-        settlement: any;
-        cod: any;
-        ledgerBalances: any;
+        revenue: Record<string, number>;
+        settlement: {
+            pendingPayouts: number;
+            completedPayouts: number;
+            totalMerchantLiability: number;
+            availableLiability: number;
+            pendingLiability: number;
+            totalSettledToday: number;
+            settlementsSettledToday: number;
+        };
+        cod: {
+            codPending: number;
+            codPendingCount: number;
+            codSubmitted: number;
+            codSubmittedCount: number;
+            codDeposited: number;
+            codVerifiedCount: number;
+            mismatchCount: number;
+        };
+        ledgerBalances: {
+            code: string;
+            name: string;
+            debit: number;
+            credit: number;
+            balance: number;
+        }[];
         walletLiability: number;
-        refundOrderCount: any;
-        escrowBalance: any;
-        merchantPayable: any;
+        refundOrderCount: number;
+        escrowBalance: number;
+        merchantPayable: number;
     }>;
-    getAlerts(): Promise<any>;
+    getAlerts(): Promise<{
+        message: string;
+        id: string;
+        status: import("@prisma/client").$Enums.FinanceAlertStatus;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
+        severity: import("@prisma/client").$Enums.FinanceAlertSeverity;
+        title: string;
+        resolvedAt: Date | null;
+        alertType: import("@prisma/client").$Enums.FinanceAlertType;
+    }[]>;
     runHealthChecks(): Promise<{
         negativeBalances: number;
         codMismatches: number;

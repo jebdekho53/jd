@@ -21,16 +21,16 @@ export declare class FoodPaymentService {
     private readonly logger;
     constructor(prisma: PrismaService, razorpay: RazorpayService, foodCheckout: FoodCheckoutService, audit: AuditService, domainEvents: DomainEventsService, statusHistory: OrderStatusHistoryService, emailNotifications: EmailNotificationService, buyerPush: BuyerPushNotificationService, orderCache: OrderCacheService);
     createRazorpayOrder(userId: string, foodCheckoutId: string, ipAddress?: string): Promise<{
-        foodCheckoutId: any;
-        orderId: any;
-        orderNumber: any;
-        razorpayOrderId: any;
+        foodCheckoutId: string;
+        orderId: string;
+        orderNumber: string;
+        razorpayOrderId: string | null;
         keyId: string;
         amount: number;
         currency: string;
     } | {
-        foodCheckoutId: any;
-        razorpayOrderId: any;
+        foodCheckoutId: string;
+        razorpayOrderId: string;
         keyId: string;
         amount: number;
         currency: string;
@@ -39,24 +39,24 @@ export declare class FoodPaymentService {
     }>;
     verifyPayment(userId: string, dto: VerifyFoodPaymentDto, ipAddress?: string): Promise<{
         success: boolean;
-        orderId: any;
-        orderNumber: any;
+        orderId: string;
+        orderNumber: string;
         message: string;
     } | {
         success: boolean;
-        orderId: any;
-        orderNumber: any;
+        orderId: string;
+        orderNumber: string;
         message?: undefined;
     }>;
     syncPayment(userId: string, foodCheckoutId: string, ipAddress?: string): Promise<{
         success: boolean;
-        orderId: any;
-        orderNumber: any;
+        orderId: string;
+        orderNumber: string;
         message: string;
     } | {
         success: boolean;
-        orderId: any;
-        orderNumber: any;
+        orderId: string;
+        orderNumber: string;
         message?: undefined;
     }>;
     finalizeFromWebhook(razorpayOrderId: string, razorpayPaymentId: string): Promise<void>;

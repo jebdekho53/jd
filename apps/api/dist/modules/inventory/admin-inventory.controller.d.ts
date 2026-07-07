@@ -6,7 +6,23 @@ export declare class AdminInventoryController {
     list(dto: ListAdminInventoryDto): Promise<{
         success: boolean;
         data: {
-            items: any;
+            items: {
+                productId: string;
+                productName: string;
+                storeId: string;
+                storeName: string;
+                variantId: string;
+                sku: string;
+                availableQty: number;
+                reservedQty: number;
+                soldQty: number;
+                lowStockThreshold: number;
+                status: import("@prisma/client").$Enums.InventoryStatus;
+                stockLevel: import("./inventory.service").StockLevel;
+                fssaiLicense: string | null;
+                countryOfOrigin: string | null;
+                shelfLife: string | null;
+            }[];
             page: number;
             limit: number;
         };
@@ -18,9 +34,20 @@ export declare class AdminInventoryController {
             totalReserved: number;
             totalSold: number;
             stockValue: number;
-            lowStockCount: any;
-            fastMoving: any;
-            slowMoving: any;
+            lowStockCount: number;
+            fastMoving: {
+                productName: string;
+                storeName: string;
+                sku: string;
+                soldQty: number;
+                availableQty: number;
+            }[];
+            slowMoving: {
+                productName: string;
+                storeName: string;
+                sku: string;
+                availableQty: number;
+            }[];
         };
     }>;
 }

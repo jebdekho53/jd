@@ -12,7 +12,6 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 var AnalyticsGateway_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AnalyticsGateway = exports.ANALYTICS_EVENTS = void 0;
 const common_1 = require("@nestjs/common");
@@ -66,7 +65,7 @@ let AnalyticsGateway = AnalyticsGateway_1 = class AnalyticsGateway {
 exports.AnalyticsGateway = AnalyticsGateway;
 __decorate([
     (0, websockets_1.WebSocketServer)(),
-    __metadata("design:type", typeof (_a = typeof socket_io_1.Server !== "undefined" && socket_io_1.Server) === "function" ? _a : Object)
+    __metadata("design:type", socket_io_1.Server)
 ], AnalyticsGateway.prototype, "server", void 0);
 __decorate([
     (0, websockets_1.SubscribeMessage)('subscribe'),

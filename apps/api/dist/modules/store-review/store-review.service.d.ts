@@ -139,21 +139,85 @@ export declare class StoreReviewService {
         updatedAt: any;
     }>;
     listPublicStoreReviews(storeSlug: string, dto: ListStoreReviewsDto): Promise<{
-        reviews: any;
-        total: any;
+        reviews: {
+            id: any;
+            orderId: any;
+            storeId: any;
+            rating: any;
+            storeExperience: any;
+            deliveryExperience: any;
+            productQuality: any;
+            title: any;
+            review: any;
+            images: any;
+            verifiedPurchase: any;
+            merchantReply: any;
+            merchantRepliedAt: any;
+            status: any;
+            reportedAt: any;
+            reportReason: any;
+            buyer: {
+                id: any;
+                name: any;
+            } | null;
+            order: {
+                id: any;
+                orderNumber: any;
+            } | null;
+            store: {
+                id: any;
+                name: any;
+                slug: any;
+            } | null;
+            createdAt: any;
+            updatedAt: any;
+        }[];
+        total: number;
         page: number;
         limit: number;
     }>;
     getPublicStoreReputation(storeSlug: string): Promise<import("./store-reputation.service").StoreReputationView>;
     listMerchantReviews(userId: string, storeId: string, dto: ListStoreReviewsDto): Promise<{
-        reviews: any;
-        total: any;
+        reviews: {
+            id: any;
+            orderId: any;
+            storeId: any;
+            rating: any;
+            storeExperience: any;
+            deliveryExperience: any;
+            productQuality: any;
+            title: any;
+            review: any;
+            images: any;
+            verifiedPurchase: any;
+            merchantReply: any;
+            merchantRepliedAt: any;
+            status: any;
+            reportedAt: any;
+            reportReason: any;
+            buyer: {
+                id: any;
+                name: any;
+            } | null;
+            order: {
+                id: any;
+                orderNumber: any;
+            } | null;
+            store: {
+                id: any;
+                name: any;
+                slug: any;
+            } | null;
+            createdAt: any;
+            updatedAt: any;
+        }[];
+        total: number;
         page: number;
         limit: number;
     }>;
     getMerchantOverview(userId: string, storeId: string): Promise<{
-        lowRatingAlerts: any;
-        recentReviews: any;
+        lowRatingAlerts: number;
+        recentReviews: number;
         averageRating: number;
         totalReviews: number;
         distribution: Record<"1" | "2" | "3" | "4" | "5", number>;
@@ -198,8 +262,40 @@ export declare class StoreReviewService {
     listAdminReviews(dto: ListStoreReviewsDto & {
         status?: ReviewStatus;
     }): Promise<{
-        reviews: any;
-        total: any;
+        reviews: {
+            id: any;
+            orderId: any;
+            storeId: any;
+            rating: any;
+            storeExperience: any;
+            deliveryExperience: any;
+            productQuality: any;
+            title: any;
+            review: any;
+            images: any;
+            verifiedPurchase: any;
+            merchantReply: any;
+            merchantRepliedAt: any;
+            status: any;
+            reportedAt: any;
+            reportReason: any;
+            buyer: {
+                id: any;
+                name: any;
+            } | null;
+            order: {
+                id: any;
+                orderNumber: any;
+            } | null;
+            store: {
+                id: any;
+                name: any;
+                slug: any;
+            } | null;
+            createdAt: any;
+            updatedAt: any;
+        }[];
+        total: number;
         page: number;
         limit: number;
     }>;
@@ -237,13 +333,25 @@ export declare class StoreReviewService {
         updatedAt: any;
     }>;
     getPlatformAnalytics(): Promise<{
-        platformRating: any;
-        totalReviews: any;
+        platformRating: number;
+        totalReviews: number;
         distribution: {
-            [k: string]: any;
+            [k: string]: number;
         };
-        worstRatedStores: any;
-        bestRatedStores: any;
+        worstRatedStores: {
+            id: string;
+            name: string;
+            ratingAvg: number;
+            ratingCount: number;
+            slug: string;
+        }[];
+        bestRatedStores: {
+            id: string;
+            name: string;
+            ratingAvg: number;
+            ratingCount: number;
+            slug: string;
+        }[];
     }>;
     private listStoreReviews;
     private serializeReview;

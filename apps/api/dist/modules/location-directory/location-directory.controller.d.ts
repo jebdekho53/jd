@@ -10,14 +10,30 @@ export declare class LocationDirectoryController {
     filters(): Promise<{
         success: boolean;
         data: {
-            states: any;
-            districts: any;
-            cities: any;
+            states: {
+                id: string;
+                name: string;
+                code: string;
+                slug: string;
+            }[];
+            districts: {
+                id: string;
+                name: string;
+                slug: string;
+                stateId: string;
+            }[];
+            cities: {
+                id: string;
+                name: string;
+                slug: string;
+                stateId: string;
+                districtId: string;
+            }[];
         };
     }>;
     byPincode(pincode: string): Promise<{
         success: boolean;
-        data: any;
+        data: import("./location-directory.service").LocationSearchResult[];
     }>;
     bySlug(slug: string): Promise<{
         success: boolean;

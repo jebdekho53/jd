@@ -11,7 +11,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MerchantFoodOrderController = exports.MerchantRestaurantController = void 0;
 const openapi = require("@nestjs/swagger");
@@ -192,7 +191,7 @@ __decorate([
     __param(2, (0, common_1.Param)('orderId')),
     __param(3, (0, common_1.Body)('status')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String, typeof (_a = typeof client_1.FoodKitchenStatus !== "undefined" && client_1.FoodKitchenStatus) === "function" ? _a : Object]),
+    __metadata("design:paramtypes", [Object, String, String, String]),
     __metadata("design:returntype", Promise)
 ], MerchantRestaurantController.prototype, "updateKitchenStatus", null);
 __decorate([
