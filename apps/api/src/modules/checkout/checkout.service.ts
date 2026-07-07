@@ -609,6 +609,12 @@ export class CheckoutService {
             line2: address.line2,
             city: address.city,
             pincode: address.pincode,
+            // Persist the real delivery contact so it reaches the courier
+            // (Shadowfax) instead of a placeholder number.
+            recipientName: cart?.payerContact?.name ?? undefined,
+            phone: cart?.payerContact?.phone
+              ? String(cart.payerContact.phone).replace(/\D/g, '').slice(-10)
+              : undefined,
           },
           deliveryLat: address.lat ?? 0,
           deliveryLng: address.lng ?? 0,

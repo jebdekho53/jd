@@ -507,6 +507,75 @@ export class PaymentService {
     return this.getBuyerContact(userId);
   }
 
+  /**
+   * Fetch the phone number the customer actually entered in the Razorpay modal
+   * and persist it to the order's delivery address + the checkout snapshot's
+   * payerContact, so the delivery courier (Shadowfax) receives the real client
+   * number instead of a placeholder. Best-effort — never blocks the payment.
+   */
+  private async captureRazorpayContact(opts: {
+    orderId: string;
+    checkoutId: string;
+    paymentId: string;
+    razorpayPaymentId: string;
+  }): Promise<void> {
+    try {
+      const payment = await this.prisma.payment.findUnique({
+        where: { id: opts.paymentId },
+        select: { razorpayOrderId: true },
+      });
+      if (!payment?.razorpayOrderId) return;
+
+      const payments = await this.razorpay.fetchOrderPayments(payment.razorpayOrderId);
+      const match =
+        payments.find((p) => p.id === opts.razorpayPaymentId) ??
+        payments.find((p) => p.status === 'captured') ??
+        payments[0];
+      const contact = (match?.contact ?? '').replace(/\D/g, '').slice(-10);
+      if (contact.length !== 10) return;
+
+      const order = await this.prisma.order.findUnique({
+        where: { id: opts.orderId },
+        select: { deliveryAddress: true },
+      });
+      if (order?.deliveryAddress && typeof order.deliveryAddress === 'object') {
+        const addr = { ...(order.deliveryAddress as Record<string, unknown>), phone: contact };
+        await this.prisma.order.update({
+          where: { id: opts.orderId },
+          data: { deliveryAddress: addr as Prisma.InputJsonValue },
+        });
+      }
+
+      const checkout = await this.prisma.checkout.findUnique({
+        where: { id: opts.checkoutId },
+        select: { cartSnapshot: true },
+      });
+      if (checkout?.cartSnapshot) {
+        const wasString = typeof checkout.cartSnapshot === 'string';
+        const snap = (
+          wasString
+            ? JSON.parse(checkout.cartSnapshot as string)
+            : { ...(checkout.cartSnapshot as Record<string, unknown>) }
+        ) as Record<string, unknown>;
+        snap.payerContact = {
+          ...((snap.payerContact as Record<string, unknown> | undefined) ?? {}),
+          phone: contact,
+        };
+        await this.prisma.checkout.update({
+          where: { id: opts.checkoutId },
+          data: {
+            cartSnapshot: (wasString ? JSON.stringify(snap) : snap) as Prisma.InputJsonValue,
+          },
+        });
+      }
+    } catch (err) {
+      this.logger.warn(
+        { err, orderId: opts.orderId },
+        'Failed to capture Razorpay contact number (non-fatal)',
+      );
+    }
+  }
+
   private async finalizeOnlinePayment(opts: {
     userId: string;
     checkout: {
@@ -537,6 +606,16 @@ export class PaymentService {
         where: { id: opts.checkout.id },
         data: { status: CheckoutStatus.COMPLETED },
       });
+    });
+
+    // Capture the ACTUAL number the customer used at Razorpay and persist it to
+    // the order + checkout snapshot BEFORE the ORDER_CREATED/PAYMENT_SUCCESS
+    // events fire the delivery shipment — so the courier gets the real number.
+    await this.captureRazorpayContact({
+      orderId: order.id,
+      checkoutId: opts.checkout.id,
+      paymentId: opts.payment.id,
+      razorpayPaymentId: opts.razorpayPaymentId,
     });
 
     await this.statusHistory.transition({
