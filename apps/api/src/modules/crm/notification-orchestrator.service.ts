@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NotificationChannel, NotificationDeliveryStatus, NotificationType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { EmailService } from '../email/email.service';
-import { Msg91Service } from '../auth/msg91.service';
+import { WhatsAppService } from '../auth/whatsapp.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 import type { BuyerPushKind } from '../push/buyer-push.events';
 import { getConfig } from '../../config/configuration';
@@ -26,7 +26,7 @@ export class NotificationOrchestratorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
-    private readonly sms: Msg91Service,
+    private readonly whatsapp: WhatsAppService,
     @Inject(forwardRef(() => BuyerPushNotificationService))
     private readonly buyerPush: BuyerPushNotificationService,
     configService: ConfigService,
@@ -156,8 +156,9 @@ export class NotificationOrchestratorService {
           break;
         case NotificationChannel.SMS:
         case NotificationChannel.WHATSAPP:
+          // MSG91/SMS retired — all mobile messaging goes over WhatsApp Cloud API.
           if (!user.phone) throw new Error('No phone on file');
-          await this.sms.sendTransactional(user.phone, body);
+          await this.whatsapp.sendText(user.phone, body);
           break;
         case NotificationChannel.PUSH:
           await this.buyerPush.sendGeneric(

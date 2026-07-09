@@ -28,8 +28,15 @@ export function PdpDetailsSection({ product }: PdpDetailsSectionProps) {
         return val != null && String(val).trim() !== '';
       })
     : [];
+  const hasSpecs = Array.isArray(product.specifications) && product.specifications.length > 0;
   const hasContent =
-    Boolean(product.description) || tags.length > 0 || metaRows.length > 0 || meta?.taxInclusive;
+    Boolean(product.description) ||
+    tags.length > 0 ||
+    metaRows.length > 0 ||
+    meta?.taxInclusive ||
+    Boolean(product.modelNumber) ||
+    (product.warrantyMonths != null && product.warrantyMonths > 0) ||
+    hasSpecs;
 
   if (!hasContent) return null;
 
@@ -68,6 +75,20 @@ export function PdpDetailsSection({ product }: PdpDetailsSectionProps) {
             <dd className="font-medium text-jd-text-primary">{product.brand}</dd>
           </div>
         )}
+        {product.modelNumber && (
+          <div>
+            <dt className="text-jd-text-muted">Model</dt>
+            <dd className="font-medium text-jd-text-primary">{product.modelNumber}</dd>
+          </div>
+        )}
+        {product.warrantyMonths != null && product.warrantyMonths > 0 && (
+          <div>
+            <dt className="text-jd-text-muted">Warranty</dt>
+            <dd className="font-medium text-jd-text-primary">
+              {product.warrantyMonths} month{product.warrantyMonths > 1 ? 's' : ''}
+            </dd>
+          </div>
+        )}
         {product.category && (
           <div>
             <dt className="text-jd-text-muted">Category</dt>
@@ -91,6 +112,23 @@ export function PdpDetailsSection({ product }: PdpDetailsSectionProps) {
           </div>
         ))}
       </dl>
+
+      {Array.isArray(product.specifications) && product.specifications.length > 0 && (
+        <div className="mt-5 border-t border-border pt-4">
+          <h3 className="mb-3 text-sm font-semibold text-jd-text-primary">Specifications</h3>
+          <dl className="overflow-hidden rounded-xl border border-border">
+            {product.specifications.map((spec, i) => (
+              <div
+                key={i}
+                className={`grid grid-cols-3 gap-2 px-3 py-2 text-sm ${i % 2 === 0 ? 'bg-cream-3' : 'bg-card'}`}
+              >
+                <dt className="text-jd-text-muted">{spec.label}</dt>
+                <dd className="col-span-2 font-medium text-jd-text-primary">{spec.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
     </section>
   );
 }

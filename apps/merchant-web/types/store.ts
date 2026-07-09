@@ -71,6 +71,9 @@ export interface Store {
   minOrderAmount: number;
   deliveryFee: number;
   avgPrepTimeMins: number;
+  deliveryRadiusKm: number;
+  deliveryMode: 'PLATFORM' | 'SELF';
+  freeDeliveryThreshold: number | null;
   rejectionReason: string | null;
   rejectionType: RejectionType | null;
   documentRequestReason: string | null;
@@ -109,11 +112,14 @@ export interface CreateStorePayload {
   minOrderAmount?: number;
   deliveryFee?: number;
   avgPrepTimeMins?: number;
+  deliveryRadiusKm?: number;
 }
 
 export interface UpdateStorePayload extends Partial<CreateStorePayload> {
   isActive?: boolean;
   hours?: StoreHour[];
+  deliveryMode?: 'PLATFORM' | 'SELF';
+  freeDeliveryThreshold?: number | null;
 }
 
 export interface UploadVerificationDocumentPayload {

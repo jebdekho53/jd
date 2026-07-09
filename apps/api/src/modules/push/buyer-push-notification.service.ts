@@ -10,6 +10,7 @@ import {
   type BuyerPushNotificationPayload,
 } from './push-payload.builder';
 import { WebPushService } from './web-push.service';
+import { WhatsAppService } from '../auth/whatsapp.service';
 
 @Injectable()
 export class BuyerPushNotificationService {
@@ -21,9 +22,28 @@ export class BuyerPushNotificationService {
     private readonly webPush: WebPushService,
     @Inject(forwardRef(() => NotificationOrchestratorService))
     private readonly notifications: NotificationOrchestratorService,
+    private readonly whatsapp: WhatsAppService,
     configService: ConfigService,
   ) {
     this.buyerSiteUrl = configService.get<string>('BUYER_SITE_URL', 'https://jebdekho.com').replace(/\/$/, '');
+  }
+
+  /**
+   * Send an order-update message over WhatsApp (Meta Cloud API). Auto-gated: a
+   * no-op when WhatsApp isn't configured, so it never blocks the order flow.
+   */
+  private async sendOrderSms(orderId: string, message: string): Promise<void> {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { buyerProfile: { select: { user: { select: { phone: true } } } } },
+      });
+      const phone = order?.buyerProfile?.user?.phone;
+      if (!phone) return;
+      await this.whatsapp.sendText(phone, message);
+    } catch (err) {
+      this.logger.warn(`Order WhatsApp failed for ${orderId}: ${(err as Error).message}`);
+    }
   }
 
   async sendToUser(userId: string, kind: BuyerPushKind, payload: BuyerPushNotificationPayload): Promise<void> {
@@ -120,6 +140,10 @@ export class BuyerPushNotificationService {
         orderId,
       }),
     );
+    void this.sendOrderSms(
+      orderId,
+      `JebDekho: Order #${order.orderNumber} confirmed! The store is preparing it. Track at ${this.buyerSiteUrl}/orders`,
+    );
   }
 
   async notifyReadyForPickup(orderId: string): Promise<void> {
@@ -162,6 +186,10 @@ export class BuyerPushNotificationService {
         orderId,
       }),
     );
+    void this.sendOrderSms(
+      orderId,
+      `JebDekho: Order #${order.orderNumber} is out for delivery and arriving soon!`,
+    );
   }
 
   async notifyDelivered(orderId: string): Promise<void> {
@@ -175,6 +203,10 @@ export class BuyerPushNotificationService {
         body: `Order #${order.orderNumber} has been delivered. Enjoy!`,
         orderId,
       }),
+    );
+    void this.sendOrderSms(
+      orderId,
+      `JebDekho: Order #${order.orderNumber} delivered. Thank you for ordering! Reorder anytime at ${this.buyerSiteUrl}/orders`,
     );
   }
 

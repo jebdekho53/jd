@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
-import { PHONE_E164_REGEX } from '../../../common/constants';
+import { INDIAN_PHONE_REGEX } from '../../../common/constants';
 
 export class RequestOtpDto {
   @ApiProperty({
@@ -9,8 +9,8 @@ export class RequestOtpDto {
     required: false,
   })
   @ValidateIf((o: RequestOtpDto) => !o.email)
-  @Matches(PHONE_E164_REGEX, {
-    message: 'Phone must be in E.164 format (e.g. +919876543210)',
+  @Matches(INDIAN_PHONE_REGEX, {
+    message: 'Phone must be a valid Indian mobile number (e.g. +919876543210)',
   })
   phone?: string;
 

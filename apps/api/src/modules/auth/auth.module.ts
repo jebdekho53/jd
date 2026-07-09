@@ -4,7 +4,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { getConfig } from '../../config/configuration';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { Msg91Service } from './msg91.service';
 import { WhatsAppService } from './whatsapp.service';
 import { OtpService } from './otp.service';
 import { TokenService } from './token.service';
@@ -45,7 +44,6 @@ import { PasswordService } from './password.service';
   controllers: [AuthController],
   providers: [
     JwtStrategy,
-    Msg91Service,
     WhatsAppService,
     OtpService,
     TokenService,
@@ -64,7 +62,7 @@ import { PasswordService } from './password.service';
     PermissionsGuard,
     TokenService,
     AuthService,
-    Msg91Service,
+    WhatsAppService,
   ],
 })
 export class AuthModule {}

@@ -125,8 +125,8 @@ describe('AuthService', () => {
   });
 
   describe('requestOtp', () => {
-    it('rejects phone OTP when AUTH_PHONE_OTP_ENABLED=false', async () => {
-      service = await createService({ AUTH_PHONE_OTP_ENABLED: 'false' });
+    it('rejects phone OTP when WhatsApp is not configured', async () => {
+      service = await createService({ ENABLE_WHATSAPP_OTP: 'false', WHATSAPP_ACCESS_TOKEN: '', WHATSAPP_PHONE_NUMBER_ID: '' });
 
       await expect(service.requestOtp({ phone: '+919876543210' }, '127.0.0.1')).rejects.toThrow(
         ServiceUnavailableException,
@@ -268,7 +268,7 @@ describe('AuthService', () => {
 
   describe('forgotPassword', () => {
     it('rejects mobile reset when phone OTP is disabled', async () => {
-      service = await createService({ AUTH_PHONE_OTP_ENABLED: 'false' });
+      service = await createService({ ENABLE_WHATSAPP_OTP: 'false', WHATSAPP_ACCESS_TOKEN: '', WHATSAPP_PHONE_NUMBER_ID: '' });
 
       await expect(service.forgotPassword({ phone: '+919876543210' })).rejects.toThrow(
         ServiceUnavailableException,

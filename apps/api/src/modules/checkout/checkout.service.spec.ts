@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CheckoutStatus, PaymentMethod, PaymentStatus, OrderStatus, StoreStatus } from '@prisma/client';
 import { CheckoutService } from './checkout.service';
@@ -68,7 +69,7 @@ const mockPrisma = {
     update: jest.fn(),
     findUnique: jest.fn(),
   },
-  store: { findFirst: jest.fn() },
+  store: { findFirst: jest.fn(), findUnique: jest.fn() },
   productVariant: { findFirst: jest.fn() },
   order: {
     create: jest.fn(),
@@ -110,6 +111,7 @@ describe('CheckoutService', () => {
       providers: [
         CheckoutService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: ConfigService, useValue: { get: (_key: string, def?: unknown) => def } },
         { provide: CartService, useValue: mockCartService },
         { provide: ReservationService, useValue: mockReservation },
         { provide: AuditService, useValue: mockAudit },

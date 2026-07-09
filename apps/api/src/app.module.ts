@@ -1,3 +1,4 @@
+import { envInt } from './config/env-int.util';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
@@ -103,8 +104,8 @@ import { RequestIdInterceptor } from './common/interceptors/request-id.intercept
         throttlers: [
           {
             name: 'default',
-            ttl: config.get<number>('THROTTLE_TTL', 60000),
-            limit: config.get<number>('THROTTLE_LIMIT', 100),
+            ttl: envInt(config, 'THROTTLE_TTL', 60000),
+            limit: envInt(config, 'THROTTLE_LIMIT', 100),
           },
         ],
       }),

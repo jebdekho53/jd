@@ -39,6 +39,19 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   // --------------------------------------------------------------------------
+  // GET /auth/capabilities — public, so the web apps can discover at runtime
+  // whether phone OTP / WhatsApp is live (auto-derived from MSG91 credentials)
+  // instead of relying on a build-time NEXT_PUBLIC flag.
+  // --------------------------------------------------------------------------
+  @Public()
+  @Get('capabilities')
+  @ApiOperation({ summary: 'Public auth capabilities (email/phone OTP/WhatsApp)' })
+  @ApiResponse({ status: 200, description: 'Auth capabilities' })
+  getCapabilities() {
+    return { success: true, data: this.authService.getAuthCapabilities() };
+  }
+
+  // --------------------------------------------------------------------------
   // POST /auth/request-otp
   // --------------------------------------------------------------------------
   @Public()

@@ -62,6 +62,23 @@ export class CartController {
     return { success: true, data };
   }
 
+  @Post('reorder/:orderId')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'orderId', description: 'Past order to reorder from' })
+  @ApiOperation({
+    summary: 'Reorder — rebuild the cart from a past order',
+    description: 'Replaces the current cart with the order\'s items. Unavailable items are skipped.',
+  })
+  @ApiResponse({ status: 200, description: 'Updated cart with added/skipped counts' })
+  async reorder(
+    @CurrentUser() user: RequestUser,
+    @Param('orderId') orderId: string,
+    @Ip() ip: string,
+  ) {
+    const data = await this.cartService.reorderFromOrder(user.id, orderId, ip);
+    return { success: true, data };
+  }
+
   @Patch('items/:id')
   @ApiParam({ name: 'id', description: 'Cart item ID' })
   @ApiOperation({

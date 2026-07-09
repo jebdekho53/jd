@@ -29,6 +29,8 @@ const schema = z.object({
   name: z.string().min(2).max(200),
   description: z.string().max(2000).optional(),
   brand: z.string().max(100).optional(),
+  modelNumber: z.string().max(120).optional(),
+  warrantyMonths: z.coerce.number().min(0).max(120).optional(),
   sku: z.string().regex(/^[A-Za-z0-9_-]{2,50}$/).optional().or(z.literal('')),
   parentCategoryId: z.string().optional(),
   subCategoryId: z.string().optional(),
@@ -91,6 +93,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
   const { data: catalogProducts } = useProductsQuery(storeId, { limit: 100 });
   const { data: categories } = useApprovedCategoriesQuery(storeId);
   const [hsn, setHsn] = useState<HsnOption | null>(null);
+  const [specs, setSpecs] = useState<{ label: string; value: string }[]>([]);
   const [taxCategory, setTaxCategory] = useState<'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED'>('GOODS');
   const [hsnError, setHsnError] = useState<string | null>(null);
   const [fssaiError, setFssaiError] = useState<string | null>(null);
@@ -158,10 +161,13 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         editProduct.categoryId,
         categories ?? [],
       );
+      setSpecs(Array.isArray(editProduct.specifications) ? editProduct.specifications : []);
       reset({
         name: editProduct.name,
         description: editProduct.description ?? '',
         brand: editProduct.brand ?? '',
+        modelNumber: editProduct.modelNumber ?? '',
+        warrantyMonths: editProduct.warrantyMonths ?? undefined,
         sku: editProduct.sku ?? '',
         parentCategoryId: parentId,
         subCategoryId: subId,
@@ -270,9 +276,18 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
       const { parentCategoryId: _p, subCategoryId: _s, imageUrl, taxInclusive, fssaiLicense, ...rest } = data;
       const resolvedFssai =
         needsFssai ? (fssaiLicense?.trim() || storeDefaultFssai) : fssaiLicense?.trim() || undefined;
+      const cleanSpecs = specs
+        .map((s) => ({ label: s.label.trim(), value: s.value.trim() }))
+        .filter((s) => s.label && s.value);
       const payload = {
         ...rest,
         sku: data.sku || undefined,
+        modelNumber: data.modelNumber?.trim() || undefined,
+        warrantyMonths:
+          data.warrantyMonths != null && !Number.isNaN(data.warrantyMonths) && data.warrantyMonths > 0
+            ? data.warrantyMonths
+            : undefined,
+        specifications: cleanSpecs.length > 0 ? cleanSpecs : undefined,
         categoryId,
         imageUrls: [imageUrl],
         taxInclusive: taxInclusive ?? false,
@@ -342,6 +357,55 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
           <Input label="Brand" {...register('brand')} />
           <Input label="SKU" placeholder="e.g. AMUL-MILK" {...register('sku')} error={errors.sku?.message} />
         </div>
+
+        {/* Electronics / gadgets — optional. Fill for phones, appliances, gadgets. */}
+        <details className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <summary className="cursor-pointer text-sm font-medium text-slate-700">
+            Electronics details (model, warranty, specs) — optional
+          </summary>
+          <div className="mt-3 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Model number" placeholder="e.g. SM-A546E" {...register('modelNumber')} />
+              <Input label="Warranty (months)" type="number" placeholder="e.g. 12" {...register('warrantyMonths')} error={errors.warrantyMonths?.message} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Specifications</label>
+              <div className="space-y-2">
+                {specs.map((s, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input
+                      className="w-1/3 rounded-lg border px-3 py-2 text-sm"
+                      placeholder="Label (e.g. RAM)"
+                      value={s.label}
+                      onChange={(e) => setSpecs((cur) => cur.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+                    />
+                    <input
+                      className="flex-1 rounded-lg border px-3 py-2 text-sm"
+                      placeholder="Value (e.g. 8 GB)"
+                      value={s.value}
+                      onChange={(e) => setSpecs((cur) => cur.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSpecs((cur) => cur.filter((_, j) => j !== i))}
+                      className="rounded-lg border px-2 text-sm text-red-600"
+                      aria-label="Remove spec"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setSpecs((cur) => [...cur, { label: '', value: '' }])}
+                  className="text-sm font-medium text-emerald-700"
+                >
+                  + Add specification
+                </button>
+              </div>
+            </div>
+          </div>
+        </details>
         <div className="grid grid-cols-2 gap-3">
           <Select label="Category *" error={errors.parentCategoryId?.message} {...register('parentCategoryId')}>
             <option value="">Select category</option>

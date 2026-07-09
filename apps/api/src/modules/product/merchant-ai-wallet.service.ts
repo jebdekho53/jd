@@ -23,16 +23,27 @@ export class MerchantAiWalletService {
     private readonly audit: AuditService,
   ) {}
 
+  // Env vars come in as strings, so config.get returns a string whenever the
+  // key is set (only the numeric default is used when unset). Coerce to an int
+  // so these values are safe to use in Prisma increment/decrement (Int) ops.
+  private getIntConfig(key: string, fallback: number): number {
+    const raw = this.config.get<string | number>(key);
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(n) ? Math.trunc(n) : fallback;
+  }
+
   getMinRechargePaise(): number {
-    return this.config.get<number>('AI_WALLET_MIN_RECHARGE_PAISE', 10_000);
+    return this.getIntConfig('AI_WALLET_MIN_RECHARGE_PAISE', 10_000);
   }
 
   getProductCostPaise(): number {
-    return this.config.get<number>('AI_PRODUCT_ANALYSIS_PRICE_PAISE', 150);
+    return this.getIntConfig('AI_PRODUCT_ANALYSIS_PRICE_PAISE', 150);
   }
 
   getImageGenerationCostPaise(): number {
-    return this.config.get<number>('AI_IMAGE_GENERATION_PRICE_PAISE', 500);
+    // Only the AI edit (OpenAI vision) path is billable. Local background
+    // removal (rembg) is free — see ProductAiService.generateProductImage.
+    return this.getIntConfig('AI_IMAGE_GENERATION_PRICE_PAISE', 150);
   }
 
   buildDebitIdempotencyKey(merchantProfileId: string, storeId: string, analysisId: string): string {
@@ -322,31 +333,52 @@ export class MerchantAiWalletService {
     }
   }
 
+  /** Idempotency key for the single image-generation fee per analysis. */
+  private imageGenIdempotencyKey(merchantProfileId: string, storeId: string, analysisId: string): string {
+    return `${merchantProfileId}:${storeId}:${analysisId}:AI_IMAGE_GEN`;
+  }
+
   /**
-   * Charge the wallet for an AI image generation. Each generation supplies a
-   * unique idempotencyToken so a merchant can generate multiple images, while
-   * a duplicated request (same token) is charged only once.
+   * Whether the one-time image-generation fee has already been charged for this
+   * analysis. Used to let the merchant generate their allotted images (local or
+   * AI) after the single upfront charge without being billed again.
+   */
+  async hasImageGenerationCharge(merchantProfileId: string, storeId: string, analysisId: string): Promise<boolean> {
+    const existing = await this.prisma.merchantAiWalletTransaction.findUnique({
+      where: { idempotencyKey: this.imageGenIdempotencyKey(merchantProfileId, storeId, analysisId) },
+      select: { status: true },
+    });
+    return existing?.status === MerchantAiWalletTransactionStatus.SUCCESS;
+  }
+
+  /**
+   * Charge the one-time image-generation fee for an analysis. The fee is keyed
+   * by analysis, so the first generation is billed and every subsequent
+   * generation for the same product (up to the per-analysis cap enforced by the
+   * caller) is free — local background removal and AI edits alike.
    */
   async debitForImageGeneration(
     merchantProfileId: string,
     storeId: string,
     analysisId: string,
-    idempotencyToken: string,
     userId: string,
     ip?: string,
   ): Promise<{ charged: boolean; amountPaise: number; transactionId: string; balancePaise: number }> {
     const amountPaise = this.getImageGenerationCostPaise();
-    const idempotencyKey = `${merchantProfileId}:${storeId}:${analysisId}:${idempotencyToken}:AI_IMAGE_GEN`;
+    const idempotencyKey = this.imageGenIdempotencyKey(merchantProfileId, storeId, analysisId);
 
     const existing = await this.prisma.merchantAiWalletTransaction.findUnique({
       where: { idempotencyKey },
     });
     if (existing?.status === MerchantAiWalletTransactionStatus.SUCCESS) {
+      // Already paid for this analysis — subsequent generations are free.
+      // Report the live balance so the UI stays accurate.
+      const wallet = await this.getOrCreateWallet(merchantProfileId);
       return {
         charged: false,
-        amountPaise: existing.amountPaise,
+        amountPaise: 0,
         transactionId: existing.id,
-        balancePaise: existing.balanceAfterPaise,
+        balancePaise: wallet.balancePaise,
       };
     }
 

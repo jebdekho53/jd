@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { GoogleMap, Polyline } from '@react-google-maps/api';
 import { Loader2 } from 'lucide-react';
 import { useGoogleMaps } from './google-maps-context';
-import { DEFAULT_MAP_ZOOM } from './constants';
+import { DEFAULT_MAP_ZOOM, GOOGLE_MAPS_MAP_ID } from './constants';
 import { AdvancedMarker } from './advanced-marker';
 
 export interface DeliveryMapPoint {
@@ -73,7 +73,7 @@ export function GoogleDeliveryMap({
         mapContainerStyle={mapContainerStyle}
         center={center}
         zoom={DEFAULT_MAP_ZOOM}
-        options={{ disableDefaultUI: true, zoomControl: true, fullscreenControl: true }}
+        options={{ disableDefaultUI: true, zoomControl: true, fullscreenControl: true, ...(GOOGLE_MAPS_MAP_ID ? { mapId: GOOGLE_MAPS_MAP_ID } : {}) }}
         onLoad={setMap}
         onUnmount={() => setMap(null)}
       >
