@@ -28,7 +28,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
     const title = `${p.name}${p.brand ? ` — ${p.brand}` : ''} | JebDekho`;
     const description =
       p.description?.slice(0, 155) ??
-      `Buy ${p.name} from ${p.store.name}. ₹${price} · ${p.unit}. Fast grocery delivery in Delhi NCR.`;
+      `Buy ${p.name} from ${p.store.name}. ₹${price} · ${p.unit}. Fast delivery across India.`;
 
     const siteUrl = getSiteUrl();
     const ogImage = p.imageUrls[0] ?? `${siteUrl}${BRAND_LOGO_SRC}`;

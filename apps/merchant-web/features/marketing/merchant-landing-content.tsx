@@ -20,12 +20,12 @@ const BENEFITS = [
 const TESTIMONIALS = [
   {
     name: 'Rajesh Kumar',
-    store: 'Fresh Mart, Delhi',
+    store: 'Fresh Mart, Pune',
     quote: 'Orders doubled in 3 months after joining JebDekho.',
   },
   {
     name: 'Priya Sharma',
-    store: 'Spice Kitchen, Gurgaon',
+    store: 'Spice Kitchen, Bengaluru',
     quote: 'The dashboard makes managing orders effortless.',
   },
 ];
