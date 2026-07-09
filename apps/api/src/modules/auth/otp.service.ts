@@ -13,7 +13,6 @@ import { RedisService } from '../../redis/redis.service';
 import { REDIS_KEYS, REDIS_TTL } from '../../redis/redis.constants';
 import { getConfig } from '../../config/configuration';
 import { secureNumericCode } from '../../common/utils/secure-random.util';
-import { Msg91Service } from './msg91.service';
 import { WhatsAppService } from './whatsapp.service';
 
 @Injectable()
@@ -24,7 +23,6 @@ export class OtpService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly msg91: Msg91Service,
     private readonly whatsapp: WhatsAppService,
     private readonly configService: ConfigService,
   ) {
@@ -73,20 +71,15 @@ export class OtpService {
       },
     });
 
-    // Channel selection: try WhatsApp first when ENABLE_WHATSAPP_OTP is on (the service
-    // self-guards to the test recipient while on a test token and no-ops when disabled).
-    // If WhatsApp did not dispatch, fall back to the existing SMS path unchanged.
+    // Mobile OTP is delivered over the Meta WhatsApp Cloud API (MSG91/SMS retired).
+    // The service self-guards to the test recipient on a test token and no-ops when
+    // WhatsApp isn't configured.
     const sentViaWhatsApp = await this.whatsapp.sendOtp(phone, code);
-
     if (sentViaWhatsApp) {
       this.logger.debug({ phone, purpose }, 'OTP dispatched via WhatsApp');
-    } else if (!options?.skipSms) {
-      await this.msg91.sendOtp(phone, code);
     } else {
-      this.logger.debug({ phone, purpose }, 'OTP SMS dispatch skipped');
+      this.logger.warn({ phone, purpose }, 'WhatsApp OTP not dispatched (not configured / not test recipient)');
     }
-
-    this.logger.debug({ phone, purpose }, 'OTP dispatched');
 
     return { expiresIn: this.cfg.otp.expiresMinutes * 60, code };
   }

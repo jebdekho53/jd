@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { envBool } from './env-bool.util';
+import { envInt } from './env-int.util';
 
 /**
  * Typed helper — use instead of raw configService.get<T>('KEY') to centralise
@@ -14,7 +15,7 @@ export function getConfig(configService: ConfigService) {
 
   return {
     nodeEnv,
-    port: configService.get<number>('API_PORT', 3001),
+    port: envInt(configService, 'API_PORT', 3001),
 
     jwt: {
       privateKey: normalisePem(configService.get<string>('JWT_PRIVATE_KEY', '')),
@@ -27,21 +28,32 @@ export function getConfig(configService: ConfigService) {
     },
 
     otp: {
-      length: configService.get<number>('OTP_LENGTH', 6),
-      expiresMinutes: configService.get<number>('OTP_EXPIRES_MINUTES', 5),
-      maxAttempts: configService.get<number>('OTP_MAX_ATTEMPTS', 5),
-      rateLimitRequests: configService.get<number>('OTP_RATE_LIMIT_REQUESTS', 3),
-      rateLimitWindowMinutes: configService.get<number>('OTP_RATE_LIMIT_WINDOW_MINUTES', 10),
+      length: envInt(configService, 'OTP_LENGTH', 6),
+      expiresMinutes: envInt(configService, 'OTP_EXPIRES_MINUTES', 5),
+      maxAttempts: envInt(configService, 'OTP_MAX_ATTEMPTS', 5),
+      rateLimitRequests: envInt(configService, 'OTP_RATE_LIMIT_REQUESTS', 3),
+      rateLimitWindowMinutes: envInt(configService, 'OTP_RATE_LIMIT_WINDOW_MINUTES', 10),
     },
 
 
-    auth: {
-      emailEnabled: envBool(configService, 'AUTH_EMAIL_ENABLED', true),
-      phoneOtpEnabled: envBool(configService, 'AUTH_PHONE_OTP_ENABLED', false),
-      smsEnabled: envBool(configService, 'AUTH_SMS_ENABLED', false),
-      whatsappEnabled: envBool(configService, 'AUTH_WHATSAPP_ENABLED', false),
-      msg91Enabled: envBool(configService, 'MSG91_ENABLED', false),
-    },
+    auth: (() => {
+      // Phone OTP + all mobile messaging now runs on the Meta WhatsApp Cloud API
+      // (MSG91/SMS retired). It auto-enables when ENABLE_WHATSAPP_OTP is on AND
+      // the WhatsApp access token + phone-number id are present — set those in
+      // env.production and the whole mobile-OTP / order-update path lights up.
+      const waEnabled = envBool(configService, 'ENABLE_WHATSAPP_OTP', false);
+      const waToken = (configService.get<string>('WHATSAPP_ACCESS_TOKEN', '') ?? '').trim();
+      const waPhoneId = (configService.get<string>('WHATSAPP_PHONE_NUMBER_ID', '') ?? '').trim();
+      const whatsappConfigured = waEnabled && Boolean(waToken && waPhoneId);
+      return {
+        emailEnabled: envBool(configService, 'AUTH_EMAIL_ENABLED', true),
+        phoneOtpEnabled: whatsappConfigured,
+        // SMS/MSG91 fully retired.
+        smsEnabled: false,
+        whatsappEnabled: whatsappConfigured,
+        msg91Enabled: false,
+      };
+    })(),
 
     sms: {
       provider: configService.get<string>('SMS_PROVIDER', 'console'),
@@ -51,6 +63,13 @@ export function getConfig(configService: ConfigService) {
         templateId: configService.get<string>('MSG91_TEMPLATE_ID', ''),
         dltTeId: configService.get<string>('MSG91_DLT_TE_ID', ''),
       },
+    },
+
+    delivery: {
+      // Flat platform delivery fee (₹, GST-inclusive) charged to the customer in
+      // PLATFORM mode below the merchant's free-delivery threshold. Default ₹49
+      // covers Shadowfax Zone A (intracity) ₹39 + 18% GST ≈ ₹46 plus a buffer.
+      platformFeeRupees: Number(configService.get<string | number>('PLATFORM_DELIVERY_FEE_PAISE', 4900)) / 100,
     },
 
     // WhatsApp Cloud API (Meta) — OTP delivery channel. Gated by ENABLE_WHATSAPP_OTP
@@ -97,9 +116,9 @@ export function getConfig(configService: ConfigService) {
     },
 
     throttle: {
-      ttl: configService.get<number>('THROTTLE_TTL', 60000),
-      limit: configService.get<number>('THROTTLE_LIMIT', 100),
-      authLimit: configService.get<number>('AUTH_THROTTLE_LIMIT', 10),
+      ttl: envInt(configService, 'THROTTLE_TTL', 60000),
+      limit: envInt(configService, 'THROTTLE_LIMIT', 100),
+      authLimit: envInt(configService, 'AUTH_THROTTLE_LIMIT', 10),
     },
 
     razorpay: {
@@ -147,7 +166,7 @@ export function getConfig(configService: ConfigService) {
       return {
         enabled,
         host,
-        port: configService.get<number>('SMTP_PORT', 465),
+        port: envInt(configService, 'SMTP_PORT', 465),
         secure: configService.get<string>('SMTP_SECURE', 'true') === 'true',
         user,
         pass,

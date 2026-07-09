@@ -58,12 +58,21 @@ export interface CartStore {
   minOrderAmount: number;
 }
 
+export interface CartDeliveryInfo {
+  mode: 'PLATFORM' | 'SELF';
+  fee: number;
+  isFree: boolean;
+  freeDeliveryThreshold: number | null;
+  amountToFreeDelivery: number | null;
+}
+
 export interface Cart {
   id: string;
   storeId: string;
   store: CartStore;
   items: CartItem[];
   totals: CartTotals;
+  delivery?: CartDeliveryInfo;
   itemCount: number;
   appliedCouponCode?: string | null;
 }

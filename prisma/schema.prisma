@@ -71,6 +71,17 @@ enum StoreStatus {
   SUSPENDED
 }
 
+// How a store fulfils delivery.
+//  PLATFORM = JebDekho arranges delivery (Shadowfax / own fleet); customer pays
+//             the platform delivery fee (or the merchant absorbs it above their
+//             free-delivery threshold).
+//  SELF     = merchant delivers with their own rider; delivery is FREE to the
+//             customer and the platform does not dispatch a shipment.
+enum StoreDeliveryMode {
+  PLATFORM
+  SELF
+}
+
 enum StoreType {
   RETAIL_STORE
   DARK_STORE
@@ -1421,6 +1432,11 @@ model Store {
   requestedDocumentTypes    Json?     @map("requested_document_types")
   minOrderAmount    Decimal     @default(0) @map("min_order_amount") @db.Decimal(10, 2)
   deliveryFee       Decimal     @default(0) @map("delivery_fee") @db.Decimal(10, 2)
+  // Delivery fulfilment: PLATFORM (JebDekho arranges) or SELF (merchant's own rider, free to customer).
+  deliveryMode      StoreDeliveryMode @default(PLATFORM) @map("delivery_mode")
+  // Merchant-set: order subtotal at/above which the merchant gives free delivery
+  // (merchant absorbs the platform delivery fee). null = no free-delivery offer.
+  freeDeliveryThreshold Decimal? @map("free_delivery_threshold") @db.Decimal(10, 2)
   avgPrepTimeMins   Int         @default(15) @map("avg_prep_time_mins")
   ratingAvg         Float       @default(0) @map("rating_avg")
   ratingCount       Int         @default(0) @map("rating_count")
@@ -1727,6 +1743,11 @@ model Product {
   manufacturerName     String?   @map("manufacturer_name")
   manufacturerAddress  String?   @map("manufacturer_address") @db.Text
   fssaiLicense         String?   @map("fssai_license")
+  // ── Electronics / gadgets ────────────────────────────────────────────────
+  modelNumber          String?   @map("model_number")
+  warrantyMonths       Int?      @map("warranty_months")
+  // Structured spec sheet: array of { label, value } (RAM, Storage, Battery, …).
+  specifications       Json?
   storageInstructions  String?   @map("storage_instructions") @db.Text
   disclaimer           String?   @db.Text
   createdAt   DateTime  @default(now()) @map("created_at")
@@ -1983,6 +2004,11 @@ model Order {
   subtotal        Decimal        @db.Decimal(10, 2)
   discountAmount  Decimal     @default(0) @map("discount_amount") @db.Decimal(10, 2)
   deliveryFee     Decimal     @default(0) @map("delivery_fee") @db.Decimal(10, 2)
+  // Delivery fulfilment snapshot (frozen at checkout for correct payout).
+  deliveryMode    StoreDeliveryMode @default(PLATFORM) @map("delivery_mode")
+  // Platform delivery fee the merchant absorbs (order ≥ their free-delivery
+  // threshold). Deducted from merchant payout so the platform never subsidises.
+  merchantDeliveryContribution Decimal @default(0) @map("merchant_delivery_contribution") @db.Decimal(10, 2)
   taxAmount       Decimal     @default(0) @map("tax_amount") @db.Decimal(10, 2)
   totalAmount     Decimal     @map("total_amount") @db.Decimal(10, 2)
   walletAmountUsed Decimal    @default(0) @map("wallet_amount_used") @db.Decimal(10, 2)

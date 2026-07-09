@@ -30,6 +30,9 @@ export interface Product {
   slug: string;
   description: string | null;
   brand: string | null;
+  modelNumber?: string | null;
+  warrantyMonths?: number | null;
+  specifications?: ProductSpecification[] | null;
   sku: string | null;
   categoryId: string | null;
   category: Category | null;
@@ -72,10 +75,18 @@ export interface Product {
   variants: ProductVariant[];
 }
 
+export interface ProductSpecification {
+  label: string;
+  value: string;
+}
+
 export interface CreateProductPayload {
   name: string;
   description?: string;
   brand?: string;
+  modelNumber?: string;
+  warrantyMonths?: number;
+  specifications?: ProductSpecification[];
   sku?: string;
   categoryId?: string;
   imageUrls: string[];

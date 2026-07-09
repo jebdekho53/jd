@@ -7,7 +7,6 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { randomUUID } from 'crypto';
 import { AIProductAnalysisStatus, AIProductType, MerchantAiWalletTransactionStatus, MerchantAiWalletTransactionType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -28,6 +27,10 @@ import {
   AI_NOT_CONFIGURED_CODE,
   AI_PRODUCT_UNAVAILABLE_MESSAGE,
 } from './product-ai.constants';
+
+// One flat image-generation fee per analysis unlocks this many generations
+// (e.g. 1 local background removal + 2 AI edits); the merchant then picks one.
+const MAX_IMAGE_GENERATIONS_PER_ANALYSIS = 3;
 
 type AiFieldSource = 'ocr' | 'ai_inferred' | 'default' | 'merchant_required';
 
@@ -420,9 +423,30 @@ export class ProductAiService {
     const profile = await this.merchantService.requireMerchantProfile(userId);
     const analysis = await this.findOwnedAnalysis(profile.id, storeId, analysisId);
 
+    // Image-generation billing model: one flat fee (₹1.5) per analysis, charged
+    // on the FIRST generation regardless of mode (local background removal or
+    // AI edit). That single payment entitles the merchant to a small allotment
+    // of generations for this product (e.g. 1 local + 2 AI); they then pick one
+    // of the results as the product image. Subsequent generations within the
+    // allotment are free.
+    const extracted = (analysis.extractedJson ?? {}) as Record<string, unknown>;
+    const priorImages = Array.isArray(extracted.generatedImages)
+      ? (extracted.generatedImages as unknown[])
+      : [];
+    if (priorImages.length >= MAX_IMAGE_GENERATIONS_PER_ANALYSIS) {
+      throw new HttpException(
+        {
+          message: `You have used all ${MAX_IMAGE_GENERATIONS_PER_ANALYSIS} image generations for this product. Choose one of the generated images to use.`,
+          code: 'IMAGE_GEN_LIMIT_REACHED',
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
     const cost = this.wallet.getImageGenerationCostPaise();
     const wallet = await this.wallet.getOrCreateWallet(profile.id);
-    if (wallet.balancePaise < cost) {
+    const alreadyPaid = await this.wallet.hasImageGenerationCharge(profile.id, storeId, analysisId);
+    if (!alreadyPaid && wallet.balancePaise < cost) {
       throw new HttpException(
         {
           message: 'Insufficient AI wallet balance to generate an image. Please recharge.',
@@ -432,7 +456,6 @@ export class ProductAiService {
       );
     }
 
-    const extracted = (analysis.extractedJson ?? {}) as Record<string, unknown>;
     // Source is the merchant's own uploaded photo (prefer the untouched original).
     const sourceUrl =
       analysis.originalImageUrl ?? analysis.optimizedImageUrl ?? analysis.uploadedImageUrl;
@@ -452,11 +475,12 @@ export class ProductAiService {
       images = await this.imageService.cleanBackgroundFromStored(sourceUrl);
     }
 
+    // Charge the flat per-analysis fee. First generation is billed; the debit is
+    // keyed by analysis, so 2nd/3rd generations return charged:false at ₹0.
     const charge = await this.wallet.debitForImageGeneration(
       profile.id,
       storeId,
       analysisId,
-      randomUUID(),
       userId,
       ipAddress,
     );

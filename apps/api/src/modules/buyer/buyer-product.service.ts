@@ -68,6 +68,9 @@ export interface BuyerProduct {
   slug: string;
   description: string | null;
   brand: string | null;
+  modelNumber?: string | null;
+  warrantyMonths?: number | null;
+  specifications?: unknown;
   imageUrls: string[];
   basePrice: number;
   mrp: number | null;
@@ -355,6 +358,9 @@ export class BuyerProductService {
         slug: raw.slug,
         description: raw.description,
         brand: raw.brand,
+        modelNumber: raw.modelNumber,
+        warrantyMonths: raw.warrantyMonths,
+        specifications: Array.isArray(raw.specifications) ? raw.specifications : null,
         imageUrls: raw.imageUrls,
         basePrice: Number(raw.basePrice),
         mrp: raw.mrp ? Number(raw.mrp) : null,

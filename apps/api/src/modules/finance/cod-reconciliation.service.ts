@@ -49,6 +49,29 @@ export class CodReconciliationService {
     });
   }
 
+  /** A rider's own COD cash still to be deposited (PENDING records + total). */
+  async getRiderPendingCod(riderProfileId: string) {
+    const records = await this.prisma.codReconciliation.findMany({
+      where: { riderProfileId, status: CodReconciliationStatus.PENDING },
+      orderBy: { createdAt: 'asc' },
+      include: { order: { select: { orderNumber: true } } },
+    });
+    const totalToDeposit = roundMoney(
+      records.reduce((s, r) => s + decimalToNumber(r.amountExpected), 0),
+    );
+    return {
+      totalToDeposit,
+      count: records.length,
+      items: records.map((r) => ({
+        id: r.id,
+        orderId: r.orderId,
+        orderNumber: r.order?.orderNumber ?? null,
+        amount: decimalToNumber(r.amountExpected),
+        collectedAt: r.createdAt.toISOString(),
+      })),
+    };
+  }
+
   async submitRemittance(
     riderProfileId: string,
     input: { orderIds: string[]; amountDeposited: number; notes?: string },

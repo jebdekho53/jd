@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { DomainEventType, DayOfWeek, Prisma, Store, StoreDocumentType, StoreHour, StoreStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
@@ -17,6 +19,7 @@ import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
 import { ListStoresDto } from './dto/list-stores.dto';
 import { UploadVerificationDocumentDto } from './dto/upload-verification-document.dto';
+import { CartService } from '../cart/cart.service';
 import { ConfigService } from '@nestjs/config';
 import { getConfig } from '../../config/configuration';
 import { assertTrustedUploadUrl } from '../../common/utils/trusted-upload-url.util';
@@ -25,7 +28,8 @@ import { assertTrustedUploadUrl } from '../../common/utils/trusted-upload-url.ut
 const APPROVED_STORE_EDITABLE_FIELDS: Array<keyof UpdateStoreDto> = [
   'description', 'phone', 'email',
   'logoUrl', 'bannerUrl',
-  'minOrderAmount', 'deliveryFee', 'avgPrepTimeMins',
+  'minOrderAmount', 'deliveryFee', 'avgPrepTimeMins', 'deliveryRadiusKm',
+  'deliveryMode', 'freeDeliveryThreshold',
   'hours', 'zoneIds', 'serviceAreaIds',
 ];
 
@@ -69,6 +73,8 @@ export class StoreService {
     private readonly blocklist: VerificationBlocklistService,
     private readonly locations: LocationDirectoryService,
     private readonly config: ConfigService,
+    @Inject(forwardRef(() => CartService))
+    private readonly cartService: CartService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -390,6 +396,11 @@ export class StoreService {
           ...(dto.minOrderAmount !== undefined && { minOrderAmount: dto.minOrderAmount }),
           ...(dto.deliveryFee !== undefined && { deliveryFee: dto.deliveryFee }),
           ...(dto.avgPrepTimeMins !== undefined && { avgPrepTimeMins: dto.avgPrepTimeMins }),
+          ...(dto.deliveryRadiusKm !== undefined && { deliveryRadiusKm: dto.deliveryRadiusKm }),
+          ...(dto.deliveryMode !== undefined && { deliveryMode: dto.deliveryMode }),
+          ...(dto.freeDeliveryThreshold !== undefined && {
+            freeDeliveryThreshold: dto.freeDeliveryThreshold,
+          }),
         },
       });
 
@@ -445,6 +456,12 @@ export class StoreService {
     // Invalidate buyer caches for APPROVED stores (buyer-visible data may have changed)
     if (store.status === StoreStatus.APPROVED) {
       void this.buyerCache.invalidateStoreCache(store.slug);
+    }
+
+    // Delivery-mode / free-delivery-threshold changes affect the cart delivery
+    // fee, so refresh any cached carts for this store immediately.
+    if (dto.deliveryMode !== undefined || dto.freeDeliveryThreshold !== undefined) {
+      void this.cartService.invalidateStoreCarts(storeId);
     }
 
     return this.fetchStoreWithRelations(storeId);

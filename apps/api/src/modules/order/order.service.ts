@@ -227,6 +227,20 @@ const ORDER_DETAIL_SELECT = {
       },
     },
   },
+  // Third-party (3PL) rider location arrives on tracking events, not on an
+  // in-house riderProfile — needed so the coordinate audit doesn't flag a
+  // provider shipment that has no assigned agent yet.
+  providerShipment: {
+    select: {
+      driverName: true,
+      events: {
+        where: { lat: { not: null }, lng: { not: null } },
+        orderBy: { occurredAt: 'desc' as const },
+        take: 1,
+        select: { lat: true, lng: true },
+      },
+    },
+  },
 } satisfies Prisma.OrderSelect;
 
 @Injectable()
@@ -335,8 +349,15 @@ export class OrderService implements OnModuleInit {
       distanceKm: number | null;
       riderProfile: { currentLat: number | null; currentLng: number | null } | null;
     } | null;
+    providerShipment?: {
+      driverName: string | null;
+      events?: { lat: number | null; lng: number | null }[];
+    } | null;
   }) {
     if (!order.delivery) return;
+    const providerLoc = order.providerShipment?.events?.[0] ?? null;
+    const hasRiderAssignment =
+      Boolean(order.delivery.riderProfile) || Boolean(order.providerShipment?.driverName);
     const warnings = auditDeliveryCoordinates({
       orderId: order.id,
       orderNumber: order.orderNumber,
@@ -345,8 +366,9 @@ export class OrderService implements OnModuleInit {
       storeLng: order.store?.longitude,
       customerLat: order.deliveryLat,
       customerLng: order.deliveryLng,
-      riderLat: order.delivery.riderProfile?.currentLat,
-      riderLng: order.delivery.riderProfile?.currentLng,
+      riderLat: order.delivery.riderProfile?.currentLat ?? providerLoc?.lat,
+      riderLng: order.delivery.riderProfile?.currentLng ?? providerLoc?.lng,
+      hasRiderAssignment,
       deliveryDistanceKm:
         order.delivery.distanceKm != null ? Number(order.delivery.distanceKm) : null,
     });
@@ -380,12 +402,26 @@ export class OrderService implements OnModuleInit {
             riderProfile: { select: { currentLat: true, currentLng: true } },
           },
         },
+        providerShipment: {
+          select: {
+            driverName: true,
+            events: {
+              where: { lat: { not: null }, lng: { not: null } },
+              orderBy: { occurredAt: 'desc' },
+              take: 1,
+              select: { lat: true, lng: true },
+            },
+          },
+        },
       },
       take: 500,
     });
 
     let issueCount = 0;
     for (const order of orders) {
+      const providerLoc = order.providerShipment?.events?.[0] ?? null;
+      const hasRiderAssignment =
+        Boolean(order.delivery?.riderProfile) || Boolean(order.providerShipment?.driverName);
       const warnings = auditDeliveryCoordinates({
         orderId: order.id,
         orderNumber: order.orderNumber,
@@ -394,8 +430,9 @@ export class OrderService implements OnModuleInit {
         storeLng: order.store?.longitude,
         customerLat: order.deliveryLat,
         customerLng: order.deliveryLng,
-        riderLat: order.delivery?.riderProfile?.currentLat,
-        riderLng: order.delivery?.riderProfile?.currentLng,
+        riderLat: order.delivery?.riderProfile?.currentLat ?? providerLoc?.lat,
+        riderLng: order.delivery?.riderProfile?.currentLng ?? providerLoc?.lng,
+        hasRiderAssignment,
         deliveryDistanceKm:
           order.delivery?.distanceKm != null ? Number(order.delivery.distanceKm) : null,
       });
@@ -860,28 +897,11 @@ export class OrderService implements OnModuleInit {
     }
 
     if (targetStatus === OrderStatus.MERCHANT_ACCEPTED) {
+      // Accepting an order only confirms it — it does NOT summon a rider. The
+      // merchant needs time to prepare/pack; the pickup is dispatched only when
+      // they mark the order READY_FOR_PICKUP (below). Dispatching here caused
+      // riders to arrive immediately on acceptance, before the order was packed.
       void this.buyerPush.notifyOrderAccepted(orderId).catch(() => {});
-      void this.deliveryDispatch.dispatchAfterReadyForPickup(orderId).then((result) => {
-        if (result?.mode === 'provider') {
-          void this.cache.invalidateAll(orderId);
-          this.logger.log(
-            {
-              orderId,
-              deliveryId: result.deliveryId,
-              shipmentId: result.shipmentId,
-              trackingNumber: result.trackingNumber,
-            },
-            'Provider shipment created after merchant acceptance',
-          );
-        } else if (result?.mode === 'own_fleet') {
-          this.logger.log(
-            { orderId, riderProfileId: result.riderProfileId, deliveryId: result.deliveryId },
-            'Own-fleet dispatch prepared after merchant acceptance',
-          );
-        }
-      }).catch((err) => {
-        this.logger.error({ orderId, err }, 'Dispatch failed after merchant acceptance');
-      });
     }
 
     const prepStatuses = new Set<OrderStatus>([

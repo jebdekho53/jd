@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   IsArray,
   IsEmail,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -110,6 +111,32 @@ export class CreateStoreDto {
   @Min(1)
   @Max(120)
   avgPrepTimeMins?: number;
+
+  @ApiProperty({ required: false, example: 5, description: 'Delivery radius in km around the store' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0.5)
+  @Max(50)
+  deliveryRadiusKm?: number;
+
+  @ApiProperty({
+    required: false,
+    enum: ['PLATFORM', 'SELF'],
+    description: 'Delivery fulfilment: PLATFORM (JebDekho arranges) or SELF (own rider, free to customer)',
+  })
+  @IsOptional()
+  @IsIn(['PLATFORM', 'SELF'])
+  deliveryMode?: 'PLATFORM' | 'SELF';
+
+  @ApiProperty({
+    required: false,
+    example: 499,
+    description: 'Order subtotal at/above which the merchant gives free delivery (absorbs the fee). Null/0 = no free-delivery offer.',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  freeDeliveryThreshold?: number | null;
 
   @ApiProperty({ required: false, type: [String], description: 'Zone IDs to serve' })
   @IsOptional()

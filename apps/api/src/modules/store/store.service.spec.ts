@@ -10,6 +10,7 @@ import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 import { LocationDirectoryService } from '../location-directory/location-directory.service';
 import { ConfigService } from '@nestjs/config';
+import { CartService } from '../cart/cart.service';
 
 const MERCHANT_PROFILE = { id: 'mp-1', userId: 'u-1', businessName: 'Test' };
 const SAMPLE_LOGO = 'https://cdn.example.com/logo.jpg';
@@ -97,6 +98,7 @@ describe('StoreService', () => {
               key === 'UPLOAD_PUBLIC_URL' ? 'https://api.jebdekho.com/uploads' : undefined,
           },
         },
+        { provide: CartService, useValue: { invalidateStoreCarts: jest.fn() } },
       ],
     }).compile();
     service = module.get<StoreService>(StoreService);

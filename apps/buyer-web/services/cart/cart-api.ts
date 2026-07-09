@@ -35,3 +35,13 @@ export async function clearCart(): Promise<void> {
     method: 'DELETE',
   });
 }
+
+export async function reorderFromOrder(
+  orderId: string,
+): Promise<{ cart: Cart | null; added: number; skipped: number }> {
+  const res = await buyerFetch<ApiResponse<{ cart: Cart | null; added: number; skipped: number }>>(
+    `/api/buyer/cart/reorder/${orderId}`,
+    { method: 'POST' },
+  );
+  return res.data;
+}

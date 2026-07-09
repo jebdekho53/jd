@@ -38,6 +38,14 @@ export class RiderFinanceController {
     return { success: true, data };
   }
 
+  @Get('cod/pending')
+  @ApiOperation({ summary: 'COD cash the rider still needs to deposit' })
+  async pendingCod(@CurrentUser() user: RequestUser) {
+    const riderProfileId = await this.riderProfileId(user.id);
+    const data = await this.cod.getRiderPendingCod(riderProfileId);
+    return { success: true, data };
+  }
+
   @Post('cod/submit')
   async submitCod(@CurrentUser() user: RequestUser, @Body() dto: CodSubmitDto) {
     const riderProfileId = await this.riderProfileId(user.id);

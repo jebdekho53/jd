@@ -1,0 +1,3 @@
+ALTER TABLE "refresh_tokens"
+ADD COLUMN IF NOT EXISTS "remember_me" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS "auth_time" TIMESTAMP(3);

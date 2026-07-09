@@ -111,6 +111,15 @@ export class AuthService {
     this.cfg = getConfig(configService);
   }
 
+  /** Public auth capabilities — derived from config (MSG91 credential presence). */
+  getAuthCapabilities(): { emailEnabled: boolean; phoneOtpEnabled: boolean; whatsappEnabled: boolean } {
+    return {
+      emailEnabled: this.cfg.auth.emailEnabled,
+      phoneOtpEnabled: this.cfg.auth.phoneOtpEnabled,
+      whatsappEnabled: this.cfg.auth.whatsappEnabled,
+    };
+  }
+
   private assertEmailAuthEnabled(): void {
     if (!this.cfg.auth.emailEnabled) {
       throw new ServiceUnavailableException('Email authentication is temporarily unavailable.');

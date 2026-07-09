@@ -89,6 +89,9 @@ export interface BuyerProduct {
   slug: string;
   description: string | null;
   brand: string | null;
+  modelNumber?: string | null;
+  warrantyMonths?: number | null;
+  specifications?: { label: string; value: string }[] | null;
   imageUrls: string[];
   basePrice: number;
   mrp: number | null;
