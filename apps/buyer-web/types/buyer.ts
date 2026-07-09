@@ -59,6 +59,8 @@ export interface BuyerVariant {
   price: number;
   mrp: number | null;
   weightGrams: number | null;
+  size?: string | null;
+  color?: string | null;
   isDefault: boolean;
   availableQty: number;
 }
