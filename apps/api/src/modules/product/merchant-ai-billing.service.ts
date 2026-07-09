@@ -1,3 +1,4 @@
+import { envInt } from '../../config/env-int.util';
 import {
   ConflictException,
   Injectable,
@@ -68,7 +69,7 @@ export class MerchantAiBillingService {
   }
 
   async assertDailyAnalysisLimit(merchantProfileId: string): Promise<void> {
-    const limit = this.configService.get<number>('AI_PRODUCT_ANALYSIS_DAILY_LIMIT', 20);
+    const limit = envInt(this.configService, 'AI_PRODUCT_ANALYSIS_DAILY_LIMIT', 20);
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 

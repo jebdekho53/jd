@@ -309,16 +309,10 @@ describe('OrderService', () => {
       deliveryDispatch.dispatchAfterReadyForPickup.mockResolvedValue(null);
     });
 
-    it('PAID → MERCHANT_ACCEPTED (confirm) triggers delivery request once', async () => {
+    it('PAID → MERCHANT_ACCEPTED (confirm) does NOT dispatch a rider (merchant needs prep time)', async () => {
       mockPrisma.order.findUnique.mockResolvedValue(
         buildOrder(OrderStatus.PAID, { storeId: STORE_ID }),
       );
-      deliveryDispatch.dispatchAfterReadyForPickup.mockResolvedValue({
-        mode: 'provider',
-        deliveryId: 'del1',
-        shipmentId: 'ship1',
-        trackingNumber: 'track1',
-      });
 
       const result = await service.advanceMerchantOrder(
         USER_ID, ORDER_ID, OrderStatus.MERCHANT_ACCEPTED,
@@ -326,8 +320,8 @@ describe('OrderService', () => {
 
       expect(result.status).toBe(OrderStatus.MERCHANT_ACCEPTED);
       await new Promise((r) => setTimeout(r, 10));
-      expect(deliveryDispatch.dispatchAfterReadyForPickup).toHaveBeenCalledTimes(1);
-      expect(deliveryDispatch.dispatchAfterReadyForPickup).toHaveBeenCalledWith(ORDER_ID);
+      // Accepting must NOT summon a rider — that happens only on READY_FOR_PICKUP.
+      expect(deliveryDispatch.dispatchAfterReadyForPickup).not.toHaveBeenCalled();
       expect(tracking.emitOrderStatus).toHaveBeenCalledWith({
         orderId: ORDER_ID,
         orderNumber: 'JD-20260622-ABC',

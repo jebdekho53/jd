@@ -7,11 +7,12 @@ export function createAuthConfigMock(
   const defaults: Record<string, string> = {
     NODE_ENV: 'test',
     AUTH_EMAIL_ENABLED: 'true',
-    AUTH_PHONE_OTP_ENABLED: 'true',
-    AUTH_SMS_ENABLED: 'true',
-    AUTH_WHATSAPP_ENABLED: 'false',
-    MSG91_ENABLED: 'false',
-    SMS_PROVIDER: 'console',
+    // Phone OTP + WhatsApp now auto-enable on WhatsApp Cloud API config (MSG91
+    // retired). Provide credentials by default so the "enabled" path is
+    // exercised; the disabled path is tested by overriding these to ''.
+    ENABLE_WHATSAPP_OTP: 'true',
+    WHATSAPP_ACCESS_TOKEN: 'test-wa-token',
+    WHATSAPP_PHONE_NUMBER_ID: 'test-wa-phone-id',
     JWT_PRIVATE_KEY: '',
     JWT_PUBLIC_KEY: '',
   };

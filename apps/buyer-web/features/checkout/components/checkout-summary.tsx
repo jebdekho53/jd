@@ -77,8 +77,13 @@ export function CheckoutSummary({ cart, address }: CheckoutSummaryProps) {
           </div>
         )}
         <div className="flex items-center justify-between py-1">
-          <Text variant="bodySm">Delivery</Text>
           <Text variant="bodySm">
+            Delivery
+            {cart.delivery?.mode === 'SELF' && (
+              <span className="ml-1 text-emerald-600">· by store</span>
+            )}
+          </Text>
+          <Text variant="bodySm" className={cart.totals.deliveryFee === 0 ? 'font-semibold text-emerald-700' : ''}>
             {cart.totals.deliveryFee === 0 ? 'Free' : `₹${cart.totals.deliveryFee.toFixed(2)}`}
           </Text>
         </div>

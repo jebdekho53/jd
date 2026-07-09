@@ -1,8 +1,13 @@
-const PRODUCTION_CONNECT_SRC = ["'self'", 'https:', 'wss:'] as const;
+// data: is required by the Google Maps vector renderer's label worker, which
+// fetches its glyph atlas from a data:image/png URI.
+const PRODUCTION_CONNECT_SRC = ["'self'", 'https:', 'wss:', 'data:'] as const;
 
 const PRODUCTION_SCRIPT_SRC = [
   "'self'",
   "'unsafe-inline'",
+  // wasm-unsafe-eval lets the Google Maps WebGL renderer compile its
+  // WebAssembly module without opening up full 'unsafe-eval'.
+  "'wasm-unsafe-eval'",
   'blob:',
   'https://checkout.razorpay.com',
   'https://cdn.razorpay.com',

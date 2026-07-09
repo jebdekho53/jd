@@ -6,6 +6,7 @@ import {
   clearCart,
   getCart,
   removeCartItem,
+  reorderFromOrder,
   updateCartItem,
 } from '@/services/cart/cart-api';
 import type { AddCartItemPayload, Cart } from '@/types/cart';
@@ -45,6 +46,17 @@ export function useAddCartItemMutation() {
     mutationFn: (payload: AddCartItemPayload) => addCartItem(payload),
     onSuccess: (cart) => {
       qc.setQueryData(cartKeys.current(), cart);
+    },
+  });
+}
+
+export function useReorderMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (orderId: string) => reorderFromOrder(orderId),
+    onSuccess: (result) => {
+      if (result.cart) qc.setQueryData(cartKeys.current(), result.cart);
+      else qc.invalidateQueries({ queryKey: cartKeys.all });
     },
   });
 }

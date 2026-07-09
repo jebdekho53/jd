@@ -82,12 +82,14 @@ export class WhatsAppService {
             parameters: [{ type: 'text', text: code }],
           },
           {
-            // Authentication templates carry a one-tap / copy-code button that must
-            // echo the code. index '0' = the first (and only) button.
+            // The approved 'otp' template uses a URL-type copy-code button
+            // (WhatsApp's standard authentication button). Its {{1}} URL variable
+            // must be filled with the code as a text parameter. index '0' = the
+            // first (and only) button.
             type: 'button',
-            sub_type: 'copy_code',
+            sub_type: 'url',
             index: '0',
-            parameters: [{ type: 'coupon_code', coupon_code: code }],
+            parameters: [{ type: 'text', text: code }],
           },
         ],
       },
@@ -116,6 +118,48 @@ export class WhatsAppService {
         { to: this.maskNumber(to), providerError },
         'WhatsApp OTP send failed — falling back to SMS',
       );
+      return false;
+    }
+  }
+
+  /**
+   * Send a free-form text message (order updates etc.) via WhatsApp Cloud API.
+   * Auto-gated: a no-op returning `false` when WhatsApp isn't configured, so it
+   * never blocks the order flow. Note: Meta only delivers business-initiated
+   * free-form text within the 24-hour customer-service window; outside it an
+   * approved template is required (returns false + logs on rejection).
+   */
+  async sendText(phone: string, message: string): Promise<boolean> {
+    const wa = this.cfg.whatsapp;
+    const accessToken = (this.configService.get<string>('WHATSAPP_ACCESS_TOKEN', '') ?? '').trim();
+    if (!accessToken || !wa.phoneNumberId) return false;
+
+    const to = this.toWhatsAppNumber(phone);
+    if (wa.testRecipient && to !== this.toWhatsAppNumber(wa.testRecipient)) {
+      // On a Meta test token, only the pinned test recipient can receive.
+      return false;
+    }
+
+    const url = `https://graph.facebook.com/${wa.graphVersion}/${wa.phoneNumberId}/messages`;
+    try {
+      await axios.post(
+        url,
+        {
+          messaging_product: 'whatsapp',
+          to,
+          type: 'text',
+          text: { preview_url: false, body: message },
+        },
+        {
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          timeout: 8000,
+        },
+      );
+      this.logger.log({ to: this.maskNumber(to) }, 'WhatsApp text message sent');
+      return true;
+    } catch (err) {
+      const providerError = axios.isAxiosError(err) ? err.response?.data?.error : undefined;
+      this.logger.warn({ to: this.maskNumber(to), providerError }, 'WhatsApp text send failed');
       return false;
     }
   }

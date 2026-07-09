@@ -55,3 +55,7 @@ apps/api/dist/
 .env.production
 .env.production.save
 .venv-rembg/
+
+# env backups (contain secrets — never commit)
+.env*.bak*
+*.env.bak*

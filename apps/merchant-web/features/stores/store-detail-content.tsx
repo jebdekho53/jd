@@ -10,6 +10,7 @@ import { Card, CardHeader, CardBody, Button, Input, Textarea, Spinner } from '@/
 import { MerchantAddressPicker } from '@/components/google-maps/merchant-address-picker';
 import { StoreStatusBadge } from './components/store-status-badge';
 import { StoreDocumentsPanel } from './components/store-documents-panel';
+import { StoreShareCard } from './components/store-share-card';
 import { ImageUploadField } from '@/features/media/components/image-upload-field';
 import {
   useStoreQuery,
@@ -140,6 +141,12 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
           </Button>
         )}
       </div>
+
+      {store.status === 'APPROVED' && store.slug && (
+        <div className="mb-6">
+          <StoreShareCard slug={store.slug} name={store.name} />
+        </div>
+      )}
 
       {store.status === 'DRAFT' && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

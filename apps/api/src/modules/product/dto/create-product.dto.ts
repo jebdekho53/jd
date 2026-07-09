@@ -17,6 +17,7 @@ import {
   IsUrl,
   Length,
   Min,
+  Max,
   ArrayMinSize,
   ArrayMaxSize,
   ValidateNested,
@@ -81,6 +82,18 @@ export class CreateVariantDto {
   isDefault?: boolean;
 }
 
+export class ProductSpecificationDto {
+  @ApiProperty({ example: 'RAM' })
+  @IsString()
+  @Length(1, 60)
+  label: string;
+
+  @ApiProperty({ example: '8 GB' })
+  @IsString()
+  @Length(1, 200)
+  value: string;
+}
+
 export class CreateProductDto {
   @ApiProperty({ example: 'Amul Full Cream Milk' })
   @IsString()
@@ -98,6 +111,32 @@ export class CreateProductDto {
   @IsString()
   @Length(1, 100)
   brand?: string;
+
+  // ── Electronics / gadgets ──────────────────────────────────────────────────
+  @ApiProperty({ required: false, example: 'SM-A546E', description: 'Model number (electronics)' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  modelNumber?: string;
+
+  @ApiProperty({ required: false, example: 12, description: 'Warranty period in months (electronics)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(120)
+  warrantyMonths?: number;
+
+  @ApiProperty({
+    required: false,
+    type: [ProductSpecificationDto],
+    description: 'Structured spec sheet (RAM, Storage, Battery…) for electronics',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => ProductSpecificationDto)
+  specifications?: ProductSpecificationDto[];
 
   @ApiProperty({ required: false, example: 'AMUL-MILK-500', description: 'Master SKU (optional)' })
   @IsOptional()
