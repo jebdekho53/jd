@@ -46,6 +46,17 @@ export class DeliveryDispatchService {
    * Routes to own-fleet rider assignment or third-party logistics orchestrator.
    */
   async dispatchAfterReadyForPickup(orderId: string): Promise<DispatchResult> {
+    // Self-delivery stores fulfil with their own rider — the platform arranges
+    // no shipment (neither own-fleet nor 3PL).
+    const selfCheck = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { deliveryMode: true },
+    });
+    if (selfCheck?.deliveryMode === 'SELF') {
+      this.logger.log(`Order ${orderId} is SELF delivery — skipping platform dispatch`);
+      return null;
+    }
+
     if (useOwnFleetDispatch(this.config)) {
       const result = await this.riderAssignment.autoAssign(orderId);
       if (!result) return null;

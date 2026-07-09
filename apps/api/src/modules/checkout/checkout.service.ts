@@ -27,7 +27,11 @@ import { ReservationService } from './reservation.service';
 import { OrderCacheService } from '../order/order-cache.service';
 import { InitiateCheckoutDto } from './dto/initiate-checkout.dto';
 import { StorePromotionService } from '../promotion/store-promotion.service';
+import { ConfigService } from '@nestjs/config';
 import { GeospatialService } from '../geospatial/geospatial.service';
+import { isValidCoordinate } from '../../common/utils/delivery-eta.util';
+import { getConfig } from '../../config/configuration';
+import { resolveDeliveryPricing, type DeliveryMode } from '../../common/utils/delivery-pricing.util';
 import { WalletLoyaltyCheckoutService } from '../wallet-loyalty/wallet-loyalty-checkout.service';
 import { ReferralService } from '../wallet-loyalty/referral.service';
 import { WalletService } from '../wallet-loyalty/wallet.service';
@@ -76,6 +80,7 @@ export class CheckoutService {
     private readonly locations: LocationDirectoryService,
     private readonly buyerPush: BuyerPushNotificationService,
     private readonly deliveryDispatch: DeliveryDispatchService,
+    private readonly config: ConfigService,
   ) {}
 
   // ── Initiate checkout (Razorpay / online payment) ──────────────────────────
@@ -527,6 +532,17 @@ export class CheckoutService {
       corporatePurchaseRequestId?: string;
     },
   ) {
+    // Guard the delivery coordinates before persisting. Silently falling back to
+    // 0,0 would drop the pin in the Gulf of Guinea and break rider routing/ETA,
+    // so reject an order that reached here without a valid location instead.
+    const deliveryLat = typeof address?.lat === 'number' ? address.lat : Number(address?.lat);
+    const deliveryLng = typeof address?.lng === 'number' ? address.lng : Number(address?.lng);
+    if (!isValidCoordinate(deliveryLat, deliveryLng)) {
+      throw new BadRequestException(
+        'Delivery location is missing or invalid. Please re-select your delivery address on the map.',
+      );
+    }
+
     const totals = cart.totals ?? {
       subtotal: 0,
       discount: 0,
@@ -549,6 +565,23 @@ export class CheckoutService {
     const cashbackAmount = totals.promo?.cashbackAmount ?? 0;
     const rewardPointsBonus = totals.promo?.rewardPointsBonus ?? 0;
     const gmvImpact = totals.grandTotal ?? 0;
+
+    // Resolve delivery fulfilment + who bears the fee, frozen onto the order so
+    // payout stays correct (self = free; platform = flat fee, merchant absorbs
+    // it above their free-delivery threshold).
+    const deliveryStore = await this.prisma.store.findUnique({
+      where: { id: cart.storeId },
+      select: { deliveryMode: true, freeDeliveryThreshold: true },
+    });
+    const deliveryPricing = resolveDeliveryPricing({
+      deliveryMode: (deliveryStore?.deliveryMode ?? 'PLATFORM') as DeliveryMode,
+      subtotal: totals.subtotal ?? 0,
+      freeDeliveryThreshold:
+        deliveryStore?.freeDeliveryThreshold != null
+          ? Number(deliveryStore.freeDeliveryThreshold)
+          : null,
+      platformFee: getConfig(this.config).delivery.platformFeeRupees,
+    });
 
     const pmBase = paymentMethodInput === PaymentMethod.COD ? 'COD' : 'RAZORPAY';
     const paymentPlan = await this.walletCheckout.computeCheckoutPayment({
@@ -597,7 +630,12 @@ export class CheckoutService {
           paymentStatus: paymentPlan.initialPaymentStatus,
           subtotal: totals.subtotal,
           discountAmount: orderDiscount,
+          // Keep totals.deliveryFee — it already reflects the resolver AND any
+          // membership free-delivery waiver (which is platform-funded, separate
+          // from the merchant-sponsored threshold below).
           deliveryFee: totals.deliveryFee ?? 0,
+          deliveryMode: deliveryPricing.deliveryMode,
+          merchantDeliveryContribution: deliveryPricing.merchantDeliveryContribution,
           taxAmount: totals.tax ?? 0,
           totalAmount: paymentPlan.amountDue,
           walletAmountUsed: paymentPlan.walletAmountUsed,
@@ -616,8 +654,8 @@ export class CheckoutService {
               ? String(cart.payerContact.phone).replace(/\D/g, '').slice(-10)
               : undefined,
           },
-          deliveryLat: address.lat ?? 0,
-          deliveryLng: address.lng ?? 0,
+          deliveryLat,
+          deliveryLng,
           buyerNote,
           idempotencyKey: checkoutId,
           ...(paymentPlan.initialPaymentStatus === PaymentStatus.PAID && { paidAt: new Date() }),
@@ -686,6 +724,7 @@ export class CheckoutService {
           discountAmount: orderDiscount,
           offerSubsidy: totals.offerDiscount ?? 0,
           deliveryFee: totals.deliveryFee ?? 0,
+          merchantDeliveryContribution: deliveryPricing.merchantDeliveryContribution,
           taxAmount: totals.tax ?? 0,
           totalAmount: totals.grandTotal,
           paymentMethod: order.paymentMethod,

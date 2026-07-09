@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle, RotateCcw } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
 import { OrderStatusBadge } from '@/features/orders/components/order-status-badge';
@@ -12,6 +13,7 @@ import { useDeliveryTracking } from '@/features/tracking/use-delivery-tracking';
 import { OrderTimeline } from '@jebdekho/order-timeline';
 import { Button, Skeleton, Spinner } from '@/design-system/primitives';
 import { useOrderDetailQuery, useCancelOrderMutation } from '@/hooks/use-orders';
+import { useReorderMutation } from '@/hooks/use-cart';
 import { useToast } from '@/design-system/primitives';
 import { OrderReviewPanel } from '@/features/reviews/order-review-panel';
 import { OrderInvoicePanel } from '@/features/orders/order-invoice-panel';
@@ -29,8 +31,30 @@ export function OrderDetailContent({ orderId }: OrderDetailContentProps) {
   const { data: order, isLoading } = useOrderDetailQuery(orderId);
   const { data: tracking } = useDeliveryTracking(orderId, order?.status);
   const cancelOrder = useCancelOrderMutation();
+  const reorder = useReorderMutation();
+  const router = useRouter();
   const { toast } = useToast();
   const [claimEligibility, setClaimEligibility] = useState<OrderClaimEligibility | null>(null);
+
+  const handleReorder = async () => {
+    if (!order) return;
+    try {
+      const result = await reorder.mutateAsync(order.id);
+      if (result.added === 0) {
+        toast('None of these items are available right now', 'error');
+        return;
+      }
+      toast(
+        result.skipped > 0
+          ? `Added ${result.added} item(s) — ${result.skipped} unavailable and skipped`
+          : 'Added to your cart',
+        'success',
+      );
+      router.push('/cart');
+    } catch (err) {
+      toast(err instanceof SessionError ? err.message : 'Could not reorder', 'error');
+    }
+  };
 
   useEffect(() => {
     if (!order || !['DELIVERED', 'COMPLETED'].includes(order.status)) return;
@@ -66,12 +90,22 @@ export function OrderDetailContent({ orderId }: OrderDetailContentProps) {
             >
               <ArrowLeft className="h-5 w-5" />
             </Link>
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl font-bold tracking-tight">Order details</h1>
               {order && (
                 <p className="text-sm text-muted-foreground">#{order.orderNumber}</p>
               )}
             </div>
+            {order && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReorder}
+                loading={reorder.isPending}
+              >
+                <RotateCcw className="h-4 w-4" /> Reorder
+              </Button>
+            )}
           </div>
 
           {isLoading ? (

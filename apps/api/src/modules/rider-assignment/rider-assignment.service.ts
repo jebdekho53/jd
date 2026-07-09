@@ -1,3 +1,4 @@
+import { envInt } from '../../config/env-int.util';
 import {
   BadRequestException,
   Injectable,
@@ -58,10 +59,7 @@ export class RiderAssignmentService {
     private readonly buyerPush: BuyerPushNotificationService,
     config: ConfigService,
   ) {
-    this.autoAcceptSeconds = config.get<number>(
-      'RIDER_AUTO_ACCEPT_SECONDS',
-      ASSIGNMENT_OFFER_SECONDS,
-    );
+    this.autoAcceptSeconds = envInt(config, 'RIDER_AUTO_ACCEPT_SECONDS', ASSIGNMENT_OFFER_SECONDS);
   }
 
   async autoAssign(orderId: string): Promise<{ deliveryId: string; riderProfileId: string } | null> {

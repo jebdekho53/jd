@@ -18,6 +18,9 @@ export interface FreezeOrderInput {
   merchantContribution?: number;
   platformContribution?: number;
   deliveryFee: number;
+  /** Platform delivery fee the merchant sponsors (free-delivery threshold met).
+   *  Deducted from merchant payout; the platform never subsidises delivery. */
+  merchantDeliveryContribution?: number;
   taxAmount?: number;
   /** Actual amount payable by the buyer (order total). Used for the cash/receivable
    *  ledger so it always matches what is collected, regardless of inclusive/exclusive
@@ -58,11 +61,17 @@ export class OrderFinancialsService {
     const resolution = await this.commission.resolveForOrder(input.storeId, input.orderId);
     const gross = input.subtotal;
     const commissionAmount = roundMoney((gross * resolution.commissionPercent) / 100);
-    const netMerchant = roundMoney(gross - commissionAmount);
+    // Merchant sponsors the delivery fee when they offer free delivery above
+    // their threshold — deduct it from their payout so the platform stays whole.
+    const merchantDeliveryContribution = input.merchantDeliveryContribution ?? 0;
+    const netMerchant = roundMoney(gross - commissionAmount - merchantDeliveryContribution);
     const taxAmount = input.taxAmount ?? roundMoney((gross * DEFAULT_GST_RATE) / 100);
     const deliveryFee = input.deliveryFee;
-    const platformEarnings = roundMoney(commissionAmount + deliveryFee);
-    const riderPayout = this.estimateRiderPayout(deliveryFee);
+    // Platform collects the customer fee AND any merchant-sponsored fee, and pays
+    // the rider from that pool. Self-delivery contributes neither (merchant delivers).
+    const deliveryCollected = roundMoney(deliveryFee + merchantDeliveryContribution);
+    const platformEarnings = roundMoney(commissionAmount + deliveryCollected);
+    const riderPayout = this.estimateRiderPayout(deliveryCollected);
 
     const offerSubsidy = input.offerSubsidy ?? input.discountAmount * 0.5;
     const merchantContribution = input.merchantContribution ?? offerSubsidy * 0.6;

@@ -4,7 +4,7 @@ import { NotificationChannel } from '@prisma/client';
 import { NotificationOrchestratorService } from './notification-orchestrator.service';
 import { PrismaService } from '../../database/prisma.service';
 import { EmailService } from '../email/email.service';
-import { Msg91Service } from '../auth/msg91.service';
+import { WhatsAppService } from '../auth/whatsapp.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 import { createAuthConfigMock } from '../../test/auth-config.mock';
 
@@ -17,7 +17,7 @@ const mockPrisma = {
 };
 
 const mockEmail = { send: jest.fn() };
-const mockSms = { sendTransactional: jest.fn() };
+const mockWhatsapp = { sendText: jest.fn() };
 const mockPush = { sendGeneric: jest.fn() };
 
 describe('NotificationOrchestratorService auth flags', () => {
@@ -29,13 +29,15 @@ describe('NotificationOrchestratorService auth flags', () => {
         NotificationOrchestratorService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EmailService, useValue: mockEmail },
-        { provide: Msg91Service, useValue: mockSms },
+        { provide: WhatsAppService, useValue: mockWhatsapp },
         { provide: BuyerPushNotificationService, useValue: mockPush },
         {
           provide: ConfigService,
+          // SMS/WhatsApp are disabled by removing MSG91 credentials (they now
+          // auto-enable on credential presence rather than manual flags).
           useValue: createAuthConfigMock({
-            AUTH_SMS_ENABLED: 'false',
-            AUTH_WHATSAPP_ENABLED: 'false',
+            ENABLE_WHATSAPP_OTP: 'false',
+            WHATSAPP_ACCESS_TOKEN: '', WHATSAPP_PHONE_NUMBER_ID: '',
           }),
         },
       ],
@@ -63,7 +65,7 @@ describe('NotificationOrchestratorService auth flags', () => {
     mockPrisma.notificationPreference.findFirst.mockResolvedValue(null);
   });
 
-  it('skips SMS when AUTH_SMS_ENABLED=false', async () => {
+  it('skips SMS when WhatsApp is not configured', async () => {
     const result = await service.send({
       userId: 'user-1',
       channel: NotificationChannel.SMS,
@@ -71,10 +73,10 @@ describe('NotificationOrchestratorService auth flags', () => {
     });
 
     expect(result).toEqual({ skipped: true, reason: 'sms_disabled' });
-    expect(mockSms.sendTransactional).not.toHaveBeenCalled();
+    expect(mockWhatsapp.sendText).not.toHaveBeenCalled();
   });
 
-  it('skips WhatsApp when AUTH_WHATSAPP_ENABLED=false', async () => {
+  it('skips WhatsApp when not configured', async () => {
     const result = await service.send({
       userId: 'user-1',
       channel: NotificationChannel.WHATSAPP,
@@ -82,6 +84,6 @@ describe('NotificationOrchestratorService auth flags', () => {
     });
 
     expect(result).toEqual({ skipped: true, reason: 'whatsapp_disabled' });
-    expect(mockSms.sendTransactional).not.toHaveBeenCalled();
+    expect(mockWhatsapp.sendText).not.toHaveBeenCalled();
   });
 });

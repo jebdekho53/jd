@@ -148,6 +148,14 @@ export interface CoordinateAuditInput {
   riderLat?: number | null;
   riderLng?: number | null;
   deliveryDistanceKm?: number | null;
+  /**
+   * Whether a rider is actually assigned yet. For third-party (3PL) shipments
+   * the order can sit in RIDER_ASSIGNED ("shipment created") long before the
+   * provider allocates a delivery agent, so a missing rider location is
+   * expected — not a data fault. Defaults to true to preserve prior behaviour
+   * for in-house deliveries.
+   */
+  hasRiderAssignment?: boolean;
 }
 
 export function auditDeliveryCoordinates(input: CoordinateAuditInput): string[] {
@@ -169,6 +177,7 @@ export function auditDeliveryCoordinates(input: CoordinateAuditInput): string[] 
   if (
     input.orderStatus &&
     POST_ASSIGNMENT_STATUSES.has(input.orderStatus) &&
+    input.hasRiderAssignment !== false &&
     !isValidCoordinate(input.riderLat, input.riderLng)
   ) {
     warnings.push(`${tag}: rider assigned but rider location missing`);

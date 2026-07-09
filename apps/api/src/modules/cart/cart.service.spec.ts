@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import {
   BadRequestException,
   ConflictException,
@@ -101,6 +102,8 @@ describe('CartService', () => {
         { provide: CartCacheService, useValue: mockCartCache },
         { provide: StorePromotionService, useValue: mockPromotions },
         { provide: MembershipBenefitService, useValue: mockMembership },
+        // Real ConfigService returning defaults (platform delivery fee = ₹49).
+        { provide: ConfigService, useValue: { get: (_key: string, def?: unknown) => def } },
       ],
     }).compile();
     service = module.get<CartService>(CartService);

@@ -1,13 +1,13 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MapPin, Plus, Trash2, Upload } from 'lucide-react';
 import { GoogleStoreMap, useGoogleMaps, type AddressLocationValue } from '@jebdekho/google-maps';
 import { useStoreStore } from '@/store/store-store';
 import { MerchantAddressPicker } from '@/components/google-maps/merchant-address-picker';
 import { ApiError, merchantFetch } from '@/services/api/merchant-client';
-import { useStoreQuery } from '@/hooks/use-stores';
+import { useStoreQuery, useUpdateStoreMutation } from '@/hooks/use-stores';
 import { Button } from '@/design-system/primitives';
 import {
   DUPLICATE_COVERAGE_MESSAGE,
@@ -45,6 +45,67 @@ export function DeliveryCoverageContent() {
   const storeLat = storeDetail?.latitude ?? 0;
   const storeLng = storeDetail?.longitude ?? 0;
   const { isConfigured, isLoaded } = useGoogleMaps();
+
+  const savedRadiusKm = storeDetail?.deliveryRadiusKm ?? 5;
+  const [radiusKm, setRadiusKm] = useState(savedRadiusKm);
+  // Keep the local slider in sync when the store (or its saved radius) changes.
+  useEffect(() => {
+    setRadiusKm(savedRadiusKm);
+  }, [savedRadiusKm, storeId]);
+  const radiusDirty = Math.abs(radiusKm - savedRadiusKm) > 0.05;
+
+  const updateStoreMutation = useUpdateStoreMutation(storeId ?? '');
+  const saveRadius = () => {
+    if (!storeId) return;
+    const clamped = Math.min(50, Math.max(0.5, Math.round(radiusKm * 10) / 10));
+    updateStoreMutation.mutate(
+      { deliveryRadiusKm: clamped },
+      {
+        onSuccess: () => setCoverageMessage({ type: 'success', text: `Delivery radius saved: ${clamped} km.` }),
+        onError: (err) =>
+          setCoverageMessage({
+            type: 'error',
+            text: err instanceof Error ? err.message : 'Could not save delivery radius.',
+          }),
+      },
+    );
+  };
+
+  // ── Delivery method + free-delivery threshold ──────────────────────────────
+  const savedDeliveryMode = storeDetail?.deliveryMode ?? 'PLATFORM';
+  const savedFreeThreshold = storeDetail?.freeDeliveryThreshold ?? null;
+  const [deliveryMode, setDeliveryMode] = useState<'PLATFORM' | 'SELF'>(savedDeliveryMode);
+  const [freeThreshold, setFreeThreshold] = useState<string>(
+    savedFreeThreshold != null ? String(savedFreeThreshold) : '',
+  );
+  useEffect(() => {
+    setDeliveryMode(savedDeliveryMode);
+    setFreeThreshold(savedFreeThreshold != null ? String(savedFreeThreshold) : '');
+  }, [savedDeliveryMode, savedFreeThreshold, storeId]);
+
+  const parsedThreshold = freeThreshold.trim() === '' ? null : Math.max(0, Number(freeThreshold) || 0);
+  const deliveryModeDirty =
+    deliveryMode !== savedDeliveryMode || parsedThreshold !== savedFreeThreshold;
+
+  const saveDeliveryMethod = () => {
+    if (!storeId) return;
+    updateStoreMutation.mutate(
+      {
+        deliveryMode,
+        // Self-delivery is always free to the customer, so the threshold is moot.
+        freeDeliveryThreshold: deliveryMode === 'SELF' ? null : parsedThreshold,
+      },
+      {
+        onSuccess: () =>
+          setCoverageMessage({ type: 'success', text: 'Delivery method saved.' }),
+        onError: (err) =>
+          setCoverageMessage({
+            type: 'error',
+            text: err instanceof Error ? err.message : 'Could not save delivery method.',
+          }),
+      },
+    );
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['merchant', 'delivery-coverage', storeId, search],
@@ -226,6 +287,62 @@ export function DeliveryCoverageContent() {
 
   return (
     <>
+      <div className="mb-6 rounded-xl border bg-white p-4">
+        <h3 className="mb-1 font-medium">Delivery method</h3>
+        <p className="mb-3 text-xs text-slate-500">
+          Choose how orders from this store are delivered.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setDeliveryMode('PLATFORM')}
+            className={`rounded-lg border p-3 text-left ${deliveryMode === 'PLATFORM' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'}`}
+          >
+            <p className="font-medium">Platform delivery</p>
+            <p className="text-xs text-slate-500">JebDekho arranges a rider. Customer pays the delivery fee (₹49) unless your free-delivery offer applies.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeliveryMode('SELF')}
+            className={`rounded-lg border p-3 text-left ${deliveryMode === 'SELF' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'}`}
+          >
+            <p className="font-medium">Self delivery (my own rider)</p>
+            <p className="text-xs text-slate-500">You deliver with your own delivery boy. Delivery is free for the customer; JebDekho arranges nothing.</p>
+          </button>
+        </div>
+
+        {deliveryMode === 'PLATFORM' && (
+          <div className="mt-3 flex flex-col gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 sm:flex-row sm:items-center">
+            <label className="text-sm text-slate-600">
+              Free delivery on orders above (₹):
+            </label>
+            <input
+              type="number"
+              min={0}
+              inputMode="numeric"
+              placeholder="e.g. 499 (blank = off)"
+              value={freeThreshold}
+              onChange={(e) => setFreeThreshold(e.target.value)}
+              className="w-40 rounded-lg border px-3 py-1.5 text-sm"
+              aria-label="Free delivery threshold in rupees"
+            />
+            <span className="text-xs text-slate-500">
+              Above this, you absorb the ₹49 fee (customer gets free delivery).
+            </span>
+          </div>
+        )}
+
+        <div className="mt-3">
+          <Button
+            type="button"
+            disabled={!deliveryModeDirty || updateStoreMutation.isPending}
+            onClick={saveDeliveryMethod}
+          >
+            {updateStoreMutation.isPending ? 'Saving…' : 'Save delivery method'}
+          </Button>
+        </div>
+      </div>
+
       <div className="mb-6 grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border bg-white p-4">
           <p className="text-xs text-slate-500">Coverage count</p>
@@ -326,13 +443,56 @@ export function DeliveryCoverageContent() {
 
       {storeDetail?.latitude != null && storeDetail.longitude != null && (
         <div className="mb-6 rounded-xl border bg-white p-4">
-          <h3 className="mb-3 font-medium">Coverage map</h3>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-medium">Coverage map</h3>
+            <span className="text-sm text-slate-500">Delivery radius: <span className="font-semibold text-slate-700">{radiusKm.toFixed(1)} km</span></span>
+          </div>
           {isConfigured && isLoaded ? (
-            <GoogleStoreMap
-              buyerLat={storeLat}
-              buyerLng={storeLng}
-              stores={[{ id: storeDetail.id, name: storeDetail.name, lat: storeLat, lng: storeLng }]}
-            />
+            <>
+              <GoogleStoreMap
+                buyerLat={storeLat}
+                buyerLng={storeLng}
+                stores={[{ id: storeDetail.id, name: storeDetail.name, lat: storeLat, lng: storeLng }]}
+                radiusKm={radiusKm}
+                editableRadius
+                onRadiusChange={setRadiusKm}
+              />
+              <div className="mt-3 flex flex-col gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3 sm:flex-row sm:items-center">
+                <div className="flex flex-1 items-center gap-3">
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={50}
+                    step={0.5}
+                    value={radiusKm}
+                    onChange={(e) => setRadiusKm(Number(e.target.value))}
+                    className="flex-1 accent-emerald-600"
+                    aria-label="Delivery radius in kilometres"
+                  />
+                  <input
+                    type="number"
+                    min={0.5}
+                    max={50}
+                    step={0.5}
+                    value={radiusKm}
+                    onChange={(e) => setRadiusKm(Math.min(50, Math.max(0.5, Number(e.target.value) || 0.5)))}
+                    className="w-20 rounded-lg border px-2 py-1.5 text-sm"
+                    aria-label="Delivery radius value"
+                  />
+                  <span className="text-sm text-slate-500">km</span>
+                </div>
+                <Button
+                  type="button"
+                  disabled={!radiusDirty || updateStoreMutation.isPending}
+                  onClick={saveRadius}
+                >
+                  {updateStoreMutation.isPending ? 'Saving…' : 'Save radius'}
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                Drag the circle&apos;s edge on the map or use the slider to set how far you deliver from the store. Orders inside this circle are treated as deliverable.
+              </p>
+            </>
           ) : (
             <p className="text-sm text-slate-500">
               Store at {storeLat.toFixed(4)}, {storeLng.toFixed(4)} · {data?.coverageCount ?? 0} pincodes covered

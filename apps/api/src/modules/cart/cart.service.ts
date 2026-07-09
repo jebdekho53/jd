@@ -8,8 +8,11 @@ import {
   NotFoundException,
   forwardRef,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DomainEventType, Prisma, StoreStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { getConfig } from '../../config/configuration';
+import { resolveDeliveryPricing, type DeliveryMode } from '../../common/utils/delivery-pricing.util';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { CartCacheService } from './cart-cache.service';
@@ -54,12 +57,21 @@ export interface CartTotals {
   promo?: PromoBreakdown;
 }
 
+export interface CartDeliveryInfo {
+  mode: 'PLATFORM' | 'SELF';
+  fee: number;
+  isFree: boolean;
+  freeDeliveryThreshold: number | null;
+  amountToFreeDelivery: number | null;
+}
+
 export interface CartView {
   id: string;
   storeId: string;
   store: { id: string; name: string; slug: string; minOrderAmount: number };
   items: CartItemView[];
   totals: CartTotals;
+  delivery?: CartDeliveryInfo;
   itemCount: number;
   appliedCouponCode?: string | null;
 }
@@ -78,7 +90,12 @@ export class CartService {
     @Inject(forwardRef(() => StorePromotionService))
     private readonly promotions: StorePromotionService,
     private readonly membershipBenefits: MembershipBenefitService,
+    private readonly config: ConfigService,
   ) {}
+
+  private get platformDeliveryFee(): number {
+    return getConfig(this.config).delivery.platformFeeRupees;
+  }
 
   async getBuyerProfileId(userId: string): Promise<string> {
     const { id } = await this.getOrCreateBuyerProfile(userId);
@@ -369,6 +386,52 @@ export class CartService {
     this.logger.debug({ userId, cartId: cart.id }, 'Cart cleared');
   }
 
+  /**
+   * Rebuild the cart from a past order (one-tap "Order again"). Replaces the
+   * current cart with the order's items, best-effort — unavailable / out-of-stock
+   * items are skipped and reported instead of failing the whole action.
+   */
+  async reorderFromOrder(
+    userId: string,
+    orderId: string,
+    ipAddress?: string,
+  ): Promise<{ cart: CartView | null; added: number; skipped: number }> {
+    const { id: buyerProfileId } = await this.getOrCreateBuyerProfile(userId);
+
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, buyerProfileId },
+      select: {
+        id: true,
+        items: { select: { productId: true, variantId: true, quantity: true } },
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.items.length === 0) throw new BadRequestException('This order has no items to reorder');
+
+    // Start fresh so a reorder from a different store doesn't collide with the
+    // current cart's single-store constraint.
+    await this.clearCart(userId, ipAddress);
+
+    let added = 0;
+    let skipped = 0;
+    for (const item of order.items) {
+      try {
+        await this.addItem(
+          userId,
+          { productId: item.productId, variantId: item.variantId, quantity: item.quantity },
+          ipAddress,
+        );
+        added += 1;
+      } catch {
+        // Product/variant no longer available or out of stock — skip it.
+        skipped += 1;
+      }
+    }
+
+    const cart = await this.getCart(userId);
+    return { cart, added, skipped };
+  }
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   private async loadCartFromDb(buyerProfileId: string): Promise<CartView | null> {
@@ -382,6 +445,8 @@ export class CartService {
             slug: true,
             deliveryFee: true,
             minOrderAmount: true,
+            deliveryMode: true,
+            freeDeliveryThreshold: true,
           },
         },
         items: {
@@ -474,7 +539,20 @@ export class CartService {
     });
 
     const catalogSavings = items.reduce((sum, i) => sum + i.savings, 0);
-    const baseDeliveryFee = Number(cart.store.deliveryFee);
+
+    // Delivery fee (self = free, platform = flat fee, free above merchant threshold).
+    const goodsSubtotal = cart.items.reduce(
+      (sum, item) => sum + Number(item.variant.price) * item.quantity,
+      0,
+    );
+    const deliveryPricing = resolveDeliveryPricing({
+      deliveryMode: cart.store.deliveryMode as DeliveryMode,
+      subtotal: goodsSubtotal,
+      freeDeliveryThreshold:
+        cart.store.freeDeliveryThreshold != null ? Number(cart.store.freeDeliveryThreshold) : null,
+      platformFee: this.platformDeliveryFee,
+    });
+    const baseDeliveryFee = deliveryPricing.customerDeliveryFee;
 
     const promoItems = cart.items.map((item) => ({
       productId: item.productId,
@@ -536,6 +614,22 @@ export class CartService {
         deliveryFee,
         grandTotal,
         promo: enriched.promo,
+      },
+      // Delivery presentation for the buyer (free-delivery nudge etc.).
+      delivery: {
+        mode: deliveryPricing.deliveryMode,
+        fee: deliveryFee,
+        isFree: deliveryFee === 0,
+        freeDeliveryThreshold:
+          cart.store.freeDeliveryThreshold != null ? Number(cart.store.freeDeliveryThreshold) : null,
+        // How much more (goods value) to add to unlock free delivery; null when
+        // not applicable (self delivery, no offer, or already free).
+        amountToFreeDelivery:
+          deliveryPricing.deliveryMode === 'PLATFORM' &&
+          cart.store.freeDeliveryThreshold != null &&
+          goodsSubtotal < Number(cart.store.freeDeliveryThreshold)
+            ? Math.max(0, Math.round((Number(cart.store.freeDeliveryThreshold) - goodsSubtotal) * 100) / 100)
+            : null,
       },
       itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
       appliedCouponCode,
