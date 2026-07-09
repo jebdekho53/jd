@@ -67,7 +67,7 @@ export function MasterLocationsContent() {
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Master Locations</h1>
           <p className="text-sm text-slate-500">
-            Canonical Delhi NCR address directory — pincodes, areas, aliases
+            Canonical pan-India address directory — pincodes, areas, aliases
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

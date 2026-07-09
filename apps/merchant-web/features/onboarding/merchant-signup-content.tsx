@@ -1179,7 +1179,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                   />
                   <Input
                     label="City *"
-                    placeholder="Ghaziabad"
+                    placeholder="Your city"
                     value={form.city}
                     onChange={(e) => {
                       setFieldErrors((prev) => ({ ...prev, city: undefined }));

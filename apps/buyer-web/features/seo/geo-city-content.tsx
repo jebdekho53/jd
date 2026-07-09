@@ -1,17 +1,6 @@
 import { getApiBaseUrl } from '@jebdekho/web-config';
 import Link from 'next/link';
 
-const NCR_CITIES = [
-  'delhi',
-  'noida',
-  'greater-noida',
-  'ghaziabad',
-  'muradnagar',
-  'modinagar',
-  'faridabad',
-  'gurugram',
-];
-
 interface GeoCityContentProps {
   citySlug: string;
   featuredAnswer?: string | null;
@@ -31,11 +20,11 @@ async function fetchCityData(citySlug: string) {
     ? ((await categoriesRes.json()) as { data?: Array<{ id: string; name: string; slug: string }> }).data?.slice(0, 8) ?? []
     : [];
 
-  return { stores, categories, isNcr: NCR_CITIES.includes(citySlug) };
+  return { stores, categories };
 }
 
 export async function GeoCityContent({ citySlug, featuredAnswer }: GeoCityContentProps) {
-  const { stores, categories, isNcr } = await fetchCityData(citySlug);
+  const { stores, categories } = await fetchCityData(citySlug);
   const cityLabel = citySlug.replace(/-/g, ' ');
 
   return (
@@ -47,11 +36,9 @@ export async function GeoCityContent({ citySlug, featuredAnswer }: GeoCityConten
         </div>
       )}
 
-      {isNcr && (
-        <p className="text-sm text-jd-text-muted">
-          JebDekho delivers across Delhi NCR including {cityLabel} — compare grocery prices from nearby stores.
-        </p>
-      )}
+      <p className="text-sm text-jd-text-muted">
+        JebDekho delivers across India including {cityLabel} — compare prices from nearby stores.
+      </p>
 
       {categories.length > 0 && (
         <section>
