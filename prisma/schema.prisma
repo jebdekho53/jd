@@ -1827,6 +1827,9 @@ model ProductVariant {
   price     Decimal  @db.Decimal(10, 2)
   mrp       Decimal? @db.Decimal(10, 2)
   weightGrams Int?   @map("weight_grams")
+  // Fashion / footwear variant axes (e.g. size "M" / "UK 8", color "Blue").
+  size      String?
+  color     String?
   isDefault Boolean  @default(false) @map("is_default")
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")

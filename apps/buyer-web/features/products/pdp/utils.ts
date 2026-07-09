@@ -7,6 +7,10 @@ export function getDefaultVariant(product: BuyerProductWithStore): BuyerVariant 
 }
 
 export function getVariantLabel(variant: BuyerVariant, unit: string): string {
+  // Fashion / footwear — show size · colour.
+  if (variant.size || variant.color) {
+    return [variant.size, variant.color].filter(Boolean).join(' · ');
+  }
   if (variant.weightGrams) {
     return variant.weightGrams >= 1000
       ? `${(variant.weightGrams / 1000).toFixed(variant.weightGrams % 1000 === 0 ? 0 : 1)} kg`

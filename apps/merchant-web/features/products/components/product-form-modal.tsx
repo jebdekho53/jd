@@ -94,6 +94,9 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
   const { data: categories } = useApprovedCategoriesQuery(storeId);
   const [hsn, setHsn] = useState<HsnOption | null>(null);
   const [specs, setSpecs] = useState<{ label: string; value: string }[]>([]);
+  const [sizeVariants, setSizeVariants] = useState<
+    { size: string; color: string; sku: string; price: string; mrp: string; stock: string }[]
+  >([]);
   const [taxCategory, setTaxCategory] = useState<'GOODS' | 'SERVICES' | 'EXEMPT' | 'NIL_RATED'>('GOODS');
   const [hsnError, setHsnError] = useState<string | null>(null);
   const [fssaiError, setFssaiError] = useState<string | null>(null);
@@ -162,6 +165,19 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         categories ?? [],
       );
       setSpecs(Array.isArray(editProduct.specifications) ? editProduct.specifications : []);
+      // Load size/colour variants (non-default ones with a size or colour).
+      setSizeVariants(
+        (editProduct.variants ?? [])
+          .filter((v) => !v.isDefault && (v.size || v.color))
+          .map((v) => ({
+            size: v.size ?? '',
+            color: v.color ?? '',
+            sku: v.sku ?? '',
+            price: String(v.price ?? ''),
+            mrp: v.mrp != null ? String(v.mrp) : '',
+            stock: String(v.inventory?.availableQty ?? 0),
+          })),
+      );
       reset({
         name: editProduct.name,
         description: editProduct.description ?? '',
@@ -279,6 +295,17 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
       const cleanSpecs = specs
         .map((s) => ({ label: s.label.trim(), value: s.value.trim() }))
         .filter((s) => s.label && s.value);
+      const cleanVariants = sizeVariants
+        .filter((v) => (v.size.trim() || v.color.trim()) && v.sku.trim() && Number(v.price) > 0)
+        .map((v) => ({
+          sku: v.sku.trim(),
+          name: [v.size.trim(), v.color.trim()].filter(Boolean).join(' / ') || v.sku.trim(),
+          size: v.size.trim() || undefined,
+          color: v.color.trim() || undefined,
+          price: Number(v.price),
+          mrp: v.mrp && Number(v.mrp) > 0 ? Number(v.mrp) : undefined,
+          quantity: Number(v.stock) || 0,
+        }));
       const payload = {
         ...rest,
         sku: data.sku || undefined,
@@ -288,6 +315,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
             ? data.warrantyMonths
             : undefined,
         specifications: cleanSpecs.length > 0 ? cleanSpecs : undefined,
+        variants: cleanVariants.length > 0 ? cleanVariants : undefined,
         categoryId,
         imageUrls: [imageUrl],
         taxInclusive: taxInclusive ?? false,
@@ -301,7 +329,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
       if (editProduct) {
         // Stock is managed via a dedicated inventory endpoint, so the product
         // update DTO rejects these fields — strip them on the edit path.
-        const { quantity: _quantity, lowStockThreshold: _lowStockThreshold, ...updatePayload } = payload;
+        const { quantity: _quantity, lowStockThreshold: _lowStockThreshold, variants: _variants, ...updatePayload } = payload;
         await updateMutation.mutateAsync(updatePayload);
         toast('Product updated!', 'success');
       } else {
@@ -406,6 +434,40 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
             </div>
           </div>
         </details>
+
+        {/* Fashion / footwear — sizes & colours. Each row is a buyable variant. */}
+        <details className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <summary className="cursor-pointer text-sm font-medium text-slate-700">
+            Sizes &amp; colours (fashion / footwear) — optional
+          </summary>
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-slate-500">
+              Add each size/colour a customer can buy (e.g. S–Blue, M–Blue). Leave empty for
+              non-fashion products.
+            </p>
+            {sizeVariants.map((v, i) => (
+              <div key={i} className="grid grid-cols-12 gap-2">
+                <input className="col-span-2 rounded-lg border px-2 py-1.5 text-sm" placeholder="Size" value={v.size}
+                  onChange={(e) => setSizeVariants((c) => c.map((x, j) => (j === i ? { ...x, size: e.target.value } : x)))} />
+                <input className="col-span-2 rounded-lg border px-2 py-1.5 text-sm" placeholder="Colour" value={v.color}
+                  onChange={(e) => setSizeVariants((c) => c.map((x, j) => (j === i ? { ...x, color: e.target.value } : x)))} />
+                <input className="col-span-3 rounded-lg border px-2 py-1.5 text-sm" placeholder="SKU" value={v.sku}
+                  onChange={(e) => setSizeVariants((c) => c.map((x, j) => (j === i ? { ...x, sku: e.target.value } : x)))} />
+                <input className="col-span-2 rounded-lg border px-2 py-1.5 text-sm" placeholder="Price" inputMode="numeric" value={v.price}
+                  onChange={(e) => setSizeVariants((c) => c.map((x, j) => (j === i ? { ...x, price: e.target.value } : x)))} />
+                <input className="col-span-2 rounded-lg border px-2 py-1.5 text-sm" placeholder="Stock" inputMode="numeric" value={v.stock}
+                  onChange={(e) => setSizeVariants((c) => c.map((x, j) => (j === i ? { ...x, stock: e.target.value } : x)))} />
+                <button type="button" aria-label="Remove" className="col-span-1 rounded-lg border text-sm text-red-600"
+                  onClick={() => setSizeVariants((c) => c.filter((_, j) => j !== i))}>✕</button>
+              </div>
+            ))}
+            <button type="button" className="text-sm font-medium text-emerald-700"
+              onClick={() => setSizeVariants((c) => [...c, { size: '', color: '', sku: '', price: '', mrp: '', stock: '' }])}>
+              + Add size / colour
+            </button>
+          </div>
+        </details>
+
         <div className="grid grid-cols-2 gap-3">
           <Select label="Category *" error={errors.parentCategoryId?.message} {...register('parentCategoryId')}>
             <option value="">Select category</option>

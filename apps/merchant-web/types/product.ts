@@ -5,6 +5,8 @@ export interface ProductVariant {
   price: number;
   mrp: number | null;
   weightGrams: number | null;
+  size?: string | null;
+  color?: string | null;
   isDefault: boolean;
   isActive: boolean;
   inventory: {
@@ -80,6 +82,17 @@ export interface ProductSpecification {
   value: string;
 }
 
+export interface CreateVariantPayload {
+  sku: string;
+  name: string;
+  price: number;
+  mrp?: number;
+  size?: string;
+  color?: string;
+  quantity?: number;
+  lowStockThreshold?: number;
+}
+
 export interface CreateProductPayload {
   name: string;
   description?: string;
@@ -98,6 +111,7 @@ export interface CreateProductPayload {
   tags?: string[];
   quantity?: number;
   lowStockThreshold?: number;
+  variants?: CreateVariantPayload[];
   ingredients?: string;
   shelfLife?: string;
   countryOfOrigin?: string;

@@ -168,6 +168,8 @@ export class ProductService {
             price: v.price,
             mrp: v.mrp,
             weightGrams: v.weightGrams,
+            size: v.size,
+            color: v.color,
             isDefault: v.isDefault ?? false,
             isActive: true,
           },

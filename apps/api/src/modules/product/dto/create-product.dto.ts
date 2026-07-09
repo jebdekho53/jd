@@ -64,6 +64,18 @@ export class CreateVariantDto {
   @Min(1)
   weightGrams?: number;
 
+  @ApiProperty({ required: false, example: 'M', description: 'Size (fashion/footwear): M, XL, UK 8…' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 40)
+  size?: string;
+
+  @ApiProperty({ required: false, example: 'Blue', description: 'Colour (fashion/footwear)' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 40)
+  color?: string;
+
   @ApiProperty({ required: false, example: 0, description: 'Initial stock quantity' })
   @IsOptional()
   @IsNumber()
