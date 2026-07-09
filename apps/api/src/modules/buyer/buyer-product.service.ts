@@ -40,6 +40,8 @@ export interface BuyerVariant {
   price: number;
   mrp: number | null;
   weightGrams: number | null;
+  size: string | null;
+  color: string | null;
   isDefault: boolean;
   availableQty: number;
 }
@@ -159,6 +161,8 @@ function mapVariant(v: {
   price: Prisma.Decimal;
   mrp: Prisma.Decimal | null;
   weightGrams: number | null;
+  size?: string | null;
+  color?: string | null;
   isDefault: boolean;
   inventory: { availableQty: number; reservedQty: number; status?: string } | null;
 }): BuyerVariant {
@@ -168,6 +172,8 @@ function mapVariant(v: {
     price: Number(v.price),
     mrp: v.mrp ? Number(v.mrp) : null,
     weightGrams: v.weightGrams,
+    size: v.size ?? null,
+    color: v.color ?? null,
     isDefault: v.isDefault,
     availableQty: v.inventory
       ? Math.max(0, v.inventory.availableQty)
