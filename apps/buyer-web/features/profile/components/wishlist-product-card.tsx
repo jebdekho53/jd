@@ -1,9 +1,9 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { Heart, ShoppingCart, Trash2 } from 'lucide-react';
 import type { WishlistItem } from '@/hooks/use-wishlist';
+import { ImageWithFallback } from '@/components/common/image-with-fallback';
 import { formatCurrency } from '@/lib/utils';
 
 interface WishlistProductCardProps {
@@ -25,13 +25,18 @@ export function WishlistProductCard({
         href={`/products/${item.id}`}
         className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-cream-3"
       >
-        {item.imageUrl ? (
-          <Image src={item.imageUrl} alt="" fill className="object-cover" sizes="80px" />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <Heart className="h-6 w-6 text-jd-text-muted" aria-hidden />
-          </div>
-        )}
+        <ImageWithFallback
+          src={item.imageUrl}
+          alt=""
+          fill
+          className="object-cover"
+          sizes="80px"
+          fallback={
+            <div className="flex h-full items-center justify-center">
+              <Heart className="h-6 w-6 text-jd-text-muted" aria-hidden />
+            </div>
+          }
+        />
       </Link>
       <div className="min-w-0 flex-1">
         <Link href={`/products/${item.id}`}>

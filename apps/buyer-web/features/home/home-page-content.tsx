@@ -214,8 +214,8 @@ function MarketplaceHero({
   return (
     <section className="grid gap-3 lg:grid-cols-[1.45fr_0.9fr]">
       <div className="overflow-hidden rounded-[1.75rem] border border-primary/15 bg-gradient-to-br from-emerald-700 via-primary to-lime-600 p-5 text-white shadow-elevated md:p-7">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div className="max-w-xl">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          <div className="min-w-0 max-w-xl">
             <p className="inline-flex rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wide">
               Local stores, better prices
             </p>
@@ -226,7 +226,7 @@ function MarketplaceHero({
               Search products, compare store prices, and order essentials from verified sellers around you.
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center sm:w-64">
+          <div className="grid grid-cols-3 gap-2 text-center xl:w-64 xl:shrink-0">
             {[
               ['Compare', 'prices'],
               ['Verified', 'stores'],

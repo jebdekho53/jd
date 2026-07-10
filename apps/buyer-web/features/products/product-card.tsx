@@ -1,9 +1,9 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Eye, Heart, Scale, Star } from 'lucide-react';
+import { ImageWithFallback } from '@/components/common/image-with-fallback';
 import { ComparePricesModal } from '@/components/compare/compare-prices-modal';
 import { AddToCartButton } from '@/features/cart/components/add-to-cart-button';
 import { useDeliveryLocation } from '@/hooks/use-delivery-location';
@@ -109,20 +109,19 @@ export function ProductCard({
         onClick={sponsored ? onSponsoredClick : undefined}
         className="relative block aspect-square bg-cream-3"
       >
-        {product.imageUrls[0] ? (
-          <Image
-            src={product.imageUrls[0]}
-            alt={product.name}
-            fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-            sizes={variant === 'carousel' ? '168px' : '(max-width: 640px) 50vw, 25vw'}
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-3xl font-bold text-primary/20">
-            {product.name.charAt(0)}
-          </div>
-        )}
+        <ImageWithFallback
+          src={product.imageUrls[0]}
+          alt={product.name}
+          fill
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          sizes={variant === 'carousel' ? '168px' : '(max-width: 640px) 50vw, 25vw'}
+          loading="lazy"
+          fallback={
+            <div className="flex h-full items-center justify-center text-3xl font-bold text-primary/20">
+              {product.name.charAt(0)}
+            </div>
+          }
+        />
 
         {stock && (
           <span
