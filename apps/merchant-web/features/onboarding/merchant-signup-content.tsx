@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, ChevronLeft } from 'lucide-react';
 import { Button, Input, Select, Spinner, useToast } from '@/design-system/primitives';
 import { MarketingShell } from '@/features/marketing/components/marketing-shell';
-import { MerchantEmailAuth } from '@/features/auth/components/merchant-email-auth';
+import { MerchantOtpFlow } from '@/features/auth/components/merchant-otp-flow';
 import { useCitiesQuery } from '@/hooks/use-geo';
 import { MerchantAddressPicker } from '@/components/google-maps/merchant-address-picker';
 import { computeWizardProgress } from '@/lib/onboarding/progress';
@@ -953,15 +953,10 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
               </div>
             ) : step === 0 ? (
               <div className="space-y-4">
-                <MerchantEmailAuth
-                  mode="signup"
+                <MerchantOtpFlow
                   heading="Step 1 — Create your account"
                   submitLabel="Create Account & Continue"
-                  showForgotPassword={false}
-                  onSuccess={handleVerified}
-                  onAccountExists={(email) => {
-                    router.push(`/login?email=${encodeURIComponent(email)}`);
-                  }}
+                  onVerified={handleVerified}
                 />
                 <p className="text-center text-sm text-slate-500">
                   Already registered?{' '}
