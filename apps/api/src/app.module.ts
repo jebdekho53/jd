@@ -12,6 +12,8 @@ import { LoggerModule } from './logger/logger.module';
 import { PrismaModule } from './database/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { WebhooksModule } from './common/webhooks/webhooks.module';
+import { WhatsAppInboxModule } from './modules/whatsapp-inbox/whatsapp-inbox.module';
+import { WhatsAppBroadcastModule } from './modules/whatsapp-broadcast/whatsapp-broadcast.module';
 import { HealthModule } from './health/health.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { DomainEventsModule } from './modules/domain-events/domain-events.module';
@@ -38,6 +40,7 @@ import { AdminDashboardModule } from './modules/admin-dashboard/admin-dashboard.
 import { SettlementModule } from './modules/settlement/settlement.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { DeliveryTrackingModule } from './modules/delivery-tracking/delivery-tracking.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
 import { StoreReviewModule } from './modules/store-review/store-review.module';
 import { PromotionModule } from './modules/promotion/promotion.module';
 import { GeospatialModule } from './modules/geospatial/geospatial.module';
@@ -115,6 +118,8 @@ import { RequestIdInterceptor } from './common/interceptors/request-id.intercept
     PrismaModule,
     RedisModule,
     WebhooksModule,
+    WhatsAppInboxModule,
+    WhatsAppBroadcastModule,
     OrderTimelineModule,
 
     // ── Feature modules ───────────────────────────────────────────────────────
@@ -148,6 +153,7 @@ import { RequestIdInterceptor } from './common/interceptors/request-id.intercept
     SettlementModule,
     InventoryModule,
     DeliveryTrackingModule,
+    RealtimeModule,
     StoreReviewModule,
     PromotionModule,
     GeospatialModule,

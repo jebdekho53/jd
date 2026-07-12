@@ -1,7 +1,9 @@
 import { haversineKm, isValidCoordinate, safeDistanceKm } from './delivery-eta.util';
 
-/** Admin-configurable store delivery radii (km). */
-export const ALLOWED_DELIVERY_RADII_KM = [1, 3, 5, 8, 10] as const;
+/** Store delivery radii (km). Must span the store form's allowed range (up to
+ *  50 km) — otherwise larger merchant radii snap down and the store silently
+ *  stops appearing/delivering beyond the old 10 km cap. */
+export const ALLOWED_DELIVERY_RADII_KM = [1, 3, 5, 8, 10, 12, 15, 20, 25, 30, 40, 50] as const;
 export const DEFAULT_DELIVERY_RADIUS_KM = 5;
 
 export type DeliveryRadiusKm = (typeof ALLOWED_DELIVERY_RADII_KM)[number];

@@ -4,20 +4,30 @@ import Link from 'next/link';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { AdminMetricCard, AdminSection, HealthPill } from '@/components/dashboard/dashboard-widgets';
 import { useControlRoomQuery } from '@/hooks/use-analytics';
+import { useControlRoomRealtime } from '@/features/analytics/use-control-room-realtime';
+
+/** Polling is a fallback, not the mechanism — back it off while the socket is up. */
+const LIVE_POLL_MS = 60_000;
+const OFFLINE_POLL_MS = 15_000;
 
 function formatInr(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
 }
 
 export function ControlRoomContent() {
-  const { data, isLoading, isError, refetch, dataUpdatedAt } = useControlRoomQuery();
+  const { connected } = useControlRoomRealtime();
+  const { data, isLoading, isError, refetch, dataUpdatedAt } = useControlRoomQuery({
+    refetchInterval: connected ? LIVE_POLL_MS : OFFLINE_POLL_MS,
+  });
   const d = data;
 
   return (
     <DashboardShell title="Real-time Control Room">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          Live operations board · polls every 15s (WebSocket on API namespace /analytics)
+          {connected
+            ? 'Live operations board · streaming over WebSocket'
+            : 'Live operations board · reconnecting, refreshing every 15s'}
         </p>
         <Link href="/analytics" className="text-sm font-medium text-primary hover:underline">
           BI Analytics →

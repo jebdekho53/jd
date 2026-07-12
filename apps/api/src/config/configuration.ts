@@ -87,6 +87,9 @@ export function getConfig(configService: ConfigService) {
       graphVersion: configService.get<string>('WHATSAPP_GRAPH_VERSION', 'v21.0'),
       otpTemplateName: configService.get<string>('WHATSAPP_OTP_TEMPLATE_NAME', 'otp'),
       otpTemplateLang: configService.get<string>('WHATSAPP_OTP_TEMPLATE_LANG', 'en_US'),
+      // Inbound webhook: Meta verification handshake + payload signature.
+      webhookVerifyToken: configService.get<string>('WHATSAPP_WEBHOOK_VERIFY_TOKEN', ''),
+      appSecret: configService.get<string>('WHATSAPP_APP_SECRET', ''),
     },
 
     cors: {
@@ -125,6 +128,10 @@ export function getConfig(configService: ConfigService) {
       keyId: configService.get<string>('RAZORPAY_KEY_ID', ''),
       keySecret: configService.get<string>('RAZORPAY_KEY_SECRET', ''),
       webhookSecret: configService.get<string>('RAZORPAY_WEBHOOK_SECRET', ''),
+      // Razorpay Route: settle each merchant via Linked Account transfers. Keep OFF
+      // until Razorpay activates Route on the account — while off, payouts fall back
+      // to the existing manual reference flow so nothing breaks.
+      routeEnabled: envBool(configService, 'RAZORPAY_ROUTE_ENABLED', false),
     },
 
     logistics: {
@@ -145,6 +152,18 @@ export function getConfig(configService: ConfigService) {
         webhookSecret: configService.get<string>('SHADOWFAX_WEBHOOK_SECRET', ''),
         preallocatedAwbs: configService.get<string>('SHADOWFAX_PREALLOCATED_AWBS', ''),
         preallocatedReverseAwbs: configService.get<string>('SHADOWFAX_PREALLOCATED_REVERSE_AWBS', ''),
+      },
+      borzo: {
+        // Borzo Business API 1.8. Test host robotapitest-in.borzodelivery.com,
+        // production robot-in.borzodelivery.com — set the full base incl. /api/business/1.8.
+        apiUrl: configService.get<string>('BORZO_API_URL', ''),
+        authToken: configService.get<string>('BORZO_AUTH_TOKEN', ''),
+        // HMAC-SHA256 secret for X-DV-Signature on delivery/order callbacks.
+        callbackToken: configService.get<string>('BORZO_CALLBACK_TOKEN', ''),
+        // Default vehicle: 8 = Motorbike (up to 20 kg). See docs "Vehicle types".
+        vehicleTypeId: envInt(configService, 'BORZO_VEHICLE_TYPE_ID', 8),
+        // Delivery contents label sent to the courier when items give no better text.
+        defaultMatter: configService.get<string>('BORZO_DEFAULT_MATTER', 'Grocery & retail order'),
       },
     },
 

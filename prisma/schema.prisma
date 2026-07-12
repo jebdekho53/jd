@@ -786,6 +786,9 @@ model MerchantProfile {
   businessName   String    @map("business_name")
   gstNumber      String?   @map("gst_number")
   panNumber      String?   @map("pan_number")
+  /// Razorpay Route Linked Account id (acc_xxx) — destination for automated
+  /// commission-net payout transfers. Null until the merchant is linked.
+  razorpayLinkedAccountId String? @unique @map("razorpay_linked_account_id")
   kycStatus      KycStatus @default(PENDING) @map("kyc_status")
   kycDocuments   Json?     @map("kyc_documents")
   isBlacklisted  Boolean   @default(false) @map("is_blacklisted")
@@ -6590,6 +6593,138 @@ model ProviderWebhook {
 enum WebhookProvider {
   RAZORPAY
   SHADOWFAX
+  WHATSAPP
+}
+
+enum WhatsAppMessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+/// One thread per customer WhatsApp id (e.g. 919876543210).
+model WhatsAppConversation {
+  id              String    @id @default(cuid())
+  waId            String    @unique @map("wa_id")
+  displayName     String?   @map("display_name")
+  phoneNumber     String?   @map("phone_number")
+  lastMessageAt   DateTime? @map("last_message_at")
+  lastMessageText String?   @map("last_message_text") @db.Text
+  unreadCount     Int       @default(0) @map("unread_count")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  messages WhatsAppMessage[]
+
+  @@index([lastMessageAt(sort: Desc)])
+  @@index([unreadCount])
+  @@map("whatsapp_conversations")
+}
+
+/// Inbound (customer → us) and outbound (us → customer) WhatsApp messages.
+/// `waMessageId` is unique so repeated Meta webhook deliveries are idempotent.
+model WhatsAppMessage {
+  id             String                   @id @default(cuid())
+  conversationId String                   @map("conversation_id")
+  waMessageId    String?                  @unique @map("wa_message_id")
+  direction      WhatsAppMessageDirection
+  type           String                   @default("text")
+  text           String?                  @db.Text
+  payload        Json?
+  /// sent | delivered | read | failed (outbound only)
+  status         String?
+  errorPayload   Json?                    @map("error_payload")
+  fromWaId       String?                  @map("from_wa_id")
+  toWaId         String?                  @map("to_wa_id")
+  phoneNumberId  String?                  @map("phone_number_id")
+  timestamp      DateTime                 @default(now())
+  createdAt      DateTime                 @default(now()) @map("created_at")
+  updatedAt      DateTime                 @updatedAt @map("updated_at")
+
+  conversation WhatsAppConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, timestamp])
+  @@index([direction, status])
+  @@map("whatsapp_messages")
+}
+
+enum WhatsAppBroadcastMode {
+  /// Free-form text. Only delivers inside the 24-hour customer-service window.
+  TEXT
+  /// Approved Meta template. Required for the first outbound message and
+  /// anything outside the 24-hour window.
+  TEMPLATE
+}
+
+enum WhatsAppBroadcastStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  /// Aborted early — e.g. the access token expired or the WABA was restricted.
+  FAILED
+}
+
+enum WhatsAppBroadcastRecipientStatus {
+  PENDING
+  SENT
+  FAILED
+  /// Never attempted (duplicate, unparseable number, or test-recipient guard).
+  SKIPPED
+}
+
+/// One personalized WhatsApp send-out to a CSV-uploaded recipient list.
+model WhatsAppBroadcast {
+  id   String                @id @default(cuid())
+  name String
+  mode WhatsAppBroadcastMode
+
+  /// TEXT mode: message body with {{column}} placeholders, e.g. "Hi {{name}}".
+  bodyTemplate String? @map("body_template") @db.Text
+  /// TEMPLATE mode: approved template name + language, and the CSV column names
+  /// feeding its positional body variables ({{1}}, {{2}}, …), in order.
+  templateName   String?  @map("template_name")
+  templateLang   String?  @map("template_lang")
+  templateParams String[] @map("template_params")
+
+  status          WhatsAppBroadcastStatus @default(QUEUED)
+  totalRecipients Int                     @default(0) @map("total_recipients")
+  sentCount       Int                     @default(0) @map("sent_count")
+  failedCount     Int                     @default(0) @map("failed_count")
+  skippedCount    Int                     @default(0) @map("skipped_count")
+  errorMessage    String?                 @map("error_message") @db.Text
+
+  createdByUserId String    @map("created_by_user_id")
+  startedAt       DateTime? @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  recipients WhatsAppBroadcastRecipient[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@map("whatsapp_broadcasts")
+}
+
+model WhatsAppBroadcastRecipient {
+  id          String                          @id @default(cuid())
+  broadcastId String                          @map("broadcast_id")
+  /// Digits-only international number (no '+'), as Meta expects.
+  waId        String                          @map("wa_id")
+  /// The raw CSV row — every column is available for interpolation.
+  fields      Json
+  status      WhatsAppBroadcastRecipientStatus @default(PENDING)
+  waMessageId String?                         @map("wa_message_id")
+  errorCode   Int?                            @map("error_code")
+  errorMessage String?                        @map("error_message") @db.Text
+  attempts    Int                             @default(0)
+  sentAt      DateTime?                       @map("sent_at")
+  createdAt   DateTime                        @default(now()) @map("created_at")
+  updatedAt   DateTime                        @updatedAt @map("updated_at")
+
+  broadcast WhatsAppBroadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastId, waId])
+  @@index([broadcastId, status])
+  @@map("whatsapp_broadcast_recipients")
 }
 
 enum WebhookEventStatus {

@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 import { nextSecurityHeaders } from '@jebdekho/web-config';
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['@jebdekho/order-timeline', '@jebdekho/web-config'],
+  transpilePackages: ['@jebdekho/order-timeline', '@jebdekho/web-config', '@jebdekho/realtime'],
   async headers() {
     return nextSecurityHeaders();
   },

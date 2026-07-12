@@ -23,7 +23,7 @@ import { labelForNormalizedStatus } from '../logistics/mappers/normalized-status
 import { unassignedOrderWhere } from '../rider-assignment/rider-assignment.util';
 import { UpdateRiderLocationDto } from '../rider/dto/update-rider-location.dto';
 import { DeliveryTrackingCacheService } from './delivery-tracking-cache.service';
-import { TRACKING_EVENTS, type TrackingNamespace } from './delivery-tracking.events';
+import { TRACKING_EVENTS } from './delivery-tracking.events';
 
 const ACTIVE_DELIVERY_STATUSES: DeliveryStatus[] = [
   DeliveryStatus.ASSIGNED,
@@ -266,85 +266,6 @@ export class DeliveryTrackingService {
     });
     if (!order) throw new NotFoundException('Order not found');
     return this.buildTrackingView(order);
-  }
-
-  /**
-   * Validates WebSocket room subscription — mirrors REST tracking ownership rules.
-   */
-  async assertSubscribeAccess(
-    user: RequestUser,
-    data: { namespace: TrackingNamespace; id: string; orderId?: string },
-  ): Promise<void> {
-    const orderId = data.orderId ?? data.id;
-
-    switch (data.namespace) {
-      case 'buyer': {
-        if (!user.roles.includes('BUYER')) {
-          throw new ForbiddenException('Buyer role required');
-        }
-        const bp = await this.prisma.buyerProfile.findUnique({
-          where: { userId: user.id },
-          select: { id: true },
-        });
-        if (!bp) throw new ForbiddenException('Buyer profile not found');
-
-        const order = await this.prisma.order.findFirst({
-          where: { id: orderId, buyerProfileId: bp.id },
-          select: { id: true },
-        });
-        if (!order) throw new ForbiddenException('Order access denied');
-        return;
-      }
-      case 'merchant': {
-        if (!user.roles.includes('MERCHANT')) {
-          throw new ForbiddenException('Merchant role required');
-        }
-        const stores = await this.prisma.store.findMany({
-          where: { merchantProfile: { userId: user.id } },
-          select: { id: true },
-        });
-        const storeIds = stores.map((s) => s.id);
-        if (storeIds.length === 0) throw new ForbiddenException('No stores');
-
-        const order = await this.prisma.order.findFirst({
-          where: { id: orderId, storeId: { in: storeIds } },
-          select: { id: true },
-        });
-        if (!order) throw new ForbiddenException('Order access denied');
-        return;
-      }
-      case 'rider': {
-        if (!user.roles.includes('RIDER')) {
-          throw new ForbiddenException('Rider role required');
-        }
-        const rider = await this.prisma.riderProfile.findUnique({
-          where: { userId: user.id },
-          select: { id: true },
-        });
-        if (!rider) throw new ForbiddenException('Rider profile not found');
-
-        const delivery = await this.prisma.delivery.findFirst({
-          where: { orderId, riderProfileId: rider.id },
-          select: { id: true },
-        });
-        if (!delivery) throw new ForbiddenException('Delivery access denied');
-        return;
-      }
-      case 'admin': {
-        const isAdmin = user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN');
-        if (!isAdmin) throw new ForbiddenException('Admin role required');
-        if (data.id !== 'fleet' && orderId) {
-          const order = await this.prisma.order.findUnique({
-            where: { id: orderId },
-            select: { id: true },
-          });
-          if (!order) throw new NotFoundException('Order not found');
-        }
-        return;
-      }
-      default:
-        throw new ForbiddenException('Invalid tracking namespace');
-    }
   }
 
   async getFleetLive(statusFilter?: string) {

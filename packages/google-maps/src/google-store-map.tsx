@@ -12,6 +12,8 @@ export interface StoreMapPin {
   name: string;
   lat: number;
   lng: number;
+  /** Store logo/photo — shown as the map pin when present. */
+  logoUrl?: string | null;
 }
 
 interface GoogleStoreMapProps {
@@ -140,7 +142,8 @@ export function GoogleStoreMap({
             position={{ lat: store.lat, lng: store.lng }}
             title={store.name}
             onClick={() => onSelectStore?.(store)}
-            label={selectedStoreId === store.id ? 'S' : undefined}
+            imageUrl={store.logoUrl ?? undefined}
+            label={store.name?.[0]?.toUpperCase() ?? 'S'}
             color={selectedStoreId === store.id ? '#15803d' : '#16a34a'}
           />
         ))}

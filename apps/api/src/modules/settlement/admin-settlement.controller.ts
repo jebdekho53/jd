@@ -19,6 +19,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { RequestUser } from '../../common/types';
 import { SettlementService } from './settlement.service';
 import { ListSettlementsQueryDto, RejectPayoutRequestDto } from './dto/settlement.dto';
+import { LinkRouteAccountDto } from './dto/link-route-account.dto';
 
 @ApiTags('admin / settlements')
 @ApiBearerAuth('access-token')
@@ -68,8 +69,23 @@ export class AdminSettlementController {
   @HttpCode(HttpStatus.OK)
   @Permissions('settlements:manage')
   @ApiParam({ name: 'id' })
-  @ApiOperation({ summary: 'Process approved payout (bank transfer)' })
+  @ApiOperation({ summary: 'Process approved payout (Razorpay Route transfer when enabled, else manual)' })
   process(@CurrentUser() user: RequestUser, @Param('id') id: string) {
     return this.settlement.processPayoutRequest(user.id, id).then((data) => ({ success: true, data }));
+  }
+
+  @Post('merchants/:merchantProfileId/route-account')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('settlements:manage')
+  @ApiParam({ name: 'merchantProfileId' })
+  @ApiOperation({ summary: 'Create or attach a Razorpay Route linked account for a merchant' })
+  linkRouteAccount(
+    @CurrentUser() user: RequestUser,
+    @Param('merchantProfileId') merchantProfileId: string,
+    @Body() dto: LinkRouteAccountDto,
+  ) {
+    return this.settlement
+      .linkMerchantRouteAccount(user.id, merchantProfileId, dto.accountId)
+      .then((data) => ({ success: true, data }));
   }
 }

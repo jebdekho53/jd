@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAdminOrdersQuery } from '@/hooks/use-orders';
+import { useAdminFleetRealtime } from '@/features/realtime/use-admin-fleet-realtime';
 import type { ListOrdersParams, OrderStatus, PaymentMethod, PaymentStatus } from '@/types/order';
 
 type FilterTab = 'all' | 'today' | ListOrdersParams['statusGroup'];
@@ -71,6 +72,9 @@ export function OrderMonitoringContent() {
     ...(merchantId && { merchantId }),
     ...(riderId && { riderId }),
   };
+
+  // Refetches the board whenever any order on the platform is created or moves.
+  useAdminFleetRealtime();
 
   const { data, isLoading, isError, refetch } = useAdminOrdersQuery(queryParams);
   const orders = data?.data ?? [];

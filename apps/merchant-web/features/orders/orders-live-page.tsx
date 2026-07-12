@@ -10,12 +10,21 @@ import { useOrdersQuery } from '@/hooks/use-orders';
 import { useStoreStore } from '@/store/store-store';
 import { liveOrdersQueryParams } from '@/lib/orders/live-orders-query';
 import { groupLiveOrders, LIVE_ORDER_GROUPS } from '@/lib/orders/live-order-groups';
+import { useStoreRealtime } from '@/features/realtime/use-store-realtime';
+import { NewOrderAlert } from '@/features/realtime/new-order-alert';
+import { RealtimeIndicator } from '@/features/realtime/realtime-indicator';
+
+/** Polling is a fallback, not the mechanism — back it right off while live. */
+const LIVE_POLL_MS = 60_000;
+const OFFLINE_POLL_MS = 15_000;
 
 export function OrdersLivePageContent() {
   const { currentStore } = useStoreStore();
+  const { connected, newOrder, clearNewOrder } = useStoreRealtime(currentStore?.id);
+
   const { data, refetch, isFetching } = useOrdersQuery(
     liveOrdersQueryParams(currentStore?.id),
-    { refetchInterval: 15_000 },
+    { refetchInterval: connected ? LIVE_POLL_MS : OFFLINE_POLL_MS },
   );
 
   const orders = data?.orders ?? [];
@@ -23,10 +32,14 @@ export function OrdersLivePageContent() {
 
   return (
     <div className="min-h-screen bg-slate-900 p-4 text-white">
+      <NewOrderAlert order={newOrder} onDismiss={clearNewOrder} />
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Kitchen / Packing — Live</h1>
-          <p className="text-slate-400">{currentStore?.name ?? 'All stores'} · refreshes every 15s</p>
+          <div className="flex items-center gap-2 text-slate-400">
+            <span>{currentStore?.name ?? 'All stores'}</span>
+            <RealtimeIndicator connected={connected} />
+          </div>
         </div>
         <div className="flex gap-2">
           <BackButton fallbackHref="/orders" className="border-slate-600 text-white hover:bg-slate-800" />

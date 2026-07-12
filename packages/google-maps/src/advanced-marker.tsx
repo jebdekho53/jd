@@ -7,20 +7,49 @@ export interface AdvancedMarkerProps {
   position: google.maps.LatLngLiteral;
   title?: string;
   label?: string;
+  /** Store logo/photo — when set, the pin shows a circular image thumbnail. */
+  imageUrl?: string;
   draggable?: boolean;
   color?: string;
   onClick?: () => void;
   onDragEnd?: (position: google.maps.LatLngLiteral) => void;
 }
 
-function markerContent(label?: string, color = '#16a34a'): HTMLElement {
+function markerContent(label?: string, color = '#16a34a', imageUrl?: string): HTMLElement {
   const el = document.createElement('div');
-  el.style.width = '28px';
-  el.style.height = '28px';
+  const size = imageUrl ? '38px' : '28px';
+  el.style.width = size;
+  el.style.height = size;
   el.style.borderRadius = '999px';
-  el.style.background = color;
   el.style.border = '2px solid #ffffff';
   el.style.boxShadow = '0 8px 18px rgba(15, 23, 42, 0.22)';
+  el.style.overflow = 'hidden';
+
+  if (imageUrl) {
+    // Circular store photo. Falls back to the coloured letter pin if the image
+    // fails to load (onerror).
+    el.style.background = `#ffffff center / cover no-repeat`;
+    const img = document.createElement('img');
+    img.src = imageUrl;
+    img.alt = label ?? '';
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.objectFit = 'cover';
+    img.style.display = 'block';
+    img.onerror = () => {
+      el.textContent = label ?? '';
+      el.style.background = color;
+      el.style.display = 'grid';
+      el.style.placeItems = 'center';
+      el.style.color = '#ffffff';
+      el.style.fontSize = '12px';
+      el.style.fontWeight = '700';
+    };
+    el.appendChild(img);
+    return el;
+  }
+
+  el.style.background = color;
   el.style.display = 'grid';
   el.style.placeItems = 'center';
   el.style.color = '#ffffff';
@@ -50,6 +79,7 @@ export function AdvancedMarker({
   position,
   title,
   label,
+  imageUrl,
   draggable,
   color,
   onClick,
@@ -58,8 +88,8 @@ export function AdvancedMarker({
   const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const content = useMemo(() => {
     if (typeof document === 'undefined') return null;
-    return markerContent(label, color);
-  }, [color, label]);
+    return markerContent(label, color, imageUrl);
+  }, [color, label, imageUrl]);
 
   // Keep latest callbacks in refs so the marker is created only once per
   // (map, content). Previously the effect depended on position/onClick/onDragEnd

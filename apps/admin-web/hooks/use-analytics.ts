@@ -38,10 +38,14 @@ export function useAnalyticsSectionQuery<T>(section: string) {
   });
 }
 
-export function useControlRoomQuery() {
+/**
+ * `refetchInterval` is a fallback: when the `/analytics` socket is live it
+ * pushes the document straight into this cache key, so polling backs right off.
+ */
+export function useControlRoomQuery(options?: { refetchInterval?: number }) {
   return useQuery({
     queryKey: analyticsKeys.controlRoom(),
     queryFn: fetchControlRoom,
-    refetchInterval: 15_000,
+    refetchInterval: options?.refetchInterval ?? 15_000,
   });
 }
