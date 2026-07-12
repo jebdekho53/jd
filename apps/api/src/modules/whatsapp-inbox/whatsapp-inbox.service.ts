@@ -45,6 +45,14 @@ interface WhatsAppInboundMessage {
   video?: { caption?: string };
   document?: { caption?: string; filename?: string };
   location?: { name?: string; address?: string };
+  audio?: { voice?: boolean };
+  sticker?: { animated?: boolean };
+  reaction?: { emoji?: string };
+  contacts?: Array<{ name?: { formatted_name?: string } }>;
+  order?: { product_items?: Array<unknown> };
+  system?: { body?: string };
+  /** Present on type "unsupported" — Meta could not render the customer's message. */
+  errors?: Array<{ title?: string; message?: string; error_data?: { details?: string } }>;
 }
 
 interface WhatsAppStatusUpdate {
@@ -245,6 +253,12 @@ export class WhatsAppInboxService {
   }
 
   /** Best-effort human-readable body for the conversation list preview. */
+  /**
+   * Human-readable preview for every WhatsApp message type. Media messages show
+   * their caption when present, else a labelled placeholder (📷 Photo, 🎤 Voice
+   * message, …). `unsupported` surfaces Meta's error reason so an admin knows the
+   * customer sent something the Cloud API can't deliver (poll, view-once, etc.).
+   */
   private extractText(message: WhatsAppInboundMessage): string | null {
     switch (message.type) {
       case 'text':
@@ -255,20 +269,46 @@ export class WhatsAppInboxService {
         return (
           message.interactive?.button_reply?.title?.trim() ||
           message.interactive?.list_reply?.title?.trim() ||
-          null
+          '[interactive reply]'
         );
       case 'image':
-        return message.image?.caption?.trim() || '[image]';
+        return message.image?.caption?.trim() || '📷 Photo';
       case 'video':
-        return message.video?.caption?.trim() || '[video]';
+        return message.video?.caption?.trim() || '🎬 Video';
       case 'document':
-        return message.document?.caption?.trim() || message.document?.filename?.trim() || '[document]';
+        return (
+          message.document?.caption?.trim() ||
+          (message.document?.filename ? `📄 ${message.document.filename.trim()}` : '📄 Document')
+        );
       case 'audio':
-        return '[audio]';
+        return message.audio?.voice ? '🎤 Voice message' : '🎵 Audio';
+      case 'sticker':
+        return '🔖 Sticker';
       case 'location':
-        return message.location?.name?.trim() || message.location?.address?.trim() || '[location]';
+        return message.location?.name?.trim()
+          ? `📍 ${message.location.name.trim()}`
+          : message.location?.address?.trim()
+            ? `📍 ${message.location.address.trim()}`
+            : '📍 Location';
+      case 'reaction':
+        return message.reaction?.emoji ? `Reacted ${message.reaction.emoji}` : 'Reaction';
+      case 'contacts': {
+        const name = message.contacts?.[0]?.name?.formatted_name?.trim();
+        return name ? `👤 Contact: ${name}` : '👤 Contact';
+      }
+      case 'order':
+        return `🛒 Order (${message.order?.product_items?.length ?? 0} item(s))`;
+      case 'system':
+        return message.system?.body?.trim() || 'System message';
+      case 'unsupported': {
+        const reason =
+          message.errors?.[0]?.error_data?.details ||
+          message.errors?.[0]?.message ||
+          message.errors?.[0]?.title;
+        return reason ? `⚠️ Unsupported message — ${reason}` : '⚠️ Unsupported message';
+      }
       default:
-        return message.text?.body?.trim() || (message.type ? `[${message.type}]` : null);
+        return message.text?.body?.trim() || (message.type ? `📎 ${message.type}` : null);
     }
   }
 
