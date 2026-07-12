@@ -42,6 +42,32 @@ function conversationTitle(conversation: WhatsAppConversation): string {
   return conversation.displayName || conversation.phoneNumber || `+${conversation.waId}`;
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  image: '📷 Photo',
+  video: '🎬 Video',
+  audio: '🎤 Voice message',
+  document: '📄 Document',
+  sticker: '🔖 Sticker',
+  location: '📍 Location',
+  contacts: '👤 Contact',
+  reaction: '💬 Reaction',
+  order: '🛒 Order',
+  unsupported: '⚠️ Unsupported message — open WhatsApp to view',
+};
+
+/**
+ * Friendly preview for a message. Uses the stored text when it's real content,
+ * but falls back to a type-based label for media / unsupported messages — this
+ * also fixes older rows whose stored text is a raw "[image]" / "[unsupported]".
+ */
+function messageLabel(type: string, text: string | null): string {
+  const trimmed = text?.trim() ?? '';
+  const bracket = /^\[(.*)\]$/.exec(trimmed); // legacy stored preview e.g. "[unsupported]"
+  if (trimmed && !bracket) return trimmed;
+  // Map by explicit type, else by the bracketed word from legacy rows.
+  return TYPE_LABELS[type] ?? TYPE_LABELS[bracket?.[1] ?? ''] ?? (trimmed || `📎 ${type}`);
+}
+
 /** Meta only accepts free-form replies within 24 hours of the customer's last message. */
 function isReplyWindowOpen(lastMessageAt: string | null): boolean {
   if (!lastMessageAt) return false;
@@ -234,7 +260,9 @@ export function WhatsAppInboxContent() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{conversationTitle(conversation)}</p>
                         <p className="truncate text-sm text-muted-foreground">
-                          {conversation.lastMessageText || 'No message preview'}
+                          {conversation.lastMessageText
+                            ? messageLabel('', conversation.lastMessageText)
+                            : 'No message preview'}
                         </p>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1">
@@ -320,7 +348,7 @@ export function WhatsAppInboxContent() {
                           }`}
                         >
                           <p className="whitespace-pre-wrap break-words">
-                            {message.text ?? `[${message.type}]`}
+                            {messageLabel(message.type, message.text)}
                           </p>
                           <div
                             className={`mt-1 flex items-center justify-end gap-1 text-[11px] ${

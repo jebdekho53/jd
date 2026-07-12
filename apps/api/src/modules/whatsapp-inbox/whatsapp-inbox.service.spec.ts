@@ -124,6 +124,44 @@ describe('WhatsAppInboxService', () => {
   });
 
   describe('processWebhook', () => {
+    function typedPayload(type: string, extra: Record<string, unknown>) {
+      return {
+        entry: [
+          {
+            changes: [
+              {
+                field: 'messages',
+                value: {
+                  metadata: { display_phone_number: '911234567890', phone_number_id: '1100578429815428' },
+                  messages: [
+                    { id: `wamid.${type}`, from: '919984412354', timestamp: '1770000000', type, ...extra },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      };
+    }
+
+    const previewOf = async (type: string, extra: Record<string, unknown>) => {
+      const { service, prisma } = build();
+      await service.processWebhook(typedPayload(type, extra));
+      return prisma.whatsAppConversation.upsert.mock.calls[0]?.[0]?.create?.lastMessageText as string;
+    };
+
+    it('labels media, reactions, and unsupported messages instead of hiding them', async () => {
+      expect(await previewOf('image', { image: {} })).toBe('📷 Photo');
+      expect(await previewOf('audio', { audio: { voice: true } })).toBe('🎤 Voice message');
+      expect(await previewOf('location', { location: { name: 'Home' } })).toBe('📍 Home');
+      expect(await previewOf('reaction', { reaction: { emoji: '❤️' } })).toBe('Reacted ❤️');
+      expect(
+        await previewOf('unsupported', {
+          errors: [{ title: 'Unsupported message type', error_data: { details: 'Message type is not currently supported' } }],
+        }),
+      ).toBe('⚠️ Unsupported message — Message type is not currently supported');
+    });
+
     it('stores an inbound text message and bumps the conversation unread count', async () => {
       const { service, prisma } = build();
 
