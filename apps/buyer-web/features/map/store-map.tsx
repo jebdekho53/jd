@@ -126,7 +126,7 @@ export function StoreMap(props: StoreMapProps) {
             : undefined
         }
         selectedStoreId={props.selectedStoreId}
-        stores={props.stores.map((s) => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng }))}
+        stores={props.stores.map((s) => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng, logoUrl: s.logoUrl }))}
       />
     );
   }

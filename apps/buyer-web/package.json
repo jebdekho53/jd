@@ -11,10 +11,11 @@
     "test": "jest"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.9.1",
     "@jebdekho/google-maps": "workspace:*",
     "@jebdekho/image-utils": "workspace:*",
-    "@hookform/resolvers": "^3.9.1",
     "@jebdekho/order-timeline": "workspace:*",
+    "@jebdekho/realtime": "workspace:*",
     "@jebdekho/web-config": "workspace:*",
     "@radix-ui/react-slot": "^1.1.1",
     "@react-google-maps/api": "^2.20.8",

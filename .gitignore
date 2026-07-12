@@ -59,3 +59,7 @@ apps/api/dist/
 # env backups (contain secrets — never commit)
 .env*.bak*
 *.env.bak*
+
+# uploaded data files
+Book1.xlsx
+~$*.xlsx

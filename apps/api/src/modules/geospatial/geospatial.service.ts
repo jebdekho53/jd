@@ -138,8 +138,15 @@ export class GeospatialService {
   }
 
   async getMapStores(lat: number, lng: number, radiusKm = 10) {
-    const latDelta = radiusKm / 111;
-    const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+    // Search a wider box than the requested radius so stores with a large
+    // delivery radius (e.g. 20–30 km) are still found and shown when they
+    // actually deliver to the buyer. The per-store deliverability check below
+    // (canDeliverToBuyer) enforces each store's own radius/coverage, so a store
+    // only appears if it genuinely delivers to this location.
+    const MAX_STORE_DELIVERY_RADIUS_KM = 50;
+    const searchKm = Math.max(radiusKm, MAX_STORE_DELIVERY_RADIUS_KM);
+    const latDelta = searchKm / 111;
+    const lngDelta = searchKm / (111 * Math.cos((lat * Math.PI) / 180));
     const now = new Date();
 
     const stores = await this.prisma.store.findMany({
@@ -175,7 +182,10 @@ export class GeospatialService {
         const eligibility = canDeliverToBuyer(toDeliverableStoreShape(store), {
           lat,
           lng,
-          discoveryRadiusKm: radiusKm,
+          // Use the wider search radius as the discovery cap so a store shows
+          // whenever it can actually deliver here (its own radius is enforced
+          // inside canDeliverToBuyer), not just within a small fixed radius.
+          discoveryRadiusKm: searchKm,
         });
         if (!eligibility.eligible) return null;
         const d = eligibility.deliverable;

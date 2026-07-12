@@ -20,6 +20,7 @@ import { FinanceCommissionService } from '../finance/finance-commission.service'
 import { LedgerService } from '../finance/ledger.service';
 import { FinanceCacheService } from '../finance/finance-cache.service';
 import { addDays, decimalToNumber, roundMoney } from './settlement.utils';
+import { RazorpayService } from '../payment/razorpay.service';
 import { CreatePayoutRequestDto } from './dto/create-payout-request.dto';
 import { RejectPayoutRequestDto } from './dto/reject-payout-request.dto';
 import { ListSettlementsQueryDto } from './dto/list-settlements-query.dto';
@@ -35,6 +36,7 @@ export class SettlementService {
     private readonly ledger: LedgerService,
     private readonly financeCache: FinanceCacheService,
     private readonly audit: AuditService,
+    private readonly razorpay: RazorpayService,
   ) {}
 
   // ── Automation: on order delivered ─────────────────────────────────────────
@@ -549,6 +551,78 @@ export class SettlementService {
     };
   }
 
+  /**
+   * Create (or attach) a Razorpay Route Linked Account for a merchant so future
+   * payouts settle to them automatically. Idempotent: returns the existing id if
+   * already linked, or accepts a pre-created `acc_xxx` to attach without calling
+   * Razorpay again.
+   */
+  async linkMerchantRouteAccount(
+    adminUserId: string,
+    merchantProfileId: string,
+    existingAccountId?: string,
+  ): Promise<{ merchantProfileId: string; razorpayLinkedAccountId: string; created: boolean }> {
+    const profile = await this.prisma.merchantProfile.findUnique({
+      where: { id: merchantProfileId },
+      include: {
+        user: { select: { email: true, phone: true } },
+        merchantApplication: { include: { bankAccount: true } },
+      },
+    });
+    if (!profile) throw new NotFoundException('Merchant not found');
+
+    if (profile.razorpayLinkedAccountId) {
+      return {
+        merchantProfileId,
+        razorpayLinkedAccountId: profile.razorpayLinkedAccountId,
+        created: false,
+      };
+    }
+
+    let accountId = existingAccountId?.trim();
+    let created = false;
+
+    if (!accountId) {
+      const bank = profile.merchantApplication?.bankAccount;
+      const email = profile.user?.email;
+      const phone = profile.user?.phone;
+      if (!bank) {
+        throw new BadRequestException('Merchant has no verified bank account to link');
+      }
+      if (!email || !phone) {
+        throw new BadRequestException('Merchant email and phone are required to create a linked account');
+      }
+      const result = await this.razorpay.createLinkedAccount({
+        email,
+        phone,
+        legalBusinessName: profile.businessName,
+        referenceId: merchantProfileId,
+        bank: {
+          accountHolderName: bank.accountHolderName,
+          accountNumber: bank.accountNumber,
+          ifsc: bank.ifsc,
+        },
+      });
+      accountId = result.accountId;
+      created = true;
+    }
+
+    await this.prisma.merchantProfile.update({
+      where: { id: merchantProfileId },
+      data: { razorpayLinkedAccountId: accountId },
+    });
+
+    await this.audit.log({
+      actorId: adminUserId,
+      action: 'MERCHANT_ROUTE_ACCOUNT_LINKED',
+      resourceType: 'merchant_profile',
+      resourceId: merchantProfileId,
+      metadata: { razorpayLinkedAccountId: accountId, created } as Prisma.InputJsonValue,
+    });
+
+    return { merchantProfileId, razorpayLinkedAccountId: accountId, created };
+  }
+
   async approvePayoutRequest(adminUserId: string, payoutId: string) {
     const now = new Date();
 
@@ -627,6 +701,61 @@ export class SettlementService {
   async processPayoutRequest(adminUserId: string, payoutId: string) {
     const now = new Date();
 
+    // Move the money BEFORE the DB transaction: a Razorpay Route transfer is a
+    // network call and must never run inside a Prisma transaction. When Route is
+    // off (or the merchant has no linked account) we keep the manual reference,
+    // preserving the existing flow so production is unaffected until Route is live.
+    const preflight = await this.prisma.payoutRequest.findUnique({
+      where: { id: payoutId },
+      include: { merchantProfile: { select: { razorpayLinkedAccountId: true, businessName: true } } },
+    });
+    if (!preflight) throw new NotFoundException('Payout request not found');
+    if (preflight.status !== PayoutRequestStatus.APPROVED) {
+      throw new BadRequestException('Payout must be approved before processing');
+    }
+
+    const linkedAccountId = preflight.merchantProfile?.razorpayLinkedAccountId ?? null;
+    const useRoute = this.razorpay.isRouteEnabled() && Boolean(linkedAccountId);
+    let referenceId = `PAY-${Date.now()}-${payoutId.slice(-6)}`;
+
+    if (useRoute) {
+      try {
+        const transfer = await this.razorpay.createTransfer({
+          linkedAccountId: linkedAccountId as string,
+          amountRupees: decimalToNumber(preflight.amount),
+          referenceId: payoutId,
+          notes: { payoutRequestId: payoutId, merchant: preflight.merchantProfile?.businessName ?? '' },
+        });
+        referenceId = transfer.id;
+        this.logger.log(
+          { payoutId, transferId: transfer.id, status: transfer.status },
+          'Razorpay Route transfer created for payout',
+        );
+      } catch (err) {
+        // Record the failed attempt but leave the payout APPROVED so it can be
+        // retried once the cause (KYC, balance) is fixed — no wallet debit, no
+        // fake success.
+        const message = err instanceof Error ? err.message : 'Route transfer failed';
+        await this.prisma.payoutTransaction.create({
+          data: {
+            payoutRequestId: payoutId,
+            amount: preflight.amount,
+            status: PayoutTransactionStatus.FAILED,
+            failureReason: message.slice(0, 500),
+            processedAt: new Date(),
+          },
+        });
+        await this.audit.log({
+          actorId: adminUserId,
+          action: 'PAYOUT_TRANSFER_FAILED',
+          resourceType: 'payout_request',
+          resourceId: payoutId,
+          metadata: { error: message } as Prisma.InputJsonValue,
+        });
+        throw new BadRequestException(`Payout transfer failed: ${message}`);
+      }
+    }
+
     const result = await this.prisma.$transaction(async (tx) => {
       const request = await tx.payoutRequest.findUnique({ where: { id: payoutId } });
       if (!request) throw new NotFoundException('Payout request not found');
@@ -638,8 +767,6 @@ export class SettlementService {
         where: { id: payoutId },
         data: { status: PayoutRequestStatus.PROCESSING, processedBy: adminUserId },
       });
-
-      const referenceId = `PAY-${Date.now()}-${payoutId.slice(-6)}`;
       const txn = await tx.payoutTransaction.create({
         data: {
           payoutRequestId: payoutId,

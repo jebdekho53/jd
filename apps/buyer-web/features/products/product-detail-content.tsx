@@ -13,6 +13,7 @@ import { AddToCartButton } from '@/features/cart/components/add-to-cart-button';
 import { useProductById, useProductSearch, useStore } from '@/hooks/use-buyer-queries';
 import { buyerKeys, getProductReviews } from '@/services/buyer/buyer-api';
 import { useRecentlyViewed } from '@/hooks/use-recently-viewed';
+import { useProductStockRealtime } from '@/features/products/use-product-stock-realtime';
 import { useWishlist } from '@/hooks/use-wishlist';
 import { buildCompareGroups } from '@/lib/compare-products';
 import { breadcrumbJsonLd, buildProductPdpFaqs, faqPageJsonLd, productJsonLd } from '@/lib/seo/metadata';
@@ -47,6 +48,8 @@ export function ProductDetailContent({ productId }: { productId: string }) {
   const nameHint = searchParams.get('q') ?? undefined;
   const { items: recent, addItem: trackView } = useRecentlyViewed();
   const recentItem = recent.find((i) => i.id === productId);
+  // Keeps the stock badge and Add-to-cart honest if the item sells out while read.
+  useProductStockRealtime(productId);
   const { isWishlisted, toggle } = useWishlist();
   const [copied, setCopied] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);

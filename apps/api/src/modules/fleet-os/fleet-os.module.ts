@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { DeliveryTrackingModule } from '../delivery-tracking/delivery-tracking.module';
+import { WebSocketModule } from '../../common/websocket/websocket.module';
 import { RiderClusteringService } from './rider-clustering.service';
 import { BatchingService } from './batching.service';
 import { RouteOptimizationService } from './route-optimization.service';
@@ -13,7 +14,7 @@ import { AdminFleetOsController, AdminFleetAnalyticsController } from './admin-f
 import { RiderFleetController } from './rider-fleet.controller';
 
 @Module({
-  imports: [DeliveryTrackingModule],
+  imports: [DeliveryTrackingModule, WebSocketModule],
   controllers: [AdminFleetOsController, AdminFleetAnalyticsController, RiderFleetController],
   providers: [
     RiderClusteringService,

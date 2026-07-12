@@ -5,7 +5,8 @@ import type { ILogisticsProvider } from './interfaces/logistics-provider.interfa
 import { ProviderNotEnabledError } from './errors/logistics.errors';
 import { resolvePrimaryProviderType } from './utils/logistics-config.util';
 import { ShadowfaxProvider } from './providers/shadowfax/shadowfax.provider';
-import { PorterProvider, DelhiveryProvider, BorzoProvider } from './providers/stub/stub-providers';
+import { PorterProvider, DelhiveryProvider } from './providers/stub/stub-providers';
+import { BorzoProvider } from './providers/borzo/borzo.provider';
 import { OwnFleetProvider } from './providers/own-fleet/own-fleet.provider';
 
 @Injectable()

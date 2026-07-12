@@ -11,10 +11,11 @@
   },
   "dependencies": {
     "@jebdekho/google-maps": "workspace:*",
-    "@react-google-maps/api": "^2.20.8",
     "@jebdekho/image-utils": "workspace:*",
     "@jebdekho/order-timeline": "workspace:*",
+    "@jebdekho/realtime": "workspace:*",
     "@jebdekho/web-config": "workspace:*",
+    "@react-google-maps/api": "^2.20.8",
     "@tanstack/react-query": "^5.62.8",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
@@ -22,6 +23,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^3.9.0",
+    "socket.io-client": "^4.8.1",
     "tailwind-merge": "^2.6.0",
     "zustand": "^5.0.2"
   },
@@ -43,7 +45,9 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "roots": ["<rootDir>/lib"],
+    "roots": [
+      "<rootDir>/lib"
+    ],
     "testRegex": ".*\\.spec\\.ts$",
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1"

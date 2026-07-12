@@ -8,6 +8,7 @@ import { json, urlencoded, type Request, type Response } from 'express';
 import { join } from 'path';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { IoAdapter } from '@nestjs/platform-socket.io';
+import { RedisIoAdapter } from './common/websocket/redis-io.adapter';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { getConfig } from './config/configuration';
@@ -95,7 +96,25 @@ async function bootstrap(): Promise<void> {
   // ── Global exception filter ───────────────────────────────────────────────
   app.useGlobalFilters(new HttpExceptionFilter());
 
-  app.useWebSocketAdapter(new IoAdapter(app));
+  // ── Socket.IO adapter ─────────────────────────────────────────────────────
+  // Production runs >1 replica, where in-memory rooms silently drop events that
+  // originate on another instance. Redis pub/sub is mandatory there; locally we
+  // degrade to the in-memory adapter so the API still boots without Redis.
+  const redisAdapter = new RedisIoAdapter(app);
+  try {
+    await redisAdapter.connect();
+    app.useWebSocketAdapter(redisAdapter);
+  } catch (err) {
+    if (cfg.nodeEnv === 'production') throw err;
+    app
+      .get(Logger)
+      .warn(
+        `Redis unavailable (${(err as Error).message}) — falling back to the in-memory ` +
+          'Socket.IO adapter. Single-process only; cross-replica events will not fan out.',
+        'Bootstrap',
+      );
+    app.useWebSocketAdapter(new IoAdapter(app));
+  }
 
   // ── Swagger (dev / staging only) ─────────────────────────────────────────
   if (cfg.nodeEnv !== 'production') {

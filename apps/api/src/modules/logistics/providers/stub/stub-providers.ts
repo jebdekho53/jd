@@ -35,18 +35,3 @@ export class DelhiveryProvider implements ILogisticsProvider {
   getProofOfDelivery() { return this.notReady(); }
   healthCheck() { return this.notReady(); }
 }
-
-@Injectable()
-export class BorzoProvider implements ILogisticsProvider {
-  readonly type = DeliveryProviderType.BORZO;
-  private notReady(): never {
-    throw new ProviderNotImplementedError(DeliveryProviderType.BORZO);
-  }
-  createShipment() { return this.notReady(); }
-  cancelShipment() { return this.notReady(); }
-  trackShipment() { return this.notReady(); }
-  estimatePrice() { return this.notReady(); }
-  estimateETA() { return this.notReady(); }
-  getProofOfDelivery() { return this.notReady(); }
-  healthCheck() { return this.notReady(); }
-}

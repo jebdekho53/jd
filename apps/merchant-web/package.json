@@ -14,6 +14,7 @@
     "@jebdekho/google-maps": "workspace:*",
     "@jebdekho/image-utils": "workspace:*",
     "@jebdekho/order-timeline": "workspace:*",
+    "@jebdekho/realtime": "workspace:*",
     "@jebdekho/web-config": "workspace:*",
     "@react-google-maps/api": "^2.20.8",
     "@tanstack/react-query": "^5.62.8",

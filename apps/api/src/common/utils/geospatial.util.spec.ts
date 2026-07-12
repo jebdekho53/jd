@@ -54,6 +54,6 @@ describe('geospatial.util', () => {
   });
 
   it('exposes allowed radii', () => {
-    expect(ALLOWED_DELIVERY_RADII_KM).toEqual([1, 3, 5, 8, 10]);
+    expect(ALLOWED_DELIVERY_RADII_KM).toEqual([1, 3, 5, 8, 10, 12, 15, 20, 25, 30, 40, 50]);
   });
 });

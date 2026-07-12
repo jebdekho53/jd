@@ -3,25 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
-import {
-  LayoutDashboard,
-  Store,
-  Package,
-  Layers,
-  ShoppingBag,
-  LogOut,
-  Tags,
-  Wallet,
-  Monitor,
-  Star,
-  Tag,
-  Headphones,
-  Users,
-  UtensilsCrossed,
-  ChefHat,
-  BarChart3,
-  RefreshCw,
-} from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { BrandLockup } from '@/components/brand/brand-lockup';
 import { useAuthStore } from '@/store/auth-store';
@@ -29,39 +11,8 @@ import { useStoreStore } from '@/store/store-store';
 import { useLogoutMutation } from '@/hooks/use-auth';
 import { useStoresQuery } from '@/hooks/use-stores';
 import { useStoreCatalogKind } from '@/hooks/use-store-catalog-kind';
-
-const baseNav = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/stores', label: 'My Stores', icon: Store },
-  { href: '/settings/delivery-coverage', label: 'Delivery Coverage', icon: Store },
-  { href: '/categories', label: 'Categories', icon: Tags },
-  { href: '/products', label: 'Products', icon: Package },
-  { href: '/inventory', label: 'Inventory', icon: Layers },
-  { href: '/orders', label: 'Orders', icon: ShoppingBag },
-  { href: '/orders/live', label: 'Live Orders', icon: Monitor },
-  { href: '/claims', label: 'Returns & Claims', icon: RefreshCw },
-  { href: '/reviews', label: 'Reviews', icon: Star },
-  { href: '/promotions', label: 'Promotions', icon: Tag },
-  { href: '/earnings', label: 'Earnings', icon: Wallet },
-  { href: '/finance', label: 'Finance', icon: Wallet },
-  { href: '/gst', label: 'GST & Tax', icon: Wallet },
-  { href: '/support', label: 'Support', icon: Headphones },
-  { href: '/customers', label: 'Customers', icon: Users },
-  { href: '/growth', label: 'Growth', icon: Star },
-  { href: '/ai', label: 'AI Commerce', icon: Star },
-  { href: '/network', label: 'Network', icon: Layers },
-  { href: '/procurement', label: 'Procurement', icon: Package },
-  { href: '/ads', label: 'Ads', icon: Tag },
-  { href: '/seo', label: 'SEO', icon: Tag },
-];
-
-function restaurantNav(storeId: string) {
-  return [
-    { href: `/stores/${storeId}/restaurant-dashboard`, label: 'Restaurant', icon: BarChart3 },
-    { href: `/stores/${storeId}/menu`, label: 'Menu', icon: UtensilsCrossed },
-    { href: `/stores/${storeId}/kitchen`, label: 'Kitchen', icon: ChefHat },
-  ];
-}
+import { CommandPalette } from './command-palette';
+import { baseNav, restaurantNav } from './nav-items';
 
 export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
@@ -105,6 +56,10 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
     <aside className="flex h-full w-64 flex-col border-r border-slate-200 bg-white">
       <div className="flex h-14 items-center border-b border-slate-100 px-4">
         <BrandLockup subtitle="Merchant" href="/dashboard" />
+      </div>
+
+      <div className="border-b border-slate-100 p-2">
+        <CommandPalette items={nav} />
       </div>
 
       {stores.length > 0 && (

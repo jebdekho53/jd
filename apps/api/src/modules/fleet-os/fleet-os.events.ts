@@ -5,5 +5,3 @@ export const FLEET_EVENTS = {
   ALERT_CREATED: 'fleet.alert.created',
   ROUTE_OPTIMIZED: 'route.optimized',
 } as const;
-
-export const FLEET_ROOM = 'fleet:ops';

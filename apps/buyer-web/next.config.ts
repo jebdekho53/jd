@@ -46,7 +46,7 @@ const nextConfig: NextConfig = {
   experimental: {
     devtoolSegmentExplorer: false,
   },
-  transpilePackages: ['@jebdekho/order-timeline', '@jebdekho/web-config'],
+  transpilePackages: ['@jebdekho/order-timeline', '@jebdekho/web-config', '@jebdekho/realtime'],
   async headers() {
     return nextSecurityHeaders();
   },

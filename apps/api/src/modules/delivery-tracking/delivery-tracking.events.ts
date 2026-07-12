@@ -8,12 +8,4 @@ export const TRACKING_EVENTS = {
   ORDER_STATUS: 'order.status.updated',
 } as const;
 
-export type TrackingNamespace = 'buyer' | 'merchant' | 'admin' | 'rider';
-
-export function trackingRoom(namespace: TrackingNamespace, id: string): string {
-  return `${namespace}:${id}`;
-}
-
-export function orderRoom(orderId: string): string {
-  return `order:${orderId}`;
-}
+export const FLEET_UPDATED_EVENT = 'fleet.updated';
