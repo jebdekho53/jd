@@ -241,6 +241,10 @@ export interface UnifiedSearchProduct {
   availableQty: number;
   /** Default purchasable variant; required for add-to-cart from search */
   variantId?: string;
+  /** True when this result is a paid (sponsored) placement. */
+  sponsored?: boolean;
+  /** Ad campaign id — used to record a click when the buyer taps the result. */
+  campaignId?: string;
 }
 
 export interface UnifiedSearchResult {
