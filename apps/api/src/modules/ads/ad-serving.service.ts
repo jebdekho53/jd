@@ -40,6 +40,18 @@ export class AdServingService {
     return stores.sort((a, b) => b.priority - a.priority).slice(0, limit);
   }
 
+  /**
+   * Home-rail sponsored products, recording a HOME impression for each served
+   * item so the campaign is billed and its analytics stay accurate.
+   */
+  async serveHomeSponsoredProducts(limit = 6, userId?: string) {
+    const products = await this.getSponsoredProductsForHome(limit);
+    for (const p of products) {
+      if (p.campaignId) void this.recordImpression(p.campaignId, AdPlacement.HOME, userId);
+    }
+    return products;
+  }
+
   async getSponsoredProductsForHome(limit = 6) {
     const rows = await this.prisma.sponsoredProduct.findMany({
       where: { campaign: { status: AdCampaignStatus.ACTIVE } },

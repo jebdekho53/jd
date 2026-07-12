@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsString, MaxLength, MinLength } from 'class-validator';
 import { Public } from '../../common/decorators/public.decorator';
@@ -16,6 +16,14 @@ class AdClickDto {
 @Controller('buyer/ads')
 export class BuyerAdsController {
   constructor(private readonly adServing: AdServingService) {}
+
+  @Public()
+  @Get('sponsored')
+  @ApiOperation({ summary: 'Sponsored products for the home rail (records HOME impressions)' })
+  async sponsored() {
+    const products = await this.adServing.serveHomeSponsoredProducts(6);
+    return { success: true, data: { products } };
+  }
 
   @Public()
   @Post('click')
