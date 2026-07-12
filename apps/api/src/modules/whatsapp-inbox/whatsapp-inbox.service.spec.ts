@@ -35,7 +35,10 @@ function makePrisma() {
 
 function build(overrides: Record<string, string> = {}) {
   const prisma = makePrisma();
-  const whatsapp = { sendTextMessage: jest.fn() } as unknown as WhatsAppService;
+  const whatsapp = {
+    sendTextMessage: jest.fn(),
+    downloadMedia: jest.fn(),
+  } as unknown as WhatsAppService;
   const events = { emit: jest.fn() } as unknown as EventEmitter2;
   const service = new WhatsAppInboxService(
     prisma as unknown as PrismaService,
@@ -45,6 +48,52 @@ function build(overrides: Record<string, string> = {}) {
   );
   return { service, prisma, whatsapp, events };
 }
+
+describe('WhatsAppInboxService.getMessageMedia', () => {
+  it('reads the media id from the stored payload and downloads it', async () => {
+    const { service, prisma, whatsapp } = build();
+    (prisma.whatsAppMessage.findUnique as jest.Mock).mockResolvedValue({
+      id: 'msg_1',
+      type: 'image',
+      payload: { image: { id: 'media_123', mime_type: 'image/jpeg' } },
+    });
+    (whatsapp.downloadMedia as jest.Mock).mockResolvedValue({
+      buffer: Buffer.from('img'),
+      contentType: 'image/jpeg',
+    });
+
+    const result = await service.getMessageMedia('msg_1');
+
+    expect(whatsapp.downloadMedia).toHaveBeenCalledWith('media_123');
+    expect(result.contentType).toBe('image/jpeg');
+  });
+
+  it('returns the document filename for downloads', async () => {
+    const { service, prisma, whatsapp } = build();
+    (prisma.whatsAppMessage.findUnique as jest.Mock).mockResolvedValue({
+      id: 'msg_2',
+      type: 'document',
+      payload: { document: { id: 'media_9', filename: 'invoice.pdf' } },
+    });
+    (whatsapp.downloadMedia as jest.Mock).mockResolvedValue({
+      buffer: Buffer.from('%PDF'),
+      contentType: 'application/pdf',
+    });
+
+    const result = await service.getMessageMedia('msg_2');
+    expect(result.filename).toBe('invoice.pdf');
+  });
+
+  it('throws when the message carries no media', async () => {
+    const { service, prisma } = build();
+    (prisma.whatsAppMessage.findUnique as jest.Mock).mockResolvedValue({
+      id: 'msg_3',
+      type: 'text',
+      payload: { text: { body: 'hi' } },
+    });
+    await expect(service.getMessageMedia('msg_3')).rejects.toThrow(/no downloadable media/);
+  });
+});
 
 function textPayload(waMessageId: string): WhatsAppWebhookPayload {
   return {

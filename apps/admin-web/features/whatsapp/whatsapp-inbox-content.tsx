@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Check,
   CheckCheck,
+  Download,
   Loader2,
   MessageSquare,
   RefreshCw,
@@ -72,6 +73,51 @@ function messageLabel(type: string, text: string | null): string {
 function isReplyWindowOpen(lastMessageAt: string | null): boolean {
   if (!lastMessageAt) return false;
   return Date.now() - new Date(lastMessageAt).getTime() < 24 * 60 * 60 * 1000;
+}
+
+const MEDIA_TYPES = new Set(['image', 'sticker', 'video', 'audio', 'document']);
+
+/**
+ * Renders inbound media inline by streaming it from the API through the BFF
+ * (the raw Meta URL needs the access token, so the browser can't load it
+ * directly). Images/stickers show a thumbnail, audio/video get players, and
+ * documents become a download link.
+ */
+function MessageMedia({ message }: { message: WhatsAppMessage }) {
+  if (message.direction !== 'INBOUND' || !MEDIA_TYPES.has(message.type)) return null;
+  const src = `/api/admin/whatsapp/messages/${message.id}/media`;
+
+  if (message.type === 'image' || message.type === 'sticker') {
+    return (
+      <a href={src} target="_blank" rel="noopener noreferrer" className="block">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={message.text ?? 'WhatsApp image'}
+          loading="lazy"
+          className="mb-1 max-h-64 w-auto max-w-full rounded-lg object-contain"
+        />
+      </a>
+    );
+  }
+  if (message.type === 'video') {
+    return <video src={src} controls className="mb-1 max-h-64 w-full rounded-lg" />;
+  }
+  if (message.type === 'audio') {
+    return <audio src={src} controls className="mb-1 w-full" />;
+  }
+  // document
+  return (
+    <a
+      href={src}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mb-1 inline-flex items-center gap-1 rounded-md bg-black/5 px-2 py-1 text-xs underline"
+    >
+      <Download className="h-3.5 w-3.5" aria-hidden />
+      Download
+    </a>
+  );
 }
 
 function StatusTicks({ status }: { status: string | null }) {
@@ -347,6 +393,7 @@ export function WhatsAppInboxContent() {
                               : 'rounded-bl-sm bg-muted'
                           }`}
                         >
+                          <MessageMedia message={message} />
                           <p className="whitespace-pre-wrap break-words">
                             {messageLabel(message.type, message.text)}
                           </p>

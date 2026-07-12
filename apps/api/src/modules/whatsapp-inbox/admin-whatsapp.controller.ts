@@ -1,5 +1,6 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -34,6 +35,18 @@ export class AdminWhatsAppController {
   async listMessages(@Param('id') id: string, @Query() query: ListWhatsAppMessagesQueryDto) {
     const data = await this.inbox.listMessages(id, query);
     return { success: true, data };
+  }
+
+  @Get('messages/:messageId/media')
+  @ApiOperation({ summary: 'Stream the media (image/audio/video/document) attached to a message' })
+  async messageMedia(@Param('messageId') messageId: string, @Res() res: Response) {
+    const { buffer, contentType, filename } = await this.inbox.getMessageMedia(messageId);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    if (filename) {
+      res.setHeader('Content-Disposition', `inline; filename="${filename.replace(/"/g, '')}"`);
+    }
+    res.send(buffer);
   }
 
   @Post('conversations/:id/read')
