@@ -436,6 +436,32 @@ export class WhatsAppInboxService {
     }
   }
 
+  /**
+   * Resolve and download the media attached to an inbound message, reading the
+   * media id straight from the stored Meta payload. Returns the bytes so the
+   * admin API can stream them to the browser.
+   */
+  async getMessageMedia(
+    messageId: string,
+  ): Promise<{ buffer: Buffer; contentType: string; filename?: string }> {
+    const message = await this.prisma.whatsAppMessage.findUnique({ where: { id: messageId } });
+    if (!message) throw new NotFoundException('Message not found');
+
+    const payload = (message.payload ?? {}) as Record<string, unknown>;
+    const mediaObj = (payload[message.type] ?? {}) as Record<string, unknown>;
+    const mediaId = typeof mediaObj.id === 'string' ? mediaObj.id : undefined;
+    if (!mediaId) throw new NotFoundException('This message has no downloadable media');
+
+    const media = await this.whatsapp.downloadMedia(mediaId);
+    if (!media) throw new NotFoundException('Media is no longer available from WhatsApp');
+
+    const filename =
+      message.type === 'document' && typeof mediaObj.filename === 'string'
+        ? mediaObj.filename
+        : undefined;
+    return { ...media, filename };
+  }
+
   async markRead(conversationId: string) {
     const conversation = await this.prisma.whatsAppConversation.findUnique({
       where: { id: conversationId },

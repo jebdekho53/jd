@@ -238,6 +238,44 @@ export class WhatsAppService {
     return Boolean(messageId);
   }
 
+  /**
+   * Download an inbound media object (image/audio/video/document/sticker) by its
+   * Meta media id. Two hops: resolve the short-lived CDN URL, then fetch the
+   * bytes — both require the access token, which is why the browser can't load
+   * media directly and must go through us.
+   */
+  async downloadMedia(
+    mediaId: string,
+  ): Promise<{ buffer: Buffer; contentType: string } | null> {
+    const wa = this.cfg.whatsapp;
+    const accessToken = (this.configService.get<string>('WHATSAPP_ACCESS_TOKEN', '') ?? '').trim();
+    if (!accessToken || !mediaId) return null;
+
+    try {
+      const meta = await axios.get<{ url?: string; mime_type?: string }>(
+        `https://graph.facebook.com/${wa.graphVersion}/${encodeURIComponent(mediaId)}`,
+        { headers: { Authorization: `Bearer ${accessToken}` }, timeout: 8000 },
+      );
+      const mediaUrl = meta.data?.url;
+      if (!mediaUrl) return null;
+
+      const file = await axios.get<ArrayBuffer>(mediaUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        responseType: 'arraybuffer',
+        timeout: 15000,
+      });
+      const contentType =
+        (file.headers['content-type'] as string | undefined) ??
+        meta.data?.mime_type ??
+        'application/octet-stream';
+      return { buffer: Buffer.from(file.data), contentType };
+    } catch (err) {
+      const providerError = axios.isAxiosError(err) ? err.response?.status : undefined;
+      this.logger.warn({ mediaId, status: providerError }, 'WhatsApp media download failed');
+      return null;
+    }
+  }
+
   /** Meta Cloud API expects the number in international format, digits only (no '+'). */
   private toWhatsAppNumber(phone: string): string {
     return (phone ?? '').replace(/[^\d]/g, '');
