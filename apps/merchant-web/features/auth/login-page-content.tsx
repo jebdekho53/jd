@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { useSessionQuery, useLogoutMutation } from '@/hooks/use-auth';
 import { useToast, Button } from '@/design-system/primitives';
 import { MerchantAuthShell } from './components/merchant-auth-shell';
-import { MerchantEmailAuth } from './components/merchant-email-auth';
+import { MerchantOtpFlow } from './components/merchant-otp-flow';
 import { resolveMerchantEntryRoute } from '@/lib/merchant-entry-route';
 import type { VerifyOtpResult } from '@/types/auth';
 
@@ -105,12 +105,7 @@ export function LoginPageContent() {
         </div>
       )}
 
-      <MerchantEmailAuth
-        mode="login"
-        submitLabel="Verify & Sign in"
-        defaultEmail={prefilledEmail}
-        onSuccess={handleVerified}
-      />
+      <MerchantOtpFlow submitLabel="Verify & Sign in" onVerified={handleVerified} />
     </MerchantAuthShell>
   );
 }
