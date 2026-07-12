@@ -613,25 +613,115 @@ export class AdminDashboardService {
       websocket: 'unavailable',
       backgroundJobs: 'running',
       cronStatus: 'active',
-      sms:
-        process.env.AUTH_SMS_ENABLED === 'true' && process.env.MSG91_ENABLED === 'true'
-          ? process.env.MSG91_AUTH_KEY
-            ? 'configured'
-            : 'console'
-          : 'disabled',
-      whatsapp:
-        process.env.AUTH_WHATSAPP_ENABLED === 'true' && process.env.MSG91_ENABLED === 'true'
-          ? process.env.MSG91_AUTH_KEY
-            ? 'configured'
-            : 'console'
-          : 'coming_soon',
       email: process.env.SMTP_HOST ? 'configured' : 'console',
-      googleMaps: process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? 'configured' : 'missing',
-      shadowfax:
-        process.env.ENABLE_SHADOWFAX === 'true' && process.env.SHADOWFAX_API_URL
+      googleMaps:
+        process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
           ? 'configured'
-          : 'disabled',
-      pushNotifications: process.env.FCM_SERVER_KEY ? 'configured' : 'not_configured',
+          : 'missing',
+      pushNotifications:
+        process.env.WEB_PUSH_PUBLIC_KEY || process.env.FCM_SERVER_KEY ? 'configured' : 'not_configured',
+      ...this.integrationHealth(),
+    };
+  }
+
+  /**
+   * Accurate per-integration status for the admin dashboard — the single place
+   * that answers "what is enabled and what still needs configuring". Each entry:
+   *   live          → on and fully configured
+   *   configured    → keys present but the feature flag is off
+   *   action_needed → enabled/expected but a required secret is missing (⚠️)
+   *   disabled      → intentionally off
+   * `issues` lists everything that needs attention so the UI can surface it.
+   */
+  private integrationHealth() {
+    const has = (v?: string) => Boolean(v && v.trim());
+    const integrations: Array<{ name: string; status: string; detail: string }> = [];
+    const issues: string[] = [];
+
+    // WhatsApp Cloud API (OTP + order updates + inbox/broadcast)
+    const waConfigured = has(process.env.WHATSAPP_ACCESS_TOKEN) && has(process.env.WHATSAPP_PHONE_NUMBER_ID);
+    integrations.push({
+      name: 'WhatsApp Cloud API',
+      status: waConfigured ? 'live' : 'action_needed',
+      detail: waConfigured ? 'OTP, order updates, inbox & broadcast' : 'Missing access token / phone number id',
+    });
+    if (!waConfigured) issues.push('WhatsApp access token / phone number id not set');
+
+    // WhatsApp inbound webhook signature
+    const waSecret = has(process.env.WHATSAPP_APP_SECRET);
+    integrations.push({
+      name: 'WhatsApp webhook signature',
+      status: waSecret ? 'live' : 'action_needed',
+      detail: waSecret ? 'Inbound payloads verified' : 'WHATSAPP_APP_SECRET empty — signature check skipped',
+    });
+    if (!waSecret) issues.push('WHATSAPP_APP_SECRET missing — inbound webhook is unverified (security)');
+
+    // Razorpay payments
+    const rzp = has(process.env.RAZORPAY_KEY_ID) && has(process.env.RAZORPAY_KEY_SECRET);
+    integrations.push({
+      name: 'Razorpay payments',
+      status: rzp ? 'live' : 'action_needed',
+      detail: rzp ? 'Online payments enabled' : 'Missing key id / secret (COD still works)',
+    });
+    if (rzp && !has(process.env.RAZORPAY_WEBHOOK_SECRET)) {
+      issues.push('RAZORPAY_WEBHOOK_SECRET missing — payment webhooks unverified');
+    }
+
+    // Razorpay Route (merchant settlement split)
+    const routeOn = process.env.RAZORPAY_ROUTE_ENABLED === 'true';
+    integrations.push({
+      name: 'Razorpay Route (merchant payouts)',
+      status: routeOn ? (rzp ? 'live' : 'action_needed') : 'disabled',
+      detail: routeOn ? 'Automated commission-split settlement' : 'Off — payouts processed manually',
+    });
+
+    // Couriers
+    const shadowfax = process.env.ENABLE_SHADOWFAX === 'true' && has(process.env.SHADOWFAX_API_URL);
+    integrations.push({
+      name: 'Shadowfax courier',
+      status: shadowfax ? 'live' : 'disabled',
+      detail: shadowfax ? 'Third-party delivery' : 'Off',
+    });
+    const borzoOn = process.env.ENABLE_BORZO === 'true';
+    const borzoReady = has(process.env.BORZO_API_URL) && has(process.env.BORZO_AUTH_TOKEN);
+    integrations.push({
+      name: 'Borzo courier',
+      status: borzoOn ? (borzoReady ? 'live' : 'action_needed') : borzoReady ? 'configured' : 'disabled',
+      detail: borzoOn
+        ? borzoReady
+          ? 'Hyperlocal delivery'
+          : 'Enabled but API url / token missing'
+        : 'Off',
+    });
+    if (borzoOn && !borzoReady) issues.push('Borzo enabled but BORZO_API_URL / BORZO_AUTH_TOKEN missing');
+
+    // Supporting services
+    integrations.push({
+      name: 'Google Maps',
+      status:
+        has(process.env.GOOGLE_MAPS_API_KEY) || has(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY)
+          ? 'live'
+          : 'action_needed',
+      detail: 'Geocoding & maps',
+    });
+    integrations.push({
+      name: 'Email (SMTP)',
+      status: has(process.env.SMTP_HOST) ? 'live' : 'action_needed',
+      detail: has(process.env.SMTP_HOST) ? 'Transactional email' : 'Falling back to console',
+    });
+    integrations.push({
+      name: 'Web push',
+      status: has(process.env.WEB_PUSH_PUBLIC_KEY) ? 'live' : 'disabled',
+      detail: has(process.env.WEB_PUSH_PUBLIC_KEY) ? 'Browser notifications' : 'Off',
+    });
+
+    return {
+      // Back-compat flat fields still read by the current dashboard pills.
+      sms: 'disabled',
+      whatsapp: waConfigured ? 'configured' : 'action_needed',
+      shadowfax: shadowfax ? 'configured' : 'disabled',
+      integrations,
+      issues,
     };
   }
 }

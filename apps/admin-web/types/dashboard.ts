@@ -132,4 +132,6 @@ export interface AdminSystemHealthDashboard {
   googleMaps?: string;
   shadowfax?: string;
   pushNotifications: string;
+  integrations?: Array<{ name: string; status: string; detail: string }>;
+  issues?: string[];
 }

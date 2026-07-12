@@ -34,9 +34,51 @@ export function AdminDashboardContent() {
 
   const o = overview.data;
 
+  // Things an admin should act on right now — surfaced above everything else.
+  const actionItems = [
+    { label: 'Stores awaiting approval', value: o?.pendingStores ?? 0, href: '/stores?status=PENDING' },
+    { label: 'Unassigned orders', value: unassigned.data?.count ?? 0, href: '/orders/unassigned' },
+    { label: 'Failed payments', value: o?.failedPayments ?? 0, href: '/orders?paymentStatus=FAILED' },
+    { label: 'Refund requests', value: customers.data?.refundRequests ?? 0, href: '/payments/refunds' },
+  ].filter((a) => Number(a.value) > 0);
+
+  const configIssues = health.data?.issues ?? [];
+
   return (
     <DashboardShell title="Platform Command Center">
       <div className="space-y-10">
+        {/* Action required — only shows when something needs attention */}
+        {(actionItems.length > 0 || configIssues.length > 0) && (
+          <section className="space-y-3">
+            {actionItems.length > 0 && (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {actionItems.map((a) => (
+                  <Link
+                    key={a.label}
+                    href={a.href}
+                    className="rounded-xl border border-amber-300 bg-amber-50 p-4 transition hover:border-amber-400 hover:shadow-sm"
+                  >
+                    <p className="text-2xl font-bold text-amber-900">{a.value}</p>
+                    <p className="mt-0.5 text-xs font-medium text-amber-800">{a.label}</p>
+                  </Link>
+                ))}
+              </div>
+            )}
+            {configIssues.length > 0 && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+                <p className="mb-1 text-sm font-semibold text-red-800">
+                  ⚠️ {configIssues.length} configuration issue{configIssues.length > 1 ? 's' : ''} need attention
+                </p>
+                <ul className="list-inside list-disc space-y-0.5 text-xs text-red-700">
+                  {configIssues.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        )}
+
         {/* A — Platform Health */}
         <AdminSection title="Platform health" description="Real-time platform KPIs — click any card to drill down">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
@@ -283,6 +325,44 @@ export function AdminDashboardContent() {
               <HealthPill label="Email" status={health.data.email ?? 'unknown'} href="/monitoring" />
               <HealthPill label="Push" status={health.data.pushNotifications} href="/monitoring" />
               <HealthPill label="Background jobs" status={health.data.backgroundJobs} href="/monitoring" />
+            </div>
+          )}
+
+          {health.data?.integrations && health.data.integrations.length > 0 && (
+            <div className="mt-4">
+              <p className="mb-2 text-sm font-semibold">Integrations & configuration</p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {health.data.integrations.map((it) => {
+                  const tone =
+                    it.status === 'live'
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                      : it.status === 'action_needed'
+                        ? 'border-red-200 bg-red-50 text-red-800'
+                        : it.status === 'configured'
+                          ? 'border-sky-200 bg-sky-50 text-sky-800'
+                          : 'border-slate-200 bg-slate-50 text-slate-600';
+                  const dot =
+                    it.status === 'live'
+                      ? 'bg-emerald-500'
+                      : it.status === 'action_needed'
+                        ? 'bg-red-500'
+                        : it.status === 'configured'
+                          ? 'bg-sky-500'
+                          : 'bg-slate-400';
+                  return (
+                    <div key={it.name} className={`rounded-lg border p-3 ${tone}`}>
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${dot}`} />
+                        <span className="text-sm font-medium">{it.name}</span>
+                        <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide">
+                          {it.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs opacity-80">{it.detail}</p>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </AdminSection>
