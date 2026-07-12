@@ -24,6 +24,10 @@ interface ProductCardProps {
   storeCount?: number;
   showWishlist?: boolean;
   rating?: number;
+  /** Paid placement — shows an "Ad" badge. */
+  sponsored?: boolean;
+  /** Fired once when a sponsored card is opened, to record the ad click. */
+  onSponsoredClick?: () => void;
 }
 
 function getDefaultVariant(product: ProductItem) {
@@ -61,6 +65,8 @@ export function ProductCard({
   storeCount,
   showWishlist = true,
   rating,
+  sponsored = false,
+  onSponsoredClick,
 }: ProductCardProps) {
   const { addItem } = useRecentlyViewed();
   const { isWishlisted, toggle } = useWishlist();
@@ -98,7 +104,11 @@ export function ProductCard({
       )}
       onMouseEnter={trackView ? handleView : undefined}
     >
-      <Link href={productHref} className="relative block aspect-square bg-cream-3">
+      <Link
+        href={productHref}
+        onClick={sponsored ? onSponsoredClick : undefined}
+        className="relative block aspect-square bg-cream-3"
+      >
         {product.imageUrls[0] ? (
           <Image
             src={product.imageUrls[0]}
@@ -125,8 +135,19 @@ export function ProductCard({
           </span>
         )}
 
+        {sponsored && (
+          <span className="absolute left-2 top-2 rounded-md bg-slate-800/85 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+            Ad
+          </span>
+        )}
+
         {hasDiscount && (
-          <span className="absolute left-2 top-2 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-jd-text-primary">
+          <span
+            className={cn(
+              'absolute left-2 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-jd-text-primary',
+              sponsored ? 'top-9' : 'top-2',
+            )}
+          >
             {discountPct}% OFF
           </span>
         )}

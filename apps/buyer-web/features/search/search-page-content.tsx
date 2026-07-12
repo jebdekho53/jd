@@ -37,6 +37,16 @@ const SORTS = [
   { value: 'fastest_delivery', label: 'Fastest delivery' },
 ] as const;
 
+/** Fire-and-forget ad click tracking — never blocks navigation. */
+function recordAdClick(campaignId: string) {
+  void fetch('/api/buyer/ads/click', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ campaignId }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
 function toProductCard(p: UnifiedSearchProduct) {
   return {
     id: p.id,
@@ -260,6 +270,12 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
                           product={toProductCard(product)}
                           showStore
                           trackView
+                          sponsored={product.sponsored}
+                          onSponsoredClick={
+                            product.sponsored && product.campaignId
+                              ? () => recordAdClick(product.campaignId as string)
+                              : undefined
+                          }
                         />
                       ))}
                     </div>

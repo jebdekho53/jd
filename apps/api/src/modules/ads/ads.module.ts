@@ -8,11 +8,12 @@ import { AdAnalyticsService } from './ad-analytics.service';
 import { AdBudgetService } from './ad-budget.service';
 import { AdFraudGuardService } from './ad-fraud-guard.service';
 import { MerchantAdsController } from './merchant-ads.controller';
+import { BuyerAdsController } from './buyer-ads.controller';
 import { AdminAdsController, AdminAdsAnalyticsController } from './admin-ads.controller';
 
 @Module({
   imports: [MerchantDashboardModule, TrustSafetyModule, CrmModule],
-  controllers: [MerchantAdsController, AdminAdsController, AdminAdsAnalyticsController],
+  controllers: [MerchantAdsController, BuyerAdsController, AdminAdsController, AdminAdsAnalyticsController],
   providers: [
     AdServingService,
     KeywordAuctionService,
