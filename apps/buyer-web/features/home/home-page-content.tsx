@@ -28,6 +28,7 @@ import { RestaurantCard } from '@/features/food/restaurant-card';
 import { ProductCard } from '@/features/products/product-card';
 import { VerticalNav } from '@/features/home/vertical-nav';
 import { VerticalEntryCards } from '@/features/home/vertical-entry-cards';
+import { SponsoredRail } from '@/features/home/sponsored-rail';
 import { useCategories, useCategoryStores, useDiscoverStores, useProductSearch } from '@/hooks/use-buyer-queries';
 import { useRestaurantsQuery } from '@/hooks/use-food-queries';
 import { useEffectiveLocation } from '@/store/location-store';
@@ -608,6 +609,9 @@ export function HomePageContent() {
         <CategoryExplorer categories={visibleCategories} className="hidden md:grid" />
         </section>
       )}
+
+      {/* Sponsored (paid) product placements — renders nothing when no active ads */}
+      <SponsoredRail />
 
       {hasLocation ? (
         <>
