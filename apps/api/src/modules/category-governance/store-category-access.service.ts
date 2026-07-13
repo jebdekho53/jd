@@ -76,24 +76,63 @@ export class StoreCategoryAccessService {
       throw new BadRequestException('Category not found or is not available');
     }
 
-    if (cat.parentId) {
-      const parent = await this.prisma.category.findFirst({
-        where: {
-          id: cat.parentId,
-          deletedAt: null,
-          isActive: true,
-          storeId: null,
-          scope: CategoryScope.GLOBAL,
-        },
-      });
-      if (!parent) {
-        throw new BadRequestException('Parent category is not available');
-      }
-      await this.assertSubcategoryApproved(storeId, merchantProfileId, cat.parentId, categoryId);
-      return;
-    }
+    // Approval is "by branch": the category itself, or any ancestor, being
+    // approved lets the store sell the whole subtree beneath it.
+    const chain = await this.categoryAncestorChain(categoryId);
+    if (await this.isAnyCategoryApproved(storeId, merchantProfileId, chain)) return;
 
-    await this.assertParentOrLegacyApproved(storeId, merchantProfileId, categoryId);
+    throw new ForbiddenException(
+      'This store is not authorized to sell in this category. Request category access from Business Categories.',
+    );
+  }
+
+  /** [categoryId, ...ancestors up to the root]. */
+  private async categoryAncestorChain(categoryId: string): Promise<string[]> {
+    const chain: string[] = [];
+    let current: string | null = categoryId;
+    // Guard against cycles / runaway depth.
+    for (let i = 0; current && i < 10; i++) {
+      chain.push(current);
+      const node: { parentId: string | null } | null = await this.prisma.category.findUnique({
+        where: { id: current },
+        select: { parentId: true },
+      });
+      current = node?.parentId ?? null;
+    }
+    return chain;
+  }
+
+  /** True if the store (or its merchant, legacy) is approved for any id in the chain. */
+  private async isAnyCategoryApproved(
+    storeId: string,
+    merchantProfileId: string,
+    categoryIds: string[],
+  ): Promise<boolean> {
+    if (categoryIds.length === 0) return false;
+
+    const [storeApproval, approvedRequest, legacy] = await Promise.all([
+      this.prisma.storeCategory.findFirst({
+        where: { storeId, OR: [{ categoryId: { in: categoryIds } }, { subcategoryId: { in: categoryIds } }] },
+        select: { id: true },
+      }),
+      this.prisma.storeCategoryRequest.findFirst({
+        where: {
+          storeId,
+          status: StoreCategoryRequestStatus.APPROVED,
+          OR: [{ categoryId: { in: categoryIds } }, { subcategoryId: { in: categoryIds } }],
+        },
+        select: { id: true },
+      }),
+      this.prisma.merchantCategory.findFirst({
+        where: {
+          merchantProfileId,
+          status: MerchantCategoryStatus.APPROVED,
+          categoryId: { in: categoryIds },
+        },
+        select: { id: true },
+      }),
+    ]);
+    return Boolean(storeApproval || approvedRequest || legacy);
   }
 
   private async assertSubcategoryApproved(

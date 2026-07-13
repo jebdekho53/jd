@@ -35,25 +35,10 @@ export class CategoryService {
       for (const child of parent.children) approvedIds.add(child.id);
     }
 
-    const [globalApproved, storeCategories] = await Promise.all([
+    const [globalTree, storeCategories] = await Promise.all([
       approvedIds.size
-        ? this.prisma.category.findMany({
-            where: {
-              id: { in: [...approvedIds] },
-              storeId: null,
-              scope: CategoryScope.GLOBAL,
-              isActive: true,
-              deletedAt: null,
-            },
-          include: {
-            children: {
-              where: { isActive: true, deletedAt: null, id: { in: [...approvedIds] } },
-              orderBy: { sortOrder: 'asc' },
-            },
-          },
-            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-          })
-        : Promise.resolve([]),
+        ? this.buildApprovedGlobalTree(approvedIds)
+        : Promise.resolve([] as Category[]),
       this.prisma.category.findMany({
         where: { storeId, scope: CategoryScope.STORE, isActive: true },
         include: {
@@ -63,7 +48,52 @@ export class CategoryService {
       }),
     ]);
 
-    return [...globalApproved, ...storeCategories];
+    return [...globalTree, ...storeCategories];
+  }
+
+  /**
+   * Build the 3-level tree the merchant can assign products to. Approval is
+   * "by branch": if a store is approved for a category, all of its descendants
+   * (sub-subcategories / product types) become usable, and every ancestor is
+   * shown so the full path renders in the product form.
+   */
+  private async buildApprovedGlobalTree(approvedIds: Set<string>): Promise<Category[]> {
+    const all = await this.prisma.category.findMany({
+      where: { storeId: null, scope: CategoryScope.GLOBAL, isActive: true, deletedAt: null },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+    const byId = new Map(all.map((c) => [c.id, c]));
+    const childrenOf = new Map<string | null, typeof all>();
+    for (const c of all) {
+      const key = c.parentId ?? null;
+      (childrenOf.get(key) ?? childrenOf.set(key, []).get(key)!).push(c);
+    }
+
+    // Closure: approved ids + all descendants + all ancestors.
+    const usable = new Set<string>();
+    const addDescendants = (id: string) => {
+      if (usable.has(id)) return;
+      usable.add(id);
+      for (const child of childrenOf.get(id) ?? []) addDescendants(child.id);
+    };
+    for (const id of approvedIds) addDescendants(id);
+    for (const id of [...usable]) {
+      let cur = byId.get(id)?.parentId ?? null;
+      while (cur) {
+        usable.add(cur);
+        cur = byId.get(cur)?.parentId ?? null;
+      }
+    }
+
+    const toNode = (c: (typeof all)[number]): Category =>
+      ({
+        ...c,
+        children: (childrenOf.get(c.id) ?? [])
+          .filter((ch) => usable.has(ch.id))
+          .map(toNode),
+      }) as unknown as Category;
+
+    return (childrenOf.get(null) ?? []).filter((c) => usable.has(c.id)).map(toNode);
   }
 
   async createCategory(
