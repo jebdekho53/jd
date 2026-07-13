@@ -27,12 +27,15 @@ export interface MerchantOtpFlowProps {
   onVerified: (result: VerifyOtpResult) => void | Promise<void>;
   submitLabel?: string;
   heading?: string;
+  /** Hide the internal phone/email switch — used when this sits under an outer tab. */
+  phoneOnly?: boolean;
 }
 
 export function MerchantOtpFlow({
   onVerified,
   submitLabel = 'Verify OTP',
   heading = 'Verify your identity',
+  phoneOnly = false,
 }: MerchantOtpFlowProps) {
   const { toast } = useToast();
   const requestOtp = useRequestOtpMutation();
@@ -40,7 +43,7 @@ export function MerchantOtpFlow({
   const phoneOtpEnabled = isPhoneOtpEnabled();
 
   const [step, setStep] = useState<Step>('identifier');
-  const [mode, setMode] = useState<LoginMode>(phoneOtpEnabled ? 'phone' : 'email');
+  const [mode, setMode] = useState<LoginMode>(phoneOnly || phoneOtpEnabled ? 'phone' : 'email');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [resolvedPhone, setResolvedPhone] = useState('');
@@ -106,6 +109,7 @@ export function MerchantOtpFlow({
 
       {step === 'identifier' ? (
         <>
+          {!phoneOnly && (
           <div className="flex rounded-xl bg-slate-100 p-1">
             {(['phone', 'email'] as const).map((m) => {
               const isPhone = m === 'phone';
@@ -137,6 +141,7 @@ export function MerchantOtpFlow({
               );
             })}
           </div>
+          )}
 
           {mode === 'phone' && !phoneOtpEnabled ? (
             <MobileOtpComingSoonBanner />

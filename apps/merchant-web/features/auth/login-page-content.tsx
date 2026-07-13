@@ -6,8 +6,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { useSessionQuery, useLogoutMutation } from '@/hooks/use-auth';
 import { useToast, Button } from '@/design-system/primitives';
+import { captureAttributionFromUrl } from '@/lib/analytics/attribution';
 import { MerchantAuthShell } from './components/merchant-auth-shell';
-import { MerchantOtpFlow } from './components/merchant-otp-flow';
+import { MerchantAuthTabs } from './components/merchant-auth-tabs';
 import { resolveMerchantEntryRoute } from '@/lib/merchant-entry-route';
 import type { VerifyOtpResult } from '@/types/auth';
 
@@ -18,6 +19,11 @@ export function LoginPageContent() {
   const { user: storedUser } = useAuthStore();
   const { data: session } = useSessionQuery(!!storedUser);
   const logout = useLogoutMutation();
+
+  // Capture first-touch attribution in case an ad lands directly on /login.
+  useEffect(() => {
+    captureAttributionFromUrl();
+  }, []);
 
   const notMerchantError = searchParams.get('error') === 'not_merchant';
   // When the merchant explicitly wants to switch accounts (?switch=1), never
@@ -105,7 +111,7 @@ export function LoginPageContent() {
         </div>
       )}
 
-      <MerchantOtpFlow submitLabel="Verify & Sign in" onVerified={handleVerified} />
+      <MerchantAuthTabs mode="login" defaultEmail={prefilledEmail} onVerified={handleVerified} />
     </MerchantAuthShell>
   );
 }
