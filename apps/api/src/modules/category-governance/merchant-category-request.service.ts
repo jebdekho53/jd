@@ -58,6 +58,14 @@ export class MerchantCategoryRequestService {
         children: {
           where: { isActive: true, deletedAt: null },
           orderBy: { sortOrder: 'asc' },
+          // Third level (e.g. Health & Nutrition → Protein & Gym Supplements →
+          // Whey Protein) so merchants can request a specific product type.
+          include: {
+            children: {
+              where: { isActive: true, deletedAt: null },
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
         },
       },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
@@ -69,6 +77,10 @@ export class MerchantCategoryRequestService {
       children: c.children.map((ch) => ({
         ...ch,
         requestStatus: existingMap.get(ch.id) ?? null,
+        children: (ch.children ?? []).map((leaf) => ({
+          ...leaf,
+          requestStatus: existingMap.get(leaf.id) ?? null,
+        })),
       })),
     }));
   }

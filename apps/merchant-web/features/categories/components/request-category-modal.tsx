@@ -15,14 +15,25 @@ interface Props {
 export function RequestCategoryModal({ open, catalog, loading, onClose, onSubmit }: Props) {
   const [categoryId, setCategoryId] = useState('');
   const [subcategoryId, setSubcategoryId] = useState('');
+  const [itemId, setItemId] = useState('');
   const [note, setNote] = useState('');
 
   const selectedParent = catalog.find((c) => c.id === categoryId);
   const subcategories = selectedParent?.children ?? [];
+  const selectedSub = subcategories.find((s) => s.id === subcategoryId);
+  const items = selectedSub?.children ?? [];
 
   useEffect(() => {
-    if (!categoryId) setSubcategoryId('');
+    setSubcategoryId('');
+    setItemId('');
   }, [categoryId]);
+  useEffect(() => {
+    setItemId('');
+  }, [subcategoryId]);
+
+  // Request the deepest chosen level: a specific product type if picked, else
+  // the subcategory (which covers its whole group).
+  const requestedId = itemId || subcategoryId;
 
   return (
     <Modal
@@ -39,8 +50,8 @@ export function RequestCategoryModal({ open, catalog, loading, onClose, onSubmit
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button
             loading={loading}
-            disabled={!categoryId || !subcategoryId}
-            onClick={() => onSubmit(categoryId, subcategoryId, note.trim() || undefined)}
+            disabled={!categoryId || !requestedId}
+            onClick={() => onSubmit(categoryId, requestedId, note.trim() || undefined)}
           >
             Submit request
           </Button>
@@ -83,6 +94,33 @@ export function RequestCategoryModal({ open, catalog, loading, onClose, onSubmit
             ))}
           </select>
         </div>
+
+        {items.length > 0 && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Product type <span className="font-normal text-slate-400">(optional — leave blank for the whole subcategory)</span>
+            </label>
+            <select
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={itemId}
+              onChange={(e) => setItemId(e.target.value)}
+            >
+              <option value="">All of {selectedSub?.name}</option>
+              {items.map((leaf) => (
+                <option
+                  key={leaf.id}
+                  value={leaf.id}
+                  disabled={leaf.requestStatus === 'APPROVED' || leaf.requestStatus === 'PENDING'}
+                >
+                  {leaf.name}
+                  {leaf.requestStatus === 'APPROVED' ? ' (approved)' : ''}
+                  {leaf.requestStatus === 'PENDING' ? ' (pending)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <Textarea
           label="Note for admin (optional)"
           value={note}
