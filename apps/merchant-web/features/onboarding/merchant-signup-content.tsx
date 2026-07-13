@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, ChevronLeft } from 'lucide-react';
 import { Button, Input, Select, Spinner, useToast } from '@/design-system/primitives';
 import { MarketingShell } from '@/features/marketing/components/marketing-shell';
-import { MerchantOtpFlow } from '@/features/auth/components/merchant-otp-flow';
+import { MerchantAuthTabs } from '@/features/auth/components/merchant-auth-tabs';
 import { useCitiesQuery } from '@/hooks/use-geo';
 import { MerchantAddressPicker } from '@/components/google-maps/merchant-address-picker';
 import { computeWizardProgress } from '@/lib/onboarding/progress';
@@ -19,7 +19,9 @@ import {
   submitApplication,
   fetchApplication,
   resolveStoreLocation,
+  postAttribution,
 } from '@/services/onboarding/onboarding-api';
+import { captureAttributionFromUrl, getStoredAttribution } from '@/lib/analytics/attribution';
 import type { VerifyOtpResult } from '@/types/auth';
 import {
   formatPhoneDisplay,
@@ -253,6 +255,12 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
     [toast],
   );
 
+  // Capture first-touch UTM / fbclid from the ad landing URL as early as possible,
+  // before any redirect can strip the query string.
+  useEffect(() => {
+    captureAttributionFromUrl();
+  }, []);
+
   useEffect(() => {
     void (async () => {
       try {
@@ -277,6 +285,13 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
         setContactPhone(identity.contactPhone);
 
         const app = await fetchApplication();
+
+        // Attribute this merchant to the campaign that first referred them.
+        const attribution = getStoredAttribution();
+        if (attribution) {
+          void postAttribution(attribution).catch(() => {});
+        }
+
         if (!EDITABLE_APPLICATION_STATUSES.has(app.status)) {
           setShowStatus(true);
           return;
@@ -953,10 +968,10 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
               </div>
             ) : step === 0 ? (
               <div className="space-y-4">
-                <MerchantOtpFlow
-                  heading="Step 1 — Create your account"
-                  submitLabel="Create Account & Continue"
+                <MerchantAuthTabs
+                  mode="signup"
                   onVerified={handleVerified}
+                  onAccountExists={(email) => router.push(`/login?email=${encodeURIComponent(email)}`)}
                 />
                 <p className="text-center text-sm text-slate-500">
                   Already registered?{' '}
