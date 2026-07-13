@@ -32,8 +32,10 @@ export function RequestCategoryModal({ open, catalog, loading, onClose, onSubmit
   }, [subcategoryId]);
 
   // Request the deepest chosen level: a specific product type if picked, else
-  // the subcategory (which covers its whole group).
+  // the subcategory. The stored pair is (direct parent, node) so admin approval
+  // and product validation resolve correctly.
   const requestedId = itemId || subcategoryId;
+  const requestedParentId = itemId ? subcategoryId : categoryId;
 
   return (
     <Modal
@@ -51,7 +53,7 @@ export function RequestCategoryModal({ open, catalog, loading, onClose, onSubmit
           <Button
             loading={loading}
             disabled={!categoryId || !requestedId}
-            onClick={() => onSubmit(categoryId, requestedId, note.trim() || undefined)}
+            onClick={() => onSubmit(requestedParentId, requestedId, note.trim() || undefined)}
           >
             Submit request
           </Button>

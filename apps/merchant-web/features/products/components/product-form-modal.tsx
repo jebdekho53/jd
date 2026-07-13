@@ -34,6 +34,7 @@ const schema = z.object({
   sku: z.string().regex(/^[A-Za-z0-9_-]{2,50}$/).optional().or(z.literal('')),
   parentCategoryId: z.string().optional(),
   subCategoryId: z.string().optional(),
+  leafCategoryId: z.string().optional(),
   basePrice: z.coerce.number().min(0),
   mrp: z.coerce.number().min(0).optional(),
   unit: z.string().optional(),
@@ -69,21 +70,31 @@ interface Props {
   editProduct?: Product | null;
 }
 
+type CatNode = { id: string; children?: CatNode[] };
+
 function resolveCategoryFields(
   categoryId: string | null | undefined,
-  categories: { id: string; children?: { id: string }[] }[],
-): { parentCategoryId: string; subCategoryId: string } {
-  if (!categoryId) return { parentCategoryId: '', subCategoryId: '' };
+  categories: CatNode[],
+): { parentCategoryId: string; subCategoryId: string; leafCategoryId: string } {
+  const empty = { parentCategoryId: '', subCategoryId: '', leafCategoryId: '' };
+  if (!categoryId) return empty;
 
   const asParent = categories.find((c) => c.id === categoryId);
-  if (asParent) return { parentCategoryId: categoryId, subCategoryId: '' };
+  if (asParent) return { ...empty, parentCategoryId: categoryId };
 
   for (const parent of categories) {
-    const child = parent.children?.find((ch) => ch.id === categoryId);
-    if (child) return { parentCategoryId: parent.id, subCategoryId: child.id };
+    for (const child of parent.children ?? []) {
+      if (child.id === categoryId) {
+        return { parentCategoryId: parent.id, subCategoryId: child.id, leafCategoryId: '' };
+      }
+      const leaf = child.children?.find((l) => l.id === categoryId);
+      if (leaf) {
+        return { parentCategoryId: parent.id, subCategoryId: child.id, leafCategoryId: leaf.id };
+      }
+    }
   }
 
-  return { parentCategoryId: '', subCategoryId: '' };
+  return empty;
 }
 
 export function ProductFormModal({ storeId, open, onClose, editProduct }: Props) {
@@ -117,6 +128,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
 
   const parentCategoryId = useWatch({ control, name: 'parentCategoryId' }) ?? '';
   const subCategoryId = useWatch({ control, name: 'subCategoryId' }) ?? '';
+  const leafCategoryId = useWatch({ control, name: 'leafCategoryId' }) ?? '';
 
   const approvedParents = categories ?? [];
 
@@ -124,6 +136,14 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
     if (!parentCategoryId) return [];
     return approvedParents.find((c) => c.id === parentCategoryId)?.children ?? [];
   }, [approvedParents, parentCategoryId]);
+
+  const approvedLeaves = useMemo(() => {
+    if (!subCategoryId) return [];
+    return (
+      (approvedSubcategories.find((c) => c.id === subCategoryId) as { children?: { id: string; name: string }[] } | undefined)
+        ?.children ?? []
+    );
+  }, [approvedSubcategories, subCategoryId]);
 
   const selectedCategory = useMemo(
     () => resolveFormCategory(parentCategoryId, subCategoryId, approvedParents),
@@ -151,6 +171,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
   useEffect(() => {
     if (!parentCategoryId) {
       setValue('subCategoryId', '');
+      setValue('leafCategoryId', '');
       return;
     }
     if (subCategoryId && !approvedSubcategories.some((c) => c.id === subCategoryId)) {
@@ -159,8 +180,14 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
   }, [parentCategoryId, subCategoryId, approvedSubcategories, setValue]);
 
   useEffect(() => {
+    if (leafCategoryId && !approvedLeaves.some((c) => c.id === leafCategoryId)) {
+      setValue('leafCategoryId', '');
+    }
+  }, [subCategoryId, leafCategoryId, approvedLeaves, setValue]);
+
+  useEffect(() => {
     if (editProduct) {
-      const { parentCategoryId: parentId, subCategoryId: subId } = resolveCategoryFields(
+      const { parentCategoryId: parentId, subCategoryId: subId, leafCategoryId: leafId } = resolveCategoryFields(
         editProduct.categoryId,
         categories ?? [],
       );
@@ -187,6 +214,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         sku: editProduct.sku ?? '',
         parentCategoryId: parentId,
         subCategoryId: subId,
+        leafCategoryId: leafId,
         basePrice: editProduct.basePrice,
         mrp: editProduct.mrp ?? undefined,
         unit: editProduct.unit ?? '',
@@ -256,7 +284,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   const onSubmit = async (data: FormData) => {
-    const categoryId = data.subCategoryId || data.parentCategoryId || undefined;
+    const categoryId = data.leafCategoryId || data.subCategoryId || data.parentCategoryId || undefined;
     setHsnError(null);
     setFssaiError(null);
 
@@ -289,7 +317,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
     }
 
     try {
-      const { parentCategoryId: _p, subCategoryId: _s, imageUrl, taxInclusive, fssaiLicense, ...rest } = data;
+      const { parentCategoryId: _p, subCategoryId: _s, leafCategoryId: _l, imageUrl, taxInclusive, fssaiLicense, ...rest } = data;
       const resolvedFssai =
         needsFssai ? (fssaiLicense?.trim() || storeDefaultFssai) : fssaiLicense?.trim() || undefined;
       const cleanSpecs = specs
@@ -492,6 +520,18 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
             ))}
           </Select>
         </div>
+
+        {approvedLeaves.length > 0 && (
+          <Select
+            label="Exact subcategory"
+            {...register('leafCategoryId')}
+          >
+            <option value="">Optional — the whole sub category</option>
+            {approvedLeaves.map((leaf) => (
+              <option key={leaf.id} value={leaf.id}>{leaf.name}</option>
+            ))}
+          </Select>
+        )}
         {approvedParents.length === 0 && (
           <p className="text-xs text-amber-700">
             No approved categories. Request access from{' '}

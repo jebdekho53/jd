@@ -665,30 +665,38 @@ export class ProductAiService {
     userId: string,
     extracted: { categoryName: string; subcategoryName: string },
   ) {
-    const categories = await this.categoryService.listCategories(storeId, userId);
-    let matchedCategoryId: string | null = null;
+    type Node = { id: string; name: string; children?: Node[] };
+    const categories = (await this.categoryService.listCategories(storeId, userId)) as unknown as Node[];
     let warning: string | null = null;
 
     const catName = extracted.categoryName?.trim().toLowerCase();
     const subName = extracted.subcategoryName?.trim().toLowerCase();
 
-    for (const parent of categories as { id: string; name: string; children?: { id: string; name: string }[] }[]) {
-      if (subName) {
-        for (const child of parent.children ?? []) {
-          if (
-            child.name.toLowerCase() === subName ||
-            `${parent.name} ${child.name}`.toLowerCase().includes(subName)
-          ) {
-            matchedCategoryId = child.id;
-            break;
-          }
-        }
+    // Flatten the approved tree with depth so we can prefer the most specific
+    // (deepest) match — e.g. push to "Whey Protein" rather than "Supplements".
+    const flat: { id: string; name: string; depth: number }[] = [];
+    const walk = (nodes: Node[], depth: number) => {
+      for (const n of nodes) {
+        flat.push({ id: n.id, name: n.name.toLowerCase(), depth });
+        if (n.children?.length) walk(n.children, depth + 1);
       }
-      if (!matchedCategoryId && catName && parent.name.toLowerCase() === catName) {
-        matchedCategoryId = parent.id;
-      }
-      if (matchedCategoryId) break;
-    }
+    };
+    walk(categories, 0);
+
+    const pickDeepest = (needle: string): string | null => {
+      const exact = flat
+        .filter((c) => c.name === needle)
+        .sort((a, b) => b.depth - a.depth)[0];
+      if (exact) return exact.id;
+      const partial = flat
+        .filter((c) => needle.includes(c.name) || c.name.includes(needle))
+        .sort((a, b) => b.depth - a.depth)[0];
+      return partial?.id ?? null;
+    };
+
+    // Prefer the subcategory/product-type name, fall back to the broad category.
+    const matchedCategoryId =
+      (subName && pickDeepest(subName)) || (catName && pickDeepest(catName)) || null;
 
     if ((catName || subName) && !matchedCategoryId) {
       warning = 'Suggested category was not found in your approved store categories';
