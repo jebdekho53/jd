@@ -55,8 +55,8 @@ export function RiderHome({ onLoggedOut }: { onLoggedOut: () => void }) {
 
   const [online, setOnline] = useState(false);
   useEffect(() => {
-    if (me.data?.profile.status) setOnline(me.data.profile.status !== 'OFFLINE');
-  }, [me.data?.profile.status]);
+    if (me.data?.profile?.status) setOnline(me.data.profile.status !== 'OFFLINE');
+  }, [me.data?.profile?.status]);
 
   const statusMut = useMutation({
     mutationFn: (s: RiderStatus) => setStatus(s),
@@ -136,7 +136,7 @@ export function RiderHome({ onLoggedOut }: { onLoggedOut: () => void }) {
     );
   }
 
-  const kyc = me.data?.profile.kycStatus;
+  const kyc = me.data?.profile?.kycStatus;
   const list = orders.data ?? [];
 
   return (
