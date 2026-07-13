@@ -33,6 +33,12 @@ export interface CatalogCategory {
     slug: string;
     catalogKind?: CategoryCatalogKind;
     requestStatus: StoreCategoryRequestStatus | null;
+    children?: Array<{
+      id: string;
+      name: string;
+      slug: string;
+      requestStatus: StoreCategoryRequestStatus | null;
+    }>;
   }>;
 }
 

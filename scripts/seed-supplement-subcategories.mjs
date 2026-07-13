@@ -1,6 +1,8 @@
 /**
- * Seeds the Health & Supplements subcategory tree under the existing
- * global "Supplements" category (Health & Nutrition → Supplements → groups → leaves).
+ * Seeds the Health & Supplements subcategory tree as 3 levels:
+ *   Health & Nutrition → [4 groups] → [32 product-type leaves]
+ * Groups sit directly under the top category so the merchant 2/3-level
+ * category-request UI can surface them.
  *
  * Idempotent: safe to re-run. Matches by (slug, parentId, storeId=null).
  * Run:  node --env-file=.env scripts/seed-supplement-subcategories.mjs
@@ -84,19 +86,20 @@ async function upsertCategory(name, slug, parentId, sortOrder) {
 }
 
 async function main() {
-  // Anchor: the existing global "Supplements" category.
-  const supplements = await prisma.category.findFirst({
-    where: { slug: 'supplements', storeId: null },
+  // Anchor: the top-level "Health & Nutrition" category (groups become its
+  // direct children so they show up as subcategories).
+  const parent = await prisma.category.findFirst({
+    where: { slug: 'health-nutrition', storeId: null, parentId: null },
   });
-  if (!supplements) {
-    throw new Error('Global "Supplements" category not found — cannot attach subcategories.');
+  if (!parent) {
+    throw new Error('Global "Health & Nutrition" category not found — cannot attach subcategories.');
   }
 
   let groups = 0;
   let leaves = 0;
   for (let g = 0; g < TREE.length; g++) {
     const group = TREE[g];
-    const groupCat = await upsertCategory(group.name, group.slug, supplements.id, g + 1);
+    const groupCat = await upsertCategory(group.name, group.slug, parent.id, g + 10);
     groups++;
     for (let i = 0; i < group.children.length; i++) {
       const [leafName, leafSlug] = group.children[i];
@@ -105,7 +108,7 @@ async function main() {
     }
   }
 
-  console.log(`✓ Seeded under "Supplements": ${groups} groups, ${leaves} leaf subcategories.`);
+  console.log(`✓ Seeded under "Health & Nutrition": ${groups} groups, ${leaves} leaf subcategories.`);
 }
 
 main()
