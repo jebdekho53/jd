@@ -18,6 +18,7 @@ export type RiderStatus = 'OFFLINE' | 'ONLINE' | 'BUSY' | 'ON_DELIVERY';
 
 export interface RiderMe {
   user: { id: string; phone: string; roles: string[] };
+  isRider: boolean;
   profile: {
     id: string;
     displayName: string;
@@ -25,7 +26,16 @@ export interface RiderMe {
     kycStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
     vehicleType: string | null;
     isVerified: boolean;
-  };
+  } | null;
+}
+
+export type VehicleType = 'BICYCLE' | 'MOTORCYCLE' | 'SCOOTER' | 'CAR' | 'WALK';
+
+export interface RegisterRiderInput {
+  name: string;
+  vehicleType: VehicleType;
+  vehicleNumber?: string;
+  licenseNumber?: string;
 }
 
 export interface RiderOrder {
@@ -88,6 +98,12 @@ export const logout = () => jfetch('/api/auth/logout', { method: 'POST' });
 
 // ── Rider ────────────────────────────────────────────────────────────────────
 export const getMe = () => jfetch<RiderMe>('/api/rider/me');
+
+export const registerRider = (input: RegisterRiderInput) =>
+  jfetch<{ id: string; kycStatus: string }>('/api/rider/register', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 
 export const setStatus = (status: RiderStatus) =>
   jfetch<{ status: RiderStatus }>('/api/rider/status', {

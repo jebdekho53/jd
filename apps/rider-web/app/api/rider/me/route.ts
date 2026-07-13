@@ -11,31 +11,33 @@ export async function GET(req: NextRequest) {
       [key: string]: unknown;
     }>('/auth/me', undefined, req);
 
+    // Authenticated but not yet a rider → frontend shows the signup/onboarding form.
     if (!user.roles.includes('RIDER')) {
-      return Response.json({ success: false, message: 'Rider role required' }, { status: 403 });
+      return Response.json({
+        success: true,
+        data: { user, profile: null, isRider: false },
+      });
     }
 
+    // Rider: KYC is APPROVED if the rider order endpoint is reachable, else PENDING.
     let kycStatus: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING';
-    let riderStatus: 'OFFLINE' | 'ONLINE' | 'BUSY' | 'ON_DELIVERY' = 'OFFLINE';
-
     try {
       await fetchWithAuth('/rider/orders', undefined, req);
       kycStatus = 'APPROVED';
     } catch (err) {
-      if (err instanceof BackendError && err.status === 403) {
-        kycStatus = err.message.toLowerCase().includes('kyc') ? 'PENDING' : 'PENDING';
-      }
+      if (!(err instanceof BackendError && err.status === 403)) throw err;
     }
 
     return Response.json({
       success: true,
       data: {
         user,
+        isRider: true,
         profile: {
           id: user.id,
           userId: user.id,
           displayName: user.phone,
-          status: riderStatus,
+          status: 'OFFLINE',
           kycStatus,
           vehicleType: null,
           isVerified: kycStatus === 'APPROVED',
