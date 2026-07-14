@@ -58,6 +58,7 @@ import { FulfillmentNetworkModule } from './modules/fulfillment-network/fulfillm
 import { ProcurementModule } from './modules/procurement/procurement.module';
 import { FranchiseModule } from './modules/franchise/franchise.module';
 import { AICommerceModule } from './modules/ai-commerce/ai-commerce.module';
+import { AiCatalogModule } from './modules/ai-catalog/ai-catalog.module';
 import { FleetOsModule } from './modules/fleet-os/fleet-os.module';
 import { AdsModule } from './modules/ads/ads.module';
 import { MembershipModule } from './modules/membership/membership.module';
@@ -172,6 +173,10 @@ import { RequestIdInterceptor } from './common/interceptors/request-id.intercept
     ProcurementModule,
     FranchiseModule,
     AICommerceModule,
+    // AI Product Cataloging v2 — dormant until the `feature.enabled` flag is on.
+    // Registers queues (producer side), services, controllers and WS gateway;
+    // BullMQ processors run only in the separate worker process.
+    AiCatalogModule,
     FleetOsModule,
     AdsModule,
     MembershipModule,
