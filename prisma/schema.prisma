@@ -5566,6 +5566,7 @@ model FranchisePartner {
   conflicts            TerritoryConflict[]
   merchantApplications MerchantApplication[]
   attributedStores     Store[]
+  convertedFromLead    ExpansionLead?
 
   @@index([status, createdAt(sort: Desc)])
   @@index([cityId, status])
@@ -5642,20 +5643,35 @@ model CityLaunchPlan {
   @@map("city_launch_plans")
 }
 
+/// A franchise application from the public funnel. Approving one creates the
+/// User + FRANCHISE role + FranchisePartner + FranchiseTerritory.
 model ExpansionLead {
-  id        String              @id @default(cuid())
-  name      String
-  phone     String
-  email     String?
-  city      String
-  state     String
-  status    ExpansionLeadStatus @default(NEW)
-  notes     String?             @db.Text
-  createdAt DateTime            @default(now()) @map("created_at")
-  updatedAt DateTime            @updatedAt @map("updated_at")
+  id                 String              @id @default(cuid())
+  name               String
+  phone              String
+  email              String?
+  city               String
+  state              String
+  /// Territory the applicant is asking for. Fed to TerritoryService.assignTerritory()
+  /// on approval, so exclusivity conflict detection runs on the real request.
+  pincodes           String[]
+  investmentCapacity Decimal?            @map("investment_capacity") @db.Decimal(12, 2)
+  status             ExpansionLeadStatus @default(NEW)
+  notes              String?             @db.Text
+  reviewedAt         DateTime?           @map("reviewed_at")
+  reviewedBy         String?             @map("reviewed_by")
+  rejectionReason    String?             @map("rejection_reason") @db.Text
+  /// Which partner this lead became. Without it the lead -> partner link is
+  /// unrecoverable after the fact.
+  convertedFranchiseId String?           @unique @map("converted_franchise_id")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  convertedFranchise FranchisePartner? @relation(fields: [convertedFranchiseId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt(sort: Desc)])
   @@index([city, state])
+  @@index([phone])
   @@map("expansion_leads")
 }
 

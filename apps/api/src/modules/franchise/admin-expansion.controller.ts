@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { FranchisePartnerStatus } from '@prisma/client';
+import { ExpansionLeadStatus, FranchisePartnerStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -14,7 +14,14 @@ import { TerritoryService } from './territory.service';
 import { ExpansionService } from './expansion.service';
 import { FranchiseAnalyticsService } from './franchise-analytics.service';
 import { FranchiseSettlementService } from './franchise-settlement.service';
-import { CreateCityLaunchDto, CreateFranchiseDto, UpdateFranchiseDto } from './dto/franchise.dto';
+import { FranchiseApplicationService } from './franchise-application.service';
+import {
+  ApproveExpansionLeadDto,
+  CreateCityLaunchDto,
+  CreateFranchiseDto,
+  RejectExpansionLeadDto,
+  UpdateFranchiseDto,
+} from './dto/franchise.dto';
 
 @ApiTags(Tags.ADMIN)
 @ApiBearerAuth('access-token')
@@ -28,6 +35,7 @@ export class AdminExpansionController {
     private readonly expansion: ExpansionService,
     private readonly analytics: FranchiseAnalyticsService,
     private readonly settlements: FranchiseSettlementService,
+    private readonly applications: FranchiseApplicationService,
   ) {}
 
   @Get('overview')
@@ -83,6 +91,42 @@ export class AdminExpansionController {
     const plan = await this.expansion.createCityLaunch(dto);
     await this.expansion.triggerLaunchCampaign(dto.city, dto.state);
     return { success: true, data: plan };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Franchise application review
+  // ---------------------------------------------------------------------------
+
+  @Get('leads')
+  @Permissions('settlements:read')
+  async leads(@Query('status') status?: ExpansionLeadStatus) {
+    return { success: true, data: await this.applications.listLeads(status) };
+  }
+
+  /**
+   * Approve a lead into a live partner. Returns `hasConflicts` when the requested
+   * pincodes overlap another partner's exclusive territory — the territory and its
+   * TerritoryConflict rows commit together, so the admin sees the clash rather than
+   * an overlap being created silently.
+   */
+  @Patch('leads/:id/approve')
+  @Permissions('settlements:manage')
+  async approveLead(
+    @Param('id') id: string,
+    @Body() dto: ApproveExpansionLeadDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return { success: true, data: await this.applications.approveLead(user.id, id, dto) };
+  }
+
+  @Patch('leads/:id/reject')
+  @Permissions('settlements:manage')
+  async rejectLead(
+    @Param('id') id: string,
+    @Body() dto: RejectExpansionLeadDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return { success: true, data: await this.applications.rejectLead(user.id, id, dto) };
   }
 }
 
