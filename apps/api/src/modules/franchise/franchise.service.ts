@@ -32,15 +32,27 @@ export class FranchiseService {
   }
 
   async listFranchises(status?: FranchisePartnerStatus) {
-    return this.prisma.franchisePartner.findMany({
+    const partners = await this.prisma.franchisePartner.findMany({
       where: status ? { status } : undefined,
       include: {
         city: { select: { name: true } },
+        // Admin needs to see whether a partner can actually be paid yet.
+        bankAccount: {
+          select: { accountHolderName: true, accountNumber: true, ifsc: true, verified: true },
+        },
         _count: { select: { stores: true, territories: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });
+
+    // Never send a full account number to a client, admin or not.
+    return partners.map((p) => ({
+      ...p,
+      bankAccount: p.bankAccount
+        ? { ...p.bankAccount, accountNumber: `••••${p.bankAccount.accountNumber.slice(-4)}` }
+        : null,
+    }));
   }
 
   async createFranchise(input: {
