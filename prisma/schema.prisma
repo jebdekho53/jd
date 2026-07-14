@@ -5567,6 +5567,8 @@ model FranchisePartner {
   merchantApplications MerchantApplication[]
   attributedStores     Store[]
   convertedFromLead    ExpansionLead?
+  bankAccount          FranchiseBankAccount?
+  payouts              FranchisePayout[]
 
   @@index([status, createdAt(sort: Desc)])
   @@index([cityId, status])
@@ -5722,17 +5724,87 @@ model FranchiseSettlement {
   commissionBase  Decimal                   @default(0) @map("commission_base") @db.Decimal(14, 2)
   franchiseShare  Decimal                   @map("franchise_share") @db.Decimal(12, 2)
   platformShare   Decimal                   @default(0) @map("platform_share") @db.Decimal(12, 2)
+  // Tax breakdown. The partner invoices us for franchiseShare + GST (only if they
+  // are GST-registered); we deduct TDS u/s 194H on the commission value (excluding
+  // GST) and remit it. netPayable is what actually reaches their bank.
+  gstPercent      Decimal                   @default(0) @map("gst_percent") @db.Decimal(5, 2)
+  gstAmount       Decimal                   @default(0) @map("gst_amount") @db.Decimal(12, 2)
+  tdsPercent      Decimal                   @default(0) @map("tds_percent") @db.Decimal(5, 2)
+  tdsAmount       Decimal                   @default(0) @map("tds_amount") @db.Decimal(12, 2)
+  netPayable      Decimal                   @default(0) @map("net_payable") @db.Decimal(12, 2)
+  invoiceNumber   String?                   @unique @map("invoice_number")
   status          FranchiseSettlementStatus @default(PENDING)
   ledgerJournalId String?                   @map("ledger_journal_id")
   paidAt          DateTime?                 @map("paid_at")
   createdAt       DateTime                  @default(now()) @map("created_at")
 
   franchise FranchisePartner @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  payout    FranchisePayout?
 
   @@unique([franchiseId, periodStart, periodEnd])
   @@index([franchiseId, status])
   @@index([periodStart, periodEnd])
   @@map("franchise_settlements")
+}
+
+/// Where the partner's money actually goes. Verified by an admin before any
+/// transfer; `razorpayLinkedAccountId` is the Route account we pay into.
+model FranchiseBankAccount {
+  id                      String    @id @default(cuid())
+  franchiseId             String    @unique @map("franchise_id")
+  accountHolderName       String    @map("account_holder_name")
+  accountNumber           String    @map("account_number")
+  ifsc                    String
+  bankName                String?   @map("bank_name")
+  upiId                   String?   @map("upi_id")
+  verified                Boolean   @default(false)
+  verifiedAt              DateTime? @map("verified_at")
+  verifiedBy              String?   @map("verified_by")
+  razorpayLinkedAccountId String?   @unique @map("razorpay_linked_account_id")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  franchise FranchisePartner @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+
+  @@map("franchise_bank_accounts")
+}
+
+enum FranchisePayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+/// The real money movement. `settlementId` is unique — that is the idempotency
+/// guard that stops one settlement being paid twice.
+model FranchisePayout {
+  id                 String                @id @default(cuid())
+  franchiseId        String                @map("franchise_id")
+  settlementId       String                @unique @map("settlement_id")
+  grossAmount        Decimal               @map("gross_amount") @db.Decimal(12, 2)
+  gstAmount          Decimal               @default(0) @map("gst_amount") @db.Decimal(12, 2)
+  tdsAmount          Decimal               @default(0) @map("tds_amount") @db.Decimal(12, 2)
+  netAmount          Decimal               @map("net_amount") @db.Decimal(12, 2)
+  status             FranchisePayoutStatus @default(PENDING)
+  razorpayTransferId String?               @unique @map("razorpay_transfer_id")
+  utr                String?
+  bankSnapshot       Json?                 @map("bank_snapshot")
+  failureReason      String?               @map("failure_reason") @db.Text
+  attempts           Int                   @default(0)
+  processedAt        DateTime?             @map("processed_at")
+  processedBy        String?               @map("processed_by")
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @updatedAt @map("updated_at")
+
+  // RESTRICT, not Cascade: a payout is a financial record and must not vanish
+  // quietly because a partner or settlement row was removed.
+  franchise  FranchisePartner    @relation(fields: [franchiseId], references: [id], onDelete: Restrict)
+  settlement FranchiseSettlement @relation(fields: [settlementId], references: [id], onDelete: Restrict)
+
+  @@index([franchiseId, status])
+  @@map("franchise_payouts")
 }
 
 // =============================================================================
