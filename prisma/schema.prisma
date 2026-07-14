@@ -5552,7 +5552,13 @@ model FranchisePartner {
   /// Shared in the partner's invite link (`?ref=FR-NCR-01`). Attribution key.
   referralCode        String?                @unique @map("referral_code")
   commissionPercent   Float                  @default(10) @map("commission_percent")
+  /// True only when KYC is complete: agreement accepted, PAN verified, bank verified.
+  /// Computed — never set by hand.
   onboardingCompleted Boolean                @default(false) @map("onboarding_completed")
+  /// Franchise agreement acceptance (e-sign lite: who, when, which version, from where).
+  agreementAcceptedAt DateTime?              @map("agreement_accepted_at")
+  agreementVersion    String?                @map("agreement_version")
+  agreementIp         String?                @map("agreement_ip")
   cityId              String?                @map("city_id")
   createdAt           DateTime               @default(now()) @map("created_at")
   updatedAt           DateTime               @updatedAt @map("updated_at")
@@ -5569,6 +5575,7 @@ model FranchisePartner {
   convertedFromLead    ExpansionLead?
   bankAccount          FranchiseBankAccount?
   payouts              FranchisePayout[]
+  documents            FranchiseDocument[]
 
   @@index([status, createdAt(sort: Desc)])
   @@index([cityId, status])
@@ -5745,6 +5752,47 @@ model FranchiseSettlement {
   @@index([franchiseId, status])
   @@index([periodStart, periodEnd])
   @@map("franchise_settlements")
+}
+
+enum FranchiseDocumentType {
+  PAN_CARD
+  GST_CERTIFICATE
+  CANCELLED_CHEQUE
+  AADHAAR
+  ADDRESS_PROOF
+  SIGNED_AGREEMENT
+  OTHER
+}
+
+enum FranchiseDocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+/// Partner KYC. A VERIFIED PAN_CARD is what lets us deduct TDS at 5% instead of
+/// the 20% that s.206AA demands when no PAN is furnished.
+model FranchiseDocument {
+  id              String                  @id @default(cuid())
+  franchiseId     String                  @map("franchise_id")
+  documentType    FranchiseDocumentType   @map("document_type")
+  fileName        String                  @map("file_name")
+  fileUrl         String                  @map("file_url") @db.Text
+  mimeType        String                  @map("mime_type")
+  status          FranchiseDocumentStatus @default(PENDING)
+  rejectionReason String?                 @map("rejection_reason") @db.Text
+  verifiedAt      DateTime?               @map("verified_at")
+  verifiedBy      String?                 @map("verified_by")
+  uploadedAt      DateTime                @default(now()) @map("uploaded_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+
+  franchise FranchisePartner @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+
+  /// One current document per type — re-uploading replaces, so a rejected PAN
+  /// cannot linger alongside its replacement.
+  @@unique([franchiseId, documentType])
+  @@index([status])
+  @@map("franchise_documents")
 }
 
 /// Where the partner's money actually goes. Verified by an admin before any
