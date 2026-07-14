@@ -872,6 +872,10 @@ model MerchantApplication {
   utmCampaign              String?                   @map("utm_campaign")
   utmContent               String?                   @map("utm_content")
   fbclid                   String?                   @map("fbclid")
+  // Franchise referral attribution (merchant arrived via a franchisee's ?ref= link).
+  // First-touch, same as the utm_* fields above: never overwritten once set.
+  franchiseId              String?                   @map("franchise_id")
+  referralCode             String?                   @map("referral_code")
   submittedAt              DateTime?                 @map("submitted_at")
   reviewedAt               DateTime?                 @map("reviewed_at")
   reviewedBy               String?                   @map("reviewed_by")
@@ -881,6 +885,7 @@ model MerchantApplication {
   user            User                              @relation(fields: [userId], references: [id], onDelete: Cascade)
   merchantProfile MerchantProfile?                  @relation(fields: [merchantProfileId], references: [id], onDelete: SetNull)
   store           Store?                            @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  franchise       FranchisePartner?                 @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
   documents       MerchantDocument[]
   kyc             MerchantKyc?
   bankAccount     MerchantBankAccount?
@@ -890,6 +895,7 @@ model MerchantApplication {
   @@index([userId])
   @@index([status, createdAt])
   @@index([utmSource, createdAt])
+  @@index([franchiseId])
   @@map("merchant_applications")
 }
 
@@ -1454,10 +1460,16 @@ model Store {
   ratingCount            Int               @default(0) @map("rating_count")
   reputationStats        Json?             @map("reputation_stats")
   isActive               Boolean           @default(false) @map("is_active")
+  // Franchise attribution, copied from the merchant application on approval.
+  // `franchiseStores` remains the authoritative link that settlement reads; these
+  // two columns are denormalised for fast lookups and to preserve provenance.
+  franchiseId            String?           @map("franchise_id")
+  referralCode           String?           @map("referral_code")
   createdAt              DateTime          @default(now()) @map("created_at")
   updatedAt              DateTime          @updatedAt @map("updated_at")
   deletedAt              DateTime?         @map("deleted_at")
 
+  franchise              FranchisePartner?             @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
   merchantProfile        MerchantProfile               @relation(fields: [merchantProfileId], references: [id], onDelete: Restrict)
   city                   City                          @relation(fields: [cityId], references: [id], onDelete: Restrict)
   locationPincode        LocationPincode?              @relation(fields: [locationPincodeId], references: [id], onDelete: SetNull)
@@ -1513,6 +1525,7 @@ model Store {
   addonGroups            RestaurantAddonGroup[]
   orderClaims            OrderClaim[]
 
+  @@index([franchiseId])
   @@index([cityId, isActive])
   @@index([locationPincodeId])
   @@index([locationCityId])
@@ -5536,19 +5549,23 @@ model FranchisePartner {
   gstin               String?
   pan                 String?
   status              FranchisePartnerStatus @default(PENDING)
+  /// Shared in the partner's invite link (`?ref=FR-NCR-01`). Attribution key.
+  referralCode        String?                @unique @map("referral_code")
   commissionPercent   Float                  @default(5) @map("commission_percent")
   onboardingCompleted Boolean                @default(false) @map("onboarding_completed")
   cityId              String?                @map("city_id")
   createdAt           DateTime               @default(now()) @map("created_at")
   updatedAt           DateTime               @updatedAt @map("updated_at")
 
-  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  city        City?                 @relation(fields: [cityId], references: [id], onDelete: SetNull)
-  territories FranchiseTerritory[]
-  stores      FranchiseStore[]
-  audits      FranchiseAudit[]
-  settlements FranchiseSettlement[]
-  conflicts   TerritoryConflict[]
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city                 City?                 @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  territories          FranchiseTerritory[]
+  stores               FranchiseStore[]
+  audits               FranchiseAudit[]
+  settlements          FranchiseSettlement[]
+  conflicts            TerritoryConflict[]
+  merchantApplications MerchantApplication[]
+  attributedStores     Store[]
 
   @@index([status, createdAt(sort: Desc)])
   @@index([cityId, status])
@@ -5576,17 +5593,29 @@ model FranchiseTerritory {
   @@map("franchise_territories")
 }
 
+/// Attribution link is parked as PENDING_REVIEW when the store's pincode falls
+/// inside a *different* active partner's exclusive territory. Only ACTIVE links
+/// earn a settlement share.
+enum FranchiseStoreStatus {
+  PENDING_REVIEW
+  ACTIVE
+  REJECTED
+}
+
 model FranchiseStore {
-  id          String   @id @default(cuid())
-  franchiseId String   @map("franchise_id")
-  storeId     String   @map("store_id")
-  linkedAt    DateTime @default(now()) @map("linked_at")
+  id             String               @id @default(cuid())
+  franchiseId    String               @map("franchise_id")
+  storeId        String               @map("store_id")
+  status         FranchiseStoreStatus @default(ACTIVE)
+  conflictReason String?              @map("conflict_reason")
+  linkedAt       DateTime             @default(now()) @map("linked_at")
 
   franchise FranchisePartner @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
   store     Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([franchiseId, storeId])
   @@index([storeId])
+  @@index([status])
   @@map("franchise_stores")
 }
 
