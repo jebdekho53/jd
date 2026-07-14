@@ -22,7 +22,7 @@ function buildService(opts: {
     store: { update: storeUpdate },
   } as never;
 
-  const svc = new FranchiseStoreLinkService(prisma);
+  const svc = new FranchiseStoreLinkService(prisma, { emit: jest.fn() } as never);
   const linkStore = jest.spyOn(svc, 'linkStore').mockResolvedValue({} as never);
 
   return { svc, prisma, storeUpdate, linkStore };

@@ -10,6 +10,7 @@ import { LedgerService } from '../finance/ledger.service';
 import { LEDGER_ACCOUNT_CODES } from '../finance/ledger-accounts.constants';
 import { RazorpayService } from '../payment/razorpay.service';
 import { FranchiseKycService } from './franchise-kyc.service';
+import { FranchiseNotificationService } from './franchise-notification.service';
 
 /**
  * Moves the partner's money out of the platform and into their bank.
@@ -26,6 +27,7 @@ export class FranchisePayoutService {
     private readonly ledger: LedgerService,
     private readonly razorpay: RazorpayService,
     private readonly kyc: FranchiseKycService,
+    private readonly notifications: FranchiseNotificationService,
   ) {}
 
   /**
@@ -164,6 +166,12 @@ export class FranchisePayoutService {
         ],
       });
 
+      await this.notifications.payoutCompleted(
+        settlement.franchiseId,
+        netAmount,
+        bank.accountNumber.slice(-4),
+      );
+
       this.logger.log(
         { payoutId: payout.id, transferId: transfer.id, netAmount },
         'Franchise payout completed',
@@ -178,6 +186,10 @@ export class FranchisePayoutService {
         where: { id: payout.id },
         data: { status: FranchisePayoutStatus.FAILED, failureReason: message },
       });
+
+      // They are still owed this money — tell them so, rather than leaving them to
+      // wonder why nothing arrived.
+      await this.notifications.payoutFailed(settlement.franchiseId, netAmount, message);
 
       this.logger.error({ payoutId: payout.id, err: message }, 'Franchise payout failed');
       throw new BadRequestException(`Payout failed: ${message}`);

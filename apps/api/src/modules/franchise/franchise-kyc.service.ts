@@ -5,6 +5,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { FranchiseNotificationService } from './franchise-notification.service';
 import {
   AcceptFranchiseAgreementDto,
   RejectFranchiseDocumentDto,
@@ -28,7 +29,10 @@ export const REQUIRED_DOCUMENT_TYPES: FranchiseDocumentType[] = [
 export class FranchiseKycService {
   private readonly logger = new Logger(FranchiseKycService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: FranchiseNotificationService,
+  ) {}
 
   // ---------------------------------------------------------------------------
   // Partner
@@ -159,7 +163,10 @@ export class FranchiseKycService {
       },
     });
 
-    await this.refreshOnboarding(doc.franchiseId);
+    const complete = await this.refreshOnboarding(doc.franchiseId);
+    await this.notifications.documentReviewed(doc.franchiseId, label(doc.documentType), true);
+    if (complete) await this.notifications.onboardingComplete(doc.franchiseId);
+
     this.logger.log({ documentId, type: doc.documentType }, 'Franchise document verified');
     return doc;
   }
@@ -176,6 +183,12 @@ export class FranchiseKycService {
     });
 
     await this.refreshOnboarding(doc.franchiseId);
+    await this.notifications.documentReviewed(
+      doc.franchiseId,
+      label(doc.documentType),
+      false,
+      dto.reason,
+    );
     return doc;
   }
 
@@ -235,3 +248,12 @@ export const OPTIONAL_DOCUMENT_TYPES: FranchiseDocumentType[] = Object.values(
 ).filter((t) => !REQUIRED_DOCUMENT_TYPES.includes(t)) as FranchiseDocumentType[];
 
 export type FranchiseDocumentMetadata = Prisma.JsonObject;
+
+/** Human label for a document type — used in the messages we send partners. */
+function label(type: FranchiseDocumentType): string {
+  return type
+    .toLowerCase()
+    .split('_')
+    .join(' ')
+    .replace(/^\w/, (c) => c.toUpperCase());
+}
