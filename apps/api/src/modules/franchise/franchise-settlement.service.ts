@@ -1,5 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FranchiseAuditAction, FranchiseSettlementStatus, LedgerReferenceType } from '@prisma/client';
+import {
+  FranchiseAuditAction,
+  FranchiseSettlementStatus,
+  FranchiseStoreStatus,
+  LedgerReferenceType,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { LedgerService } from '../finance/ledger.service';
 import { LEDGER_ACCOUNT_CODES } from '../finance/ledger-accounts.constants';
@@ -16,7 +21,9 @@ export class FranchiseSettlementService {
   async createSettlement(franchiseId: string, periodStart: Date, periodEnd: Date) {
     const fp = await this.prisma.franchisePartner.findUnique({
       where: { id: franchiseId },
-      include: { stores: true },
+      // Only ACTIVE links earn a share. A link parked as PENDING_REVIEW (the store
+      // sits in another partner's exclusive pincode) or REJECTED must not settle.
+      include: { stores: { where: { status: FranchiseStoreStatus.ACTIVE } } },
     });
     if (!fp) throw new NotFoundException('Franchise not found');
 
