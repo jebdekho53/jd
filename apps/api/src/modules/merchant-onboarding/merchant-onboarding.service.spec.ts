@@ -17,6 +17,7 @@ import { LocationDirectoryService } from '../location-directory/location-directo
 import { GeoService } from '../geo/geo.service';
 import { GeocodingCacheService } from '../geocoding/geocoding-cache.service';
 import { VerticalService } from '../store-vertical/vertical.service';
+import { FranchiseService } from '../franchise/franchise.service';
 
 const LOGO = 'https://cdn.example.com/logo.jpg';
 const BANNER = 'https://cdn.example.com/banner.jpg';
@@ -124,6 +125,7 @@ describe('MerchantOnboardingService branding', () => {
         { provide: GeoService, useValue: mockGeo },
         { provide: GeocodingCacheService, useValue: mockGeocoding },
         { provide: VerticalService, useValue: mockVertical },
+        { provide: FranchiseService, useValue: { linkStore: jest.fn() } },
       ],
     }).compile();
 
