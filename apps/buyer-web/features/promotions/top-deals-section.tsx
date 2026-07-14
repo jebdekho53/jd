@@ -26,7 +26,7 @@ export function TopDealsSection() {
         {deals.map((deal) => (
           <Link
             key={deal.id}
-            href={`/stores/${deal.store.slug}`}
+            href={`/store/${deal.store.slug}`}
             className="min-w-[200px] rounded-2xl border bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm"
           >
             <p className="text-xs font-medium text-amber-700">{deal.badge ?? 'Deal'}</p>

@@ -7,6 +7,7 @@ import { StoreCategoryAccessService } from '../category-governance/store-categor
 import { MenuService } from './menu.service';
 import { slugifyMenu } from './vertical.constants';
 import { assertTrustedUploadUrl } from '../../common/utils/trusted-upload-url.util';
+import { uploadPublicBases } from '../../common/utils/asset-url.util';
 import { getConfig } from '../../config/configuration';
 
 const MENU_OCR_PROMPT = `You are a restaurant menu OCR assistant for an Indian food delivery platform.
@@ -54,8 +55,7 @@ export class MenuOcrService {
 
   async uploadMenuForOcr(merchantProfileId: string, storeId: string, imageUrl: string) {
     await this.menu.assertStoreOwnership(merchantProfileId, storeId);
-    const uploadBase = getConfig(this.config).storage.uploadPublicUrl;
-    assertTrustedUploadUrl(imageUrl, uploadBase);
+    assertTrustedUploadUrl(imageUrl, uploadPublicBases(getConfig(this.config).storage));
 
     const job = await this.prisma.menuOcrJob.create({
       data: { storeId, imageUrl, status: MenuOcrStatus.UPLOADED },

@@ -23,21 +23,28 @@ export class AdminAdsController {
   @Get('overview')
   @Permissions('analytics:read')
   async overview() {
-    const [metrics, topAdvertisers, campaigns] = await Promise.all([
-      this.analytics.getAdminAnalytics(),
-      this.prisma.adCampaign.groupBy({
-        by: ['advertiserId'],
-        _sum: { spentAmount: true },
-        orderBy: { _sum: { spentAmount: 'desc' } },
-        take: 10,
-      }),
-      this.prisma.adCampaign.findMany({
-        where: { status: 'ACTIVE' },
-        take: 20,
-        include: { advertiser: { select: { businessName: true } } },
-      }),
-    ]);
-    return { success: true, data: { metrics, topAdvertisers, campaigns } };
+    const [metrics, topAdvertisers, campaigns, placements, timeseries, campaignBreakdown] =
+      await Promise.all([
+        this.analytics.getAdminAnalytics(),
+        this.prisma.adCampaign.groupBy({
+          by: ['advertiserId'],
+          _sum: { spentAmount: true },
+          orderBy: { _sum: { spentAmount: 'desc' } },
+          take: 10,
+        }),
+        this.prisma.adCampaign.findMany({
+          where: { status: 'ACTIVE' },
+          take: 20,
+          include: { advertiser: { select: { businessName: true } } },
+        }),
+        this.analytics.getPlacementBreakdown(),
+        this.analytics.getDailyTimeSeries(14),
+        this.analytics.getCampaignBreakdown(25),
+      ]);
+    return {
+      success: true,
+      data: { metrics, topAdvertisers, campaigns, placements, timeseries, campaignBreakdown },
+    };
   }
 }
 

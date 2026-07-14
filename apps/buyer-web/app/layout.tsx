@@ -4,6 +4,7 @@ import { getSiteUrl } from '@jebdekho/web-config';
 import { BRAND_LOGO_SRC, BRAND_NAME, BRAND_TAGLINE, BRAND_ICONS } from '@/lib/brand';
 import { PWA_THEME_COLOR, PWA_BACKGROUND_COLOR } from '@/lib/pwa/constants';
 import { APPLE_SPLASH_LINKS } from '@/lib/pwa/apple-splash';
+import { organizationJsonLd, serializeJsonLd } from '@/lib/seo/metadata';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { GoogleMapsProvider } from '@/components/providers/google-maps-provider';
 import { PwaProvider } from '@/components/pwa/pwa-provider';
@@ -55,22 +56,13 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-const organizationJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: 'JebDekho',
-  url: siteUrl,
-  logo: `${siteUrl}/logo.png`,
-  sameAs: [],
-};
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en-IN">
       <head>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(organizationJsonLd()) }}
         />
         {APPLE_SPLASH_LINKS.map((s) => (
           <link key={s.href} rel="apple-touch-startup-image" media={s.media} href={s.href} />

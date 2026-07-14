@@ -73,4 +73,84 @@ export class AdAnalyticsService {
       clicks,
     };
   }
+
+  /** Impression reach + spend split by placement (SEARCH / HOME / CATEGORY). */
+  async getPlacementBreakdown() {
+    const grouped = await this.prisma.adImpression.groupBy({
+      by: ['placement'],
+      _count: { _all: true },
+      _sum: { cost: true },
+    });
+    return grouped
+      .map((g) => ({
+        placement: g.placement,
+        impressions: g._count._all,
+        spend: Number(g._sum.cost ?? 0),
+      }))
+      .sort((a, b) => b.impressions - a.impressions);
+  }
+
+  /** Daily impressions / clicks / CTR for the last `days` days (oldest → newest). */
+  async getDailyTimeSeries(days = 14) {
+    const span = Math.max(1, Math.min(90, days));
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (span - 1));
+
+    const [impressions, clicks] = await Promise.all([
+      this.prisma.adImpression.findMany({
+        where: { createdAt: { gte: start } },
+        select: { createdAt: true },
+      }),
+      this.prisma.adClick.findMany({
+        where: { createdAt: { gte: start } },
+        select: { createdAt: true },
+      }),
+    ]);
+
+    const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+    const buckets = new Map<string, { impressions: number; clicks: number }>();
+    for (let i = 0; i < span; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      buckets.set(dayKey(d), { impressions: 0, clicks: 0 });
+    }
+    for (const im of impressions) {
+      const b = buckets.get(dayKey(im.createdAt));
+      if (b) b.impressions += 1;
+    }
+    for (const c of clicks) {
+      const b = buckets.get(dayKey(c.createdAt));
+      if (b) b.clicks += 1;
+    }
+
+    return Array.from(buckets.entries()).map(([date, v]) => ({
+      date,
+      impressions: v.impressions,
+      clicks: v.clicks,
+      ctr: v.impressions > 0 ? Math.round((v.clicks / v.impressions) * 10000) / 100 : 0,
+    }));
+  }
+
+  /** Per-campaign performance table for the admin, richest campaigns first. */
+  async getCampaignBreakdown(limit = 25) {
+    const campaigns = await this.prisma.adCampaign.findMany({
+      orderBy: { spentAmount: 'desc' },
+      take: limit,
+      include: { advertiser: { select: { businessName: true } } },
+    });
+    const rows = await Promise.all(
+      campaigns.map(async (c) => {
+        const metrics = await this.getCampaignMetrics(c.id);
+        return {
+          id: c.id,
+          name: c.name,
+          advertiser: c.advertiser?.businessName ?? '—',
+          status: c.status,
+          ...metrics,
+        };
+      }),
+    );
+    return rows;
+  }
 }

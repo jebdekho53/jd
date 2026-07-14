@@ -20,6 +20,7 @@ import { ActionBar, Button, ButtonLink, Spinner } from '@/design-system/primitiv
 import { CartEmpty } from '@/features/cart/components/cart-empty';
 import { useCartQuery } from '@/hooks/use-cart';
 import { formatCurrency } from '@/lib/utils';
+import { trackReach } from '@/lib/analytics/track';
 import { getDefaultSavedDeliveryAddress, isDeliveryAddressComplete } from '@/lib/saved-delivery-address';
 import { useInitiateCodCheckoutMutation, useInitiateCheckoutMutation } from '@/hooks/use-checkout';
 import { useProfileQuery } from '@/features/profile/hooks/use-profile';
@@ -124,6 +125,12 @@ export function CheckoutPageContent() {
     if (!checkoutReady || authLoading || isLoading) return;
     if (!isAuthenticated) return;
   }, [checkoutReady, authLoading, isLoading, isAuthenticated, cart, router]);
+
+  useEffect(() => {
+    if (cart && cart.items.length > 0) {
+      trackReach('CHECKOUT_START', { storeId: cart.storeId }, cart.id);
+    }
+  }, [cart?.id, cart?.items.length]);
 
   const handlePlaceOrder = async () => {
     if (!deliveryAddress) return;

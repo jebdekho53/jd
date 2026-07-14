@@ -206,7 +206,7 @@ export function StoreMapPreviewSheet({
       size="sm"
       footer={
         <Link
-          href={`/stores/${store.slug}`}
+          href={`/store/${store.slug}`}
           onClick={onClose}
           className="flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground btn-press"
         >

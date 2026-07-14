@@ -1,5 +1,5 @@
 import { getSiteUrl } from '@jebdekho/web-config';
-import { createPageMetadata, breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/seo/metadata';
+import { createPageMetadata, breadcrumbJsonLd, localBusinessJsonLd, serializeJsonLd } from '@/lib/seo/metadata';
 import { RestaurantDetailContent } from '@/features/food/restaurant-detail-content';
 import { apiGet } from '@/services/api/client';
 import type { ApiResponse } from '@/types/buyer';
@@ -45,15 +45,19 @@ export default async function RestaurantPage({ params }: Props) {
           { name: restaurant.name, url: `${siteUrl}/restaurant/${slug}` },
         ]),
         localBusinessJsonLd({
+          type: 'Restaurant',
           name: restaurant.name,
           url: `${siteUrl}/restaurant/${slug}`,
-          address: restaurant.line1,
-          city: restaurant.locality ?? undefined,
-          pincode: restaurant.pincode,
-          lat: restaurant.latitude ?? undefined,
-          lng: restaurant.longitude ?? undefined,
-          rating: restaurant.ratingAvg,
-          reviewCount: restaurant.ratingCount,
+          address: {
+            line1: restaurant.line1,
+            locality: restaurant.locality,
+            pincode: restaurant.pincode,
+          },
+          geo: { lat: restaurant.latitude, lng: restaurant.longitude },
+          aggregateRating:
+            restaurant.ratingCount > 0
+              ? { ratingValue: restaurant.ratingAvg, reviewCount: restaurant.ratingCount }
+              : undefined,
         }),
       ]
     : [];
@@ -64,7 +68,7 @@ export default async function RestaurantPage({ params }: Props) {
         <script
           key={i}
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }}
         />
       ))}
       <RestaurantDetailContent slug={slug} />

@@ -62,7 +62,7 @@ export function PdpCompareSection({ data, isLoading }: PdpCompareSectionProps) {
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
-                      href={`/stores/${row.storeSlug}`}
+                      href={`/store/${row.storeSlug}`}
                       className="font-semibold text-jd-text-primary hover:text-primary"
                     >
                       {row.storeName}

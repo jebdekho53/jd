@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowLeft, Check, Clock, MapPin, Search, ShoppingBag, SlidersHorizontal, Star, Truck } from 'lucide-react';
 import { RecentStoreTracker } from '@/components/pwa/recent-store-tracker';
+import { trackReach } from '@/lib/analytics/track';
 import { PageShell } from '@/components/layout/site-shell';
 import { DeliveryBadge } from '@/components/v2/delivery-badge';
 import { SectionHeader } from '@/components/v2/section-header';
@@ -42,6 +43,12 @@ export function StoreDetailView({ slug }: StoreDetailViewProps) {
 
   const { data: store, isLoading: storeLoading, isError: storeError, error, refetch } = useStore(slug);
   const { data: storeCategories = [] } = useCategories(store?.id);
+
+  useEffect(() => {
+    if (store?.id) {
+      trackReach('VIEW_STORE', { storeId: store.id }, store.id);
+    }
+  }, [store?.id]);
 
   const {
     data: productsData,

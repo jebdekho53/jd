@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { getSiteUrl } from '@jebdekho/web-config';
@@ -11,12 +10,11 @@ import { ComparePricesModal } from '@/components/compare/compare-prices-modal';
 import { ActionBar } from '@/design-system/primitives';
 import { AddToCartButton } from '@/features/cart/components/add-to-cart-button';
 import { useProductById, useProductSearch, useStore } from '@/hooks/use-buyer-queries';
-import { buyerKeys, getProductReviews } from '@/services/buyer/buyer-api';
 import { useRecentlyViewed } from '@/hooks/use-recently-viewed';
+import { trackReach } from '@/lib/analytics/track';
 import { useProductStockRealtime } from '@/features/products/use-product-stock-realtime';
 import { useWishlist } from '@/hooks/use-wishlist';
 import { buildCompareGroups } from '@/lib/compare-products';
-import { breadcrumbJsonLd, buildProductPdpFaqs, faqPageJsonLd, productJsonLd } from '@/lib/seo/metadata';
 import { ApiError } from '@/services/api/client';
 import { formatCurrency, cn } from '@/lib/utils';
 import type { BuyerProductWithStore, BuyerVariant } from '@/types/buyer';
@@ -80,13 +78,6 @@ export function ProductDetailContent({ productId }: { productId: string }) {
     Boolean(primaryProduct),
   );
 
-  const { data: reviewSeoData } = useQuery({
-    queryKey: buyerKeys.productReviews(productId),
-    queryFn: () => getProductReviews(productId),
-    enabled: Boolean(primaryProduct),
-    staleTime: 120_000,
-  });
-
   const offers: BuyerProductWithStore[] = useMemo(() => {
     if (!primaryProduct) return [];
     const fromSearch = (searchData?.data ?? []).filter(
@@ -104,6 +95,7 @@ export function ProductDetailContent({ productId }: { productId: string }) {
   useEffect(() => {
     if (product) {
       trackView(product, { name: product.store.name, slug: product.store.slug });
+      trackReach('VIEW_PRODUCT', { productId: product.id, storeId: product.store.id }, product.id);
     }
   }, [product, trackView]);
 
@@ -209,57 +201,12 @@ export function ProductDetailContent({ productId }: { productId: string }) {
     }
   };
 
-  const breadcrumbs = [
-    { name: 'Home', url: siteUrl },
-    { name: 'Products', url: `${siteUrl}/products` },
-    ...(product.category
-      ? [{ name: product.category.name, url: `${siteUrl}/categories/${product.category.slug}` }]
-      : []),
-    { name: product.name, url: `${siteUrl}${canonicalPath}` },
-  ];
-
-  const jsonLdProduct = productJsonLd({
-    name: product.name,
-    description: product.description,
-    imageUrls: product.imageUrls,
-    price,
-    brand: product.brand,
-    inStock: variant.availableQty > 0,
-    seller: {
-      name: product.store.name,
-      url: `${siteUrl}/stores/${product.store.slug}`,
-    },
-    aggregateRating:
-      product.reviewSummary && product.reviewSummary.ratingCount > 0
-        ? {
-            ratingValue: product.reviewSummary.ratingAvg,
-            reviewCount: product.reviewSummary.ratingCount,
-          }
-        : undefined,
-    reviews: reviewSeoData?.reviews?.map((r) => ({
-      rating: r.rating,
-      comment: r.comment,
-      images: r.images,
-      author: r.buyer?.name ?? null,
-    })),
-  });
-  const jsonLdBreadcrumb = breadcrumbJsonLd(breadcrumbs);
-  const jsonLdFaq = faqPageJsonLd(
-    buildProductPdpFaqs({
-      name: product.name,
-      unit: product.unit,
-      store: product.store,
-      metadata: product.metadata,
-      reviewSummary: product.reviewSummary,
-    }),
-  );
+  // Product / Breadcrumb / FAQ JSON-LD is now server-rendered in
+  // app/products/[id]/page.tsx so crawlers and answer engines see it without
+  // executing JS. It is intentionally NOT emitted here to avoid duplication.
 
   return (
     <PageShell hideMobileNav hideFloatingCart className="!px-0 !pt-0 md:!px-4 md:!pt-6">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdProduct) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdBreadcrumb) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdFaq) }} />
-
       <div className="px-4 md:px-0">
         <PdpMobileHeader title={product.name} onShare={handleShare} shared={copied} />
 

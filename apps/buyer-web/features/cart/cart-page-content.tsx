@@ -160,7 +160,7 @@ export function CartPageContent() {
             )}
             <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
               <div className="border-b border-border bg-cream-3 px-4 py-3">
-                <Link href={`/stores/${cart.store.slug}`} className="group flex items-center justify-between gap-2">
+                <Link href={`/store/${cart.store.slug}`} className="group flex items-center justify-between gap-2">
                   <span className="flex items-center gap-2">
                     <ShoppingBag className="h-4 w-4 text-primary" aria-hidden />
                     <span className="text-sm font-semibold group-hover:text-primary">{cart.store.name}</span>

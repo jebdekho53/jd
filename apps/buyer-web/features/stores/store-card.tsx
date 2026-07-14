@@ -17,7 +17,7 @@ export function StoreCardItem({ store, variant = 'default', productCount }: Stor
   if (variant === 'compact') {
     return (
       <Link
-        href={`/stores/${store.slug}`}
+        href={`/store/${store.slug}`}
         className="group block w-[280px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-2xl"
       >
         <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-border/50 bg-card shadow-card card-hover">
@@ -71,7 +71,7 @@ export function StoreCardItem({ store, variant = 'default', productCount }: Stor
 
   return (
     <Link
-      href={`/stores/${store.slug}`}
+      href={`/store/${store.slug}`}
       className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-2xl"
     >
       <article

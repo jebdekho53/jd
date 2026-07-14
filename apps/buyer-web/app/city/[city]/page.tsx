@@ -1,11 +1,15 @@
 import Link from 'next/link';
+import { getSiteUrl } from '@jebdekho/web-config';
 import { StaticPageLayout } from '@/components/common/static-page-layout';
 import { GeoCityContent } from '@/features/seo/geo-city-content';
 import { fetchSeoPage, seoPageMetadata } from '@/lib/seo/seo-pages';
+import { breadcrumbJsonLd, serializeJsonLd } from '@/lib/seo/metadata';
 
 interface Props {
   params: Promise<{ city: string }>;
 }
+
+const titleCase = (s: string) => s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 export async function generateMetadata({ params }: Props) {
   const { city } = await params;
@@ -21,14 +25,24 @@ export default async function CityPage({ params }: Props) {
   const { city } = await params;
   const data = await fetchSeoPage(`/city/${city}`);
   const page = data?.page;
+  const siteUrl = getSiteUrl();
+
+  const breadcrumb = breadcrumbJsonLd([
+    { name: 'Home', url: siteUrl },
+    { name: titleCase(city), url: `${siteUrl}/city/${city}` },
+  ]);
 
   return (
     <StaticPageLayout
       title={page?.h1 ?? `Delivery in ${city.replace(/-/g, ' ')}`}
       subtitle={page?.description}
     >
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumb) }}
+      />
       {data?.schemas?.map((schema, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(schema) }} />
       ))}
       <p className="text-sm text-jd-text-muted">
         Discover local stores and get fast hyperlocal delivery with JebDekho.

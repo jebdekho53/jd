@@ -32,7 +32,7 @@ export function FlashSalesSection() {
         {sales.map((sale) => (
           <Link
             key={sale.id}
-            href={sale.store ? `/stores/${sale.store.slug}` : '/offers'}
+            href={sale.store ? `/store/${sale.store.slug}` : '/offers'}
             className="min-w-[220px] rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 to-white p-4"
           >
             <div className="flex items-center justify-between">
@@ -69,7 +69,7 @@ export function OffersNearYouSection() {
         {offers.map((o) => (
           <Link
             key={o.id}
-            href={o.store ? `/stores/${o.store.slug}` : '/offers'}
+            href={o.store ? `/store/${o.store.slug}` : '/offers'}
             className="min-w-[200px] rounded-2xl border bg-white p-4 shadow-sm"
           >
             <p className="text-xs font-medium text-emerald-700">{o.badge}</p>
@@ -99,7 +99,7 @@ export function RecommendedDealsSection() {
         {deals.map((d) => (
           <Link
             key={d.id}
-            href={d.store ? `/stores/${d.store.slug}` : '/offers'}
+            href={d.store ? `/store/${d.store.slug}` : '/offers'}
             className="min-w-[200px] rounded-2xl border bg-violet-50 p-4"
           >
             <p className="text-xs text-violet-700">Personalized</p>

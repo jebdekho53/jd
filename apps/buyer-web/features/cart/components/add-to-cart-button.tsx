@@ -16,6 +16,7 @@ import { addToServerWishlist } from '@/services/wishlist/wishlist-api';
 import { useToast } from '@/design-system/primitives';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
+import { trackReach } from '@/lib/analytics/track';
 
 interface AddToCartButtonProps {
   productId: string;
@@ -96,6 +97,7 @@ export function AddToCartButton({
         availableQty,
         quantity: 1,
       });
+      trackReach('ADD_CART', { productId, storeId });
       toast('Added to cart', 'success');
     } catch {
       setConflict(
@@ -126,6 +128,7 @@ export function AddToCartButton({
 
     try {
       await addItem.mutateAsync({ productId, variantId, quantity: 1 });
+      trackReach('ADD_CART', { productId, storeId });
     } catch (err) {
       if (err instanceof SessionError && err.status === 409) {
         toast('Your cart has items from another store. Clear your cart to continue.', 'error');
