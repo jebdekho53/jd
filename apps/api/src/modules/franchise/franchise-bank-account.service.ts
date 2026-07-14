@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { RazorpayService } from '../payment/razorpay.service';
 import { SaveFranchiseBankAccountDto } from './dto/franchise.dto';
@@ -83,18 +89,29 @@ export class FranchiseBankAccountService {
 
     let linkedAccountId = bank.razorpayLinkedAccountId;
     if (!linkedAccountId) {
-      const { accountId } = await this.razorpay.createLinkedAccount({
-        email,
-        phone: bank.franchise.user.phone,
-        referenceId: bank.franchiseId,
-        legalBusinessName: bank.franchise.businessName,
-        bank: {
-          accountNumber: bank.accountNumber,
-          ifsc: bank.ifsc,
-          accountHolderName: bank.accountHolderName,
-        },
-      });
-      linkedAccountId = accountId;
+      try {
+        const { accountId } = await this.razorpay.createLinkedAccount({
+          email,
+          phone: bank.franchise.user.phone,
+          referenceId: bank.franchiseId,
+          legalBusinessName: bank.franchise.businessName,
+          bank: {
+            accountNumber: bank.accountNumber,
+            ifsc: bank.ifsc,
+            accountHolderName: bank.accountHolderName,
+          },
+        });
+        linkedAccountId = accountId;
+      } catch (err) {
+        // The account stays unverified — never mark it verified on a provider
+        // failure, or a later payout would try to transfer into nothing. Surface a
+        // readable reason instead of a bare 500.
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.error({ franchiseId, err: message }, 'Linked account creation failed');
+        throw new ServiceUnavailableException(
+          `Could not create the payout account with Razorpay: ${message}`,
+        );
+      }
     }
 
     const updated = await this.prisma.franchiseBankAccount.update({
