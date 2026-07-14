@@ -30,20 +30,28 @@ const LEAD = {
 const VALID_APPLICATION = {
   name: 'Rahul Seth',
   phone: '+919876543210',
+  email: 'rahul@example.com',
+  password: 'S3cure!pass',
   city: 'Ghaziabad',
   state: 'Uttar Pradesh',
   pincodes: ['201001'],
 };
 
+/** Stateless argon2 wrapper; stubbed so the specs don't pay the hashing cost. */
+const passwords = { hash: jest.fn().mockResolvedValue('argon2-hash') } as never;
+
 describe('submitApplication — public funnel', () => {
   it('creates a real ExpansionLead (the model was previously never written to)', async () => {
     const create = jest.fn().mockResolvedValue({ id: 'lead-9', status: ExpansionLeadStatus.NEW });
     const prisma = {
-      user: { findFirst: jest.fn().mockResolvedValue(null) },
+      user: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
       expansionLead: { findFirst: jest.fn().mockResolvedValue(null), create },
     } as never;
 
-    const res = await new FranchiseApplicationService(prisma, {} as never).submitApplication(
+    const res = await new FranchiseApplicationService(prisma, {} as never, passwords).submitApplication(
       VALID_APPLICATION,
     );
 
@@ -59,14 +67,17 @@ describe('submitApplication — public funnel', () => {
   it('a repeat application from the same phone does NOT create a second lead and does not throw', async () => {
     const create = jest.fn();
     const prisma = {
-      user: { findFirst: jest.fn().mockResolvedValue(null) },
+      user: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
       expansionLead: {
         findFirst: jest.fn().mockResolvedValue({ id: 'lead-1', status: ExpansionLeadStatus.NEW }),
         create,
       },
     } as never;
 
-    const res = await new FranchiseApplicationService(prisma, {} as never).submitApplication(
+    const res = await new FranchiseApplicationService(prisma, {} as never, passwords).submitApplication(
       VALID_APPLICATION,
     );
 
@@ -77,14 +88,17 @@ describe('submitApplication — public funnel', () => {
   it('only an OPEN lead dedupes — a rejected applicant can apply again', async () => {
     const findFirst = jest.fn().mockResolvedValue(null);
     const prisma = {
-      user: { findFirst: jest.fn().mockResolvedValue(null) },
+      user: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
       expansionLead: {
         findFirst,
         create: jest.fn().mockResolvedValue({ id: 'lead-2', status: ExpansionLeadStatus.NEW }),
       },
     } as never;
 
-    await new FranchiseApplicationService(prisma, {} as never).submitApplication(VALID_APPLICATION);
+    await new FranchiseApplicationService(prisma, {} as never, passwords).submitApplication(VALID_APPLICATION);
 
     expect(findFirst.mock.calls[0][0].where.status.in).toEqual([
       ExpansionLeadStatus.NEW,
@@ -96,11 +110,14 @@ describe('submitApplication — public funnel', () => {
   it('drops malformed pincodes and de-duplicates them', async () => {
     const create = jest.fn().mockResolvedValue({ id: 'l', status: ExpansionLeadStatus.NEW });
     const prisma = {
-      user: { findFirst: jest.fn().mockResolvedValue(null) },
+      user: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
       expansionLead: { findFirst: jest.fn().mockResolvedValue(null), create },
     } as never;
 
-    await new FranchiseApplicationService(prisma, {} as never).submitApplication({
+    await new FranchiseApplicationService(prisma, {} as never, passwords).submitApplication({
       ...VALID_APPLICATION,
       pincodes: ['201001', '201001', 'abc', '12'],
     });
@@ -111,12 +128,15 @@ describe('submitApplication — public funnel', () => {
   it('refuses an applicant who is ALREADY a franchise partner', async () => {
     const create = jest.fn();
     const prisma = {
-      user: { findFirst: jest.fn().mockResolvedValue({ id: 'user-existing' }) },
+      user: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'user-existing' }),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
       expansionLead: { findFirst: jest.fn().mockResolvedValue(null), create },
     } as never;
 
     await expect(
-      new FranchiseApplicationService(prisma, {} as never).submitApplication(VALID_APPLICATION),
+      new FranchiseApplicationService(prisma, {} as never, passwords).submitApplication(VALID_APPLICATION),
     ).rejects.toThrow(BadRequestException);
     expect(create).not.toHaveBeenCalled();
   });
@@ -127,17 +147,75 @@ describe('submitApplication — public funnel', () => {
     const findFirst = jest.fn().mockResolvedValue(null);
     const create = jest.fn().mockResolvedValue({ id: 'lead-3', status: ExpansionLeadStatus.NEW });
     const prisma = {
-      user: { findFirst },
+      user: { findFirst, findUnique: jest.fn().mockResolvedValue(null) },
       expansionLead: { findFirst: jest.fn().mockResolvedValue(null), create },
     } as never;
 
-    const res = await new FranchiseApplicationService(prisma, {} as never).submitApplication({
+    const res = await new FranchiseApplicationService(prisma, {} as never, passwords).submitApplication({
       ...VALID_APPLICATION,
       email: 'existing.buyer@example.com',
     });
 
     expect(findFirst.mock.calls[0][0].where.franchisePartner).toEqual({ isNot: null });
     expect(res.duplicate).toBe(false);
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it('stores the password as a hash, never in plaintext', async () => {
+    const create = jest.fn().mockResolvedValue({ id: 'l', status: ExpansionLeadStatus.NEW });
+    const prisma = {
+      user: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      expansionLead: { findFirst: jest.fn().mockResolvedValue(null), create },
+    } as never;
+
+    await new FranchiseApplicationService(prisma, {} as never, passwords).submitApplication(
+      VALID_APPLICATION,
+    );
+
+    const data = create.mock.calls[0][0].data;
+    expect(data.passwordHash).toBe('argon2-hash');
+    expect(JSON.stringify(data)).not.toContain('S3cure!pass');
+  });
+
+  it('refuses an email that already belongs to a DIFFERENT account', async () => {
+    // Otherwise the partner's account could never carry that email, and password
+    // login (which resolves the user BY EMAIL) would silently never work for them.
+    const create = jest.fn();
+    const prisma = {
+      user: {
+        findFirst: jest.fn().mockResolvedValue(null), // not a partner
+        findUnique: jest.fn().mockResolvedValue({ phone: '+919999999999' }), // email taken
+      },
+      expansionLead: { findFirst: jest.fn().mockResolvedValue(null), create },
+    } as never;
+
+    await expect(
+      new FranchiseApplicationService(prisma, {} as never, passwords).submitApplication(
+        VALID_APPLICATION,
+      ),
+    ).rejects.toThrow(/already registered to another JebDekho account/i);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('allows re-applying with the email already on YOUR OWN phone account', async () => {
+    const create = jest.fn().mockResolvedValue({ id: 'l', status: ExpansionLeadStatus.NEW });
+    const prisma = {
+      user: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        // Same email, same phone — that's the applicant's own account, not a clash.
+        findUnique: jest.fn().mockResolvedValue({ phone: VALID_APPLICATION.phone }),
+      },
+      expansionLead: { findFirst: jest.fn().mockResolvedValue(null), create },
+    } as never;
+
+    await expect(
+      new FranchiseApplicationService(prisma, {} as never, passwords).submitApplication(
+        VALID_APPLICATION,
+      ),
+    ).resolves.toBeDefined();
     expect(create).toHaveBeenCalledTimes(1);
   });
 });
@@ -189,7 +267,7 @@ function buildApproveHarness(opts: {
     }),
   } as never;
 
-  return { svc: new FranchiseApplicationService(prisma, territory), prisma, tx, territory };
+  return { svc: new FranchiseApplicationService(prisma, territory, passwords), prisma, tx, territory };
 }
 
 describe('approveLead — transactional partner creation', () => {
@@ -246,6 +324,40 @@ describe('approveLead — transactional partner creation', () => {
       email: null, // NOT stolen from the other account
     });
     expect(tx.franchisePartner.create.mock.calls[0][0].data.userId).toBe('user-1');
+  });
+
+  it('sets the chosen password on a BRAND-NEW account', async () => {
+    const { svc, tx } = buildApproveHarness({ existingUser: null });
+    (tx.expansionLead as never as { update: jest.Mock }).update.mockResolvedValue({});
+    // The lead carries the argon2 hash chosen on the public form.
+    const prismaLead = { ...LEAD, passwordHash: 'argon2-hash' };
+    (svc as never as { prisma: { expansionLead: { findUnique: jest.Mock } } }).prisma.expansionLead.findUnique.mockResolvedValue(
+      prismaLead,
+    );
+
+    await svc.approveLead('admin-1', 'lead-1', {});
+
+    expect(tx.user.create.mock.calls[0][0].data.passwordHash).toBe('argon2-hash');
+  });
+
+  it('NEVER overwrites the password of an account it is reusing', async () => {
+    // The public form is unauthenticated: anyone can submit someone else's phone
+    // number with a password of their choosing. If approval wrote that password onto
+    // the existing account, approving the lead would hand them a stranger's account.
+    const { svc, tx } = buildApproveHarness({
+      existingUser: { id: 'victim', email: null },
+    });
+    (svc as never as { prisma: { expansionLead: { findUnique: jest.Mock } } }).prisma.expansionLead.findUnique.mockResolvedValue(
+      { ...LEAD, passwordHash: 'attacker-chosen-hash' },
+    );
+
+    await svc.approveLead('admin-1', 'lead-1', {});
+
+    expect(tx.user.create).not.toHaveBeenCalled();
+    // The only update allowed is the email — never passwordHash.
+    for (const call of tx.user.update.mock.calls) {
+      expect(call[0].data).not.toHaveProperty('passwordHash');
+    }
   });
 
   it('never hijacks the account that owns the email when the phone differs', async () => {
@@ -339,7 +451,7 @@ describe('approveLead — exclusivity conflict on requested pincodes', () => {
       previewConflicts: jest.fn().mockResolvedValue([{ pincode: '201001', franchiseId: 'fr-owner' }]),
     } as never;
 
-    const res = await new FranchiseApplicationService(prisma, territory)
+    const res = await new FranchiseApplicationService(prisma, territory, passwords)
       .previewConflicts('lead-1', { pincodes: ['201001', 'bad', '201001'] });
 
     expect(res.pincodes).toEqual(['201001']);
@@ -423,7 +535,7 @@ describe('approveLead — referral code allocation', () => {
         .mockResolvedValue({ territory: { id: 't' }, conflicts: [] }),
     } as never;
 
-    const res = await new FranchiseApplicationService(prisma, territory).approveLead(
+    const res = await new FranchiseApplicationService(prisma, territory, passwords).approveLead(
       'admin-1',
       'lead-1',
       {},
@@ -442,7 +554,7 @@ describe('approveLead — referral code allocation', () => {
     } as never;
 
     await expect(
-      new FranchiseApplicationService(prisma, {} as never).approveLead('admin-1', 'lead-1', {}),
+      new FranchiseApplicationService(prisma, {} as never, passwords).approveLead('admin-1', 'lead-1', {}),
     ).rejects.toThrow(Prisma.PrismaClientKnownRequestError);
 
     // One attempt only — a phone collision is not something retrying can fix.

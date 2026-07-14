@@ -5658,6 +5658,10 @@ model ExpansionLead {
   investmentCapacity Decimal?            @map("investment_capacity") @db.Decimal(12, 2)
   status             ExpansionLeadStatus @default(NEW)
   notes              String?             @db.Text
+  /// Argon2 hash of the password the applicant chose on the public form. Never
+  /// plaintext. Only ever copied onto a BRAND-NEW user at approval — never onto an
+  /// existing account, or applying with someone else's phone would hijack it.
+  passwordHash       String?             @map("password_hash")
   reviewedAt         DateTime?           @map("reviewed_at")
   reviewedBy         String?             @map("reviewed_by")
   rejectionReason    String?             @map("rejection_reason") @db.Text

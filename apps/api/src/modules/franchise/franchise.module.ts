@@ -6,6 +6,7 @@ import { TerritoryService } from './territory.service';
 import { ExpansionService } from './expansion.service';
 import { FranchiseAnalyticsService } from './franchise-analytics.service';
 import { FranchiseSettlementService } from './franchise-settlement.service';
+import { PasswordService } from '../auth/password.service';
 import { FranchiseExpansionMerchantService } from './franchise-expansion-merchant.service';
 import { AdminExpansionController, AdminFranchiseAnalyticsController } from './admin-expansion.controller';
 import { FranchisePortalController } from './franchise-portal.controller';
@@ -23,6 +24,9 @@ import { MerchantFranchiseExpansionController } from './merchant-franchise-expan
     MerchantFranchiseExpansionController,
   ],
   providers: [
+    // Stateless argon2 wrapper with no deps — provided directly rather than
+    // importing AuthModule, which would create a cycle.
+    PasswordService,
     FranchiseService,
     TerritoryService,
     ExpansionService,

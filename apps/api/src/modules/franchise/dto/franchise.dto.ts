@@ -103,10 +103,22 @@ export class SubmitFranchiseApplicationDto {
   })
   phone!: string;
 
-  @ApiPropertyOptional({ example: 'rahul@example.com' })
-  @IsOptional()
+  /**
+   * Required: the portal's password login resolves the account BY EMAIL, so a partner
+   * with no email could never use the password tab.
+   */
+  @ApiProperty({ example: 'rahul@example.com' })
   @IsEmail()
-  email?: string;
+  email!: string;
+
+  /**
+   * The applicant chooses their portal password up front. Hashed (argon2) onto the
+   * lead immediately and only ever copied onto a brand-new account at approval.
+   */
+  @ApiProperty({ example: 'S3cure!pass', minLength: 8 })
+  @IsString()
+  @Length(8, 128)
+  password!: string;
 
   @ApiProperty({ example: 'Ghaziabad' })
   @IsString()

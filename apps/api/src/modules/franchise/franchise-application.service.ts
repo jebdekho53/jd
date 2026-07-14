@@ -7,6 +7,7 @@ import {
   RoleName,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { PasswordService } from '../auth/password.service';
 import { TerritoryService } from './territory.service';
 import { ApproveExpansionLeadDto, RejectExpansionLeadDto, SubmitFranchiseApplicationDto } from './dto/franchise.dto';
 
@@ -26,6 +27,7 @@ export class FranchiseApplicationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly territory: TerritoryService,
+    private readonly passwords: PasswordService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -45,7 +47,7 @@ export class FranchiseApplicationService {
    */
   async submitApplication(dto: SubmitFranchiseApplicationDto) {
     const phone = dto.phone.trim();
-    const email = dto.email?.trim() || null;
+    const email = dto.email.trim().toLowerCase();
 
     // Someone who is ALREADY a franchise partner must not apply again — one account
     // can only hold one partnership, so the approval could never succeed anyway.
@@ -55,7 +57,7 @@ export class FranchiseApplicationService {
     const partnerUser = await this.prisma.user.findFirst({
       where: {
         franchisePartner: { isNot: null },
-        OR: [{ phone }, ...(email ? [{ email }] : [])],
+        OR: [{ phone }, { email }],
       },
       select: { id: true },
     });
@@ -64,6 +66,22 @@ export class FranchiseApplicationService {
         'You are already registered as a JebDekho franchise partner. Please sign in instead.',
       );
     }
+
+    // User.email is unique. If this address already sits on another account we cannot
+    // put it on the partner's account at approval — which would leave them unable to
+    // use the password tab (password login resolves the user BY EMAIL). Say so now,
+    // rather than letting them discover it after approval.
+    const emailOwner = await this.prisma.user.findUnique({
+      where: { email },
+      select: { phone: true },
+    });
+    if (emailOwner && emailOwner.phone !== phone) {
+      throw new BadRequestException(
+        'This email is already registered to another JebDekho account. Please use a different email, or sign in with that account.',
+      );
+    }
+
+    const passwordHash = await this.passwords.hash(dto.password);
 
     const existing = await this.prisma.expansionLead.findFirst({
       where: { phone, status: { in: OPEN_LEAD_STATUSES } },
@@ -78,6 +96,7 @@ export class FranchiseApplicationService {
         name: dto.name.trim(),
         phone,
         email,
+        passwordHash,
         city: dto.city.trim(),
         state: dto.state.trim(),
         pincodes: normalisePincodes(dto.pincodes ?? []),
@@ -173,15 +192,31 @@ export class FranchiseApplicationService {
           let user = await tx.user.findUnique({ where: { phone: lead.phone } });
 
           if (user) {
+            // Reusing an existing account (an existing buyer/merchant taking a
+            // franchise). We attach the email only if free — and we NEVER touch their
+            // password. The public form is unauthenticated, so anyone could apply using
+            // someone else's phone number; overwriting the password here would hand
+            // them that account.
             if (lead.email && emailIsFree && user.email !== lead.email) {
               user = await tx.user.update({
                 where: { id: user.id },
                 data: { email: lead.email },
               });
             }
+            if (lead.passwordHash) {
+              this.logger.warn(
+                `Lead ${lead.id}: reusing existing account ${user.id}; the password chosen ` +
+                  `on the application was NOT applied. They sign in with their existing credentials.`,
+              );
+            }
           } else {
+            // Brand-new account — safe to set the password the applicant chose.
             user = await tx.user.create({
-              data: { phone: lead.phone, email: emailIsFree ? lead.email : null },
+              data: {
+                phone: lead.phone,
+                email: emailIsFree ? lead.email : null,
+                passwordHash: lead.passwordHash,
+              },
             });
           }
 
