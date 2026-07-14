@@ -5,6 +5,7 @@ import { spawn } from 'child_process';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { join } from 'path';
 import { getConfig } from '../../config/configuration';
+import { buildUploadUrl, uploadPublicBases } from '../../common/utils/asset-url.util';
 import type sharp from 'sharp';
 
 export interface OptimizedAiProductImages {
@@ -38,7 +39,6 @@ export class AiProductImageService {
 
     const cfg = getConfig(this.configService);
     const uploadDir = cfg.storage.uploadDir;
-    const publicBase = cfg.storage.uploadPublicUrl.replace(/\/$/, '');
     const folder = 'ai-product';
     const id = randomUUID();
     const dir = join(uploadDir, folder);
@@ -80,10 +80,10 @@ export class AiProductImageService {
       .toFile(join(dir, analysisName));
 
     return {
-      originalUrl: `${publicBase}/${folder}/${originalName}`,
-      optimizedUrl: `${publicBase}/${folder}/${optimizedName}`,
-      thumbnailUrl: `${publicBase}/${folder}/${thumbnailName}`,
-      aiAnalysisUrl: `${publicBase}/${folder}/${analysisName}`,
+      originalUrl: buildUploadUrl(cfg.storage, folder, originalName),
+      optimizedUrl: buildUploadUrl(cfg.storage, folder, optimizedName),
+      thumbnailUrl: buildUploadUrl(cfg.storage, folder, thumbnailName),
+      aiAnalysisUrl: buildUploadUrl(cfg.storage, folder, analysisName),
     };
   }
 
@@ -99,7 +99,6 @@ export class AiProductImageService {
 
     const cfg = getConfig(this.configService);
     const uploadDir = cfg.storage.uploadDir;
-    const publicBase = cfg.storage.uploadPublicUrl.replace(/\/$/, '');
     const folder = 'ai-product-generated';
     const id = randomUUID();
     const dir = join(uploadDir, folder);
@@ -124,9 +123,9 @@ export class AiProductImageService {
       .toFile(join(dir, thumbnailName));
 
     return {
-      originalUrl: `${publicBase}/${folder}/${optimizedName}`,
-      optimizedUrl: `${publicBase}/${folder}/${optimizedName}`,
-      thumbnailUrl: `${publicBase}/${folder}/${thumbnailName}`,
+      originalUrl: buildUploadUrl(cfg.storage, folder, optimizedName),
+      optimizedUrl: buildUploadUrl(cfg.storage, folder, optimizedName),
+      thumbnailUrl: buildUploadUrl(cfg.storage, folder, thumbnailName),
     };
   }
 
@@ -137,10 +136,11 @@ export class AiProductImageService {
    */
   async loadStoredImage(publicUrl: string): Promise<Buffer> {
     const cfg = getConfig(this.configService);
-    const publicBase = cfg.storage.uploadPublicUrl.replace(/\/$/, '');
-    if (publicUrl.startsWith(publicBase)) {
-      const rel = publicUrl.slice(publicBase.length).replace(/^\//, '');
-      return readFile(join(cfg.storage.uploadDir, rel));
+    for (const base of uploadPublicBases(cfg.storage)) {
+      if (publicUrl.startsWith(`${base}/`)) {
+        const rel = publicUrl.slice(base.length).replace(/^\//, '');
+        return readFile(join(cfg.storage.uploadDir, rel));
+      }
     }
     const res = await fetch(publicUrl);
     if (!res.ok) throw new BadRequestException('Could not load the source product image');

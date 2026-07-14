@@ -61,6 +61,9 @@ const mockImage = {
 };
 const mockWallet = {
   getOrCreateWallet: jest.fn().mockResolvedValue({ balancePaise: 10000 }),
+  // Production ProductAiService.getAvailability() reads the image-generation
+  // cost from the wallet service; the real MerchantAiWalletService exposes this.
+  getImageGenerationCostPaise: jest.fn().mockReturnValue(150),
 };
 const mockVision = {
   analyzeProductImage: jest.fn(),
