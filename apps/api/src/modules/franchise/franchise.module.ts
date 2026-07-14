@@ -9,6 +9,8 @@ import { FranchiseSettlementService } from './franchise-settlement.service';
 import { FranchiseExpansionMerchantService } from './franchise-expansion-merchant.service';
 import { AdminExpansionController, AdminFranchiseAnalyticsController } from './admin-expansion.controller';
 import { FranchisePortalController } from './franchise-portal.controller';
+import { PublicFranchiseController } from './public-franchise.controller';
+import { FranchiseApplicationService } from './franchise-application.service';
 import { MerchantFranchiseExpansionController } from './merchant-franchise-expansion.controller';
 
 @Module({
@@ -17,6 +19,7 @@ import { MerchantFranchiseExpansionController } from './merchant-franchise-expan
     AdminExpansionController,
     AdminFranchiseAnalyticsController,
     FranchisePortalController,
+    PublicFranchiseController,
     MerchantFranchiseExpansionController,
   ],
   providers: [
@@ -26,7 +29,8 @@ import { MerchantFranchiseExpansionController } from './merchant-franchise-expan
     FranchiseAnalyticsService,
     FranchiseSettlementService,
     FranchiseExpansionMerchantService,
+    FranchiseApplicationService,
   ],
-  exports: [FranchiseService, TerritoryService, ExpansionService, FranchiseAnalyticsService],
+  exports: [FranchiseService, TerritoryService, ExpansionService, FranchiseAnalyticsService, FranchiseApplicationService],
 })
 export class FranchiseModule {}

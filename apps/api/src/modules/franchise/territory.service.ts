@@ -2,6 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { FranchiseAuditAction, FranchisePartnerStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
+/**
+ * Either the root client or an interactive-transaction client. Territory assignment
+ * has to be able to run inside the lead-approval transaction, so that a partner, its
+ * territory and any detected conflict all commit or roll back together.
+ */
+type PrismaLike = PrismaService | Prisma.TransactionClient;
+
 @Injectable()
 export class TerritoryService {
   constructor(private readonly prisma: PrismaService) {}
@@ -16,8 +23,9 @@ export class TerritoryService {
       launchDate?: Date;
     },
     actorId?: string,
+    db: PrismaLike = this.prisma,
   ) {
-    const territory = await this.prisma.franchiseTerritory.create({
+    const territory = await db.franchiseTerritory.create({
       data: {
         franchiseId,
         city: input.city,
@@ -28,9 +36,15 @@ export class TerritoryService {
       },
     });
 
-    const conflicts = await this.detectOverlap(territory.id, franchiseId, input.pincodes, input.exclusivityEnabled ?? false);
+    const conflicts = await this.detectOverlap(
+      territory.id,
+      franchiseId,
+      input.pincodes,
+      input.exclusivityEnabled ?? false,
+      db,
+    );
 
-    await this.prisma.franchiseAudit.create({
+    await db.franchiseAudit.create({
       data: {
         franchiseId,
         action: conflicts.length > 0 ? FranchiseAuditAction.CONFLICT_DETECTED : FranchiseAuditAction.TERRITORY_ASSIGNED,
@@ -47,10 +61,11 @@ export class TerritoryService {
     franchiseId: string,
     pincodes: string[],
     exclusivityEnabled: boolean,
+    db: PrismaLike = this.prisma,
   ) {
     if (!exclusivityEnabled || pincodes.length === 0) return [];
 
-    const others = await this.prisma.franchiseTerritory.findMany({
+    const others = await db.franchiseTerritory.findMany({
       where: {
         id: { not: territoryId },
         exclusivityEnabled: true,
@@ -63,7 +78,7 @@ export class TerritoryService {
     for (const other of others) {
       const overlap = pincodes.filter((p) => other.pincodes.includes(p));
       for (const pincode of overlap) {
-        const existing = await this.prisma.territoryConflict.findFirst({
+        const existing = await db.territoryConflict.findFirst({
           where: {
             pincode,
             primaryTerritoryId: territoryId,
@@ -73,7 +88,7 @@ export class TerritoryService {
         });
         if (existing) continue;
 
-        const conflict = await this.prisma.territoryConflict.create({
+        const conflict = await db.territoryConflict.create({
           data: {
             franchiseId,
             primaryTerritoryId: territoryId,

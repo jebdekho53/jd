@@ -966,6 +966,16 @@ export class MerchantOnboardingService {
     return { items, progressPct: Math.round((done / items.length) * 100) };
   }
 
+  /**
+   * @deprecated Not the franchise funnel. This only files a support ticket and it
+   * requires an authenticated MERCHANT, which is backwards — a prospective
+   * franchisee is not a merchant. It creates no ExpansionLead and cannot lead to a
+   * FranchisePartner.
+   *
+   * The real funnel is the public, unauthenticated `POST /franchise/apply`
+   * (FranchiseApplicationService.submitApplication), which creates an ExpansionLead
+   * that an admin can approve into a partner. Build nothing new on this method.
+   */
   async submitFranchiseLead(userId: string, dto: FranchiseLeadDto) {
     await this.supportTickets.createTicket({
       requesterUserId: userId,
