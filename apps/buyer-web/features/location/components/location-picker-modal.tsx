@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigation } from 'lucide-react';
 import { Button, Modal } from '@/design-system/primitives';
 import { GooglePlacesAutocomplete, GoogleMapPicker, useGoogleMaps, MAP_INITIAL_VISUAL_CENTER, type ParsedGoogleAddress } from '@jebdekho/google-maps';
@@ -38,6 +38,12 @@ export function LocationPickerModal({
     area?: string;
   } | null>(null);
 
+  // Latest saved location, read only when the modal opens. Keeping it in a ref (rather
+  // than in the effect deps) means a background store update can't reset the map while
+  // the user is mid-search — that used to snap the pin back to the saved location.
+  const savedLocationRef = useRef(savedLocation);
+  savedLocationRef.current = savedLocation;
+
   useEffect(() => {
     if (!open) {
       setError(null);
@@ -46,33 +52,26 @@ export function LocationPickerModal({
       return;
     }
 
-    if (savedLocation.isReady && savedLocation.lat && savedLocation.lng) {
-      setMapPosition({ lat: savedLocation.lat, lng: savedLocation.lng });
+    // Seed the map from the saved location once, on open.
+    const saved = savedLocationRef.current;
+    setPlaceViewport(null);
+
+    if (saved.isReady && saved.lat && saved.lng) {
+      setMapPosition({ lat: saved.lat, lng: saved.lng });
       setPreview({
-        lat: savedLocation.lat,
-        lng: savedLocation.lng,
-        label: savedLocation.label,
-        pincode: savedLocation.pincode,
-        city: savedLocation.city,
-        area: savedLocation.area,
+        lat: saved.lat,
+        lng: saved.lng,
+        label: saved.label,
+        pincode: saved.pincode,
+        city: saved.city,
+        area: saved.area,
       });
-      setPlaceViewport(null);
       return;
     }
 
     setMapPosition(MAP_INITIAL_VISUAL_CENTER);
     setPreview(null);
-    setPlaceViewport(null);
-  }, [
-    open,
-    savedLocation.area,
-    savedLocation.city,
-    savedLocation.isReady,
-    savedLocation.label,
-    savedLocation.lat,
-    savedLocation.lng,
-    savedLocation.pincode,
-  ]);
+  }, [open]);
 
   const confirmGoogleLocation = (coords: {
     lat: number;
@@ -122,18 +121,34 @@ export function LocationPickerModal({
     }
   };
 
-  const handleGooglePlace = (address: ParsedGoogleAddress) => {
-    setMapPosition({ lat: address.lat, lng: address.lng });
-    setPlaceViewport(address.viewport ?? null);
-    setPreview({
-      lat: address.lat,
-      lng: address.lng,
-      label: address.locality || address.formattedAddress,
-      pincode: address.pincode || undefined,
-      city: address.city,
-      area: address.locality,
-    });
-  };
+  const handleGooglePlace = useCallback(
+    async (address: ParsedGoogleAddress) => {
+      setError(null);
+      // Move the map immediately so the pin always follows the search.
+      setMapPosition({ lat: address.lat, lng: address.lng });
+      setPlaceViewport(address.viewport ?? null);
+      setPreview({
+        lat: address.lat,
+        lng: address.lng,
+        label: address.locality || address.formattedAddress,
+        pincode: address.pincode || undefined,
+        city: address.city,
+        area: address.locality,
+      });
+
+      // Locality-level results (e.g. "Muradnagar") often carry no pincode, which
+      // serviceability needs — backfill it from a reverse geocode of the coords.
+      if (address.pincode || !isConfigured) return;
+      const parsed = await geocode(address.lat, address.lng);
+      if (!parsed?.pincode) return;
+      setPreview((current) =>
+        current && current.lat === address.lat && current.lng === address.lng
+          ? { ...current, pincode: parsed.pincode, city: current.city || parsed.city }
+          : current,
+      );
+    },
+    [geocode, isConfigured],
+  );
 
   const handleMapMove = async (coords: { lat: number; lng: number }) => {
     setMapPosition(coords);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MapPin, Search } from 'lucide-react';
 import { useGoogleMaps } from './google-maps-context';
 import type { ParsedGoogleAddress } from './parse-address';
@@ -25,12 +25,19 @@ type PlaceWidget = HTMLElement & {
   locationBias?: google.maps.LatLngBoundsLiteral;
 };
 
+type PlacePrediction = { toPlace: () => GooglePlaceLike };
+
+/**
+ * `gmp-select` from <gmp-place-autocomplete> exposes the selection directly on the
+ * event (`event.placePrediction`), NOT under `event.detail` — verified against Maps
+ * JS in production. Older/other builds used `detail`, so both shapes are read.
+ */
 type PlaceSelectEvent = Event & {
+  place?: GooglePlaceLike;
+  placePrediction?: PlacePrediction;
   detail?: {
     place?: GooglePlaceLike;
-    placePrediction?: {
-      toPlace: () => GooglePlaceLike;
-    };
+    placePrediction?: PlacePrediction;
   };
 };
 
@@ -75,9 +82,15 @@ function toAddressComponents(
   }));
 }
 
+/**
+ * A selected place only needs coordinates to be usable — address components are a
+ * bonus. Bailing out when they are missing used to silently drop the selection, so
+ * searching (e.g. "Muradnagar") left the pin on the previously-set location with no
+ * error. Coordinates alone are enough to move the map; the caller reverse-geocodes.
+ */
 function parseSelectedPlace(place: GooglePlaceLike): ParsedGoogleAddress | null {
   const location = place.location;
-  if (!location || !place.addressComponents?.length) return null;
+  if (!location) return null;
   const parsed = parseAddressComponents(
     toAddressComponents(place.addressComponents),
     location.lat(),
@@ -102,23 +115,30 @@ export function GooglePlacesAutocomplete({
 }: GooglePlacesAutocompleteProps) {
   const { isLoaded } = useGoogleMaps();
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const fallbackRef = useRef<HTMLInputElement | null>(null);
+  const elementRef = useRef<PlaceWidget | null>(null);
+  const [widgetReady, setWidgetReady] = useState(false);
 
-  const handleSelect = useCallback(
-    async (event: PlaceSelectEvent) => {
-      const place =
-        event.detail?.place ??
-        event.detail?.placePrediction?.toPlace();
-      if (!place) return;
+  // Keep the latest callback in a ref so `handleSelect` stays referentially stable.
+  // Otherwise an unmemoized `onPlaceSelect` from the parent would re-run the effect
+  // below on every render, destroying and rebuilding the autocomplete widget mid-use.
+  const onPlaceSelectRef = useRef(onPlaceSelect);
+  onPlaceSelectRef.current = onPlaceSelect;
 
+  const handleSelect = useCallback(async (event: PlaceSelectEvent) => {
+    const prediction = event.placePrediction ?? event.detail?.placePrediction;
+    const place = event.place ?? event.detail?.place ?? prediction?.toPlace();
+    if (!place) return;
+
+    try {
       await place.fetchFields?.({
         fields: ['id', 'displayName', 'formattedAddress', 'location', 'viewport', 'addressComponents'],
       });
-      const parsed = parseSelectedPlace(place);
-      if (parsed) onPlaceSelect(parsed);
-    },
-    [onPlaceSelect],
-  );
+    } catch {
+      // Fields may already be resolved; fall through and use whatever we have.
+    }
+    const parsed = parseSelectedPlace(place);
+    if (parsed) onPlaceSelectRef.current(parsed);
+  }, []);
 
   useEffect(() => {
     if (!isLoaded || !hostRef.current) return undefined;
@@ -129,9 +149,6 @@ export function GooglePlacesAutocomplete({
     if (!AutocompleteElement) return undefined;
 
     const element = new AutocompleteElement() as PlaceWidget;
-    element.placeholder = placeholder;
-    element.value = value;
-    element.disabled = Boolean(disabled);
     element.includedRegionCodes = ['in'];
     element.locationBias = {
       north: 28.9,
@@ -140,14 +157,32 @@ export function GooglePlacesAutocomplete({
       west: 76.84,
     };
     element.className = 'block w-full';
+    // Maps JS renamed this event; listen for both so selection never silently no-ops.
     element.addEventListener('gmp-select', handleSelect as EventListener);
+    element.addEventListener('gmp-placeselect', handleSelect as EventListener);
 
     hostRef.current.replaceChildren(element);
+    elementRef.current = element;
+    setWidgetReady(true);
+
     return () => {
       element.removeEventListener('gmp-select', handleSelect as EventListener);
+      element.removeEventListener('gmp-placeselect', handleSelect as EventListener);
       element.remove();
+      elementRef.current = null;
+      setWidgetReady(false);
     };
-  }, [disabled, handleSelect, isLoaded, placeholder, value]);
+  }, [handleSelect, isLoaded]);
+
+  // Sync props onto the live widget instead of recreating it (which would clear the
+  // user's typed query and close the suggestions dropdown).
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element) return;
+    element.placeholder = placeholder;
+    element.disabled = Boolean(disabled);
+    if (value) element.value = value;
+  }, [placeholder, disabled, value]);
 
   return (
     <div className={cn('space-y-1.5', className)}>
@@ -161,6 +196,8 @@ export function GooglePlacesAutocomplete({
       ) : (
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          {/* The Places widget is mounted imperatively into this host. It must stay
+              empty in JSX — rendering a child here would fight replaceChildren(). */}
           <div
             ref={hostRef}
             className={cn(
@@ -169,17 +206,12 @@ export function GooglePlacesAutocomplete({
                 ? 'border-red-400 focus-within:ring-2 focus-within:ring-red-200'
                 : 'border-slate-200 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100',
             )}
-          >
-            <input
-              ref={fallbackRef}
-              type="text"
-              defaultValue={value}
-              disabled={disabled}
-              placeholder={placeholder}
-              autoComplete="off"
-              className="h-9 w-full bg-transparent text-sm outline-none"
-            />
-          </div>
+          />
+          {!widgetReady && (
+            <p className="mt-1 text-xs text-amber-700">
+              Address search is unavailable. Drag the pin on the map to set your location.
+            </p>
+          )}
         </div>
       )}
       {error && <p className="text-xs text-red-600">{error}</p>}
