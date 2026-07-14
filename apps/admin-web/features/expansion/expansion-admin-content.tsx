@@ -40,6 +40,8 @@ export function ExpansionAdminContent() {
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [payingId, setPayingId] = useState<string | null>(null);
   const [payoutResult, setPayoutResult] = useState<PayoutResult | null>(null);
+  const [rejectDocId, setRejectDocId] = useState<string | null>(null);
+  const [docRejectReason, setDocRejectReason] = useState('');
 
   const { data: overview, isLoading } = useQuery({
     queryKey: ['admin', 'expansion'],
@@ -103,6 +105,32 @@ export function ExpansionAdminContent() {
     onSuccess: async (data: PayoutResult) => {
       setPayoutResult(data);
       await queryClient.invalidateQueries({ queryKey: ['admin', 'expansion'] });
+    },
+  });
+
+  const { data: pendingDocs = [] } = useQuery<PendingDoc[]>({
+    queryKey: ['admin', 'expansion', 'documents'],
+    queryFn: () => fetchExpansion('documents/pending'),
+  });
+
+  const invalidateKyc = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['admin', 'expansion', 'documents'] });
+    // Verifying a document can flip the partner's onboarding flag, so refresh those too.
+    await queryClient.invalidateQueries({ queryKey: ['admin', 'expansion'] });
+  };
+
+  const verifyDoc = useMutation({
+    mutationFn: (id: string) => sendExpansion(`documents/${id}/verify`, 'PATCH', {}),
+    onSuccess: invalidateKyc,
+  });
+
+  const rejectDoc = useMutation({
+    mutationFn: (id: string) =>
+      sendExpansion(`documents/${id}/reject`, 'PATCH', { reason: docRejectReason }),
+    onSuccess: async () => {
+      setRejectDocId(null);
+      setDocRejectReason('');
+      await invalidateKyc();
     },
   });
 
@@ -296,6 +324,74 @@ export function ExpansionAdminContent() {
           ))}
           {openConflicts.length === 0 && <p className="text-xs text-slate-500">No open conflicts.</p>}
         </Panel>
+      </section>
+
+      {/* KYC review — nothing gets paid until PAN + cheque are verified here. */}
+      <section className="rounded-lg border border-slate-700 bg-slate-800 p-4">
+        <h2 className="mb-1 text-sm font-semibold text-slate-200">KYC Documents — Pending Review</h2>
+        <p className="mb-3 text-xs text-slate-500">
+          A partner cannot be paid until their PAN is verified — without it, TDS must be
+          withheld at 20% instead of 5%.
+        </p>
+
+        {pendingDocs.length === 0 && (
+          <p className="text-xs text-slate-500">Nothing waiting for review.</p>
+        )}
+
+        <div className="space-y-2">
+          {pendingDocs.map((d: PendingDoc) => (
+            <div
+              key={d.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-700/60 bg-slate-900/40 p-3"
+            >
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-200">
+                  {d.franchise?.businessName} · {DOC_LABEL[d.documentType] ?? d.documentType}
+                </p>
+                <a
+                  href={d.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] text-emerald-300 hover:text-emerald-200"
+                >
+                  {d.fileName} ↗
+                </a>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  value={rejectDocId === d.id ? docRejectReason : ''}
+                  onChange={(e) => {
+                    setRejectDocId(d.id);
+                    setDocRejectReason(e.target.value);
+                  }}
+                  placeholder="Reason (to reject)"
+                  className="w-44 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
+                />
+                <button
+                  onClick={() => rejectDoc.mutate(d.id)}
+                  disabled={rejectDocId !== d.id || docRejectReason.trim().length < 3}
+                  className="rounded-md border border-red-500/40 px-2 py-1 text-[11px] font-semibold text-red-300 hover:bg-red-500/10 disabled:opacity-40"
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={() => verifyDoc.mutate(d.id)}
+                  disabled={verifyDoc.isPending}
+                  className="rounded-md bg-emerald-500 px-2 py-1 text-[11px] font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+                >
+                  Verify
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {(verifyDoc.isError || rejectDoc.isError) && (
+          <p className="mt-3 rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            {((verifyDoc.error ?? rejectDoc.error) as Error).message}
+          </p>
+        )}
       </section>
 
       {/* Settlements & payouts — the money actually leaving the platform. */}
@@ -500,6 +596,24 @@ interface RevenueRow {
   status: string;
   franchise?: { businessName: string };
 }
+const DOC_LABEL: Record<string, string> = {
+  PAN_CARD: 'PAN card',
+  CANCELLED_CHEQUE: 'Cancelled cheque',
+  GST_CERTIFICATE: 'GST certificate',
+  AADHAAR: 'Aadhaar',
+  ADDRESS_PROOF: 'Address proof',
+  SIGNED_AGREEMENT: 'Signed agreement',
+  OTHER: 'Other',
+};
+
+interface PendingDoc {
+  id: string;
+  documentType: string;
+  fileName: string;
+  fileUrl: string;
+  franchise?: { id: string; businessName: string; referralCode?: string | null };
+}
+
 interface PayoutResult {
   id: string;
   status: string;
