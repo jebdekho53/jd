@@ -56,6 +56,18 @@ export class SetAttributionDto {
   @Length(0, 200)
   utmContent?: string;
 
+  /**
+   * Franchise referral code from a franchisee's invite link (`?ref=FR-NCR-01`).
+   * An unknown code is ignored rather than rejected — a merchant must never be
+   * blocked from signing up by a stale or mistyped link.
+   */
+  @ApiPropertyOptional({ example: 'FR-NCR-01' })
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  @Length(0, 64)
+  ref?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Transform(emptyToUndefined)

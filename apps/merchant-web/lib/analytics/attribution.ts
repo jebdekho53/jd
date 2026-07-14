@@ -16,6 +16,8 @@ export interface Attribution {
   utmCampaign?: string;
   utmContent?: string;
   fbclid?: string;
+  /** Franchise referral code from a franchisee's invite link (`?ref=FR-NCR-01`). */
+  ref?: string;
 }
 
 function readCookie(name: string): string | null {
@@ -31,27 +33,38 @@ function writeCookie(name: string, value: string) {
 }
 
 /**
- * Read `utm_*` / `fbclid` from the current URL and, if present and nothing is
- * stored yet, persist them (first-touch). Safe to call on every page load.
+ * Read `utm_*` / `fbclid` / `ref` from the current URL and persist them
+ * (first-touch). Safe to call on every page load.
+ *
+ * Merged per field rather than all-or-nothing: a merchant who first arrived from
+ * an ad (utm cookie already set) and *later* clicks a franchisee's `?ref=` invite
+ * must still be credited to that franchisee. Each field keeps its first value —
+ * an existing `ref` is never replaced by a second one. This mirrors the per-field
+ * first-touch the API applies in `setAttribution`.
  */
 export function captureAttributionFromUrl(): void {
   if (typeof window === 'undefined') return;
-  if (readCookie(COOKIE)) return; // first-touch already recorded
 
   const params = new URLSearchParams(window.location.search);
-  const attribution: Attribution = {
+  const incoming: Attribution = {
     utmSource: params.get('utm_source') ?? undefined,
     utmMedium: params.get('utm_medium') ?? undefined,
     utmCampaign: params.get('utm_campaign') ?? undefined,
     utmContent: params.get('utm_content') ?? undefined,
     fbclid: params.get('fbclid') ?? undefined,
+    ref: params.get('ref') ?? undefined,
   };
 
-  const hasAny = Object.values(attribution).some(Boolean);
-  if (!hasAny) return;
+  if (!Object.values(incoming).some(Boolean)) return;
+
+  const stored = getStoredAttribution() ?? {};
+  const merged: Attribution = { ...incoming, ...stored }; // stored wins = first-touch
+
+  // Nothing new to record.
+  if (JSON.stringify(merged) === JSON.stringify(stored)) return;
 
   try {
-    writeCookie(COOKIE, JSON.stringify(attribution));
+    writeCookie(COOKIE, JSON.stringify(merged));
   } catch {
     /* ignore */
   }
