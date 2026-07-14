@@ -191,3 +191,31 @@ export class GenerateFranchiseSettlementsDto {
   @IsString()
   franchiseId?: string;
 }
+
+/** Partner's payout bank account. Editing it always resets verification. */
+export class SaveFranchiseBankAccountDto {
+  @ApiProperty({ example: 'Rahul Seth' })
+  @IsString()
+  @Length(2, 120)
+  accountHolderName!: string;
+
+  @ApiProperty({ example: '50100123456789' })
+  @Matches(/^\d{6,20}$/, { message: 'Account number must be 6-20 digits' })
+  accountNumber!: string;
+
+  @ApiProperty({ example: 'HDFC0001234' })
+  @Matches(/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/, { message: 'IFSC is not valid' })
+  ifsc!: string;
+
+  @ApiPropertyOptional({ example: 'HDFC Bank' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 120)
+  bankName?: string;
+
+  @ApiPropertyOptional({ example: 'rahul@upi' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 120)
+  upiId?: string;
+}

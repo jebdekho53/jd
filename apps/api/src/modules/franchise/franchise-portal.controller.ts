@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -9,6 +9,9 @@ import { ApiTags as Tags } from '../../common/constants';
 import { FranchiseService } from './franchise.service';
 import { FranchiseAnalyticsService } from './franchise-analytics.service';
 import { FranchiseSettlementService } from './franchise-settlement.service';
+import { FranchiseBankAccountService } from './franchise-bank-account.service';
+import { FranchisePayoutService } from './franchise-payout.service';
+import { SaveFranchiseBankAccountDto } from './dto/franchise.dto';
 
 @ApiTags(Tags.MERCHANTS)
 @ApiBearerAuth('access-token')
@@ -20,7 +23,33 @@ export class FranchisePortalController {
     private readonly franchise: FranchiseService,
     private readonly analytics: FranchiseAnalyticsService,
     private readonly settlements: FranchiseSettlementService,
+    private readonly bankAccounts: FranchiseBankAccountService,
+    private readonly payouts: FranchisePayoutService,
   ) {}
+
+  /** The account the partner's money is paid into. Never returns the full number. */
+  @Get('bank-account')
+  async getBankAccount(@CurrentUser() user: RequestUser) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.bankAccounts.get(id) };
+  }
+
+  /** Adding or changing the account resets verification — it must be re-checked. */
+  @Put('bank-account')
+  async saveBankAccount(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: SaveFranchiseBankAccountDto,
+  ) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.bankAccounts.save(id, dto) };
+  }
+
+  /** Actual transfers, with the Razorpay id and the account they landed in. */
+  @Get('payouts')
+  async listPayouts(@CurrentUser() user: RequestUser) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.payouts.listPayouts(id) };
+  }
 
   @Get('dashboard')
   async dashboard(@CurrentUser() user: RequestUser) {
