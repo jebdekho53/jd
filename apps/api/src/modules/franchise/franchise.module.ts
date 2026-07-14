@@ -27,6 +27,6 @@ import { MerchantFranchiseExpansionController } from './merchant-franchise-expan
     FranchiseSettlementService,
     FranchiseExpansionMerchantService,
   ],
-  exports: [TerritoryService, ExpansionService, FranchiseAnalyticsService],
+  exports: [FranchiseService, TerritoryService, ExpansionService, FranchiseAnalyticsService],
 })
 export class FranchiseModule {}

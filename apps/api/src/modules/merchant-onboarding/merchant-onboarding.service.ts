@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  FranchisePartnerStatus,
   KycStatus,
   MarketingEventType,
   MerchantApplicationStatus,
@@ -50,6 +51,7 @@ import { LocationDirectoryService } from '../location-directory/location-directo
 import { GeoService } from '../geo/geo.service';
 import { GeocodingCacheService } from '../geocoding/geocoding-cache.service';
 import { VerticalService } from '../store-vertical/vertical.service';
+import { FranchiseService } from '../franchise/franchise.service';
 
 const DOC_TO_STORE: Partial<Record<MerchantDocumentType, StoreDocumentType>> = {
   GST_CERTIFICATE: StoreDocumentType.GST_CERTIFICATE,
@@ -145,6 +147,7 @@ export class MerchantOnboardingService {
     private readonly geo: GeoService,
     private readonly geocoding: GeocodingCacheService,
     private readonly verticalService: VerticalService,
+    private readonly franchiseService: FranchiseService,
   ) {}
 
   async getPublicStats() {
@@ -170,7 +173,14 @@ export class MerchantOnboardingService {
    * referred the merchant is the one that gets credit.
    */
   async setAttribution(userId: string, dto: SetAttributionDto) {
-    if (!dto.utmSource && !dto.utmMedium && !dto.utmCampaign && !dto.utmContent && !dto.fbclid) {
+    if (
+      !dto.utmSource &&
+      !dto.utmMedium &&
+      !dto.utmCampaign &&
+      !dto.utmContent &&
+      !dto.fbclid &&
+      !dto.ref
+    ) {
       return { updated: false };
     }
     await this.getOrCreateApplication(userId);
@@ -184,9 +194,16 @@ export class MerchantOnboardingService {
         utmCampaign: true,
         utmContent: true,
         fbclid: true,
+        franchiseId: true,
+        referralCode: true,
       },
     });
     if (!app) return { updated: false };
+
+    // Resolve the franchise referral code to a partner. An unknown or inactive
+    // code resolves to null and is simply not recorded — never an error, so a
+    // stale invite link can't block a merchant from signing up.
+    const referral = await this.resolveFranchiseReferral(dto.ref);
 
     // First-touch: never overwrite an attribution that is already recorded.
     const firstTouch = <T>(existing: T | null, incoming: T | undefined) =>
@@ -197,9 +214,27 @@ export class MerchantOnboardingService {
       utmCampaign: firstTouch(app.utmCampaign, dto.utmCampaign),
       utmContent: firstTouch(app.utmContent, dto.utmContent),
       fbclid: firstTouch(app.fbclid, dto.fbclid),
+      // Attribution is owned by the partner, so franchiseId and referralCode are
+      // held first-touch together — the code that won is always the code stored.
+      franchiseId: firstTouch(app.franchiseId, referral?.id),
+      referralCode: firstTouch(app.referralCode, referral?.referralCode ?? undefined),
     };
     await this.prisma.merchantApplication.update({ where: { id: app.id }, data });
-    return { updated: true };
+    return { updated: true, franchiseId: data.franchiseId };
+  }
+
+  /**
+   * Look up an active franchise partner by referral code. Returns null for a
+   * missing, unknown, or non-ACTIVE code — the caller treats that as "no referral"
+   * rather than as a failure.
+   */
+  private async resolveFranchiseReferral(ref?: string) {
+    const code = ref?.trim().toUpperCase();
+    if (!code) return null;
+    return this.prisma.franchisePartner.findFirst({
+      where: { referralCode: code, status: FranchisePartnerStatus.ACTIVE },
+      select: { id: true, referralCode: true },
+    });
   }
 
   /**
@@ -1016,6 +1051,26 @@ export class MerchantOnboardingService {
     }
 
     await this.merchantService.ensureMerchantRole(app.userId);
+
+    // Franchise attribution becomes permanent here: approval is the single choke
+    // point where a recruited merchant turns into a real store. Copy the referral
+    // onto the store, then create the FranchiseStore link that settlement reads.
+    // Never let an attribution failure block an otherwise valid approval.
+    if (app.franchiseId) {
+      try {
+        await this.prisma.store.update({
+          where: { id: app.storeId },
+          data: { franchiseId: app.franchiseId, referralCode: app.referralCode },
+        });
+        await this.franchiseService.linkStore(app.franchiseId, app.storeId, adminId);
+      } catch (err) {
+        this.logger.error(
+          `Franchise attribution failed for application ${id} (franchise ${app.franchiseId}): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
 
     await this.marketingEvents.track({
       userId: app.userId,

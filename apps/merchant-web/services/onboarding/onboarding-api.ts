@@ -77,6 +77,8 @@ export async function postAttribution(attribution: {
   utmCampaign?: string;
   utmContent?: string;
   fbclid?: string;
+  /** Franchise referral code from a franchisee's invite link (`?ref=FR-NCR-01`). */
+  ref?: string;
 }): Promise<void> {
   await merchantFetch('/api/merchant/onboarding/application/attribution', {
     method: 'POST',
