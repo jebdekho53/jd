@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LayoutDashboard, Map, Store, Users, TrendingUp, Wallet } from 'lucide-react';
+import { LayoutDashboard, Landmark, Map, Store, Users, TrendingUp, Wallet } from 'lucide-react';
 import { requireFranchiseUser } from '@/lib/auth/session';
 import { LogoutButton } from './logout-button';
 
@@ -10,6 +10,7 @@ const NAV = [
   { href: '/riders', label: 'Riders', icon: Users },
   { href: '/growth', label: 'Growth', icon: TrendingUp },
   { href: '/finance', label: 'Finance', icon: Wallet },
+  { href: '/bank-account', label: 'Bank account', icon: Landmark },
 ];
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
