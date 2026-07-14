@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { FranchiseStoreLinkService } from '../franchise/franchise-store-link.service';
 import { AdminStoreService } from './admin-store.service';
 import { AdminStoreController } from './admin-store.controller';
 import { AdminMerchantService } from './admin-merchant.service';
@@ -30,6 +31,9 @@ import { ProductModule } from '../product/product.module';
     AdminUserController,
   ],
   providers: [
+    // Provided directly, NOT via FranchiseModule: importing that module here
+    // creates a circular module graph. It only needs @Global PrismaService.
+    FranchiseStoreLinkService,
     AdminStoreService,
     AdminMerchantService,
     AdminMediaService,

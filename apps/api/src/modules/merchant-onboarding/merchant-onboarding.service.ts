@@ -1062,25 +1062,11 @@ export class MerchantOnboardingService {
 
     await this.merchantService.ensureMerchantRole(app.userId);
 
-    // Franchise attribution becomes permanent here: approval is the single choke
-    // point where a recruited merchant turns into a real store. Copy the referral
-    // onto the store, then create the FranchiseStore link that settlement reads.
-    // Never let an attribution failure block an otherwise valid approval.
-    if (app.franchiseId) {
-      try {
-        await this.prisma.store.update({
-          where: { id: app.storeId },
-          data: { franchiseId: app.franchiseId, referralCode: app.referralCode },
-        });
-        await this.franchiseService.linkStore(app.franchiseId, app.storeId, adminId);
-      } catch (err) {
-        this.logger.error(
-          `Franchise attribution failed for application ${id} (franchise ${app.franchiseId}): ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-      }
-    }
+    // Franchise attribution becomes permanent once the store is live. This is one of
+    // TWO approval paths (the admin store-approval queue is the other), so the logic
+    // lives in FranchiseService and is called from both — see
+    // attributeStoreFromApplication(). It is idempotent and never throws.
+    await this.franchiseService.attributeStoreFromApplication(app.storeId, adminId);
 
     await this.marketingEvents.track({
       userId: app.userId,
