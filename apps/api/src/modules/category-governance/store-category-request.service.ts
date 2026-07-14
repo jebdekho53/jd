@@ -25,6 +25,7 @@ import { StoreCategoryAccessService } from './store-category-access.service';
 import { ConfigService } from '@nestjs/config';
 import { getConfig } from '../../config/configuration';
 import { assertTrustedUploadUrl } from '../../common/utils/trusted-upload-url.util';
+import { uploadPublicBases } from '../../common/utils/asset-url.util';
 import { resolveStoreCatalogKind } from './utils/catalog-kind.util';
 import { VerticalService } from '../store-vertical/vertical.service';
 
@@ -263,8 +264,7 @@ export class StoreCategoryRequestService {
       );
     }
 
-    const uploadBase = getConfig(this.config).storage.uploadPublicUrl;
-    assertTrustedUploadUrl(dto.fileUrl, uploadBase);
+    assertTrustedUploadUrl(dto.fileUrl, uploadPublicBases(getConfig(this.config).storage));
 
     await this.prisma.storeCategoryRequestDocument.create({
       data: {

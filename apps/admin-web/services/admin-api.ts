@@ -256,6 +256,36 @@ export async function listMerchantApplications(params: {
   return res.data;
 }
 
+export interface OnboardingFunnel {
+  rangeDays: number;
+  totals: {
+    signups: number;
+    drafts: number;
+    submitted: number;
+    underReview: number;
+    kycPending: number;
+    approved: number;
+    rejected: number;
+  };
+  conversion: {
+    signupToSubmit: number;
+    submitToApprove: number;
+    overall: number;
+    dropOffAtDraft: number;
+  };
+  stepCompletion: { step: string; label: string; completed: number }[];
+  stuckAtStep: { step: string; label: string; count: number }[];
+  bySource: { source: string; signups: number; approved: number; conversion: number }[];
+  draftsFullyFilled: number;
+}
+
+export async function fetchOnboardingFunnel(rangeDays = 30): Promise<OnboardingFunnel> {
+  const res = await adminFetch<ApiResponse<OnboardingFunnel>>(
+    `/api/admin/merchant-applications/funnel${buildQuery({ rangeDays })}`,
+  );
+  return res.data;
+}
+
 export async function getMerchantApplication(id: string) {
   const res = await adminFetch<ApiResponse<unknown>>(`/api/admin/merchant-applications/${id}`);
   return res.data;

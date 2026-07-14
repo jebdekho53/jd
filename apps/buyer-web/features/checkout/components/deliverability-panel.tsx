@@ -74,7 +74,7 @@ export function DeliverabilityPanel({
               <ul className="mt-1 list-inside list-disc">
                 {data.nearestStores.map((s) => (
                   <li key={s.id}>
-                    <Link href={`/stores/${s.slug}`} className="underline">
+                    <Link href={`/store/${s.slug}`} className="underline">
                       {s.name}
                     </Link>
                     {s.distanceKm != null && ` — ${s.distanceKm} km`}

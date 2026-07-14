@@ -164,7 +164,7 @@ export function ComparePageContent() {
                         >
                           <div className="min-w-0 flex-1">
                             <Link
-                              href={`/stores/${offer.storeSlug}`}
+                              href={`/store/${offer.storeSlug}`}
                               className="line-clamp-1 text-sm font-semibold text-jd-text-primary hover:text-primary"
                             >
                               {offer.storeName}

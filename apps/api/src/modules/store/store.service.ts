@@ -7,6 +7,7 @@ import {
   NotFoundException,
   forwardRef,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { DomainEventType, DayOfWeek, Prisma, Store, StoreDocumentType, StoreHour, StoreStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -23,6 +24,7 @@ import { CartService } from '../cart/cart.service';
 import { ConfigService } from '@nestjs/config';
 import { getConfig } from '../../config/configuration';
 import { assertTrustedUploadUrl } from '../../common/utils/trusted-upload-url.util';
+import { uploadPublicBases } from '../../common/utils/asset-url.util';
 
 // Fields a merchant may edit on an APPROVED store
 const APPROVED_STORE_EDITABLE_FIELDS: Array<keyof UpdateStoreDto> = [
@@ -127,7 +129,8 @@ export class StoreService {
       throw new BadRequestException('Store latitude and longitude are required');
     }
 
-    const slug = await this.generateUniqueSlug(profile.id, dto.name);
+    const citySlug = await this.citySlugForStore(dto.cityId);
+    const slug = await this.generateUniqueSlug(dto.name, citySlug);
 
     const store = await this.prisma.$transaction(async (tx) => {
       const created = await tx.store.create({
@@ -370,11 +373,15 @@ export class StoreService {
       throw new ForbiddenException('Suspended stores cannot be edited');
     }
 
-    // If name is being changed, regenerate slug
+    // If name is being changed, regenerate a globally-unique, city-scoped slug.
+    // NOTE: renaming changes the public URL (existing behaviour). The legacy
+    // /stores/[slug] → /store/[slug] redirect is unaffected; a per-store
+    // old-slug redirect history is a possible future enhancement.
     let slug = store.slug;
     if (dto.name && dto.name !== store.name) {
-      const profile = await this.merchantService.requireMerchantProfile(userId);
-      slug = await this.generateUniqueSlug(profile.id, dto.name, storeId);
+      const targetCityId = dto.cityId ?? store.cityId;
+      const citySlug = targetCityId ? await this.citySlugForStore(targetCityId) : null;
+      slug = await this.generateUniqueSlug(dto.name, citySlug, storeId);
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -564,8 +571,7 @@ export class StoreService {
       );
     }
 
-    const uploadBase = getConfig(this.config).storage.uploadPublicUrl;
-    assertTrustedUploadUrl(dto.fileUrl, uploadBase);
+    assertTrustedUploadUrl(dto.fileUrl, uploadPublicBases(getConfig(this.config).storage));
 
     await this.prisma.storeVerificationDocument.create({
       data: {
@@ -777,32 +783,60 @@ export class StoreService {
     }
   }
 
-  private async generateUniqueSlug(
-    merchantProfileId: string,
-    name: string,
-    excludeStoreId?: string,
-  ): Promise<string> {
-    const base = name
+  /** Slugify a free-text value into a URL-safe token. */
+  private slugifyToken(value: string): string {
+    return value
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
-      .trim()
-      .slice(0, 50);
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 50)
+      .replace(/-+$/g, '');
+  }
 
-    let slug = base;
-    let counter = 1;
+  private async isSlugAvailable(slug: string, excludeStoreId?: string): Promise<boolean> {
+    // Global check (includes soft-deleted rows) so generation never collides
+    // with the global unique index on stores.slug.
+    const existing = await this.prisma.store.findFirst({
+      where: { slug, ...(excludeStoreId ? { id: { not: excludeStoreId } } : {}) },
+      select: { id: true },
+    });
+    return !existing;
+  }
 
-    while (true) {
-      const existing = await this.prisma.store.findFirst({
-        where: {
-          merchantProfileId,
-          slug,
-          ...(excludeStoreId && { id: { not: excludeStoreId } }),
-        },
-      });
-      if (!existing) return slug;
-      slug = `${base}-${counter++}`;
+  /**
+   * Generate a GLOBALLY-unique, SEO-friendly store slug in the form
+   * `store-name-city`, falling back to `store-name-city-<shortid>` on collision.
+   * Store URLs are global (/store/[slug]), so uniqueness must be global — not
+   * per-merchant. `citySlug` is optional; when absent the bare name is used.
+   */
+  private async generateUniqueSlug(
+    name: string,
+    citySlug: string | null,
+    excludeStoreId?: string,
+  ): Promise<string> {
+    const base = this.slugifyToken(name);
+    const city = citySlug ? this.slugifyToken(citySlug) : '';
+    const preferred = city ? `${base}-${city}`.slice(0, 60).replace(/-+$/g, '') : base;
+
+    if (await this.isSlugAvailable(preferred, excludeStoreId)) return preferred;
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const shortId = randomUUID().replace(/-/g, '').slice(0, 6);
+      const candidate = `${preferred}-${shortId}`;
+      if (await this.isSlugAvailable(candidate, excludeStoreId)) return candidate;
     }
+    // Effectively-unreachable final fallback — a timestamp token is unique.
+    return `${preferred}-${Date.now().toString(36)}`;
+  }
+
+  /** Resolve a city's slug for slug generation. Returns null if not found. */
+  private async citySlugForStore(cityId: string): Promise<string | null> {
+    const city = await this.prisma.city.findUnique({
+      where: { id: cityId },
+      select: { slug: true },
+    });
+    return city?.slug ?? null;
   }
 }

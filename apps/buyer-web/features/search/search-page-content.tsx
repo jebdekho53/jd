@@ -17,6 +17,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { useSearchHistory } from '@/hooks/use-search-history';
 import { useEffectiveLocation } from '@/store/location-store';
 import { resolveCollection } from '@/lib/search-collections';
+import { trackReach } from '@/lib/analytics/track';
 import { SectionHeader } from '@/components/v2/section-header';
 import { cn } from '@/lib/utils';
 import type { UnifiedSearchProduct } from '@/types/buyer';
@@ -147,7 +148,9 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
 
   useEffect(() => {
     if (canSearch && debouncedQuery.trim().length >= 2) {
-      addHistory(debouncedQuery.trim());
+      const term = debouncedQuery.trim();
+      addHistory(term);
+      trackReach('SEARCH', { metadata: { q: term } }, term.toLowerCase());
     }
   }, [data, canSearch, debouncedQuery, addHistory]);
 

@@ -30,6 +30,21 @@ export async function proxyGet<T>(path: string, searchParams?: URLSearchParams) 
   }
 }
 
+/** POST proxy for public buyer endpoints (no auth required). */
+export async function proxyPublicPost<T>(req: NextRequest, path: string) {
+  try {
+    const body = await req.text();
+    const { data } = await backendFetch<ApiResponse<T>>(path, {
+      method: 'POST',
+      body,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return NextResponse.json({ success: true, data: data.data ?? null });
+  } catch (err) {
+    return errorResponse(err);
+  }
+}
+
 /** POST proxy: reads body, calls backend with auth */
 export async function proxyPost<T>(
   req: NextRequest,

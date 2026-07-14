@@ -44,6 +44,11 @@ export interface StoreCard {
 export interface StoreDetail extends StoreCard {
   phone: string | null;
   email: string | null;
+  latitude?: number;
+  longitude?: number;
+  city?: string | null;
+  locality?: string | null;
+  storeType?: string;
   hours: { day: string; openTime: string; closeTime: string; isClosed: boolean }[];
   serviceAreas: { id: string; name: string; pincode: string | null }[];
   categories: { id: string; name: string; slug: string }[];

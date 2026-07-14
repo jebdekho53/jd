@@ -35,6 +35,13 @@ export interface StoreCard {
 export interface StoreDetail extends StoreCard {
   phone: string | null;
   email: string | null;
+  // Public storefront location — used for LocalBusiness GeoCoordinates /
+  // PostalAddress on the SEO store page. Store geo is already public (map view).
+  latitude: number;
+  longitude: number;
+  city: string | null;
+  locality: string | null;
+  storeType: string;
   hours: { day: string; openTime: string; closeTime: string; isClosed: boolean }[];
   serviceAreas: { id: string; name: string; pincode: string | null }[];
   categories: { id: string; name: string; slug: string }[];
@@ -313,6 +320,7 @@ export class BuyerStoreService {
         },
         include: {
           hours: { orderBy: { dayOfWeek: 'asc' } },
+          city: { select: { name: true } },
           storeServiceAreas: {
             include: {
               serviceArea: { select: { id: true, name: true, pincode: true, radiusKm: true } },
@@ -359,6 +367,11 @@ export class BuyerStoreService {
         description: store.description,
         phone: store.phone,
         email: store.email,
+        latitude: store.latitude,
+        longitude: store.longitude,
+        city: store.city?.name ?? null,
+        locality: store.locality,
+        storeType: store.storeType,
         address: { line1: store.line1, line2: store.line2, pincode: store.pincode },
         ratingAvg: store.ratingAvg,
         ratingCount: store.ratingCount,

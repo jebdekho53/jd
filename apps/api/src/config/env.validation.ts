@@ -22,6 +22,10 @@ export const validationSchema = Joi.object({
   STORAGE_PROVIDER: Joi.string().valid('local', 's3', 'r2', 'minio').default('local'),
   UPLOAD_DIR: Joi.string().default('/var/www/jebdekho/uploads'),
   UPLOAD_PUBLIC_URL: Joi.string().default('https://api.jebdekho.com/uploads'),
+  // Optional CDN base for public uploads. Empty ⇒ preserve current behaviour
+  // (serve everything from UPLOAD_PUBLIC_URL). Only set once a CDN hostname is
+  // actually reachable — see docs/cloudflare-cdn-setup.md.
+  CDN_PUBLIC_URL: Joi.string().uri().empty('').optional().allow(''),
   BUYER_SITE_URL: Joi.string().default('https://jebdekho.com'),
   RAZORPAY_CALLBACK_URL: Joi.string().uri().optional(),
 

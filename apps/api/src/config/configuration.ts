@@ -106,10 +106,15 @@ export function getConfig(configService: ConfigService) {
     storage: {
       provider: configService.get<string>('STORAGE_PROVIDER', 'local'),
       uploadDir: configService.get<string>('UPLOAD_DIR', '/var/www/jebdekho/uploads'),
+      // Canonical origin where uploads are physically served from & stored as.
+      // Existing DB records and reverse file lookups depend on this value.
       uploadPublicUrl: configService.get<string>(
         'UPLOAD_PUBLIC_URL',
         'https://api.jebdekho.com/uploads',
       ),
+      // Optional CDN delivery base. Empty string ⇒ generation falls back to
+      // uploadPublicUrl (identical to legacy behaviour). See asset-url.util.ts.
+      cdnPublicUrl: (configService.get<string>('CDN_PUBLIC_URL', '') ?? '').trim(),
     },
 
     trustProxy: configService.get<string>('TRUST_PROXY', 'false') === 'true',

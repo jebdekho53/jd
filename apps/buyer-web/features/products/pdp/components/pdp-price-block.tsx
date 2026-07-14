@@ -38,7 +38,7 @@ export function PdpPriceBlock({ price, mrp, lowestNearby }: PdpPriceBlockProps) 
           <span className="text-jd-text-secondary">
             Lowest nearby{' '}
             <span className="font-bold text-success">{formatCurrency(lowestNearby.price)}</span> at{' '}
-            <Link href={`/stores/${lowestNearby.storeSlug}`} className="font-semibold text-primary hover:underline">
+            <Link href={`/store/${lowestNearby.storeSlug}`} className="font-semibold text-primary hover:underline">
               {lowestNearby.storeName}
             </Link>
           </span>

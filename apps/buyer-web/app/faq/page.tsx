@@ -1,14 +1,19 @@
 import Link from 'next/link';
 import { StaticPageLayout } from '@/components/common/static-page-layout';
 import { FAQ_ITEMS } from '@/content/help-content';
-import { createPageMetadata } from '@/lib/seo/metadata';
+import { createPageMetadata, faqPageJsonLd, serializeJsonLd } from '@/lib/seo/metadata';
 
 export const metadata = createPageMetadata({
-  title: 'Frequently Asked Questions | JebDekho',
+  // The layout template already appends "| JebDekho" — don't repeat the brand.
+  title: 'Frequently Asked Questions',
   description:
     'Find answers to common questions about JebDekho orders, price comparison, nearby stores, delivery, COD, online payments, refunds, returns, cancellations, and customer support.',
   path: '/faq',
 });
+
+// FAQPage JSON-LD built from the SAME FAQ_ITEMS the page renders below, so the
+// structured data matches the visible content exactly.
+const faqSchema = faqPageJsonLd(FAQ_ITEMS.map((item) => ({ question: item.q, answer: item.a })));
 
 export default function FaqPage() {
   return (
@@ -16,6 +21,10 @@ export default function FaqPage() {
       title="Frequently Asked Questions"
       subtitle="Quick answers about shopping, delivery, payments, refunds, and support on JebDekho."
     >
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqSchema) }}
+      />
       <p>
         Have questions about JebDekho? Here are answers to the most common
         questions about comparing prices, ordering from nearby stores, making

@@ -3,7 +3,7 @@ import { MAX_CLAIM_EVIDENCE_ITEMS } from './order-claim.constants';
 
 export function assertClaimEvidenceUrls(
   evidence: Array<{ kind: string; url: string }>,
-  uploadPublicBase: string,
+  uploadPublicBase: string | string[],
 ): void {
   if (evidence.length > MAX_CLAIM_EVIDENCE_ITEMS) {
     throw new BadRequestException(
@@ -11,8 +11,10 @@ export function assertClaimEvidenceUrls(
     );
   }
 
-  const base = uploadPublicBase.replace(/\/$/, '');
-  if (!base.startsWith('https://')) {
+  const bases = (Array.isArray(uploadPublicBase) ? uploadPublicBase : [uploadPublicBase])
+    .map((b) => b.replace(/\/$/, ''))
+    .filter(Boolean);
+  if (bases.length === 0 || !bases.every((b) => b.startsWith('https://'))) {
     throw new BadRequestException('Upload public URL is not configured for HTTPS');
   }
 
@@ -20,7 +22,7 @@ export function assertClaimEvidenceUrls(
     if (!item.url.startsWith('https://')) {
       throw new BadRequestException('Evidence URLs must use HTTPS');
     }
-    if (!item.url.startsWith(`${base}/`)) {
+    if (!bases.some((b) => item.url.startsWith(`${b}/`))) {
       throw new BadRequestException('Evidence must be uploaded via JebDekho');
     }
   }

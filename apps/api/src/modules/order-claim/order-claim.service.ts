@@ -23,6 +23,7 @@ import { ClaimRefundService } from './claim-refund.service';
 import { ClaimReplacementService } from './claim-replacement.service';
 import { ClaimNotificationService } from './claim-notification.service';
 import { getConfig } from '../../config/configuration';
+import { uploadPublicBases } from '../../common/utils/asset-url.util';
 import { assertClaimEvidenceUrls } from './claim-evidence.util';
 import {
   FULFILLMENT_CLAIM_ACTIONS,
@@ -63,8 +64,8 @@ export class OrderClaimService {
     return `CLM-${secureNumericCode(8)}`;
   }
 
-  private getUploadPublicBase(): string {
-    return getConfig(this.config).storage.uploadPublicUrl;
+  private getUploadPublicBase(): string[] {
+    return uploadPublicBases(getConfig(this.config).storage);
   }
 
   private async resolveMerchantStoreIds(

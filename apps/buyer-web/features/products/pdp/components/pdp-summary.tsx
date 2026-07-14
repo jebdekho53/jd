@@ -90,7 +90,7 @@ export function PdpSummary({
       </div>
 
       <Link
-        href={`/stores/${product.store.slug}`}
+        href={`/store/${product.store.slug}`}
         className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm shadow-card transition hover:border-primary/30"
       >
         <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary">

@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { getConfig } from '../../config/configuration';
+import { buildUploadUrl } from '../../common/utils/asset-url.util';
 import { UploadImagePurpose } from './dto/upload-image.dto';
 
 interface PurposeSpec {
@@ -71,7 +72,6 @@ export class UploadService {
 
     const cfg = getConfig(this.configService);
     const uploadDir = cfg.storage.uploadDir;
-    const publicBase = cfg.storage.uploadPublicUrl.replace(/\/$/, '');
     const folder = purpose;
     const ext = mime === 'image/png' ? 'png' : 'jpg';
     const finalName = `${randomUUID()}.${ext}`;
@@ -79,7 +79,7 @@ export class UploadService {
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, finalName), buffer);
 
-    const url = `${publicBase}/${folder}/${finalName}`;
+    const url = buildUploadUrl(cfg.storage, folder, finalName);
     return { url };
   }
 

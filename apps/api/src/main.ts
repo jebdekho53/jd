@@ -44,7 +44,20 @@ async function bootstrap(): Promise<void> {
   }
 
   if (cfg.storage.provider === 'local' && cfg.storage.uploadDir) {
-    app.useStaticAssets(join(cfg.storage.uploadDir), { prefix: '/uploads/' });
+    // In production Nginx serves /uploads/ directly (see deploy/nginx). This
+    // Node handler is the dev / fallback path — mirror the same safe headers so
+    // behaviour is identical whichever tier answers: long-lived public cache
+    // (upload filenames are UUID/content-addressed, so a replaced image gets a
+    // new URL and never a stale hit) + nosniff. index:false disables serving
+    // any index file, so a directory request 404s instead of listing.
+    app.useStaticAssets(join(cfg.storage.uploadDir), {
+      prefix: '/uploads/',
+      index: false,
+      setHeaders: (res: Response) => {
+        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+      },
+    });
   }
 
   // ── Security headers (Helmet) ─────────────────────────────────────────────
