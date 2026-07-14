@@ -1,6 +1,7 @@
 import { FranchiseStoreStatus, FranchisePartnerStatus, FranchiseAuditAction } from '@prisma/client';
 import { FranchiseService } from './franchise.service';
 import { FranchiseSettlementService } from './franchise-settlement.service';
+import { LEDGER_ACCOUNT_CODES } from '../finance/ledger-accounts.constants';
 
 /**
  * Phase 1 — the acquisition loop.
@@ -130,7 +131,9 @@ describe('settlement — parked links earn nothing', () => {
     const prisma = {
       franchisePartner: { findUnique },
       order: { aggregate: jest.fn() },
+      orderFinancialSnapshot: { aggregate: jest.fn() },
       franchiseSettlement: {
+        findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({ id: 'stl-1' }),
         update: jest.fn(),
       },
@@ -152,5 +155,72 @@ describe('settlement — parked links earn nothing', () => {
     expect((prisma as never as { order: { aggregate: jest.Mock } }).order.aggregate)
       .not.toHaveBeenCalled();
     expect((ledger as never as { postJournal: jest.Mock }).postJournal).not.toHaveBeenCalled();
+  });
+
+  it('settles 10% of platform commission and credits FRANCHISE_PAYABLE', async () => {
+    const prisma = {
+      franchisePartner: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: RECRUITER,
+          businessName: 'Recruiter Ltd',
+          commissionPercent: 10,
+          stores: [{ storeId: 'store-1' }],
+        }),
+      },
+      order: { aggregate: jest.fn().mockResolvedValue({ _sum: { totalAmount: 1000 } }) },
+      orderFinancialSnapshot: {
+        aggregate: jest.fn().mockResolvedValue({ _sum: { commissionAmount: 120 } }),
+      },
+      franchiseSettlement: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'stl-1' }),
+        update: jest.fn(),
+      },
+      franchiseAudit: { create: jest.fn() },
+    } as never;
+    const ledger = { postJournal: jest.fn().mockResolvedValue('journal-1') } as never;
+
+    await new FranchiseSettlementService(prisma, ledger).createSettlement(
+      RECRUITER,
+      new Date('2026-07-01'),
+      new Date('2026-07-31'),
+    );
+
+    const createData = (prisma as never as { franchiseSettlement: { create: jest.Mock } })
+      .franchiseSettlement.create.mock.calls[0][0].data;
+    expect(createData.grossGmv).toBe(1000);
+    expect(createData.commissionBase).toBe(120);
+    expect(createData.franchiseShare).toBe(12);
+    expect(createData.platformShare).toBe(108);
+
+    const journal = (ledger as never as { postJournal: jest.Mock }).postJournal.mock.calls[0][0];
+    expect(journal.lines).toEqual([
+      { accountCode: LEDGER_ACCOUNT_CODES.PLATFORM_COMMISSION, debit: 12, credit: 0 },
+      { accountCode: LEDGER_ACCOUNT_CODES.FRANCHISE_PAYABLE, debit: 0, credit: 12 },
+    ]);
+    expect(journal.lines.reduce((sum: number, line: { debit: number }) => sum + line.debit, 0)).toBe(
+      journal.lines.reduce((sum: number, line: { credit: number }) => sum + line.credit, 0),
+    );
+  });
+
+  it('is idempotent for the same partner and period', async () => {
+    const existing = { id: 'existing-settlement' };
+    const prisma = {
+      franchiseSettlement: {
+        findUnique: jest.fn().mockResolvedValue(existing),
+        create: jest.fn(),
+      },
+      franchisePartner: { findUnique: jest.fn() },
+      order: { aggregate: jest.fn() },
+      orderFinancialSnapshot: { aggregate: jest.fn() },
+      franchiseAudit: { create: jest.fn() },
+    } as never;
+
+    const result = await new FranchiseSettlementService(prisma, { postJournal: jest.fn() } as never)
+      .createSettlement(RECRUITER, new Date('2026-07-01'), new Date('2026-07-31'));
+
+    expect(result).toBe(existing);
+    expect((prisma as never as { franchiseSettlement: { create: jest.Mock } }).franchiseSettlement.create)
+      .not.toHaveBeenCalled();
   });
 });

@@ -115,6 +115,33 @@ export class TerritoryService {
     });
   }
 
+  async previewConflicts(pincodes: string[], excludeFranchiseId?: string) {
+    const uniquePincodes = [...new Set(pincodes)];
+    if (uniquePincodes.length === 0) return [];
+
+    const territories = await this.prisma.franchiseTerritory.findMany({
+      where: {
+        ...(excludeFranchiseId ? { franchiseId: { not: excludeFranchiseId } } : {}),
+        exclusivityEnabled: true,
+        franchise: { status: FranchisePartnerStatus.ACTIVE },
+      },
+      include: { franchise: { select: { id: true, businessName: true, referralCode: true } } },
+    });
+
+    return territories.flatMap((territory) =>
+      uniquePincodes
+        .filter((pincode) => territory.pincodes.includes(pincode))
+        .map((pincode) => ({
+          pincode,
+          territoryId: territory.id,
+          franchiseId: territory.franchiseId,
+          franchise: territory.franchise,
+          city: territory.city,
+          state: territory.state,
+        })),
+    );
+  }
+
   async getTerritoriesForMap() {
     return this.prisma.franchiseTerritory.findMany({
       where: { franchise: { status: FranchisePartnerStatus.ACTIVE } },

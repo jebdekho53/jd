@@ -19,6 +19,7 @@ import {
   ApproveExpansionLeadDto,
   CreateCityLaunchDto,
   CreateFranchiseDto,
+  GenerateFranchiseSettlementsDto,
   RejectExpansionLeadDto,
   UpdateFranchiseDto,
 } from './dto/franchise.dto';
@@ -103,6 +104,12 @@ export class AdminExpansionController {
     return { success: true, data: await this.applications.listLeads(status) };
   }
 
+  @Post('leads/:id/conflicts')
+  @Permissions('settlements:read')
+  async leadConflicts(@Param('id') id: string, @Body() dto: ApproveExpansionLeadDto) {
+    return { success: true, data: await this.applications.previewConflicts(id, dto) };
+  }
+
   /**
    * Approve a lead into a live partner. Returns `hasConflicts` when the requested
    * pincodes overlap another partner's exclusive territory — the territory and its
@@ -127,6 +134,25 @@ export class AdminExpansionController {
     @CurrentUser() user: RequestUser,
   ) {
     return { success: true, data: await this.applications.rejectLead(user.id, id, dto) };
+  }
+
+  @Post('settlements/generate')
+  @Permissions('settlements:manage')
+  async generateSettlements(@Body() dto: GenerateFranchiseSettlementsDto) {
+    return {
+      success: true,
+      data: await this.settlements.generateSettlements(
+        new Date(dto.periodStart),
+        new Date(dto.periodEnd),
+        dto.franchiseId,
+      ),
+    };
+  }
+
+  @Patch('settlements/:id/paid')
+  @Permissions('settlements:manage')
+  async markSettlementPaid(@Param('id') id: string) {
+    return { success: true, data: await this.settlements.markPaid(id) };
   }
 }
 

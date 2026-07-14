@@ -5551,7 +5551,7 @@ model FranchisePartner {
   status              FranchisePartnerStatus @default(PENDING)
   /// Shared in the partner's invite link (`?ref=FR-NCR-01`). Attribution key.
   referralCode        String?                @unique @map("referral_code")
-  commissionPercent   Float                  @default(5) @map("commission_percent")
+  commissionPercent   Float                  @default(10) @map("commission_percent")
   onboardingCompleted Boolean                @default(false) @map("onboarding_completed")
   cityId              String?                @map("city_id")
   createdAt           DateTime               @default(now()) @map("created_at")
@@ -5715,6 +5715,7 @@ model FranchiseSettlement {
   periodStart     DateTime                  @map("period_start") @db.Date
   periodEnd       DateTime                  @map("period_end") @db.Date
   grossGmv        Decimal                   @default(0) @map("gross_gmv") @db.Decimal(14, 2)
+  commissionBase  Decimal                   @default(0) @map("commission_base") @db.Decimal(14, 2)
   franchiseShare  Decimal                   @map("franchise_share") @db.Decimal(12, 2)
   platformShare   Decimal                   @default(0) @map("platform_share") @db.Decimal(12, 2)
   status          FranchiseSettlementStatus @default(PENDING)
@@ -5724,6 +5725,7 @@ model FranchiseSettlement {
 
   franchise FranchisePartner @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
 
+  @@unique([franchiseId, periodStart, periodEnd])
   @@index([franchiseId, status])
   @@index([periodStart, periodEnd])
   @@map("franchise_settlements")

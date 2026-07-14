@@ -51,7 +51,7 @@ export class FranchiseService {
         gstin: input.gstin,
         pan: input.pan,
         cityId: input.cityId,
-        commissionPercent: input.commissionPercent ?? 5,
+        commissionPercent: input.commissionPercent ?? 10,
         status: FranchisePartnerStatus.PENDING,
       },
     });

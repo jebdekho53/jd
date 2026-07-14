@@ -222,6 +222,23 @@ describe('approveLead — transactional partner creation', () => {
 });
 
 describe('approveLead — exclusivity conflict on requested pincodes', () => {
+  it('previews exclusive-territory conflicts before approval', async () => {
+    const prisma = {
+      expansionLead: { findUnique: jest.fn().mockResolvedValue(LEAD) },
+    } as never;
+    const territory = {
+      previewConflicts: jest.fn().mockResolvedValue([{ pincode: '201001', franchiseId: 'fr-owner' }]),
+    } as never;
+
+    const res = await new FranchiseApplicationService(prisma, territory)
+      .previewConflicts('lead-1', { pincodes: ['201001', 'bad', '201001'] });
+
+    expect(res.pincodes).toEqual(['201001']);
+    expect(res.conflicts).toEqual([{ pincode: '201001', franchiseId: 'fr-owner' }]);
+    expect((territory as never as { previewConflicts: jest.Mock }).previewConflicts)
+      .toHaveBeenCalledWith(['201001']);
+  });
+
   it('surfaces the conflict instead of silently creating an overlapping territory', async () => {
     const { svc, territory } = buildApproveHarness({
       conflicts: [{ id: 'conf-1', pincode: '201001' }],
