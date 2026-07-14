@@ -1,11 +1,67 @@
 import { Injectable } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { FranchisePartnerStatus, FranchiseStoreStatus, OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { BUYER_STATUS_GROUPS } from '../order/order-status-groups';
 
 @Injectable()
 export class FranchiseAnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Partner leaderboard, ranked by commission actually earned.
+   *
+   * Ranked on settled franchiseShare rather than store count, because a partner with
+   * twenty dead stores has earned the platform nothing and a partner with three busy
+   * ones has. Parked (PENDING_REVIEW) links are excluded — they earn nothing, so
+   * counting them would flatter a partner who has not really been credited.
+   */
+  async getLeaderboard(limit = 20) {
+    const partners = await this.prisma.franchisePartner.findMany({
+      where: { status: FranchisePartnerStatus.ACTIVE },
+      select: {
+        id: true,
+        businessName: true,
+        referralCode: true,
+        city: { select: { name: true } },
+        _count: { select: { stores: { where: { status: FranchiseStoreStatus.ACTIVE } } } },
+        settlements: { select: { franchiseShare: true, commissionBase: true, grossGmv: true } },
+      },
+      take: 200,
+    });
+
+    const rows = partners
+      .map((p) => {
+        const earned = p.settlements.reduce((s, x) => s + Number(x.franchiseShare), 0);
+        return {
+          franchiseId: p.id,
+          businessName: p.businessName,
+          referralCode: p.referralCode,
+          city: p.city?.name ?? null,
+          activeStores: p._count.stores,
+          gmv: p.settlements.reduce((s, x) => s + Number(x.grossGmv), 0),
+          commissionBase: p.settlements.reduce((s, x) => s + Number(x.commissionBase), 0),
+          earned: Math.round(earned * 100) / 100,
+        };
+      })
+      .sort((a, b) => b.earned - a.earned || b.activeStores - a.activeStores)
+      .slice(0, limit)
+      .map((row, i) => ({ rank: i + 1, ...row }));
+
+    return rows;
+  }
+
+  /** The partner's own standing — their rank out of everyone, for the portal. */
+  async getMyStanding(franchiseId: string) {
+    const board = await this.getLeaderboard(200);
+    const me = board.find((r) => r.franchiseId === franchiseId);
+    return {
+      rank: me?.rank ?? null,
+      totalPartners: board.length,
+      earned: me?.earned ?? 0,
+      activeStores: me?.activeStores ?? 0,
+      top: board.slice(0, 5),
+    };
+  }
 
   async getAdminFranchiseAnalytics() {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);

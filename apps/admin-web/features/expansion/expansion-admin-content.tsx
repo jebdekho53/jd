@@ -42,6 +42,8 @@ export function ExpansionAdminContent() {
   const [payoutResult, setPayoutResult] = useState<PayoutResult | null>(null);
   const [rejectDocId, setRejectDocId] = useState<string | null>(null);
   const [docRejectReason, setDocRejectReason] = useState('');
+  const [resolveLinkId, setResolveLinkId] = useState<string | null>(null);
+  const [linkReason, setLinkReason] = useState('');
 
   const { data: overview, isLoading } = useQuery({
     queryKey: ['admin', 'expansion'],
@@ -131,6 +133,29 @@ export function ExpansionAdminContent() {
       setRejectDocId(null);
       setDocRejectReason('');
       await invalidateKyc();
+    },
+  });
+
+  const { data: pendingLinks = [] } = useQuery<PendingLink[]>({
+    queryKey: ['admin', 'expansion', 'store-links'],
+    queryFn: () => fetchExpansion('store-links/pending'),
+  });
+
+  const { data: leaderboard = [] } = useQuery<LeaderRow[]>({
+    queryKey: ['admin', 'expansion', 'leaderboard'],
+    queryFn: () => fetchExpansion('leaderboard'),
+  });
+
+  const resolveLink = useMutation({
+    mutationFn: ({ id, approve }: { id: string; approve: boolean }) =>
+      sendExpansion(`store-links/${id}/resolve`, 'PATCH', { approve, reason: linkReason }),
+    onSuccess: async () => {
+      setResolveLinkId(null);
+      setLinkReason('');
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'expansion', 'store-links'] });
+      // Crediting a recruiter changes what they earn, so the leaderboard moves too.
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'expansion', 'leaderboard'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'expansion'] });
     },
   });
 
@@ -325,6 +350,106 @@ export function ExpansionAdminContent() {
           {openConflicts.length === 0 && <p className="text-xs text-slate-500">No open conflicts.</p>}
         </Panel>
       </section>
+
+      {/* Parked attributions. Until someone decides here, the partner who recruited
+          the store earns nothing from it — this queue is worth real money. */}
+      <section className="rounded-lg border border-slate-700 bg-slate-800 p-4">
+        <h2 className="mb-1 text-sm font-semibold text-slate-200">
+          Disputed Store Attributions
+        </h2>
+        <p className="mb-3 text-xs text-slate-500">
+          These stores sit in another partner&apos;s exclusive pincode, so they&apos;re parked.
+          The recruiter earns nothing from them until you decide.
+        </p>
+
+        {pendingLinks.length === 0 && (
+          <p className="text-xs text-slate-500">No disputed attributions.</p>
+        )}
+
+        <div className="space-y-2">
+          {pendingLinks.map((l: PendingLink) => (
+            <div
+              key={l.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-3"
+            >
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-200">
+                  {l.store?.name} <span className="text-slate-500">({l.store?.pincode})</span>
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  Claimed by {l.franchise?.businessName} · {l.conflictReason}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  value={resolveLinkId === l.id ? linkReason : ''}
+                  onChange={(e) => {
+                    setResolveLinkId(l.id);
+                    setLinkReason(e.target.value);
+                  }}
+                  placeholder="Reason (required)"
+                  className="w-48 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
+                />
+                <button
+                  onClick={() => resolveLink.mutate({ id: l.id, approve: false })}
+                  disabled={resolveLinkId !== l.id || linkReason.trim().length < 3}
+                  className="rounded-md border border-red-500/40 px-2 py-1 text-[11px] font-semibold text-red-300 hover:bg-red-500/10 disabled:opacity-40"
+                >
+                  Reject claim
+                </button>
+                <button
+                  onClick={() => resolveLink.mutate({ id: l.id, approve: true })}
+                  disabled={resolveLinkId !== l.id || linkReason.trim().length < 3}
+                  className="rounded-md bg-emerald-500 px-2 py-1 text-[11px] font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-40"
+                >
+                  Credit recruiter
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {resolveLink.isError && (
+          <p className="mt-3 rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            {(resolveLink.error as Error).message}
+          </p>
+        )}
+      </section>
+
+      {/* Leaderboard — ranked on commission earned, not store count: twenty dead
+          stores are worth less than three busy ones. */}
+      {leaderboard.length > 0 && (
+        <section className="rounded-lg border border-slate-700 bg-slate-800 p-4">
+          <h2 className="mb-3 text-sm font-semibold text-slate-200">Partner Leaderboard</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-left text-xs">
+              <thead className="text-slate-400">
+                <tr className="border-b border-slate-700">
+                  <th className="pb-2 pr-3 font-medium">#</th>
+                  <th className="pb-2 pr-3 font-medium">Partner</th>
+                  <th className="pb-2 pr-3 font-medium">City</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Active stores</th>
+                  <th className="pb-2 pr-3 text-right font-medium">GMV</th>
+                  <th className="pb-2 text-right font-medium">Earned</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaderboard.map((r: LeaderRow) => (
+                  <tr key={r.franchiseId} className="border-b border-slate-700/50 text-slate-300">
+                    <td className="py-2 pr-3 text-slate-500">{r.rank}</td>
+                    <td className="py-2 pr-3">{r.businessName}</td>
+                    <td className="py-2 pr-3 text-slate-400">{r.city ?? '—'}</td>
+                    <td className="py-2 pr-3 text-right">{r.activeStores}</td>
+                    <td className="py-2 pr-3 text-right text-slate-400">{money(r.gmv)}</td>
+                    <td className="py-2 text-right font-semibold text-white">{money(r.earned)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* KYC review — nothing gets paid until PAN + cheque are verified here. */}
       <section className="rounded-lg border border-slate-700 bg-slate-800 p-4">
@@ -605,6 +730,23 @@ const DOC_LABEL: Record<string, string> = {
   SIGNED_AGREEMENT: 'Signed agreement',
   OTHER: 'Other',
 };
+
+interface PendingLink {
+  id: string;
+  conflictReason?: string | null;
+  franchise?: { id: string; businessName: string };
+  store?: { id: string; name: string; pincode: string };
+}
+
+interface LeaderRow {
+  rank: number;
+  franchiseId: string;
+  businessName: string;
+  city?: string | null;
+  activeStores: number;
+  gmv: number | string;
+  earned: number | string;
+}
 
 interface PendingDoc {
   id: string;
