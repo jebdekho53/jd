@@ -86,6 +86,16 @@ export class FranchiseApplicationService {
     });
   }
 
+  async previewConflicts(leadId: string, dto: ApproveExpansionLeadDto) {
+    const lead = await this.prisma.expansionLead.findUnique({ where: { id: leadId } });
+    if (!lead) throw new NotFoundException('Lead not found');
+    const pincodes = normalisePincodes(dto.pincodes ?? lead.pincodes);
+    return {
+      pincodes,
+      conflicts: await this.territory.previewConflicts(pincodes),
+    };
+  }
+
   /**
    * Approve a lead: create the User, grant the FRANCHISE role, create the
    * FranchisePartner (with a referral code) and assign the requested territory —
@@ -145,8 +155,8 @@ export class FranchiseApplicationService {
               cityId,
               referralCode,
               status: FranchisePartnerStatus.ACTIVE,
-              // commissionPercent intentionally left at its schema default (5).
-              // Phase 3 moves this to commission-of-commission.
+              // commissionPercent intentionally left at its schema default (10).
+              // It means percent of platform commission, not percent of GMV.
             },
           });
 

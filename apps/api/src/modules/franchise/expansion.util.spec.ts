@@ -43,9 +43,10 @@ describe('Launch readiness scoring', () => {
 });
 
 describe('Franchise settlement calculations', () => {
-  it('splits GMV by commission percent', () => {
-    const { franchiseShare, platformShare } = computeFranchiseShare(100000, 5);
-    expect(franchiseShare).toBe(5000);
-    expect(platformShare).toBe(95000);
+  it('uses platform commission as the base, not GMV', () => {
+    const platformCommission = 1000 * 0.12;
+    const { franchiseShare, platformShare } = computeFranchiseShare(platformCommission, 10);
+    expect(franchiseShare).toBe(12);
+    expect(platformShare).toBe(108);
   });
 });

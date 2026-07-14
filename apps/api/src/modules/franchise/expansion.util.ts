@@ -25,12 +25,12 @@ export function computeLaunchReadiness(input: LaunchReadinessInput): number {
   return Math.min(100, Math.round(score * 100));
 }
 
-export function computeFranchiseShare(gmv: number, commissionPercent: number): {
+export function computeFranchiseShare(commissionBase: number, commissionPercent: number): {
   franchiseShare: number;
   platformShare: number;
 } {
-  const franchiseShare = round(gmv * (commissionPercent / 100));
-  return { franchiseShare, platformShare: round(gmv - franchiseShare) };
+  const franchiseShare = round(commissionBase * (commissionPercent / 100));
+  return { franchiseShare, platformShare: round(commissionBase - franchiseShare) };
 }
 
 function round(n: number): number {

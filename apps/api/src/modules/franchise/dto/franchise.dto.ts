@@ -9,6 +9,7 @@ import {
   Length,
   Matches,
   Min,
+  IsDateString,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { FranchisePartnerStatus, CityLaunchStatus } from '@prisma/client';
@@ -165,4 +166,16 @@ export class RejectExpansionLeadDto {
   @IsString()
   @Length(3, 1000)
   reason!: string;
+}
+
+export class GenerateFranchiseSettlementsDto {
+  @IsDateString()
+  periodStart!: string;
+
+  @IsDateString()
+  periodEnd!: string;
+
+  @IsOptional()
+  @IsString()
+  franchiseId?: string;
 }
