@@ -3,7 +3,14 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
-type Mode = 'otp' | 'password';
+/**
+ * `set-password` exists because a partner who was already a JebDekho buyer keeps
+ * their existing account at approval, and approval deliberately does NOT copy the
+ * password chosen on the public application form onto a pre-existing account (the
+ * form is unauthenticated — anyone could enter someone else's number). Proving
+ * ownership with an OTP is what makes setting the password safe.
+ */
+type Mode = 'otp' | 'password' | 'set-password';
 
 const INPUT =
   'w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none';
@@ -30,6 +37,8 @@ export function LoginForm() {
   const [otpSent, setOtpSent] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(
     params.get('error') === 'not_a_partner'
@@ -42,10 +51,22 @@ export function LoginForm() {
     return `+91${digits}`;
   }
 
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError(null);
+    setNotice(null);
+    setOtpSent(false);
+    setCode('');
+  }
+
   async function sendOtp() {
     setBusy(true);
     setError(null);
-    const res = await post('/api/auth/request-otp', { phone: normalisePhone(phone) });
+    // Setting a password needs a PASSWORD_RESET OTP, not a login OTP.
+    const res = await post(
+      mode === 'set-password' ? '/api/auth/forgot-password' : '/api/auth/request-otp',
+      { phone: normalisePhone(phone) },
+    );
     setBusy(false);
     if (!res.ok) return setError(res.message ?? 'Could not send the code.');
     setOtpSent(true);
@@ -55,6 +76,19 @@ export function LoginForm() {
     e.preventDefault();
     setBusy(true);
     setError(null);
+
+    if (mode === 'set-password') {
+      const res = await post('/api/auth/reset-password', {
+        phone: normalisePhone(phone),
+        code,
+        newPassword,
+      });
+      setBusy(false);
+      if (!res.ok) return setError(res.message ?? 'Could not set the password.');
+      setNotice('Password set. Sign in with your email and password.');
+      switchMode('password');
+      return;
+    }
 
     const res =
       mode === 'otp'
@@ -75,10 +109,7 @@ export function LoginForm() {
           <button
             key={m}
             type="button"
-            onClick={() => {
-              setMode(m);
-              setError(null);
-            }}
+            onClick={() => switchMode(m)}
             className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${
               mode === m ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
             }`}
@@ -88,8 +119,14 @@ export function LoginForm() {
         ))}
       </div>
 
+      {notice && (
+        <p className="mb-3 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+          {notice}
+        </p>
+      )}
+
       <form onSubmit={submit} className="space-y-3">
-        {mode === 'otp' ? (
+        {mode === 'otp' || mode === 'set-password' ? (
           <>
             <input
               className={INPUT}
@@ -110,6 +147,18 @@ export function LoginForm() {
                 placeholder="6-digit code"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
+                required
+              />
+            )}
+            {mode === 'set-password' && otpSent && (
+              <input
+                className={INPUT}
+                type="password"
+                autoComplete="new-password"
+                placeholder="New password (min 8 characters)"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                minLength={8}
                 required
               />
             )}
@@ -141,16 +190,42 @@ export function LoginForm() {
           <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>
         )}
 
-        {mode === 'otp' && !otpSent ? (
+        {(mode === 'otp' || mode === 'set-password') && !otpSent ? (
           <button type="button" onClick={sendOtp} disabled={busy || !phone} className={BUTTON}>
             {busy ? 'Sending…' : 'Send code'}
           </button>
         ) : (
           <button type="submit" disabled={busy} className={BUTTON}>
-            {busy ? 'Signing in…' : 'Sign in'}
+            {busy
+              ? mode === 'set-password'
+                ? 'Saving…'
+                : 'Signing in…'
+              : mode === 'set-password'
+                ? 'Set password'
+                : 'Sign in'}
           </button>
         )}
       </form>
+
+      {mode === 'password' && (
+        <button
+          type="button"
+          onClick={() => switchMode('set-password')}
+          className="mt-3 w-full text-center text-xs text-slate-400 hover:text-slate-200"
+        >
+          No password yet, or forgot it? Set one with an OTP
+        </button>
+      )}
+
+      {mode === 'set-password' && (
+        <button
+          type="button"
+          onClick={() => switchMode('password')}
+          className="mt-3 w-full text-center text-xs text-slate-400 hover:text-slate-200"
+        >
+          ← Back to sign in
+        </button>
+      )}
 
       {mode === 'otp' && otpSent && (
         <button
