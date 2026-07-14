@@ -52,6 +52,28 @@ module.exports = {
       out_file: `${LOG_DIR}/api-out.log`,
     },
     {
+      // AI Catalog v2 BullMQ worker — separate process from the API so job
+      // execution never competes with request handling. Dormant unless the
+      // `feature.enabled` flag is on (jobs simply aren't produced). Safe to
+      // start alongside the API; scale `instances` for more throughput.
+      ...appDefaults,
+      name: 'jebdekho-ai-catalog-worker',
+      script: 'dist/ai-catalog-worker.js',
+      cwd: path.join(ROOT, 'apps/api'),
+      // A single fork (no cluster) so a job is consumed once. Scale via a
+      // second named app if more throughput is needed, not `instances`.
+      instances: 1,
+      exec_mode: 'fork',
+      max_memory_restart: '768M',
+      // Override the 8s default: an in-flight image render can take ~180s, so
+      // PM2 must wait past that on SIGTERM for the bootstrap's app.close() to
+      // drain active jobs before a reload/deploy. Without this PM2 SIGKILLs at
+      // 8s and the job is stalled-requeued (safe + idempotent, but not graceful).
+      kill_timeout: 200000,
+      error_file: `${LOG_DIR}/ai-catalog-worker-error.log`,
+      out_file: `${LOG_DIR}/ai-catalog-worker-out.log`,
+    },
+    {
       ...appDefaults,
       name: 'jebdekho-buyer-web',
       script: 'node_modules/next/dist/bin/next',

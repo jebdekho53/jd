@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import withSerwistInit from '@serwist/next';
 import type { NextConfig } from 'next';
-import { nextSecurityHeaders } from '@jebdekho/web-config';
+import { nextSecurityHeaders, uploadImageRemotePatterns } from '@jebdekho/web-config';
+import { SEO_REDIRECTS } from './lib/seo/redirects';
 
 const revision =
   spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf-8' }).stdout.trim() || randomUUID();
@@ -50,13 +51,11 @@ const nextConfig: NextConfig = {
   async headers() {
     return nextSecurityHeaders();
   },
+  async redirects() {
+    return SEO_REDIRECTS;
+  },
   images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: 'api.jebdekho.com', pathname: '/uploads/**' },
-      ...(process.env.NEXT_PUBLIC_UPLOAD_HOST
-        ? [{ protocol: 'https' as const, hostname: process.env.NEXT_PUBLIC_UPLOAD_HOST, pathname: '/**' }]
-        : []),
-    ],
+    remotePatterns: uploadImageRemotePatterns(),
   },
 };
 
