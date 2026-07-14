@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import {
   FranchiseAuditAction,
   FranchisePartnerStatus,
+  FranchiseStoreStatus,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
@@ -78,13 +79,78 @@ export class FranchiseService {
     return updated;
   }
 
-  async linkStore(franchiseId: string, storeId: string) {
-    return this.prisma.franchiseStore.upsert({
+  /**
+   * Attribute a store to a franchise partner.
+   *
+   * Territory is exclusive per pincode. If the store sits in a pincode that a
+   * *different* active partner already owns exclusively, we do not silently
+   * double-attribute and we do not silently hand the store to the territory
+   * owner either — the link is parked as PENDING_REVIEW with the reason recorded,
+   * an audit row is written, and an admin decides. Parked links earn nothing:
+   * settlement only counts ACTIVE ones.
+   *
+   * The upsert `update` is intentionally empty so re-approving an already-linked
+   * store never resurrects a link an admin has REJECTED.
+   */
+  async linkStore(franchiseId: string, storeId: string, actorId?: string) {
+    const store = await this.prisma.store.findUnique({
+      where: { id: storeId },
+      select: { id: true, pincode: true },
+    });
+    if (!store) throw new NotFoundException('Store not found');
+
+    const blockingTerritory = await this.prisma.franchiseTerritory.findFirst({
+      where: {
+        franchiseId: { not: franchiseId },
+        exclusivityEnabled: true,
+        pincodes: { has: store.pincode },
+        franchise: { status: FranchisePartnerStatus.ACTIVE },
+      },
+      select: {
+        id: true,
+        franchiseId: true,
+        franchise: { select: { businessName: true } },
+      },
+    });
+
+    const conflictReason = blockingTerritory
+      ? `Pincode ${store.pincode} is in the exclusive territory of ${blockingTerritory.franchise.businessName}`
+      : null;
+
+    const link = await this.prisma.franchiseStore.upsert({
       where: { franchiseId_storeId: { franchiseId, storeId } },
-      create: { franchiseId, storeId },
+      create: {
+        franchiseId,
+        storeId,
+        status: blockingTerritory
+          ? FranchiseStoreStatus.PENDING_REVIEW
+          : FranchiseStoreStatus.ACTIVE,
+        conflictReason,
+      },
       update: {},
       include: { store: { select: { name: true, pincode: true } } },
     });
+
+    if (blockingTerritory) {
+      await this.prisma.franchiseAudit.create({
+        data: {
+          franchiseId,
+          action: FranchiseAuditAction.CONFLICT_DETECTED,
+          actorId,
+          metadata: {
+            storeId,
+            pincode: store.pincode,
+            franchiseStoreId: link.id,
+            claimedByFranchiseId: franchiseId,
+            territoryOwnerFranchiseId: blockingTerritory.franchiseId,
+            territoryId: blockingTerritory.id,
+            reason: conflictReason,
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }
+
+    return link;
   }
 
   async getOverview() {
