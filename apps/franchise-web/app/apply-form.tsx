@@ -10,6 +10,7 @@ export function ApplyForm() {
     name: '',
     phone: '',
     email: '',
+    password: '',
     city: '',
     state: '',
     pincodes: '',
@@ -39,7 +40,8 @@ export function ApplyForm() {
       body: JSON.stringify({
         name: form.name,
         phone: `+91${form.phone.replace(/\D/g, '').slice(-10)}`,
-        email: form.email || undefined,
+        email: form.email,
+        password: form.password,
         city: form.city,
         state: form.state,
         pincodes: pincodes.length ? pincodes : undefined,
@@ -83,7 +85,29 @@ export function ApplyForm() {
         />
       </div>
 
-      <input className={INPUT} type="email" placeholder="Email (optional)" value={form.email} onChange={set('email')} />
+      <input
+        className={INPUT}
+        type="email"
+        placeholder="Email"
+        value={form.email}
+        onChange={set('email')}
+        required
+      />
+      {/* The portal's password sign-in resolves the account by email, so both are
+          required — a partner with neither could only ever get in by phone OTP. */}
+      <input
+        className={INPUT}
+        type="password"
+        placeholder="Choose a password (min 8 characters)"
+        value={form.password}
+        onChange={set('password')}
+        minLength={8}
+        autoComplete="new-password"
+        required
+      />
+      <p className="-mt-2 text-xs text-slate-400">
+        You&apos;ll sign in to the partner portal with this email and password once approved.
+      </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <input className={INPUT} placeholder="City" value={form.city} onChange={set('city')} required />
