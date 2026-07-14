@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button, Badge, Spinner } from '@/design-system';
 import { listMerchantApplications, approveMerchantApplication, rejectMerchantApplication } from '@/services/admin-api';
+import { OnboardingFunnel } from './onboarding-funnel';
 
 const TABS = ['SUBMITTED', 'UNDER_REVIEW', 'KYC_PENDING', 'APPROVED', 'REJECTED'] as const;
 
@@ -44,6 +45,8 @@ export function MerchantApplicationsContent() {
 
   return (
     <>
+      <OnboardingFunnel />
+
       <div className="flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button

@@ -71,6 +71,19 @@ export async function fetchApplication(): Promise<MerchantApplication> {
   return res.data;
 }
 
+export async function postAttribution(attribution: {
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmContent?: string;
+  fbclid?: string;
+}): Promise<void> {
+  await merchantFetch('/api/merchant/onboarding/application/attribution', {
+    method: 'POST',
+    body: JSON.stringify(attribution),
+  });
+}
+
 export async function resolveStoreLocation(body: {
   locality?: string;
   city?: string;

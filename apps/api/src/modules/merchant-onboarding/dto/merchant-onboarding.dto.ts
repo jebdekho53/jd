@@ -27,6 +27,43 @@ const emptyToUndefined = ({ value }: { value: unknown }) =>
   typeof value === 'string' && value.trim() === '' ? undefined : value;
 const INDIAN_PHONE_OR_E164_REGEX = /^(?:\+91)?[6-9]\d{9}$/;
 
+export class SetAttributionDto {
+  @ApiPropertyOptional({ example: 'facebook' })
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  @Length(0, 120)
+  utmSource?: string;
+
+  @ApiPropertyOptional({ example: 'paid_social' })
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  @Length(0, 120)
+  utmMedium?: string;
+
+  @ApiPropertyOptional({ example: 'merchant_onboarding_jul' })
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  @Length(0, 200)
+  utmCampaign?: string;
+
+  @ApiPropertyOptional({ example: 'video_ad_a' })
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  @Length(0, 200)
+  utmContent?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsString()
+  @Length(0, 255)
+  fbclid?: string;
+}
+
 export class ResolveStoreLocationDto {
   @ApiPropertyOptional()
   @Transform(emptyToUndefined)

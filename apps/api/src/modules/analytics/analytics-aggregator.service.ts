@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   DeliveryStatus,
+  MarketingEventType,
   OrderStatus,
   PaymentMethod,
   Prisma,
@@ -653,28 +654,46 @@ export class AnalyticsAggregatorService {
   }
 
   private async buildFunnel(start: Date, end: Date): Promise<FunnelMetrics> {
-    const [carts, checkouts, ordersCreated, ordersCompleted] = await Promise.all([
-      this.prisma.cart.count({ where: { updatedAt: { gte: start, lt: end } } }),
-      this.prisma.checkout.count({ where: { createdAt: { gte: start, lt: end } } }),
-      this.prisma.order.count({ where: { createdAt: { gte: start, lt: end } } }),
+    const range = { gte: start, lt: end };
+    const eventCount = (eventType: MarketingEventType) =>
+      this.prisma.marketingEvent.count({ where: { eventType, createdAt: range } });
+
+    const [
+      distinctSessions,
+      searches,
+      storeViews,
+      productViews,
+      addToCart,
+      checkouts,
+      ordersCreated,
+      ordersCompleted,
+    ] = await Promise.all([
+      // Reach = distinct sessions that produced any tracked storefront event.
+      this.prisma.marketingEvent.findMany({
+        where: { createdAt: range, sessionId: { not: null } },
+        distinct: ['sessionId'],
+        select: { sessionId: true },
+      }),
+      eventCount(MarketingEventType.SEARCH),
+      eventCount(MarketingEventType.VIEW_STORE),
+      eventCount(MarketingEventType.VIEW_PRODUCT),
+      eventCount(MarketingEventType.ADD_CART),
+      this.prisma.checkout.count({ where: { createdAt: range } }),
+      this.prisma.order.count({ where: { createdAt: range } }),
       this.prisma.order.count({
         where: {
-          createdAt: { gte: start, lt: end },
+          createdAt: range,
           status: { in: [OrderStatus.DELIVERED, OrderStatus.COMPLETED] },
         },
       }),
     ]);
 
-    const cartItems = await this.prisma.cartItem.count({
-      where: { createdAt: { gte: start, lt: end } },
-    });
-
     const steps = {
-      visitors: Math.max(carts * 2, checkouts),
-      searches: Math.round(carts * 1.5),
-      storeViews: carts,
-      productViews: cartItems,
-      addToCart: cartItems,
+      visitors: distinctSessions.length,
+      searches,
+      storeViews,
+      productViews,
+      addToCart,
       checkoutStarted: checkouts,
       orderCreated: ordersCreated,
       orderCompleted: ordersCompleted,

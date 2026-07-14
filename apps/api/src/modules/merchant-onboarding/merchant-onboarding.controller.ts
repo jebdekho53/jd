@@ -20,6 +20,7 @@ import {
   FranchiseLeadDto,
   ResolveStoreLocationDto,
   SaveBankAccountDto,
+  SetAttributionDto,
   UpdateOnboardingStepDto,
   UploadMerchantDocumentDto,
   ValidateGstDto,
@@ -43,6 +44,16 @@ export class MerchantOnboardingController {
   @Get('application')
   async getApplication(@CurrentUser() user: RequestUser) {
     const data = await this.onboarding.getOrCreateApplication(user.id);
+    return { success: true, data };
+  }
+
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
+  @Post('application/attribution')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Record first-touch acquisition attribution (UTM / Meta ad)' })
+  async setAttribution(@CurrentUser() user: RequestUser, @Body() dto: SetAttributionDto) {
+    const data = await this.onboarding.setAttribution(user.id, dto);
     return { success: true, data };
   }
 

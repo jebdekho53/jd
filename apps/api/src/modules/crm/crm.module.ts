@@ -14,10 +14,11 @@ import { MerchantCrmService } from './merchant-crm.service';
 import { AdminCrmController } from './admin-crm.controller';
 import { BuyerCrmController } from './buyer-crm.controller';
 import { MerchantCrmController } from './merchant-crm.controller';
+import { PublicTrackController } from './public-track.controller';
 
 @Module({
   imports: [SupportModule, AuthModule, forwardRef(() => PushModule)],
-  controllers: [AdminCrmController, BuyerCrmController, MerchantCrmController],
+  controllers: [AdminCrmController, BuyerCrmController, MerchantCrmController, PublicTrackController],
   providers: [
     SegmentService,
     Customer360Service,

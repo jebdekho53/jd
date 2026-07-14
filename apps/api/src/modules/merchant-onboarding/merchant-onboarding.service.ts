@@ -41,6 +41,7 @@ import {
   ResolveStoreLocationDto,
   SaveBankAccountDto,
   ScheduleCallDto,
+  SetAttributionDto,
   UpdateOnboardingStepDto,
   UploadMerchantDocumentDto,
 } from './dto/merchant-onboarding.dto';
@@ -82,6 +83,30 @@ const LEGACY_STEP_ALIASES: Partial<Record<MerchantOnboardingStepKey, MerchantOnb
   [MerchantOnboardingStepKey.DOCUMENTS]: MerchantOnboardingStepKey.GST_PAN,
   [MerchantOnboardingStepKey.BANK_DETAILS]: MerchantOnboardingStepKey.BANK,
 };
+
+/** Human labels for the canonical onboarding steps, used by the admin funnel. */
+const STEP_LABELS: Record<MerchantOnboardingStepKey, string> = {
+  [MerchantOnboardingStepKey.VERIFY]: 'Phone / OTP verify',
+  [MerchantOnboardingStepKey.BUSINESS]: 'Business details',
+  [MerchantOnboardingStepKey.STORE]: 'Store setup',
+  [MerchantOnboardingStepKey.LOCATION]: 'Location',
+  [MerchantOnboardingStepKey.DELIVERY]: 'Delivery config',
+  [MerchantOnboardingStepKey.CATEGORIES]: 'Categories',
+  [MerchantOnboardingStepKey.GST_PAN]: 'GST / PAN',
+  [MerchantOnboardingStepKey.BANK]: 'Bank details',
+  [MerchantOnboardingStepKey.REVIEW]: 'Review & submit',
+  // Legacy aliases (older applications may still carry these keys).
+  [MerchantOnboardingStepKey.PERSONAL_DETAILS]: 'Phone / OTP verify',
+  [MerchantOnboardingStepKey.BUSINESS_DETAILS]: 'Business details',
+  [MerchantOnboardingStepKey.STORE_DETAILS]: 'Store setup',
+  [MerchantOnboardingStepKey.DOCUMENTS]: 'GST / PAN',
+  [MerchantOnboardingStepKey.BANK_DETAILS]: 'Bank details',
+};
+
+/** Normalize a (possibly legacy) step key to its canonical form. */
+function canonicalStep(step: MerchantOnboardingStepKey): MerchantOnboardingStepKey {
+  return LEGACY_STEP_ALIASES[step] ?? step;
+}
 
 type PickupAddressPayload = {
   addressLine1: string;
@@ -135,6 +160,172 @@ export class MerchantOnboardingService {
       ordersDelivered: orders,
       citiesServed: cities,
       merchantPartners: merchants,
+    };
+  }
+
+  /**
+   * First-touch acquisition attribution (e.g. a merchant who arrived via a Meta
+   * ad on merchant.jebdekho.com). Ensures the application exists, then fills only
+   * the attribution fields that are still empty so the first campaign that
+   * referred the merchant is the one that gets credit.
+   */
+  async setAttribution(userId: string, dto: SetAttributionDto) {
+    if (!dto.utmSource && !dto.utmMedium && !dto.utmCampaign && !dto.utmContent && !dto.fbclid) {
+      return { updated: false };
+    }
+    await this.getOrCreateApplication(userId);
+    const app = await this.prisma.merchantApplication.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        utmSource: true,
+        utmMedium: true,
+        utmCampaign: true,
+        utmContent: true,
+        fbclid: true,
+      },
+    });
+    if (!app) return { updated: false };
+
+    // First-touch: never overwrite an attribution that is already recorded.
+    const firstTouch = <T>(existing: T | null, incoming: T | undefined) =>
+      existing ?? incoming ?? null;
+    const data = {
+      utmSource: firstTouch(app.utmSource, dto.utmSource),
+      utmMedium: firstTouch(app.utmMedium, dto.utmMedium),
+      utmCampaign: firstTouch(app.utmCampaign, dto.utmCampaign),
+      utmContent: firstTouch(app.utmContent, dto.utmContent),
+      fbclid: firstTouch(app.fbclid, dto.fbclid),
+    };
+    await this.prisma.merchantApplication.update({ where: { id: app.id }, data });
+    return { updated: true };
+  }
+
+  /**
+   * Merchant onboarding funnel for the admin: signup → submit → review → approve,
+   * plus where half-onboarded (draft) applicants drop off, step by step.
+   */
+  async getOnboardingFunnel(rangeDays = 30) {
+    const since = new Date();
+    since.setDate(since.getDate() - Math.max(1, Math.min(365, rangeDays)));
+    const where = { createdAt: { gte: since } };
+
+    const [byStatus, stepCompletionRaw, draftApps, signupsBySource, approvedBySource] =
+      await Promise.all([
+      this.prisma.merchantApplication.groupBy({
+        by: ['status'],
+        where,
+        _count: { _all: true },
+      }),
+      // How many applications have each step marked complete (canonical-normalized below).
+      this.prisma.merchantOnboardingStep.groupBy({
+        by: ['stepKey'],
+        where: { completed: true, application: where },
+        _count: { _all: true },
+      }),
+      // Draft (never-submitted) applications and the steps they have finished —
+      // used to bucket "stuck at step X".
+      this.prisma.merchantApplication.findMany({
+        where: { ...where, status: MerchantApplicationStatus.DRAFT },
+        select: {
+          id: true,
+          steps: { where: { completed: true }, select: { stepKey: true } },
+        },
+      }),
+      // Acquisition source split (Meta / Google / organic …).
+      this.prisma.merchantApplication.groupBy({
+        by: ['utmSource'],
+        where,
+        _count: { _all: true },
+      }),
+      this.prisma.merchantApplication.groupBy({
+        by: ['utmSource'],
+        where: { ...where, status: MerchantApplicationStatus.APPROVED },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const statusCount = (s: MerchantApplicationStatus) =>
+      byStatus.find((g) => g.status === s)?._count._all ?? 0;
+
+    const drafts = statusCount(MerchantApplicationStatus.DRAFT);
+    const submittedStatuses = [
+      MerchantApplicationStatus.SUBMITTED,
+      MerchantApplicationStatus.UNDER_REVIEW,
+      MerchantApplicationStatus.KYC_PENDING,
+      MerchantApplicationStatus.APPROVED,
+      MerchantApplicationStatus.REJECTED,
+    ];
+    const submitted = submittedStatuses.reduce((sum, s) => sum + statusCount(s), 0);
+    const underReview = statusCount(MerchantApplicationStatus.UNDER_REVIEW);
+    const kycPending = statusCount(MerchantApplicationStatus.KYC_PENDING);
+    const approved = statusCount(MerchantApplicationStatus.APPROVED);
+    const rejected = statusCount(MerchantApplicationStatus.REJECTED);
+    const signups = byStatus.reduce((sum, g) => sum + g._count._all, 0);
+
+    // Canonical-normalized per-step completion counts.
+    const stepCompletion = CANONICAL_STEPS.map((step) => {
+      const completed = stepCompletionRaw
+        .filter((g) => canonicalStep(g.stepKey) === step)
+        .reduce((sum, g) => sum + g._count._all, 0);
+      return { step, label: STEP_LABELS[step], completed };
+    });
+
+    // Bucket each draft app by the FIRST canonical step it has not completed —
+    // that is where the applicant is stuck.
+    const stuckCounts = new Map<MerchantOnboardingStepKey, number>();
+    let draftsFullyFilled = 0; // completed all steps but never submitted
+    for (const app of draftApps) {
+      const done = new Set(app.steps.map((s) => canonicalStep(s.stepKey)));
+      const stuckAt = CANONICAL_STEPS.find((step) => !done.has(step));
+      if (!stuckAt) {
+        draftsFullyFilled += 1;
+        continue;
+      }
+      stuckCounts.set(stuckAt, (stuckCounts.get(stuckAt) ?? 0) + 1);
+    }
+    const stuckAtStep = CANONICAL_STEPS.map((step) => ({
+      step,
+      label: STEP_LABELS[step],
+      count: stuckCounts.get(step) ?? 0,
+    })).filter((s) => s.count > 0);
+
+    const pct = (num: number, den: number) =>
+      den > 0 ? Math.round((num / den) * 1000) / 10 : 0;
+
+    // Merge signup + approved counts per source into one sorted table.
+    const approvedMap = new Map<string, number>(
+      approvedBySource.map((g) => [g.utmSource ?? '', g._count._all]),
+    );
+    const bySource = signupsBySource
+      .map((g) => {
+        const source = g.utmSource ?? '';
+        const src = source || 'Direct / organic';
+        const sourceSignups = g._count._all;
+        const sourceApproved = approvedMap.get(source) ?? 0;
+        return {
+          source: src,
+          signups: sourceSignups,
+          approved: sourceApproved,
+          conversion: pct(sourceApproved, sourceSignups),
+        };
+      })
+      .sort((a, b) => b.signups - a.signups);
+
+    return {
+      rangeDays,
+      totals: { signups, drafts, submitted, underReview, kycPending, approved, rejected },
+      bySource,
+      conversion: {
+        signupToSubmit: pct(submitted, signups),
+        submitToApprove: pct(approved, submitted),
+        overall: pct(approved, signups),
+        dropOffAtDraft: pct(drafts, signups),
+      },
+      stepCompletion,
+      stuckAtStep,
+      draftsFullyFilled,
     };
   }
 
