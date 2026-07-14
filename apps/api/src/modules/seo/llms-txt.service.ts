@@ -30,6 +30,7 @@ export class LlmsTxtService {
       '',
       '## Sitemaps',
       `- Sitemap index: ${absoluteUrl('/sitemap.xml', this.siteUrl)}`,
+      `- Static pages: ${absoluteUrl('/sitemap-static.xml', this.siteUrl)}`,
       `- Products: ${absoluteUrl('/sitemap-products.xml', this.siteUrl)}`,
       `- Stores: ${absoluteUrl('/sitemap-stores.xml', this.siteUrl)}`,
       `- Categories: ${absoluteUrl('/sitemap-categories.xml', this.siteUrl)}`,
