@@ -15,6 +15,8 @@ import { ExpansionService } from './expansion.service';
 import { FranchiseAnalyticsService } from './franchise-analytics.service';
 import { FranchiseSettlementService } from './franchise-settlement.service';
 import { FranchiseApplicationService } from './franchise-application.service';
+import { FranchisePayoutService } from './franchise-payout.service';
+import { FranchiseBankAccountService } from './franchise-bank-account.service';
 import {
   ApproveExpansionLeadDto,
   CreateCityLaunchDto,
@@ -37,6 +39,8 @@ export class AdminExpansionController {
     private readonly analytics: FranchiseAnalyticsService,
     private readonly settlements: FranchiseSettlementService,
     private readonly applications: FranchiseApplicationService,
+    private readonly payouts: FranchisePayoutService,
+    private readonly bankAccounts: FranchiseBankAccountService,
   ) {}
 
   @Get('overview')
@@ -149,10 +153,24 @@ export class AdminExpansionController {
     };
   }
 
-  @Patch('settlements/:id/paid')
+  /**
+   * Actually send the money. Idempotent on the settlement, and the settlement is
+   * only marked PAID once the transfer really succeeds.
+   *
+   * This replaces the old `markPaid()` status-flip, which reported a partner as
+   * paid without a single rupee having moved.
+   */
+  @Patch('settlements/:id/pay')
   @Permissions('settlements:manage')
-  async markSettlementPaid(@Param('id') id: string) {
-    return { success: true, data: await this.settlements.markPaid(id) };
+  async paySettlement(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return { success: true, data: await this.payouts.payoutSettlement(user.id, id) };
+  }
+
+  /** Verify a partner's bank account and create the Razorpay linked account. */
+  @Patch('franchise/:id/bank-account/verify')
+  @Permissions('settlements:manage')
+  async verifyBankAccount(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return { success: true, data: await this.bankAccounts.verify(user.id, id) };
   }
 }
 

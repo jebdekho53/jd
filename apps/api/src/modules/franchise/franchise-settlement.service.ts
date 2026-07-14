@@ -11,6 +11,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { LedgerService } from '../finance/ledger.service';
 import { LEDGER_ACCOUNT_CODES } from '../finance/ledger-accounts.constants';
 import { computeFranchiseShare } from './expansion.util';
+import { computeFranchiseTax } from './franchise-tax.util';
 import { BUYER_STATUS_GROUPS } from '../order/order-status-groups';
 import { DistributedLockService } from '../../redis/distributed-lock.service';
 
@@ -66,6 +67,13 @@ export class FranchiseSettlementService {
     const commissionBase = Number(commissionAgg._sum.commissionAmount ?? 0);
     const { franchiseShare, platformShare } = computeFranchiseShare(commissionBase, fp.commissionPercent);
 
+    // GST only applies if the partner is actually GST-registered; TDS (194H) is
+    // withheld from every partner. netPayable is what will reach their bank.
+    const tax = computeFranchiseTax({
+      franchiseShare,
+      gstRegistered: Boolean(fp.gstin),
+    });
+
     const settlement = await this.prisma.franchiseSettlement.create({
       data: {
         franchiseId,
@@ -75,6 +83,11 @@ export class FranchiseSettlementService {
         commissionBase,
         franchiseShare,
         platformShare,
+        gstPercent: tax.gstPercent,
+        gstAmount: tax.gstAmount,
+        tdsPercent: tax.tdsPercent,
+        tdsAmount: tax.tdsAmount,
+        netPayable: tax.netPayable,
         status: FranchiseSettlementStatus.PENDING,
       },
     });

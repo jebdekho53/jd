@@ -10,6 +10,8 @@ export const LEDGER_ACCOUNT_CODES = {
   PLATFORM_COMMISSION: 'PLATFORM_COMMISSION',
   DELIVERY_REVENUE: 'DELIVERY_REVENUE',
   GST_PAYABLE: 'GST_PAYABLE',
+  // TDS withheld from partner payouts (s.194H) and owed to the government.
+  TDS_PAYABLE: 'TDS_PAYABLE',
   COD_COLLECTED: 'COD_COLLECTED',
 } as const;
 
@@ -34,6 +36,7 @@ export const LEDGER_ACCOUNT_DEFINITIONS: {
   { code: LEDGER_ACCOUNT_CODES.RIDER_PAYABLE, name: 'Rider Payable', kind: 'LIABILITY' },
   { code: LEDGER_ACCOUNT_CODES.WALLET_LIABILITY, name: 'Wallet Liability', kind: 'LIABILITY' },
   { code: LEDGER_ACCOUNT_CODES.GST_PAYABLE, name: 'GST Payable', kind: 'LIABILITY' },
+  { code: LEDGER_ACCOUNT_CODES.TDS_PAYABLE, name: 'TDS Payable', kind: 'LIABILITY' },
   { code: LEDGER_ACCOUNT_CODES.REFUND_EXPENSE, name: 'Refund Expense', kind: 'EXPENSE' },
   { code: LEDGER_ACCOUNT_CODES.PROMOTION_EXPENSE, name: 'Promotion Expense', kind: 'EXPENSE' },
   { code: LEDGER_ACCOUNT_CODES.PLATFORM_COMMISSION, name: 'Platform Commission', kind: 'REVENUE' },
