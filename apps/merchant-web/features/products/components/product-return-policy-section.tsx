@@ -73,7 +73,7 @@ export function ProductReturnPolicySection({ value, onChange, onSuggestAi }: Pro
             Suggest policy with AI (you confirm before save)
           </button>
         )}
-        <div className="grid grid-cols-3 gap-2 text-sm">
+        <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
           <label className="flex items-center gap-2">
             <input
               type="checkbox"

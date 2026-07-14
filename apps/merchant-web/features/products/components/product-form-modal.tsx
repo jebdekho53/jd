@@ -538,7 +538,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
             <a href="/categories" className="underline">Business Categories</a>.
           </p>
         )}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Input label="Price (₹) *" type="number" step="0.01" error={errors.basePrice?.message} {...register('basePrice')} />
           <Input label="MRP (₹)" type="number" step="0.01" {...register('mrp')} />
           <Input label="Unit" placeholder="kg / piece" {...register('unit')} />
