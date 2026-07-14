@@ -37,6 +37,9 @@ export function ExpansionAdminContent() {
   const [pincodesText, setPincodesText] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [approved, setApproved] = useState<ApprovalResult | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [payoutResult, setPayoutResult] = useState<PayoutResult | null>(null);
 
   const { data: overview, isLoading } = useQuery({
     queryKey: ['admin', 'expansion'],
@@ -81,6 +84,25 @@ export function ExpansionAdminContent() {
     onSuccess: async () => {
       setRejectReason('');
       await queryClient.invalidateQueries({ queryKey: ['admin', 'expansion', 'leads'] });
+    },
+  });
+
+  const verifyBank = useMutation({
+    mutationFn: (franchiseId: string) => {
+      setVerifyingId(franchiseId);
+      return sendExpansion(`franchise/${franchiseId}/bank-account/verify`, 'PATCH', {});
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'expansion'] }),
+  });
+
+  const pay = useMutation({
+    mutationFn: (settlementId: string) => {
+      setPayingId(settlementId);
+      return sendExpansion(`settlements/${settlementId}/pay`, 'PATCH', {});
+    },
+    onSuccess: async (data: PayoutResult) => {
+      setPayoutResult(data);
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'expansion'] });
     },
   });
 
@@ -220,16 +242,52 @@ export function ExpansionAdminContent() {
         </section>
       )}
 
-      <section className="grid gap-6 lg:grid-cols-3">
+      <section className="grid gap-6 lg:grid-cols-2">
         <Panel title="Franchise Partners">
           {franchises.map((f: FranchiseRow) => (
-            <div key={f.id} className="mb-2 flex justify-between text-xs text-slate-300">
-              <span>{f.businessName}</span>
-              <span>{f.status} · {f.commissionPercent}%</span>
+            <div
+              key={f.id}
+              className="mb-3 flex items-center justify-between gap-3 border-b border-slate-700/60 pb-3 last:border-0"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium text-slate-200">{f.businessName}</p>
+                <p className="text-[11px] text-slate-400">
+                  {f.status} · {f.commissionPercent}% ·{' '}
+                  {f.bankAccount ? (
+                    f.bankAccount.verified ? (
+                      <span className="text-emerald-400">
+                        Bank {f.bankAccount.accountNumber} verified
+                      </span>
+                    ) : (
+                      <span className="text-amber-400">Bank added, not verified</span>
+                    )
+                  ) : (
+                    <span className="text-slate-500">No bank account</span>
+                  )}
+                </p>
+              </div>
+
+              {/* A partner cannot be paid until the bank account is verified — that
+                  is what creates the Razorpay account we transfer into. */}
+              {f.bankAccount && !f.bankAccount.verified && (
+                <button
+                  onClick={() => verifyBank.mutate(f.id)}
+                  disabled={verifyBank.isPending && verifyingId === f.id}
+                  className="shrink-0 rounded-md bg-emerald-500 px-2 py-1 text-[11px] font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+                >
+                  {verifyBank.isPending && verifyingId === f.id ? 'Verifying…' : 'Verify bank'}
+                </button>
+              )}
             </div>
           ))}
           {franchises.length === 0 && <p className="text-xs text-slate-500">No franchise partners yet.</p>}
+          {verifyBank.isError && (
+            <p className="mt-2 rounded-md bg-red-500/10 px-2 py-1 text-[11px] text-red-300">
+              {(verifyBank.error as Error).message}
+            </p>
+          )}
         </Panel>
+
         <Panel title="Open Territory Conflicts">
           {openConflicts.map((c: ConflictRow) => (
             <div key={c.id} className="mb-2 text-xs text-amber-300">
@@ -238,14 +296,78 @@ export function ExpansionAdminContent() {
           ))}
           {openConflicts.length === 0 && <p className="text-xs text-slate-500">No open conflicts.</p>}
         </Panel>
-        <Panel title="Franchise Revenue">
-          {revenue.slice(0, 8).map((r: RevenueRow) => (
-            <div key={r.id} className="mb-2 flex justify-between text-xs text-slate-300">
-              <span>{r.franchise?.businessName}</span>
-              <span>₹{Number(r.franchiseShare)} · {r.status}</span>
-            </div>
-          ))}
-        </Panel>
+      </section>
+
+      {/* Settlements & payouts — the money actually leaving the platform. */}
+      <section className="rounded-lg border border-slate-700 bg-slate-800 p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-200">Settlements &amp; Payouts</h2>
+
+        {revenue.length === 0 && (
+          <p className="text-xs text-slate-500">
+            No settlements yet. They are generated monthly, or on demand.
+          </p>
+        )}
+
+        {revenue.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-xs">
+              <thead className="text-slate-400">
+                <tr className="border-b border-slate-700">
+                  <th className="pb-2 pr-3 font-medium">Partner</th>
+                  <th className="pb-2 pr-3 font-medium">Period</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Share</th>
+                  <th className="pb-2 pr-3 text-right font-medium">GST</th>
+                  <th className="pb-2 pr-3 text-right font-medium">TDS</th>
+                  <th className="pb-2 pr-3 text-right font-medium">Net to bank</th>
+                  <th className="pb-2 pr-3 font-medium">Status</th>
+                  <th className="pb-2 font-medium" />
+                </tr>
+              </thead>
+              <tbody>
+                {revenue.map((r: RevenueRow) => (
+                  <tr key={r.id} className="border-b border-slate-700/50 text-slate-300">
+                    <td className="py-2 pr-3">{r.franchise?.businessName ?? '—'}</td>
+                    <td className="py-2 pr-3 text-slate-400">
+                      {r.periodEnd ? new Date(r.periodEnd).toLocaleDateString() : '—'}
+                    </td>
+                    <td className="py-2 pr-3 text-right">{money(r.franchiseShare)}</td>
+                    <td className="py-2 pr-3 text-right text-slate-400">{money(r.gstAmount)}</td>
+                    <td className="py-2 pr-3 text-right text-amber-300">−{money(r.tdsAmount)}</td>
+                    <td className="py-2 pr-3 text-right font-semibold text-white">
+                      {money(r.netPayable)}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <StatusPill status={r.status} />
+                    </td>
+                    <td className="py-2">
+                      {r.status !== 'PAID' && Number(r.netPayable) > 0 && (
+                        <button
+                          onClick={() => pay.mutate(r.id)}
+                          disabled={pay.isPending && payingId === r.id}
+                          className="rounded-md bg-emerald-500 px-2 py-1 text-[11px] font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+                        >
+                          {pay.isPending && payingId === r.id ? 'Paying…' : 'Pay now'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {pay.isError && (
+          <p className="mt-3 rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            {(pay.error as Error).message}
+          </p>
+        )}
+        {pay.isSuccess && (
+          <p className="mt-3 rounded-md bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+            Payout sent. Transfer {payoutResult?.razorpayTransferId ?? '—'} ·{' '}
+            {money(payoutResult?.netAmount)} to the partner&apos;s bank.
+          </p>
+        )}
       </section>
 
       {cities.length > 0 && (
@@ -314,6 +436,21 @@ function normalisePincodes(input: string) {
   return [...new Set(input.split(/[\s,]+/).map((p) => p.trim()).filter((p) => /^\d{6}$/.test(p)))];
 }
 
+/** Decimals arrive from Prisma as strings — coerce before formatting. */
+function money(value: number | string | null | undefined) {
+  return `₹${Number(value ?? 0).toFixed(2)}`;
+}
+
+function StatusPill({ status }: { status: string }) {
+  const tone =
+    status === 'PAID'
+      ? 'bg-emerald-500/15 text-emerald-300'
+      : status === 'FAILED'
+        ? 'bg-red-500/15 text-red-300'
+        : 'bg-slate-600/30 text-slate-300';
+  return <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${tone}`}>{status}</span>;
+}
+
 interface Lead {
   id: string;
   name: string;
@@ -343,7 +480,29 @@ interface ConflictPreview {
     franchise: { id: string; businessName: string; referralCode?: string | null };
   }>;
 }
-interface FranchiseRow { id: string; businessName: string; status: string; commissionPercent: number }
+interface FranchiseRow {
+  id: string;
+  businessName: string;
+  status: string;
+  commissionPercent: number;
+  /** accountNumber arrives already masked from the API. */
+  bankAccount?: { accountNumber: string; ifsc: string; verified: boolean } | null;
+}
 interface CityRow { id: string; city: string; state: string; launchStatus: string; readinessScore: number }
 interface ConflictRow { id: string; pincode: string; franchise?: { businessName: string } }
-interface RevenueRow { id: string; franchiseShare: number; status: string; franchise?: { businessName: string } }
+interface RevenueRow {
+  id: string;
+  franchiseShare: number | string;
+  gstAmount: number | string;
+  tdsAmount: number | string;
+  netPayable: number | string;
+  periodEnd?: string;
+  status: string;
+  franchise?: { businessName: string };
+}
+interface PayoutResult {
+  id: string;
+  status: string;
+  netAmount: number | string;
+  razorpayTransferId?: string | null;
+}
