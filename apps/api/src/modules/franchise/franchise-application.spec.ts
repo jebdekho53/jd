@@ -39,6 +39,7 @@ describe('submitApplication — public funnel', () => {
   it('creates a real ExpansionLead (the model was previously never written to)', async () => {
     const create = jest.fn().mockResolvedValue({ id: 'lead-9', status: ExpansionLeadStatus.NEW });
     const prisma = {
+      user: { findFirst: jest.fn().mockResolvedValue(null) },
       expansionLead: { findFirst: jest.fn().mockResolvedValue(null), create },
     } as never;
 
@@ -58,6 +59,7 @@ describe('submitApplication — public funnel', () => {
   it('a repeat application from the same phone does NOT create a second lead and does not throw', async () => {
     const create = jest.fn();
     const prisma = {
+      user: { findFirst: jest.fn().mockResolvedValue(null) },
       expansionLead: {
         findFirst: jest.fn().mockResolvedValue({ id: 'lead-1', status: ExpansionLeadStatus.NEW }),
         create,
@@ -75,6 +77,7 @@ describe('submitApplication — public funnel', () => {
   it('only an OPEN lead dedupes — a rejected applicant can apply again', async () => {
     const findFirst = jest.fn().mockResolvedValue(null);
     const prisma = {
+      user: { findFirst: jest.fn().mockResolvedValue(null) },
       expansionLead: {
         findFirst,
         create: jest.fn().mockResolvedValue({ id: 'lead-2', status: ExpansionLeadStatus.NEW }),
@@ -93,6 +96,7 @@ describe('submitApplication — public funnel', () => {
   it('drops malformed pincodes and de-duplicates them', async () => {
     const create = jest.fn().mockResolvedValue({ id: 'l', status: ExpansionLeadStatus.NEW });
     const prisma = {
+      user: { findFirst: jest.fn().mockResolvedValue(null) },
       expansionLead: { findFirst: jest.fn().mockResolvedValue(null), create },
     } as never;
 
@@ -103,6 +107,39 @@ describe('submitApplication — public funnel', () => {
 
     expect(create.mock.calls[0][0].data.pincodes).toEqual(['201001']);
   });
+
+  it('refuses an applicant who is ALREADY a franchise partner', async () => {
+    const create = jest.fn();
+    const prisma = {
+      user: { findFirst: jest.fn().mockResolvedValue({ id: 'user-existing' }) },
+      expansionLead: { findFirst: jest.fn().mockResolvedValue(null), create },
+    } as never;
+
+    await expect(
+      new FranchiseApplicationService(prisma, {} as never).submitApplication(VALID_APPLICATION),
+    ).rejects.toThrow(BadRequestException);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('does NOT block a merely-registered user — an existing buyer may take a franchise', async () => {
+    // The partner lookup is scoped to `franchisePartner: { isNot: null }`, so a plain
+    // buyer/merchant account does not match and the application proceeds.
+    const findFirst = jest.fn().mockResolvedValue(null);
+    const create = jest.fn().mockResolvedValue({ id: 'lead-3', status: ExpansionLeadStatus.NEW });
+    const prisma = {
+      user: { findFirst },
+      expansionLead: { findFirst: jest.fn().mockResolvedValue(null), create },
+    } as never;
+
+    const res = await new FranchiseApplicationService(prisma, {} as never).submitApplication({
+      ...VALID_APPLICATION,
+      email: 'existing.buyer@example.com',
+    });
+
+    expect(findFirst.mock.calls[0][0].where.franchisePartner).toEqual({ isNot: null });
+    expect(res.duplicate).toBe(false);
+    expect(create).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -111,11 +148,22 @@ function buildApproveHarness(opts: {
   conflicts?: unknown[];
   txImpl?: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
   existingCodes?: string[];
+  /** An account that already exists for this applicant (by phone, then by email). */
+  existingUser?: { id: string; email?: string | null } | null;
+  /** That account already holds a partnership. */
+  existingPartner?: { businessName: string } | null;
 }) {
   const tx = {
-    user: { upsert: jest.fn().mockResolvedValue({ id: 'user-1' }) },
+    user: {
+      findUnique: jest.fn().mockResolvedValue(opts.existingUser ?? null),
+      create: jest.fn().mockResolvedValue({ id: 'user-1' }),
+      update: jest.fn().mockResolvedValue({ id: 'user-1' }),
+    },
     userRole: { upsert: jest.fn().mockResolvedValue({}) },
-    franchisePartner: { create: jest.fn().mockResolvedValue({ id: 'fr-new' }) },
+    franchisePartner: {
+      findUnique: jest.fn().mockResolvedValue(opts.existingPartner ?? null),
+      create: jest.fn().mockResolvedValue({ id: 'fr-new' }),
+    },
     franchiseAudit: { create: jest.fn().mockResolvedValue({}) },
     expansionLead: { update: jest.fn().mockResolvedValue({}) },
   };
@@ -151,7 +199,7 @@ describe('approveLead — transactional partner creation', () => {
     const res = await svc.approveLead('admin-1', 'lead-1', {});
 
     // Every write must have gone through the transaction client, never the root one.
-    expect(tx.user.upsert).toHaveBeenCalledTimes(1);
+    expect(tx.user.create).toHaveBeenCalledTimes(1);
     expect(tx.userRole.upsert).toHaveBeenCalledTimes(1);
     expect(tx.franchisePartner.create).toHaveBeenCalledTimes(1);
     expect(tx.expansionLead.update).toHaveBeenCalledTimes(1);
@@ -161,6 +209,67 @@ describe('approveLead — transactional partner creation', () => {
 
     expect(res.referralCode).toBe('FR-GHA-01');
     expect(res.hasConflicts).toBe(false);
+  });
+
+  it('reuses an existing account instead of creating a duplicate user', async () => {
+    // The applicant is already a buyer (found by phone). Approval must grant them the
+    // FRANCHISE role on that account, not try to mint a second one.
+    const { svc, tx } = buildApproveHarness({
+      existingUser: { id: 'user-buyer', email: 'rahul@example.com' },
+    });
+
+    await svc.approveLead('admin-1', 'lead-1', {});
+
+    expect(tx.user.create).not.toHaveBeenCalled();
+    expect(tx.userRole.upsert.mock.calls[0][0].create.userId).toBe('user-buyer');
+    expect(tx.franchisePartner.create.mock.calls[0][0].data.userId).toBe('user-buyer');
+  });
+
+  it('does not blow up when the email already belongs to ANOTHER account', async () => {
+    // The original bug: user.upsert({ where: { phone }, create: { phone, email } })
+    // hit User.email's unique index and the approval died with "email already exists".
+    //
+    // The fix must NOT be "reuse whoever owns the email" — that account has a different
+    // phone, so the partnership would land on a stranger and the real applicant could
+    // never sign in (the portal logs in by phone OTP). Instead: create the account on
+    // the applicant's PHONE and simply leave the taken email off it.
+    const { svc, tx } = buildApproveHarness({ existingUser: null });
+    tx.user.findUnique
+      .mockResolvedValueOnce({ id: 'someone-else' }) // email lookup — taken
+      .mockResolvedValueOnce(null); // phone lookup — free
+
+    await expect(svc.approveLead('admin-1', 'lead-1', {})).resolves.toBeDefined();
+
+    expect(tx.user.create).toHaveBeenCalledTimes(1);
+    expect(tx.user.create.mock.calls[0][0].data).toEqual({
+      phone: '+919876543210',
+      email: null, // NOT stolen from the other account
+    });
+    expect(tx.franchisePartner.create.mock.calls[0][0].data.userId).toBe('user-1');
+  });
+
+  it('never hijacks the account that owns the email when the phone differs', async () => {
+    const { svc, tx } = buildApproveHarness({ existingUser: null });
+    tx.user.findUnique
+      .mockResolvedValueOnce({ id: 'stranger' }) // email is taken by someone else
+      .mockResolvedValueOnce(null); // no account on the applicant's phone
+
+    await svc.approveLead('admin-1', 'lead-1', {});
+
+    // The partnership goes to the freshly-created phone account, never to 'stranger'.
+    expect(tx.franchisePartner.create.mock.calls[0][0].data.userId).not.toBe('stranger');
+  });
+
+  it('refuses to approve an account that already holds a partnership', async () => {
+    const { svc, tx } = buildApproveHarness({
+      existingUser: { id: 'user-1', email: null },
+      existingPartner: { businessName: 'Existing Franchise Pvt Ltd' },
+    });
+
+    await expect(svc.approveLead('admin-1', 'lead-1', {})).rejects.toThrow(
+      /already a franchise partner/i,
+    );
+    expect(tx.franchisePartner.create).not.toHaveBeenCalled();
   });
 
   it('a failure partway leaves NO orphaned user holding a FRANCHISE role', async () => {
@@ -278,9 +387,16 @@ describe('approveLead — referral code allocation', () => {
     // inside it — the whole tx must be replayed with the next code.
     let call = 0;
     const tx = {
-      user: { upsert: jest.fn().mockResolvedValue({ id: 'u' }) },
+      user: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'u' }),
+        update: jest.fn().mockResolvedValue({ id: 'u' }),
+      },
       userRole: { upsert: jest.fn().mockResolvedValue({}) },
-      franchisePartner: { create: jest.fn().mockResolvedValue({ id: 'fr-new' }) },
+      franchisePartner: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'fr-new' }),
+      },
       franchiseAudit: { create: jest.fn().mockResolvedValue({}) },
       expansionLead: { update: jest.fn().mockResolvedValue({}) },
     };

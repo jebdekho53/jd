@@ -45,6 +45,25 @@ export class FranchiseApplicationService {
    */
   async submitApplication(dto: SubmitFranchiseApplicationDto) {
     const phone = dto.phone.trim();
+    const email = dto.email?.trim() || null;
+
+    // Someone who is ALREADY a franchise partner must not apply again — one account
+    // can only hold one partnership, so the approval could never succeed anyway.
+    // Note we deliberately do NOT reject merely-registered users: an existing buyer
+    // or merchant is exactly the kind of person who takes a franchise, and approval
+    // reuses their account. Only an existing *partnership* is a real blocker.
+    const partnerUser = await this.prisma.user.findFirst({
+      where: {
+        franchisePartner: { isNot: null },
+        OR: [{ phone }, ...(email ? [{ email }] : [])],
+      },
+      select: { id: true },
+    });
+    if (partnerUser) {
+      throw new BadRequestException(
+        'You are already registered as a JebDekho franchise partner. Please sign in instead.',
+      );
+    }
 
     const existing = await this.prisma.expansionLead.findFirst({
       where: { phone, status: { in: OPEN_LEAD_STATUSES } },
@@ -58,7 +77,7 @@ export class FranchiseApplicationService {
       data: {
         name: dto.name.trim(),
         phone,
-        email: dto.email?.trim() || null,
+        email,
         city: dto.city.trim(),
         state: dto.state.trim(),
         pincodes: normalisePincodes(dto.pincodes ?? []),
@@ -134,13 +153,55 @@ export class FranchiseApplicationService {
 
       try {
         return await this.prisma.$transaction(async (tx) => {
-          // The applicant may already exist as a buyer — reuse that user rather
-          // than failing on the unique phone.
-          const user = await tx.user.upsert({
-            where: { phone: lead.phone },
-            update: { email: lead.email ?? undefined },
-            create: { phone: lead.phone, email: lead.email },
+          // PHONE is the identity in this system: it is unique, required, and the
+          // franchise portal signs in with a phone OTP. Email is optional and merely
+          // decorative here — so we match on phone, never on email.
+          //
+          // The original bug: user.upsert({ where: { phone }, create: { phone, email } })
+          // hit User.email's unique index whenever the applicant's email already sat on
+          // some other account, and the whole approval died with "email already exists".
+          // We must NOT fix that by reusing the account that owns the email — its phone
+          // is a different number, so the partnership would land on a stranger's (often
+          // a seeded/test) account and the real applicant could never log in.
+          //
+          // So: reuse the account only when the PHONE matches, and attach the email only
+          // when nobody else holds it. A taken email simply isn't copied across.
+          const emailIsFree = lead.email
+            ? !(await tx.user.findUnique({ where: { email: lead.email }, select: { id: true } }))
+            : false;
+
+          let user = await tx.user.findUnique({ where: { phone: lead.phone } });
+
+          if (user) {
+            if (lead.email && emailIsFree && user.email !== lead.email) {
+              user = await tx.user.update({
+                where: { id: user.id },
+                data: { email: lead.email },
+              });
+            }
+          } else {
+            user = await tx.user.create({
+              data: { phone: lead.phone, email: emailIsFree ? lead.email : null },
+            });
+          }
+
+          if (lead.email && !emailIsFree && user.email !== lead.email) {
+            this.logger.warn(
+              `Lead ${lead.id}: email ${lead.email} already belongs to another account; ` +
+                `partner created on phone ${lead.phone} without it.`,
+            );
+          }
+
+          // FranchisePartner.userId is unique — one account cannot hold two
+          // partnerships. Fail with something an admin can act on.
+          const alreadyPartner = await tx.franchisePartner.findUnique({
+            where: { userId: user.id },
           });
+          if (alreadyPartner) {
+            throw new BadRequestException(
+              `This applicant is already a franchise partner (${alreadyPartner.businessName}).`,
+            );
+          }
 
           await tx.userRole.upsert({
             where: { userId_roleId: { userId: user.id, roleId: franchiseRole.id } },
