@@ -28,11 +28,30 @@ export class FranchisePortalController {
     return { success: true, data: await this.analytics.getFranchiseDashboard(id) };
   }
 
+  /** The partner's invite link — the top of the whole acquisition funnel. */
+  @Get('referral')
+  async referral(@CurrentUser() user: RequestUser) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.franchise.getReferral(id) };
+  }
+
+  /** Merchants recruited via this partner's referral code, and their status. */
+  @Get('pipeline')
+  async pipeline(@CurrentUser() user: RequestUser) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.franchise.getPipeline(id) };
+  }
+
   @Get('stores')
   async stores(@CurrentUser() user: RequestUser) {
     const id = await this.franchise.resolveFranchiseId(user.id);
-    const dash = await this.analytics.getFranchiseDashboard(id);
-    return { success: true, data: dash };
+    const [dash, links] = await Promise.all([
+      this.analytics.getFranchiseDashboard(id),
+      this.franchise.getLinkedStores(id),
+    ]);
+    // links surfaces PENDING_REVIEW attributions with their conflict_reason, so a
+    // partner can see a disputed store rather than silently not being paid for it.
+    return { success: true, data: { ...dash, links } };
   }
 
   @Get('territory')
