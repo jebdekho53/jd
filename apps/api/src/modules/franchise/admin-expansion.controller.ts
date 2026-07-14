@@ -25,6 +25,8 @@ import {
   GenerateFranchiseSettlementsDto,
   RejectExpansionLeadDto,
   RejectFranchiseDocumentDto,
+  ResolveStoreLinkDto,
+  ResolveTerritoryConflictDto,
   UpdateFranchiseDto,
 } from './dto/franchise.dto';
 
@@ -167,6 +169,46 @@ export class AdminExpansionController {
   @Permissions('settlements:manage')
   async paySettlement(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return { success: true, data: await this.payouts.payoutSettlement(user.id, id) };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Conflict resolution — a parked attribution earns the partner nothing until
+  // someone decides here, so this is the queue that actually moves money.
+  // ---------------------------------------------------------------------------
+
+  @Get('store-links/pending')
+  @Permissions('settlements:read')
+  async pendingStoreLinks() {
+    return { success: true, data: await this.territory.listPendingStoreLinks() };
+  }
+
+  @Patch('store-links/:id/resolve')
+  @Permissions('settlements:manage')
+  async resolveStoreLink(
+    @Param('id') id: string,
+    @Body() dto: ResolveStoreLinkDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return { success: true, data: await this.territory.resolveStoreLink(user.id, id, dto) };
+  }
+
+  @Patch('conflicts/:id/resolve')
+  @Permissions('settlements:manage')
+  async resolveConflict(
+    @Param('id') id: string,
+    @Body() dto: ResolveTerritoryConflictDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return {
+      success: true,
+      data: await this.territory.resolveConflict(user.id, id, dto.resolution),
+    };
+  }
+
+  @Get('leaderboard')
+  @Permissions('settlements:read')
+  async leaderboard() {
+    return { success: true, data: await this.analytics.getLeaderboard() };
   }
 
   // ---------------------------------------------------------------------------

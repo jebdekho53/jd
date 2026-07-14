@@ -33,6 +33,13 @@ export class FranchisePortalController {
     private readonly kyc: FranchiseKycService,
   ) {}
 
+  /** Where this partner stands against everyone else. */
+  @Get('leaderboard')
+  async leaderboard(@CurrentUser() user: RequestUser) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.analytics.getMyStanding(id) };
+  }
+
   /** What is still missing before this partner can be paid. */
   @Get('kyc')
   async kycStatus(@CurrentUser() user: RequestUser) {

@@ -1,6 +1,14 @@
-import { Injectable } from '@nestjs/common';
-import { FranchiseAuditAction, FranchisePartnerStatus, Prisma } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  FranchiseAuditAction,
+  FranchisePartnerStatus,
+  FranchiseStoreStatus,
+  Prisma,
+  TerritoryConflictStatus,
+} from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma.service';
+import { FRANCHISE_EVENTS } from './franchise.events';
 
 /**
  * Either the root client or an interactive-transaction client. Territory assignment
@@ -11,7 +19,10 @@ type PrismaLike = PrismaService | Prisma.TransactionClient;
 
 @Injectable()
 export class TerritoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly events: EventEmitter2,
+  ) {}
 
   async assignTerritory(
     franchiseId: string,
@@ -100,6 +111,104 @@ export class TerritoryService {
       }
     }
     return conflicts;
+  }
+
+  /**
+   * Resolve a parked store attribution.
+   *
+   * This is the only thing that actually moves money: a PENDING_REVIEW link earns
+   * the partner nothing, so until an admin decides here, the store they recruited
+   * is worth zero to them. APPROVE credits the recruiter; REJECT means they never
+   * get paid for it — which is why a reason is required either way.
+   */
+  async resolveStoreLink(
+    adminId: string,
+    linkId: string,
+    input: { approve: boolean; reason: string },
+  ) {
+    const link = await this.prisma.franchiseStore.findUnique({
+      where: { id: linkId },
+      include: { store: { select: { name: true } } },
+    });
+    if (!link) throw new NotFoundException('Store attribution not found');
+    if (link.status !== FranchiseStoreStatus.PENDING_REVIEW) {
+      throw new BadRequestException('This attribution is not awaiting review');
+    }
+
+    const updated = await this.prisma.franchiseStore.update({
+      where: { id: linkId },
+      data: {
+        status: input.approve ? FranchiseStoreStatus.ACTIVE : FranchiseStoreStatus.REJECTED,
+        conflictReason: input.reason,
+      },
+    });
+
+    await this.prisma.franchiseAudit.create({
+      data: {
+        franchiseId: link.franchiseId,
+        action: FranchiseAuditAction.CONFLICT_DETECTED,
+        actorId: adminId,
+        metadata: {
+          resolved: true,
+          franchiseStoreId: linkId,
+          storeId: link.storeId,
+          decision: input.approve ? 'APPROVED' : 'REJECTED',
+          reason: input.reason,
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    this.events.emit(
+      input.approve ? FRANCHISE_EVENTS.STORE_LINKED : FRANCHISE_EVENTS.STORE_DISPUTED,
+      {
+        franchiseId: link.franchiseId,
+        storeName: link.store.name,
+        reason: input.approve ? null : input.reason,
+      },
+    );
+
+    return updated;
+  }
+
+  /** Store attributions parked because of an exclusive-territory clash. */
+  async listPendingStoreLinks() {
+    return this.prisma.franchiseStore.findMany({
+      where: { status: FranchiseStoreStatus.PENDING_REVIEW },
+      include: {
+        franchise: { select: { id: true, businessName: true, referralCode: true } },
+        store: { select: { id: true, name: true, pincode: true } },
+      },
+      orderBy: { linkedAt: 'asc' },
+      take: 100,
+    });
+  }
+
+  /** Close a territory-vs-territory conflict with a written resolution. */
+  async resolveConflict(adminId: string, conflictId: string, resolution: string) {
+    const conflict = await this.prisma.territoryConflict.findUnique({
+      where: { id: conflictId },
+    });
+    if (!conflict) throw new NotFoundException('Conflict not found');
+
+    const updated = await this.prisma.territoryConflict.update({
+      where: { id: conflictId },
+      data: {
+        status: TerritoryConflictStatus.RESOLVED,
+        resolution,
+        resolvedAt: new Date(),
+      },
+    });
+
+    await this.prisma.franchiseAudit.create({
+      data: {
+        franchiseId: conflict.franchiseId,
+        action: FranchiseAuditAction.CONFLICT_DETECTED,
+        actorId: adminId,
+        metadata: { conflictId, resolved: true, resolution } as Prisma.InputJsonValue,
+      },
+    });
+
+    return updated;
   }
 
   async listConflicts() {

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TerritoryService } from './territory.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma.service';
 
 describe('TerritoryService', () => {
@@ -12,7 +13,12 @@ describe('TerritoryService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [TerritoryService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        TerritoryService,
+        { provide: PrismaService, useValue: mockPrisma },
+        // Notifications ride the event bus; the spec only needs it to resolve.
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
+      ],
     }).compile();
     service = module.get(TerritoryService);
     jest.clearAllMocks();

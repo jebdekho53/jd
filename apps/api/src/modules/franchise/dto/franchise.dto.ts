@@ -254,3 +254,23 @@ export class RejectFranchiseDocumentDto {
   @Length(3, 1000)
   reason!: string;
 }
+
+/** Resolve a store attribution parked by an exclusive-territory clash. */
+export class ResolveStoreLinkDto {
+  @ApiProperty({ example: true, description: 'true credits the recruiter, false rejects the claim' })
+  @IsBoolean()
+  approve!: boolean;
+
+  /** Required either way: rejecting means the partner never gets paid for that store. */
+  @ApiProperty({ example: 'Store is outside the exclusive pincode; crediting the recruiter.' })
+  @IsString()
+  @Length(3, 1000)
+  reason!: string;
+}
+
+export class ResolveTerritoryConflictDto {
+  @ApiProperty({ example: 'Pincode 110001 reassigned to NCR by agreement.' })
+  @IsString()
+  @Length(3, 1000)
+  resolution!: string;
+}
