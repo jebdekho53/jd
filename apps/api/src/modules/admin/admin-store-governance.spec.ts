@@ -13,6 +13,7 @@ import { EmailNotificationService } from '../email/email-notification.service';
 import { MerchantService } from '../merchant/merchant.service';
 import { VerticalService } from '../store-vertical/vertical.service';
 import { MERCHANT_BLOCKED_MESSAGE } from '../../common/constants/rejection.constants';
+import { FranchiseStoreLinkService } from '../franchise/franchise-store-link.service';
 
 const MERCHANT_CTX = {
   id: 'mp-1',
@@ -73,6 +74,12 @@ describe('Store governance', () => {
       providers: [
         AdminStoreService,
         AdminMerchantService,
+        {
+          // Store approval now attributes the store to the franchise partner that
+          // recruited it; these governance tests don't exercise that path.
+          provide: FranchiseStoreLinkService,
+          useValue: { attributeStoreFromApplication: jest.fn(), linkStore: jest.fn() },
+        },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: StoreService, useValue: mockStoreService },
         { provide: AuditService, useValue: mockAudit },

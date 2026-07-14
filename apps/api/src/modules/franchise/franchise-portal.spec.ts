@@ -1,6 +1,12 @@
 import { Prisma, FranchiseStoreStatus } from '@prisma/client';
 import { FranchiseService } from './franchise.service';
 
+/** Store linking lives in its own service now (it must be shared with AdminModule). */
+const storeLink = {
+  linkStore: jest.fn(),
+  attributeStoreFromApplication: jest.fn(),
+} as never;
+
 const config = () =>
   ({ get: jest.fn().mockReturnValue('https://merchant.jebdekho.com') }) as never;
 
@@ -24,7 +30,7 @@ describe('getReferral — invite link', () => {
       },
     } as never;
 
-    const res = await new FranchiseService(prisma, config()).getReferral('fr-1');
+    const res = await new FranchiseService(prisma, config(), storeLink).getReferral('fr-1');
 
     expect(res).toEqual({
       referralCode: 'FR-NCR-01',
@@ -49,7 +55,7 @@ describe('getReferral — invite link', () => {
       },
     } as never;
 
-    const res = await new FranchiseService(prisma, config()).getReferral('fr-2');
+    const res = await new FranchiseService(prisma, config(), storeLink).getReferral('fr-2');
 
     expect(res.referralCode).toBe('FR-GHA-01');
     expect(update.mock.calls[0][0].data).toEqual({ referralCode: 'FR-GHA-01' });
@@ -74,7 +80,7 @@ describe('getReferral — invite link', () => {
       },
     } as never;
 
-    const res = await new FranchiseService(prisma, config()).getReferral('fr-3');
+    const res = await new FranchiseService(prisma, config(), storeLink).getReferral('fr-3');
 
     expect(res.referralCode).toBe('FR-GHA-03');
     expect(update).toHaveBeenCalledTimes(3);
@@ -94,7 +100,7 @@ describe('getReferral — invite link', () => {
       },
     } as never;
 
-    await expect(new FranchiseService(prisma, config()).getReferral('fr-4')).rejects.toThrow(
+    await expect(new FranchiseService(prisma, config(), storeLink).getReferral('fr-4')).rejects.toThrow(
       'connection lost',
     );
   });
@@ -117,7 +123,7 @@ describe('getLinkedStores — disputed attributions are visible to the partner',
       },
     } as never;
 
-    const res = await new FranchiseService(prisma, config()).getLinkedStores('fr-1');
+    const res = await new FranchiseService(prisma, config(), storeLink).getLinkedStores('fr-1');
 
     expect(res.active.map((l) => l.id)).toEqual(['l1']);
     expect(res.rejected.map((l) => l.id)).toEqual(['l3']);

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { FinanceModule } from '../finance/finance.module';
 import { MerchantDashboardModule } from '../merchant-dashboard/merchant-dashboard.module';
 import { FranchiseService } from './franchise.service';
+import { FranchiseStoreLinkService } from './franchise-store-link.service';
 import { TerritoryService } from './territory.service';
 import { ExpansionService } from './expansion.service';
 import { FranchiseAnalyticsService } from './franchise-analytics.service';
@@ -24,6 +25,7 @@ import { MerchantFranchiseExpansionController } from './merchant-franchise-expan
     MerchantFranchiseExpansionController,
   ],
   providers: [
+    FranchiseStoreLinkService,
     // Stateless argon2 wrapper with no deps — provided directly rather than
     // importing AuthModule, which would create a cycle.
     PasswordService,
@@ -35,6 +37,6 @@ import { MerchantFranchiseExpansionController } from './merchant-franchise-expan
     FranchiseExpansionMerchantService,
     FranchiseApplicationService,
   ],
-  exports: [FranchiseService, TerritoryService, ExpansionService, FranchiseAnalyticsService, FranchiseApplicationService],
+  exports: [FranchiseService, FranchiseStoreLinkService, TerritoryService, ExpansionService, FranchiseAnalyticsService, FranchiseApplicationService],
 })
 export class FranchiseModule {}

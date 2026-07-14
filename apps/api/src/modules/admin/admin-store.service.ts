@@ -20,6 +20,7 @@ import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 import { EmailNotificationService } from '../email/email-notification.service';
 import { VerticalService } from '../store-vertical/vertical.service';
+import { FranchiseStoreLinkService } from '../franchise/franchise-store-link.service';
 
 const APPROVABLE_STATUSES: StoreStatus[] = [
   StoreStatus.PENDING_REVIEW,
@@ -80,6 +81,7 @@ export class AdminStoreService {
     private readonly emailNotifications: EmailNotificationService,
     private readonly merchantService: MerchantService,
     private readonly verticalService: VerticalService,
+    private readonly franchiseStoreLink: FranchiseStoreLinkService,
   ) {}
 
   async listStoreApprovals(
@@ -198,6 +200,12 @@ export class AdminStoreService {
     if (updated.merchantProfile?.userId) {
       await this.merchantService.ensureMerchantRole(updated.merchantProfile.userId);
     }
+
+    // A store approved from THIS queue never passes through approveApplication(), so
+    // its franchise referral used to be dropped on the floor: the FranchiseStore link
+    // was never written and the partner who recruited the merchant went unpaid.
+    // Idempotent and non-throwing — it cannot break a valid approval.
+    await this.franchiseStoreLink.attributeStoreFromApplication(storeId, adminUserId);
 
     await this.verticalService.ensureStoreBusinessTypesFromApplication(storeId);
     await this.prisma.storeBusinessType.updateMany({

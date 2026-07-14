@@ -11,6 +11,7 @@ import { VerificationBlocklistService } from '../merchant/verification-blocklist
 import { EmailNotificationService } from '../email/email-notification.service';
 import { MerchantService } from '../merchant/merchant.service';
 import { VerticalService } from '../store-vertical/vertical.service';
+import { FranchiseStoreLinkService } from '../franchise/franchise-store-link.service';
 
 const PENDING_STORE = {
   id: 's-1',
@@ -55,6 +56,12 @@ describe('AdminStoreService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminStoreService,
+        {
+          // Store approval attributes the store to the franchise partner that
+          // recruited it; not exercised by these tests.
+          provide: FranchiseStoreLinkService,
+          useValue: { attributeStoreFromApplication: jest.fn(), linkStore: jest.fn() },
+        },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: StoreService, useValue: mockStoreService },
         { provide: AuditService, useValue: mockAudit },
