@@ -83,6 +83,43 @@ export class UploadService {
     return { url };
   }
 
+  /**
+   * KYC documents. Unlike `uploadImage` this accepts PDFs and skips dimension
+   * checks — a signed agreement or a PAN card is usually a PDF or a phone photo,
+   * not a cropped image of a fixed size.
+   */
+  async uploadDocument(
+    dataUrl: string,
+    folder: string,
+  ): Promise<{ url: string; mimeType: string; fileName: string }> {
+    const match = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,(.+)$/i.exec(
+      dataUrl.trim(),
+    );
+    if (!match) {
+      throw new BadRequestException('Only PDF, JPEG, PNG, or WebP documents are allowed');
+    }
+
+    const mime = match[1].toLowerCase();
+    const buffer = Buffer.from(match[2], 'base64');
+    if (buffer.length < 100) throw new BadRequestException('Document is too small');
+    if (buffer.length > 8_000_000) throw new BadRequestException('Document exceeds 8 MB');
+
+    const ext =
+      mime === 'application/pdf' ? 'pdf' : mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+    const finalName = `${randomUUID()}.${ext}`;
+
+    const cfg = getConfig(this.configService);
+    const dir = join(cfg.storage.uploadDir, folder);
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, finalName), buffer);
+
+    return {
+      url: buildUploadUrl(cfg.storage, folder, finalName),
+      mimeType: mime,
+      fileName: finalName,
+    };
+  }
+
   private parseDataUrl(dataUrl: string): { buffer: Buffer; mime: string } {
     const match = /^data:(image\/[a-z+]+);base64,(.+)$/i.exec(dataUrl.trim());
     if (!match) {

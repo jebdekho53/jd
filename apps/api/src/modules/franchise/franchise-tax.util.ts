@@ -18,11 +18,20 @@ export const FRANCHISE_GST_PERCENT = 18;
 /** Income-tax Act s.194H — TDS on commission/brokerage. */
 export const FRANCHISE_TDS_PERCENT = 5;
 
+/**
+ * Income-tax Act s.206AA — where the payee has not furnished a PAN, TDS must be
+ * deducted at 20%, not the ordinary rate. Deducting 5% from someone whose PAN we
+ * never verified makes the platform liable for the short deduction.
+ */
+export const FRANCHISE_TDS_PERCENT_NO_PAN = 20;
+
 export interface FranchiseTaxInput {
   /** The partner's share of the platform commission, before tax. */
   franchiseShare: number;
   /** True only when the partner has a GSTIN on file — unregistered partners charge no GST. */
   gstRegistered: boolean;
+  /** True only when a PAN_CARD document has been VERIFIED. Drives 194H vs 206AA. */
+  panVerified: boolean;
 }
 
 export interface FranchiseTaxBreakdown {
@@ -42,7 +51,8 @@ export function computeFranchiseTax(input: FranchiseTaxInput): FranchiseTaxBreak
 
   // Deliberately computed on `share`, not on `share + gstAmount`: TDS is deducted
   // on the commission value excluding GST.
-  const tdsPercent = share > 0 ? FRANCHISE_TDS_PERCENT : 0;
+  const rate = input.panVerified ? FRANCHISE_TDS_PERCENT : FRANCHISE_TDS_PERCENT_NO_PAN;
+  const tdsPercent = share > 0 ? rate : 0;
   const tdsAmount = round(share * (tdsPercent / 100));
 
   return {

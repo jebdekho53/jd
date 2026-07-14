@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { RazorpayService } from '../payment/razorpay.service';
 import { SaveFranchiseBankAccountDto } from './dto/franchise.dto';
+import { FranchiseKycService } from './franchise-kyc.service';
 
 @Injectable()
 export class FranchiseBankAccountService {
@@ -16,6 +17,7 @@ export class FranchiseBankAccountService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly razorpay: RazorpayService,
+    private readonly kyc: FranchiseKycService,
   ) {}
 
   async get(franchiseId: string) {
@@ -59,6 +61,10 @@ export class FranchiseBankAccountService {
         razorpayLinkedAccountId: null,
       },
     });
+
+    // Changing the account drops its verification, so the partner is no longer
+    // payout-ready — the computed flag has to fall back with it.
+    await this.kyc.refreshOnboarding(franchiseId);
 
     return this.mask(bank);
   }
@@ -123,6 +129,10 @@ export class FranchiseBankAccountService {
         razorpayLinkedAccountId: linkedAccountId,
       },
     });
+
+    // Bank verification is one of the KYC conditions, so the computed flag has to
+    // be re-evaluated here too — not only when a document changes.
+    await this.kyc.refreshOnboarding(franchiseId);
 
     this.logger.log({ franchiseId, linkedAccountId }, 'Franchise bank account verified');
     return this.mask(updated);

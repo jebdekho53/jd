@@ -10,6 +10,7 @@ import { FranchiseAnalyticsService } from './franchise-analytics.service';
 import { FranchiseSettlementService } from './franchise-settlement.service';
 import { FranchisePayoutService } from './franchise-payout.service';
 import { FranchiseBankAccountService } from './franchise-bank-account.service';
+import { FranchiseKycService } from './franchise-kyc.service';
 import { PasswordService } from '../auth/password.service';
 import { FranchiseExpansionMerchantService } from './franchise-expansion-merchant.service';
 import { AdminExpansionController, AdminFranchiseAnalyticsController } from './admin-expansion.controller';
@@ -41,6 +42,7 @@ import { MerchantFranchiseExpansionController } from './merchant-franchise-expan
     FranchiseSettlementService,
     FranchisePayoutService,
     FranchiseBankAccountService,
+    FranchiseKycService,
     FranchiseExpansionMerchantService,
     FranchiseApplicationService,
   ],
