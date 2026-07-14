@@ -88,6 +88,7 @@ async function payoutLines(): Promise<Line[]> {
     { postJournal } as never,
     { createTransfer: jest.fn().mockResolvedValue({ id: 'trf_1', status: 'processed' }) } as never,
     { assertPayoutAllowed: jest.fn().mockResolvedValue(undefined) } as never,
+    { payoutCompleted: jest.fn(), payoutFailed: jest.fn() } as never,
   );
   await svc.payoutSettlement('admin-1', 'stl-1');
   return postJournal.mock.calls[0][0].lines as Line[];

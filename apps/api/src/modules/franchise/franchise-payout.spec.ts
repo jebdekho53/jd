@@ -105,9 +105,14 @@ function harness(overrides: {
 
   // KYC gate passes by default; the blocked cases override it.
   const kyc = { assertPayoutAllowed: jest.fn().mockResolvedValue(undefined) } as never;
+  const notifications = {
+    payoutCompleted: jest.fn().mockResolvedValue(undefined),
+    payoutFailed: jest.fn().mockResolvedValue(undefined),
+  } as never;
 
   return {
-    svc: new FranchisePayoutService(prisma, ledger, razorpay, kyc),
+    svc: new FranchisePayoutService(prisma, ledger, razorpay, kyc, notifications),
+    notifications,
     kyc,
     prisma,
     tx,

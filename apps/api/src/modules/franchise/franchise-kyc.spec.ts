@@ -56,7 +56,12 @@ function harness(partner: Record<string, unknown>) {
     },
     franchiseDocument: { upsert: jest.fn(), update: jest.fn(), findMany: jest.fn() },
   } as never;
-  return { svc: new FranchiseKycService(prisma), update };
+  // Notifications are best-effort side effects; stub them out.
+  const notifications = {
+    documentReviewed: jest.fn(),
+    onboardingComplete: jest.fn(),
+  } as never;
+  return { svc: new FranchiseKycService(prisma, notifications), update, notifications };
 }
 
 describe('assertPayoutAllowed — the payout gate', () => {

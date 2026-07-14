@@ -13,6 +13,9 @@ import { LEDGER_ACCOUNT_CODES } from '../finance/ledger-accounts.constants';
 const OWNER = 'fr-owner'; // partner that owns pincode 110001 exclusively
 const RECRUITER = 'fr-recruiter'; // partner whose referral code the merchant used
 
+/** Notifications go out on the event bus; the spec only needs it to not explode. */
+const mockEvents = () => ({ emit: jest.fn() }) as never;
+
 /** FranchiseService only reads `merchantSiteUrl` (for the invite link). */
 const mockConfig = () => ({ get: jest.fn().mockReturnValue('https://merchant.jebdekho.com') }) as never;
 
@@ -39,7 +42,7 @@ function makePrismaMock(overrides: Record<string, unknown> = {}) {
 describe('linkStore — referral attribution', () => {
   it('links the store as ACTIVE when no other partner owns the pincode exclusively', async () => {
     const prisma = makePrismaMock();
-    const svc = new FranchiseStoreLinkService(prisma);
+    const svc = new FranchiseStoreLinkService(prisma, mockEvents());
 
     const link = await svc.linkStore(RECRUITER, 'store-1');
 
@@ -52,7 +55,7 @@ describe('linkStore — referral attribution', () => {
 
   it('attributes to the recruiting partner, not the territory owner', async () => {
     const prisma = makePrismaMock();
-    const svc = new FranchiseStoreLinkService(prisma);
+    const svc = new FranchiseStoreLinkService(prisma, mockEvents());
 
     await svc.linkStore(RECRUITER, 'store-1');
 
@@ -72,7 +75,7 @@ describe('linkStore — exclusivity guard', () => {
     const prisma = makePrismaMock({
       franchiseTerritory: { findFirst: jest.fn().mockResolvedValue(blocking) },
     });
-    const svc = new FranchiseStoreLinkService(prisma);
+    const svc = new FranchiseStoreLinkService(prisma, mockEvents());
 
     const link = await svc.linkStore(RECRUITER, 'store-1');
 
@@ -85,7 +88,7 @@ describe('linkStore — exclusivity guard', () => {
     const prisma = makePrismaMock({
       franchiseTerritory: { findFirst: jest.fn().mockResolvedValue(blocking) },
     });
-    const svc = new FranchiseStoreLinkService(prisma);
+    const svc = new FranchiseStoreLinkService(prisma, mockEvents());
 
     await svc.linkStore(RECRUITER, 'store-1', 'admin-9');
 
@@ -106,7 +109,7 @@ describe('linkStore — exclusivity guard', () => {
     // recruiting inside its own territory there is no blocking row.
     const findFirst = jest.fn().mockResolvedValue(null);
     const prisma = makePrismaMock({ franchiseTerritory: { findFirst } });
-    const svc = new FranchiseStoreLinkService(prisma);
+    const svc = new FranchiseStoreLinkService(prisma, mockEvents());
 
     const link = await svc.linkStore(OWNER, 'store-1');
 

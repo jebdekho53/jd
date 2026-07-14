@@ -5,7 +5,9 @@ import {
   FranchiseStoreStatus,
   Prisma,
 } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma.service';
+import { FRANCHISE_EVENTS } from './franchise.events';
 
 /**
  * Links an approved store to the franchise partner that recruited it.
@@ -22,7 +24,13 @@ import { PrismaService } from '../../database/prisma.service';
 export class FranchiseStoreLinkService {
   private readonly logger = new Logger(FranchiseStoreLinkService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // EventEmitter2 is global and dependency-free, so it does not reintroduce the
+    // module cycle that keeping this service Prisma-only was meant to avoid. The
+    // notification listener lives in FranchiseModule.
+    private readonly events: EventEmitter2,
+  ) {}
 
   /**
    * Attribute a newly-approved store to the partner whose referral link the merchant
@@ -105,6 +113,14 @@ export class FranchiseStoreLinkService {
       update: {},
       include: { store: { select: { name: true, pincode: true } } },
     });
+
+    // Tell the partner either way. A store they recruited going live is the news
+    // they are waiting for; one being parked is news they would otherwise never get —
+    // they would simply go unpaid for it with no explanation.
+    this.events.emit(
+      blockingTerritory ? FRANCHISE_EVENTS.STORE_DISPUTED : FRANCHISE_EVENTS.STORE_LINKED,
+      { franchiseId, storeName: link.store.name, reason: conflictReason },
+    );
 
     if (blockingTerritory) {
       await this.prisma.franchiseAudit.create({
