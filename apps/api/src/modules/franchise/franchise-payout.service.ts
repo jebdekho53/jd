@@ -9,6 +9,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { LedgerService } from '../finance/ledger.service';
 import { LEDGER_ACCOUNT_CODES } from '../finance/ledger-accounts.constants';
 import { RazorpayService } from '../payment/razorpay.service';
+import { FranchiseKycService } from './franchise-kyc.service';
 
 /**
  * Moves the partner's money out of the platform and into their bank.
@@ -24,6 +25,7 @@ export class FranchisePayoutService {
     private readonly prisma: PrismaService,
     private readonly ledger: LedgerService,
     private readonly razorpay: RazorpayService,
+    private readonly kyc: FranchiseKycService,
   ) {}
 
   /**
@@ -51,6 +53,11 @@ export class FranchisePayoutService {
     if (settlement.status === FranchiseSettlementStatus.PAID) {
       throw new BadRequestException('Settlement is already paid');
     }
+
+    // KYC gate: a signed agreement and a verified PAN, not just a bank account.
+    // Without the agreement there is no contract to pay against; without the PAN
+    // the TDS we withheld is at the wrong rate.
+    await this.kyc.assertPayoutAllowed(settlement.franchiseId);
 
     const bank = settlement.franchise.bankAccount;
     if (!bank) {

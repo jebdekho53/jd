@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -11,7 +11,12 @@ import { FranchiseAnalyticsService } from './franchise-analytics.service';
 import { FranchiseSettlementService } from './franchise-settlement.service';
 import { FranchiseBankAccountService } from './franchise-bank-account.service';
 import { FranchisePayoutService } from './franchise-payout.service';
-import { SaveFranchiseBankAccountDto } from './dto/franchise.dto';
+import { FranchiseKycService } from './franchise-kyc.service';
+import {
+  AcceptFranchiseAgreementDto,
+  SaveFranchiseBankAccountDto,
+  UploadFranchiseDocumentDto,
+} from './dto/franchise.dto';
 
 @ApiTags(Tags.MERCHANTS)
 @ApiBearerAuth('access-token')
@@ -25,7 +30,34 @@ export class FranchisePortalController {
     private readonly settlements: FranchiseSettlementService,
     private readonly bankAccounts: FranchiseBankAccountService,
     private readonly payouts: FranchisePayoutService,
+    private readonly kyc: FranchiseKycService,
   ) {}
+
+  /** What is still missing before this partner can be paid. */
+  @Get('kyc')
+  async kycStatus(@CurrentUser() user: RequestUser) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.kyc.getKycStatus(id) };
+  }
+
+  @Post('documents')
+  async uploadDocument(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: UploadFranchiseDocumentDto,
+  ) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.kyc.uploadDocument(id, dto) };
+  }
+
+  @Post('agreement/accept')
+  async acceptAgreement(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: AcceptFranchiseAgreementDto,
+    @Req() req: { ip?: string },
+  ) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.kyc.acceptAgreement(id, dto, req.ip) };
+  }
 
   /** The account the partner's money is paid into. Never returns the full number. */
   @Get('bank-account')

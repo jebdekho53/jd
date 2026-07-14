@@ -17,12 +17,14 @@ import { FranchiseSettlementService } from './franchise-settlement.service';
 import { FranchiseApplicationService } from './franchise-application.service';
 import { FranchisePayoutService } from './franchise-payout.service';
 import { FranchiseBankAccountService } from './franchise-bank-account.service';
+import { FranchiseKycService } from './franchise-kyc.service';
 import {
   ApproveExpansionLeadDto,
   CreateCityLaunchDto,
   CreateFranchiseDto,
   GenerateFranchiseSettlementsDto,
   RejectExpansionLeadDto,
+  RejectFranchiseDocumentDto,
   UpdateFranchiseDto,
 } from './dto/franchise.dto';
 
@@ -41,6 +43,7 @@ export class AdminExpansionController {
     private readonly applications: FranchiseApplicationService,
     private readonly payouts: FranchisePayoutService,
     private readonly bankAccounts: FranchiseBankAccountService,
+    private readonly kyc: FranchiseKycService,
   ) {}
 
   @Get('overview')
@@ -164,6 +167,32 @@ export class AdminExpansionController {
   @Permissions('settlements:manage')
   async paySettlement(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return { success: true, data: await this.payouts.payoutSettlement(user.id, id) };
+  }
+
+  // ---------------------------------------------------------------------------
+  // KYC document review
+  // ---------------------------------------------------------------------------
+
+  @Get('documents/pending')
+  @Permissions('settlements:read')
+  async pendingDocuments() {
+    return { success: true, data: await this.kyc.listPendingDocuments() };
+  }
+
+  @Patch('documents/:id/verify')
+  @Permissions('settlements:manage')
+  async verifyDocument(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return { success: true, data: await this.kyc.verifyDocument(user.id, id) };
+  }
+
+  @Patch('documents/:id/reject')
+  @Permissions('settlements:manage')
+  async rejectDocument(
+    @Param('id') id: string,
+    @Body() dto: RejectFranchiseDocumentDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return { success: true, data: await this.kyc.rejectDocument(user.id, id, dto) };
   }
 
   /** Verify a partner's bank account and create the Razorpay linked account. */

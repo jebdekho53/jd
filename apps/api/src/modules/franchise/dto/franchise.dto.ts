@@ -3,6 +3,7 @@ import {
   IsArray,
   IsBoolean,
   IsEmail,
+  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
@@ -12,7 +13,7 @@ import {
   IsDateString,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { FranchisePartnerStatus, CityLaunchStatus } from '@prisma/client';
+import { FranchisePartnerStatus, CityLaunchStatus, FranchiseDocumentType } from '@prisma/client';
 
 export class CreateFranchiseDto {
   @IsString()
@@ -218,4 +219,38 @@ export class SaveFranchiseBankAccountDto {
   @IsString()
   @Length(0, 120)
   upiId?: string;
+}
+
+export class UploadFranchiseDocumentDto {
+  @ApiProperty({ enum: FranchiseDocumentType, example: FranchiseDocumentType.PAN_CARD })
+  @IsEnum(FranchiseDocumentType)
+  documentType!: FranchiseDocumentType;
+
+  @ApiProperty({ example: 'pan.pdf' })
+  @IsString()
+  @Length(1, 200)
+  fileName!: string;
+
+  @ApiProperty({ example: 'https://jebdekho.com/uploads/franchise-document/abc.pdf' })
+  @IsString()
+  @Length(1, 2000)
+  fileUrl!: string;
+
+  @ApiProperty({ example: 'application/pdf' })
+  @IsString()
+  @Length(1, 120)
+  mimeType!: string;
+}
+
+export class AcceptFranchiseAgreementDto {
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  accepted!: boolean;
+}
+
+export class RejectFranchiseDocumentDto {
+  @ApiProperty({ example: 'The PAN card image is unreadable.' })
+  @IsString()
+  @Length(3, 1000)
+  reason!: string;
 }
