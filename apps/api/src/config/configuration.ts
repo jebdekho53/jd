@@ -173,6 +173,8 @@ export function getConfig(configService: ConfigService) {
     },
 
     buyerSiteUrl: configService.get<string>('BUYER_SITE_URL', 'https://jebdekho.com'),
+    // Base of the franchisee invite link: <merchantSiteUrl>/?ref=FR-XXXX
+    merchantSiteUrl: configService.get<string>('MERCHANT_SITE_URL', 'https://merchant.jebdekho.com'),
 
     webPush: {
       publicKey: configService.get<string>('WEB_PUSH_PUBLIC_KEY', ''),
