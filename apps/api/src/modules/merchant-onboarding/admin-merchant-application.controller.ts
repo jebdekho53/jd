@@ -41,6 +41,15 @@ export class AdminMerchantApplicationController {
     return { success: true, data };
   }
 
+  @Get('funnel')
+  @ApiOperation({ summary: 'Merchant onboarding funnel (signup → half-onboard → approve)' })
+  async funnel(@Query('rangeDays') rangeDays?: string) {
+    const data = await this.onboarding.getOnboardingFunnel(
+      rangeDays ? Number(rangeDays) : undefined,
+    );
+    return { success: true, data };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get merchant application detail' })
   async get(@Param('id') id: string) {
