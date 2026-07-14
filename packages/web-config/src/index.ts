@@ -60,3 +60,4 @@ export function getTrackingWsBase(): string {
 export { safeReturnUrl, DEFAULT_RETURN_PATH } from './safe-return-url';
 export { isPhoneOtpEnabled, AUTH_COPY, authCopy } from './auth-flags';
 export { SECURITY_HEADERS, nextSecurityHeaders } from './security-headers';
+export { uploadImageRemotePatterns } from './image-config';
