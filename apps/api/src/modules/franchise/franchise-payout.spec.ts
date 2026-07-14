@@ -17,7 +17,7 @@ describe('franchise tax — commission-of-commission then GST/TDS', () => {
   });
 
   it('GST-registered partner: ₹12 → GST ₹2.16, TDS ₹0.60, net ₹13.56', () => {
-    const tax = computeFranchiseTax({ franchiseShare: 12, gstRegistered: true });
+    const tax = computeFranchiseTax({ franchiseShare: 12, gstRegistered: true, panVerified: true });
 
     expect(tax.gstPercent).toBe(18);
     expect(tax.gstAmount).toBe(2.16);
@@ -27,7 +27,7 @@ describe('franchise tax — commission-of-commission then GST/TDS', () => {
   });
 
   it('unregistered partner: no GST → net ₹11.40', () => {
-    const tax = computeFranchiseTax({ franchiseShare: 12, gstRegistered: false });
+    const tax = computeFranchiseTax({ franchiseShare: 12, gstRegistered: false, panVerified: true });
 
     expect(tax.gstPercent).toBe(0);
     expect(tax.gstAmount).toBe(0);
@@ -36,14 +36,14 @@ describe('franchise tax — commission-of-commission then GST/TDS', () => {
   });
 
   it('TDS is charged on the commission only, never on the GST', () => {
-    const tax = computeFranchiseTax({ franchiseShare: 100, gstRegistered: true });
+    const tax = computeFranchiseTax({ franchiseShare: 100, gstRegistered: true, panVerified: true });
     // 5% of 100, NOT 5% of 118.
     expect(tax.tdsAmount).toBe(5);
     expect(tax.netPayable).toBe(113); // 100 + 18 − 5
   });
 
   it('zero share pays zero tax and zero net — no negative payouts', () => {
-    const tax = computeFranchiseTax({ franchiseShare: 0, gstRegistered: true });
+    const tax = computeFranchiseTax({ franchiseShare: 0, gstRegistered: true, panVerified: true });
     expect(tax).toMatchObject({ gstAmount: 0, tdsAmount: 0, netPayable: 0 });
   });
 });
@@ -103,8 +103,12 @@ function harness(overrides: {
       jest.fn().mockResolvedValue({ id: 'trf_1', status: 'processed', amount: 1356 }),
   } as never;
 
+  // KYC gate passes by default; the blocked cases override it.
+  const kyc = { assertPayoutAllowed: jest.fn().mockResolvedValue(undefined) } as never;
+
   return {
-    svc: new FranchisePayoutService(prisma, ledger, razorpay),
+    svc: new FranchisePayoutService(prisma, ledger, razorpay, kyc),
+    kyc,
     prisma,
     tx,
     ledger,

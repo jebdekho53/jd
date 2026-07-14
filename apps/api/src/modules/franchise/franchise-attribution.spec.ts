@@ -127,6 +127,7 @@ describe('settlement — parked links earn nothing', () => {
       businessName: 'Recruiter Ltd',
       commissionPercent: 10,
       stores: [], // the ACTIVE-only filter returned nothing
+      documents: [], // no verified PAN on file
     });
     const prisma = {
       franchisePartner: { findUnique },
@@ -165,6 +166,7 @@ describe('settlement — parked links earn nothing', () => {
           businessName: 'Recruiter Ltd',
           commissionPercent: 10,
           stores: [{ storeId: 'store-1' }],
+          documents: [{ id: 'doc-pan' }], // PAN verified -> TDS at 5%
         }),
       },
       order: { aggregate: jest.fn().mockResolvedValue({ _sum: { totalAmount: 1000 } }) },
