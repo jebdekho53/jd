@@ -19,13 +19,16 @@ export function CategoriesPageContent() {
   const { data: categories = [], isLoading } = useCategories();
   const [query, setQuery] = useState('');
   const flatCategories = useMemo(() => flattenCategories(categories), [categories]);
+  const isSearching = query.trim().length > 0;
+  // Default view shows root departments only (true hierarchy); search flattens across
+  // every level so any subcategory is still findable by name.
   const filteredCategories = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return flatCategories;
+    if (!normalized) return categories;
     return flatCategories.filter((category) =>
       `${category.name} ${category.slug}`.toLowerCase().includes(normalized),
     );
-  }, [flatCategories, query]);
+  }, [categories, flatCategories, query]);
 
   return (
     <div className="space-y-7 animate-fade-in">
@@ -82,8 +85,14 @@ export function CategoriesPageContent() {
 
       <section aria-labelledby="all-categories">
         <SectionHeader
-          title={query.trim() ? 'Matching categories' : 'All categories'}
-          subtitle={!isLoading ? `${filteredCategories.length} aisles` : undefined}
+          title={isSearching ? 'Matching categories' : 'All departments'}
+          subtitle={
+            !isLoading
+              ? isSearching
+                ? `${filteredCategories.length} matches`
+                : `${filteredCategories.length} departments`
+              : undefined
+          }
         />
         {isLoading ? (
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
@@ -109,18 +118,31 @@ export function CategoriesPageContent() {
             </Link>
           </div>
         ) : (
-          <PremiumCategoryGrid categories={filteredCategories} />
+          <PremiumCategoryGrid categories={filteredCategories} showChildPreview={!isSearching} />
         )}
       </section>
     </div>
   );
 }
 
-function PremiumCategoryGrid({ categories }: { categories: CategoryItem[] }) {
+function PremiumCategoryGrid({
+  categories,
+  showChildPreview = false,
+}: {
+  categories: CategoryItem[];
+  showChildPreview?: boolean;
+}) {
   return (
     <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6" role="list">
       {categories.map((category, index) => {
         const image = resolveCategoryImage(category);
+        const childPreview =
+          showChildPreview && category.children.length > 0
+            ? category.children
+                .slice(0, 3)
+                .map((c) => c.name)
+                .join(' · ') + (category.children.length > 3 ? ` +${category.children.length - 3}` : '')
+            : null;
         return (
           <Link
             key={category.id}
@@ -150,6 +172,11 @@ function PremiumCategoryGrid({ categories }: { categories: CategoryItem[] }) {
               <p className="line-clamp-2 text-[11px] font-black leading-tight text-jd-text-primary sm:text-xs">
                 {category.name}
               </p>
+              {childPreview && (
+                <p className="mt-1 line-clamp-1 text-[10px] font-medium leading-tight text-jd-text-muted">
+                  {childPreview}
+                </p>
+              )}
             </div>
           </Link>
         );

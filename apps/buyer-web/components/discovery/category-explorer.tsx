@@ -59,13 +59,20 @@ interface CategoryExplorerProps {
   className?: string;
   /** When true, show every category (categories index). Default caps at 11. */
   showAll?: boolean;
+  /**
+   * When false, render the given categories as-is (direct children only) without
+   * flattening descendants into the grid. Used for subcategory sections so a level's
+   * own children are shown as cards, not mixed with grandchildren. Defaults to true
+   * to preserve the homepage "shop by category" rail behaviour.
+   */
+  flat?: boolean;
 }
 
-export function CategoryExplorer({ categories = [], className, showAll = false }: CategoryExplorerProps) {
-  const flat = flattenCategories(categories);
+export function CategoryExplorer({ categories = [], className, showAll = false, flat = true }: CategoryExplorerProps) {
+  const source = flat ? flattenCategories(categories) : categories;
   const display =
-    flat.length > 0
-      ? showAll ? flat : flat.slice(0, 11)
+    source.length > 0
+      ? showAll || !flat ? source : source.slice(0, 11)
       : FALLBACK_CATEGORIES.map((c) => ({
           id: c.id,
           name: c.name,
@@ -117,11 +124,12 @@ export function CategoryExplorer({ categories = [], className, showAll = false }
 }
 
 /** Horizontal scroll variant for mobile category rail */
-export function CategoryRail({ categories = [], className }: CategoryExplorerProps) {
-  const flat = flattenCategories(categories).slice(0, 12);
+export function CategoryRail({ categories = [], className, showAll = false, flat = true }: CategoryExplorerProps) {
+  const source = flat ? flattenCategories(categories) : categories;
+  const capped = showAll || !flat ? source : source.slice(0, 12);
   const display =
-    flat.length > 0
-      ? flat
+    capped.length > 0
+      ? capped
       : FALLBACK_CATEGORIES.map((c) => ({
           id: c.id,
           name: c.name,
