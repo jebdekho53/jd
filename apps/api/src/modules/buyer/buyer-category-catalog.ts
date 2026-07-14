@@ -17,22 +17,53 @@ export const ACTIVE_GLOBAL_CATEGORY_WHERE: Prisma.CategoryWhereInput = {
   scope: CategoryScope.GLOBAL,
 };
 
+/** Taxonomy is a single-parent tree capped at 3 levels (root → sub → leaf). */
+const CATEGORY_TREE_ORDER: Prisma.CategoryOrderByWithRelationInput[] = [
+  { sortOrder: 'asc' },
+  { name: 'asc' },
+];
+
+const grandchildSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  imageUrl: true,
+  parentId: true,
+  sortOrder: true,
+} as const;
+
 const categoryInclude = {
   children: {
     where: { isActive: true, deletedAt: null },
     select: {
-      id: true,
-      name: true,
-      slug: true,
-      imageUrl: true,
-      parentId: true,
-      sortOrder: true,
+      ...grandchildSelect,
+      // Third level (leaf) — required so level-2 category pages can render their children.
+      children: {
+        where: { isActive: true, deletedAt: null },
+        select: grandchildSelect,
+        orderBy: CATEGORY_TREE_ORDER,
+      },
     },
-    orderBy: { sortOrder: 'asc' as const },
+    orderBy: CATEGORY_TREE_ORDER,
   },
 } satisfies Prisma.CategoryInclude;
 
-type CategoryRow = Prisma.CategoryGetPayload<{ include: typeof categoryInclude }>;
+/**
+ * Structural row shape accepted by {@link mapRows}. Grandchildren are optional so the
+ * same mapper serves both the full 3-level global tree and the 2-level store-visible
+ * tree (which derives children from in-stock products and has no third level).
+ */
+type CategoryNodeRow = {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+  parentId: string | null;
+  sortOrder: number;
+};
+type CategoryRow = CategoryNodeRow & {
+  children: (CategoryNodeRow & { children?: CategoryNodeRow[] })[];
+};
 
 const GLOBAL_CATEGORY_SELECT = {
   id: true,
@@ -98,7 +129,18 @@ function mapRows(rows: CategoryRow[]): CategoryItem[] {
       imageUrl: ch.imageUrl,
       parentId: ch.parentId,
       sortOrder: ch.sortOrder,
-      children: [],
+      children:
+        Array.isArray(ch.children)
+          ? ch.children.map((gc) => ({
+              id: gc.id,
+              name: gc.name,
+              slug: gc.slug,
+              imageUrl: gc.imageUrl,
+              parentId: gc.parentId,
+              sortOrder: gc.sortOrder,
+              children: [],
+            }))
+          : [],
     })),
   }));
 }
@@ -110,7 +152,7 @@ export async function fetchActiveGlobalCategories(
   const rows = await prisma.category.findMany({
     where: ACTIVE_GLOBAL_CATEGORY_WHERE,
     include: categoryInclude,
-    orderBy: { sortOrder: 'asc' },
+    orderBy: CATEGORY_TREE_ORDER,
   });
   return mapRows(rows);
 }
@@ -175,10 +217,10 @@ export async function fetchStoreVisibleCategories(
           parentId: true,
           sortOrder: true,
         },
-        orderBy: { sortOrder: 'asc' },
+        orderBy: CATEGORY_TREE_ORDER,
       },
     },
-    orderBy: { sortOrder: 'asc' },
+    orderBy: CATEGORY_TREE_ORDER,
   });
 
   return mapRows(rows.filter((r) => r.children.length > 0 || visibleParentIds.has(r.id)));

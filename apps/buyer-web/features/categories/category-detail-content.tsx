@@ -12,7 +12,7 @@ import { SectionHeader } from '@/components/v2/section-header';
 import { ProductCard } from '@/features/products/product-card';
 import { StoreCardItem } from '@/features/stores/store-card';
 import { useCategories, useCategoryStores, useStoreProducts } from '@/hooks/use-buyer-queries';
-import { resolveCategorySlug, flattenCategories } from '@/lib/categories';
+import { resolveCategorySlug, flattenCategories, getCategoryAncestors } from '@/lib/categories';
 import type { StoreCardWithCount } from '@/types/buyer';
 import { useEffectiveLocation } from '@/store/location-store';
 
@@ -51,6 +51,13 @@ export function CategoryDetailContent({ slug }: { slug: string }) {
     return found?.children ?? [];
   }, [categories, category.slug]);
 
+  // Ancestor links (root → … → parent) for breadcrumbs; current category is the
+  // trailing non-link crumb, so drop the last element of the inclusive chain.
+  const ancestors = useMemo(
+    () => getCategoryAncestors(categories, category.slug).slice(0, -1),
+    [categories, category.slug],
+  );
+
   return (
     <PageShell>
       <div className="space-y-6">
@@ -58,6 +65,12 @@ export function CategoryDetailContent({ slug }: { slug: string }) {
           <Link href="/" className="hover:text-primary">Home</Link>
           {' / '}
           <Link href="/categories" className="hover:text-primary">Categories</Link>
+          {ancestors.map((a) => (
+            <span key={a.id}>
+              {' / '}
+              <Link href={`/categories/${a.slug}`} className="hover:text-primary">{a.name}</Link>
+            </span>
+          ))}
           {' / '}
           <span className="text-jd-text-primary">{category.name}</span>
         </nav>
@@ -80,8 +93,8 @@ export function CategoryDetailContent({ slug }: { slug: string }) {
         {subcategories.length > 0 && (
           <section aria-labelledby="subcat-heading">
             <SectionHeader title="Subcategories" />
-            <CategoryRail categories={subcategories} className="md:hidden" />
-            <CategoryExplorer categories={subcategories} className="hidden md:grid" />
+            <CategoryRail categories={subcategories} flat={false} showAll className="md:hidden" />
+            <CategoryExplorer categories={subcategories} flat={false} showAll className="hidden md:grid" />
           </section>
         )}
 
@@ -144,7 +157,7 @@ function StoreProductsPreview({
     <div>
       <div className="mb-2 flex items-center justify-between">
         <p className="text-sm font-medium text-jd-text-secondary">Popular in this store</p>
-        <Link href={`/stores/${store.slug}`} className="text-xs font-semibold text-primary hover:underline">
+        <Link href={`/store/${store.slug}`} className="text-xs font-semibold text-primary hover:underline">
           View all →
         </Link>
       </div>

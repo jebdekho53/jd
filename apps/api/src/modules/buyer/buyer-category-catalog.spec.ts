@@ -1,4 +1,5 @@
 import {
+  fetchActiveGlobalCategories,
   fetchStoresForCategory,
   resolveCategoryGrantScope,
 } from './buyer-category-catalog';
@@ -58,6 +59,64 @@ describe('buyer-category-catalog', () => {
         parentCategoryId: GROCERY_ID,
         subcategoryIds: [],
       });
+    });
+  });
+
+  describe('fetchActiveGlobalCategories', () => {
+    function makeTreePrisma(rows: unknown[]) {
+      const findMany = jest.fn((_args?: unknown) => Promise.resolve(rows));
+      const prisma = { category: { findMany } } as unknown as import('../../database/prisma.service').PrismaService;
+      return { prisma, findMany };
+    }
+
+    it('returns a full 3-level tree (root → sub → leaf) with grandchildren populated', async () => {
+      const { prisma } = makeTreePrisma([
+        {
+          id: 'health',
+          name: 'Health & Nutrition',
+          slug: 'health-nutrition',
+          imageUrl: null,
+          parentId: null,
+          sortOrder: 3,
+          children: [
+            {
+              id: 'protein',
+              name: 'Protein & Gym Supplements',
+              slug: 'protein-gym-supplements',
+              imageUrl: null,
+              parentId: 'health',
+              sortOrder: 1,
+              children: [
+                { id: 'whey', name: 'Whey Protein', slug: 'whey-protein', imageUrl: null, parentId: 'protein', sortOrder: 1 },
+                { id: 'mass', name: 'Mass Gainer', slug: 'mass-gainer', imageUrl: null, parentId: 'protein', sortOrder: 2 },
+              ],
+            },
+          ],
+        },
+      ]);
+
+      const result = await fetchActiveGlobalCategories(prisma);
+      expect(result).toHaveLength(1);
+      const sub = result[0].children[0];
+      expect(sub.slug).toBe('protein-gym-supplements');
+      // The core fix: level-2 categories now carry their level-3 children.
+      expect(sub.children.map((c) => c.slug)).toEqual(['whey-protein', 'mass-gainer']);
+    });
+
+    it('requests children ordered by sortOrder then name and does not cap the result', async () => {
+      const { prisma, findMany } = makeTreePrisma([]);
+      await fetchActiveGlobalCategories(prisma);
+      const arg = findMany.mock.calls[0][0] as unknown as {
+        orderBy: unknown;
+        include: { children: { orderBy: unknown; select: { children: { orderBy: unknown } } } };
+        take?: number;
+      };
+      const expectedOrder = [{ sortOrder: 'asc' }, { name: 'asc' }];
+      expect(arg.orderBy).toEqual(expectedOrder);
+      expect(arg.include.children.orderBy).toEqual(expectedOrder);
+      expect(arg.include.children.select.children.orderBy).toEqual(expectedOrder);
+      // No arbitrary `.take` limit on children — every active child must be returned.
+      expect(arg.take).toBeUndefined();
     });
   });
 
