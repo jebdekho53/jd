@@ -4,6 +4,27 @@ import { SitemapType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { absoluteUrl } from './seo.util';
 
+/** Per-file URL cap. Well under the 50,000-URL / 50MB sitemap protocol limit. */
+const SITEMAP_MAX_URLS = 5000;
+
+/** Indexable evergreen static routes (listing + content pages). No noindex pages. */
+const STATIC_PATHS = [
+  '/',
+  '/stores',
+  '/categories',
+  '/offers',
+  '/restaurants',
+  '/food',
+  '/plus',
+  '/faq',
+  '/help',
+  '/about',
+  '/contact',
+  '/terms',
+  '/privacy',
+  '/refund-policy',
+];
+
 @Injectable()
 export class SitemapService {
   private readonly siteUrl: string;
@@ -69,7 +90,7 @@ export class SitemapService {
   }
 
   private async buildIndexXml() {
-    const children = ['products', 'stores', 'categories', 'cities', 'faq', 'brands'];
+    const children = ['static', 'products', 'stores', 'categories', 'cities', 'faq', 'brands'];
     const urls = children.map((c) => ({
       loc: absoluteUrl(`/sitemap-${c}.xml`, this.siteUrl),
       lastmod: new Date().toISOString(),
@@ -77,43 +98,64 @@ export class SitemapService {
     return { xml: this.wrapSitemapIndex(urls), count: urls.length };
   }
 
+  /** Static, evergreen pages. Computed on the fly (not DB-cached), like brands. */
+  getStaticXml(): string {
+    const lastmod = new Date().toISOString();
+    const urls = STATIC_PATHS.map((path) => ({
+      loc: absoluteUrl(path, this.siteUrl),
+      lastmod,
+    }));
+    return this.wrapUrlset(urls);
+  }
+
   private async buildProductsXml() {
+    // NOTE: capped at SITEMAP_MAX_URLS so a single file stays well under the
+    // 50,000-URL / 50MB sitemap limit. If the catalogue outgrows this, split
+    // into paginated children (sitemap-products-1.xml, …) referenced by the
+    // index. Products are keyed by their canonical /products/{id} — no
+    // seller/store query params, so there are no parameterised duplicates.
     const products = await this.prisma.product.findMany({
       where: { isActive: true, deletedAt: null },
-      select: { id: true, slug: true, updatedAt: true, store: { select: { slug: true } } },
-      take: 5000,
+      select: { id: true, updatedAt: true, imageUrls: true },
+      take: SITEMAP_MAX_URLS,
       orderBy: { updatedAt: 'desc' },
     });
     const urls = products.map((p) => ({
       loc: absoluteUrl(`/products/${p.id}`, this.siteUrl),
       lastmod: p.updatedAt.toISOString(),
+      images: (p.imageUrls ?? []).slice(0, 5),
     }));
     return { xml: this.wrapUrlset(urls), count: urls.length };
   }
 
   private async buildStoresXml() {
+    // Canonical store URL is /store/{slug} only (the legacy /stores/{slug}
+    // permanently redirects, so it must never be emitted here).
     const stores = await this.prisma.store.findMany({
       where: { isActive: true, deletedAt: null, status: 'APPROVED' },
-      select: { slug: true, updatedAt: true },
-      take: 5000,
+      select: { slug: true, updatedAt: true, logoUrl: true, bannerUrl: true },
+      take: SITEMAP_MAX_URLS,
     });
-    const urls = stores.flatMap((s) => [
-      { loc: absoluteUrl(`/stores/${s.slug}`, this.siteUrl), lastmod: s.updatedAt.toISOString() },
-      { loc: absoluteUrl(`/store/${s.slug}`, this.siteUrl), lastmod: s.updatedAt.toISOString() },
-    ]);
+    const urls = stores.map((s) => ({
+      loc: absoluteUrl(`/store/${s.slug}`, this.siteUrl),
+      lastmod: s.updatedAt.toISOString(),
+      images: [s.bannerUrl, s.logoUrl].filter((u): u is string => Boolean(u)),
+    }));
     return { xml: this.wrapUrlset(urls), count: urls.length };
   }
 
   private async buildCategoriesXml() {
+    // Canonical category URL is /categories/{slug} only (legacy /category/{slug}
+    // permanently redirects).
     const categories = await this.prisma.category.findMany({
       where: { isActive: true, deletedAt: null, scope: 'GLOBAL', storeId: null },
       select: { slug: true, updatedAt: true },
       take: 2000,
     });
-    const urls = categories.flatMap((c) => [
-      { loc: absoluteUrl(`/categories/${c.slug}`, this.siteUrl), lastmod: c.updatedAt.toISOString() },
-      { loc: absoluteUrl(`/category/${c.slug}`, this.siteUrl), lastmod: c.updatedAt.toISOString() },
-    ]);
+    const urls = categories.map((c) => ({
+      loc: absoluteUrl(`/categories/${c.slug}`, this.siteUrl),
+      lastmod: c.updatedAt.toISOString(),
+    }));
     return { xml: this.wrapUrlset(urls), count: urls.length };
   }
 
@@ -150,14 +192,21 @@ export class SitemapService {
     return { xml: this.wrapUrlset(urls), count: urls.length };
   }
 
-  private wrapUrlset(urls: Array<{ loc: string; lastmod: string }>) {
+  private wrapUrlset(urls: Array<{ loc: string; lastmod: string; images?: string[] }>) {
     const body = urls
-      .map(
-        (u) =>
-          `  <url><loc>${this.escape(u.loc)}</loc><lastmod>${u.lastmod}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`,
-      )
+      .map((u) => {
+        const images = (u.images ?? [])
+          .filter((img) => Boolean(img && img.trim()))
+          .map((img) => `<image:image><image:loc>${this.escape(img)}</image:loc></image:image>`)
+          .join('');
+        return `  <url><loc>${this.escape(u.loc)}</loc><lastmod>${u.lastmod}</lastmod><changefreq>daily</changefreq><priority>0.8</priority>${images}</url>`;
+      })
       .join('\n');
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>`;
+    return (
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" ` +
+      `xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${body}\n</urlset>`
+    );
   }
 
   private wrapSitemapIndex(urls: Array<{ loc: string; lastmod: string }>) {
