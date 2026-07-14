@@ -304,7 +304,7 @@ export function CreateStoreModal({ open, onClose }: Props) {
             />
             <Input label="Store email *" type="email" error={errors.email?.message} {...register('email')} />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Input label="Min order (₹)" type="number" {...register('minOrderAmount')} />
             <Input label="Delivery fee (₹)" type="number" {...register('deliveryFee')} />
             <Input label="Prep time (min)" type="number" {...register('avgPrepTimeMins')} />

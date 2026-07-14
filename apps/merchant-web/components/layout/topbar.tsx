@@ -1,7 +1,8 @@
 'use client';
 
-import { Bell } from 'lucide-react';
+import { Bell, Menu } from 'lucide-react';
 import { useStoreStore } from '@/store/store-store';
+import { useUIStore } from '@/store/ui-store';
 
 interface TopbarProps {
   title?: string;
@@ -9,13 +10,23 @@ interface TopbarProps {
 
 export function Topbar({ title }: TopbarProps) {
   const { currentStore } = useStoreStore();
+  const { setSidebarOpen } = useUIStore();
 
   return (
-    <header className="flex h-14 items-center gap-4 border-b border-slate-200 bg-white px-4 lg:px-6">
-      <div className="flex-1">
-        {title && <h1 className="text-base font-semibold text-slate-900">{title}</h1>}
+    <header className="flex h-14 items-center gap-2 border-b border-slate-200 bg-white px-3 sm:gap-4 sm:px-4 lg:px-6">
+      <button
+        type="button"
+        onClick={() => setSidebarOpen(true)}
+        className="-ml-1 rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+        aria-label="Open menu"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
+      <div className="min-w-0 flex-1">
+        {title && <h1 className="truncate text-base font-semibold text-slate-900">{title}</h1>}
         {!title && currentStore && (
-          <p className="text-sm text-slate-500">{currentStore.name}</p>
+          <p className="truncate text-sm text-slate-500">{currentStore.name}</p>
         )}
       </div>
 
