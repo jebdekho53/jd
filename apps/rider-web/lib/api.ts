@@ -131,3 +131,31 @@ export const markFailed = (id: string, reason: string) => action(id, 'failed', {
 
 export const pushLocation = (lat: number, lng: number) =>
   jfetch('/api/rider/location', { method: 'PATCH', body: JSON.stringify({ lat, lng }) });
+
+// ── Payout bank account ───────────────────────────────────────────────────────
+export interface RiderBankAccount {
+  accountHolderName: string;
+  /** Already masked by the API — the full number is never sent to the client. */
+  accountNumber: string;
+  ifsc: string;
+  bankName?: string | null;
+  upiId?: string | null;
+  verified: boolean;
+}
+
+export interface SaveBankAccountInput {
+  accountHolderName: string;
+  accountNumber: string;
+  ifsc: string;
+  bankName?: string;
+  upiId?: string;
+}
+
+export const getBankAccount = () =>
+  jfetch<RiderBankAccount | null>('/api/rider/finance/bank-account');
+
+export const saveBankAccount = (input: SaveBankAccountInput) =>
+  jfetch<RiderBankAccount>('/api/rider/finance/bank-account', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });

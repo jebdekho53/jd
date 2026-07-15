@@ -19,6 +19,7 @@ import {
   type RiderOrder,
   type RiderStatus,
 } from '@/lib/api';
+import { RiderBankAccountScreen } from './rider-bank-account';
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
@@ -53,6 +54,7 @@ export function RiderHome({ onLoggedOut }: { onLoggedOut: () => void }) {
   const orders = useQuery({ queryKey: ['rider', 'orders'], queryFn: listOrders, refetchInterval: 15_000 });
   const earnings = useQuery({ queryKey: ['rider', 'earnings', 'today'], queryFn: getTodayEarnings });
 
+  const [screen, setScreen] = useState<'home' | 'bank'>('home');
   const [online, setOnline] = useState(false);
   useEffect(() => {
     if (me.data?.profile?.status) setOnline(me.data.profile.status !== 'OFFLINE');
@@ -136,6 +138,10 @@ export function RiderHome({ onLoggedOut }: { onLoggedOut: () => void }) {
     );
   }
 
+  if (screen === 'bank') {
+    return <RiderBankAccountScreen onBack={() => setScreen('home')} />;
+  }
+
   const kyc = me.data?.profile?.kycStatus;
   const list = orders.data ?? [];
 
@@ -182,6 +188,18 @@ export function RiderHome({ onLoggedOut }: { onLoggedOut: () => void }) {
             <p className="mt-1 text-2xl font-bold">{earnings.data?.deliveries ?? 0}</p>
           </div>
         </div>
+
+        {/* Payout account */}
+        <button
+          onClick={() => setScreen('bank')}
+          className="flex w-full items-center justify-between rounded-xl bg-white p-4 text-left shadow-sm"
+        >
+          <div>
+            <p className="text-sm font-semibold text-slate-700">Payout account</p>
+            <p className="text-xs text-slate-500">Manage where your earnings are paid</p>
+          </div>
+          <span className="text-slate-400">›</span>
+        </button>
 
         {/* Orders */}
         <div>

@@ -61,6 +61,7 @@ export const NAV: NavItem[] = [
   { href: '/settlements', label: 'Settlements', icon: Banknote, keywords: 'payouts merchant money' },
   { href: '/finance', label: 'Finance', icon: Banknote, keywords: 'money cod ledger revenue' },
   { href: '/finance/commission', label: 'Commission Rules', icon: Percent, keywords: 'take rate fees' },
+  { href: '/finance/rider-payouts', label: 'Rider Payouts', icon: Bike, keywords: 'rider earnings route bank payout' },
   { href: '/compliance', label: 'Compliance', icon: Shield, keywords: 'gst legal fssai' },
   { href: '/trust-safety', label: 'Trust & Safety', icon: Shield, keywords: 'fraud abuse' },
   { href: '/support-center', label: 'Support Center', icon: Headphones, keywords: 'tickets helpdesk complaints' },

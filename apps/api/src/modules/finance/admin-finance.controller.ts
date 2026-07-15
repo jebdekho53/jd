@@ -212,6 +212,14 @@ export class AdminFinanceController {
     return { success: true, data };
   }
 
+  /** The rider's payout account (masked), so an admin can review before verifying. */
+  @Get('riders/:riderProfileId/bank-account')
+  @Permissions('settlements:read')
+  async getRiderBank(@Param('riderProfileId') id: string) {
+    const data = await this.riderBankAccounts.get(id);
+    return { success: true, data };
+  }
+
   /** Verify a rider's bank account and create their Razorpay linked account. */
   @Post('riders/:riderProfileId/bank-account/verify')
   @HttpCode(HttpStatus.OK)
