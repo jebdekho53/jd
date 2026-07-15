@@ -11,6 +11,7 @@ import { OrderFulfillmentModule } from '../order/order-fulfillment.module';
 import { CheckoutModule } from '../checkout/checkout.module';
 import { OrderTimelineModule } from '../order/order-timeline.module';
 import { WalletLoyaltyModule } from '../wallet-loyalty/wallet-loyalty.module';
+import { EmailModule } from '../email/email.module';
 
 import { FinanceModule } from '../finance/finance.module';
 import { ComplianceModule } from '../compliance/compliance.module';
@@ -18,7 +19,7 @@ import { TrustSafetyModule } from '../trust-safety/trust-safety.module';
 import { PushModule } from '../push/push.module';
 
 @Module({
-  imports: [RiderAssignmentModule, DeliveryTrackingModule, OrderFulfillmentModule, FinanceModule, CheckoutModule, OrderTimelineModule, PushModule],
+  imports: [RiderAssignmentModule, DeliveryTrackingModule, OrderFulfillmentModule, FinanceModule, CheckoutModule, OrderTimelineModule, PushModule, EmailModule],
   controllers: [RiderController, RiderOnboardingController, AdminRiderController],
   providers: [DeliveryService, RiderLocationService, RiderOnboardingService],
   exports: [DeliveryService, RiderAssignmentModule],

@@ -12,6 +12,8 @@ export class EmailNotificationService {
   private readonly buyerSiteUrl: string;
   private readonly adminSiteUrl: string;
   private readonly merchantSiteUrl: string;
+  private readonly franchiseSiteUrl: string;
+  private readonly riderSiteUrl: string;
   private readonly adminEmail?: string;
 
   constructor(
@@ -23,6 +25,8 @@ export class EmailNotificationService {
     this.buyerSiteUrl = configService.get<string>('BUYER_SITE_URL', 'https://jebdekho.com');
     this.adminSiteUrl = configService.get<string>('ADMIN_URL', 'https://admin.jebdekho.com');
     this.merchantSiteUrl = configService.get<string>('MERCHANT_URL', 'https://merchant.jebdekho.com');
+    this.franchiseSiteUrl = configService.get<string>('FRANCHISE_URL', 'https://franchise.jebdekho.com');
+    this.riderSiteUrl = configService.get<string>('RIDER_URL', 'https://rider.jebdekho.com');
     this.adminEmail = configService.get<string>('ADMIN_EMAIL')?.trim().toLowerCase();
   }
 
@@ -38,8 +42,67 @@ export class EmailNotificationService {
   }
 
   async sendWelcomeEmail(to: string, name: string): Promise<void> {
+    await this.sendBuyerWelcomeEmail(to, name);
+  }
+
+  async sendBuyerWelcomeEmail(to: string, name: string, userId?: string): Promise<void> {
     const tpl = this.templates.welcome(name);
-    await this.safeSend({ to, ...tpl, templateCode: EMAIL_TEMPLATE.WELCOME, metadata: { name } });
+    await this.safeSend({
+      to,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.WELCOME,
+      metadata: { name, ...(userId ? { userId } : {}) },
+    });
+  }
+
+  async sendMerchantWelcomeEmail(to: string, name: string, applicationId?: string): Promise<void> {
+    const dashboardUrl = `${this.merchantSiteUrl.replace(/\/$/, '')}/signup`;
+    const tpl = this.templates.merchantWelcome(name, dashboardUrl);
+    await this.safeSend({
+      to,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.MERCHANT_WELCOME,
+      metadata: { name, ...(applicationId ? { applicationId } : {}) },
+    });
+  }
+
+  async sendFranchiseWelcomeEmail(data: {
+    to?: string | null;
+    name: string;
+    leadId?: string;
+    franchiseId?: string;
+    referralCode: string;
+  }): Promise<void> {
+    if (!data.to) return;
+    const merchantBase = this.merchantSiteUrl.replace(/\/$/, '');
+    const tpl = this.templates.franchiseWelcome({
+      name: data.name,
+      referralCode: data.referralCode,
+      referralUrl: `${merchantBase}/?ref=${encodeURIComponent(data.referralCode)}`,
+      portalUrl: this.franchiseSiteUrl.replace(/\/$/, ''),
+    });
+    await this.safeSend({
+      to: data.to,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.FRANCHISE_WELCOME,
+      metadata: {
+        name: data.name,
+        ...(data.leadId ? { leadId: data.leadId } : {}),
+        ...(data.franchiseId ? { franchiseId: data.franchiseId } : {}),
+        referralCode: data.referralCode,
+      },
+    });
+  }
+
+  async sendRiderWelcomeEmail(to: string | null | undefined, name: string, riderProfileId?: string): Promise<void> {
+    if (!to) return;
+    const tpl = this.templates.riderWelcome(name, this.riderSiteUrl.replace(/\/$/, ''));
+    await this.safeSend({
+      to,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.RIDER_WELCOME,
+      metadata: { name, ...(riderProfileId ? { riderProfileId } : {}) },
+    });
   }
 
   async sendPasswordResetEmail(to: string, token: string, expiresMinutes: number): Promise<void> {

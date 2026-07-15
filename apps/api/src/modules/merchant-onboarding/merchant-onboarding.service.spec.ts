@@ -99,6 +99,7 @@ const mockMarketingEvents = { track: jest.fn() };
 const mockAudit = { log: jest.fn() };
 const mockEmailNotifications = {
   sendWelcomeEmail: jest.fn(),
+  sendMerchantWelcomeEmail: jest.fn(),
   sendMerchantApplicationReceived: jest.fn(),
   sendAdminNewMerchantApplication: jest.fn(),
 };

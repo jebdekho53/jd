@@ -82,6 +82,54 @@ export class EmailTemplateService {
     return { subject, html: this.layout(subject, body, 'Welcome to JebDekho'), text };
   }
 
+  merchantWelcome(name: string, dashboardUrl: string): { subject: string; html: string; text: string } {
+    const subject = 'Welcome to JebDekho Merchant';
+    const body = `
+      <p>Hi ${this.escape(name)},</p>
+      <p>Welcome to JebDekho Merchant.</p>
+      <p>Your store onboarding is active. From your merchant dashboard you can:</p>
+      <ul class="list">
+        <li>✓ Manage store details and documents</li>
+        <li>✓ Receive and accept local orders</li>
+        <li>✓ Track settlements and performance</li>
+      </ul>
+      <a class="btn" href="${this.escape(dashboardUrl)}">Open merchant dashboard</a>
+      <p>Team JebDekho</p>`;
+    const text = `Hi ${name},\n\nWelcome to JebDekho Merchant.\n\nManage store details, receive local orders, and track settlements from your dashboard: ${dashboardUrl}\n\nTeam JebDekho`;
+    return { subject, html: this.layout(subject, body, 'Welcome to JebDekho Merchant'), text };
+  }
+
+  franchiseWelcome(data: {
+    name: string;
+    referralCode: string;
+    referralUrl: string;
+    portalUrl: string;
+  }): { subject: string; html: string; text: string } {
+    const subject = 'Welcome to JebDekho Franchise';
+    const body = `
+      <p>Hi ${this.escape(data.name)},</p>
+      <p>Your JebDekho franchise partner account is active.</p>
+      <p><strong>Referral code:</strong> ${this.escape(data.referralCode)}</p>
+      <p><strong>Merchant invite link:</strong><br/>${this.escape(data.referralUrl)}</p>
+      <p>Use your portal to track recruited merchants, linked stores, KYC, finance, and payouts.</p>
+      <a class="btn" href="${this.escape(data.portalUrl)}">Open franchise portal</a>
+      <p>Team JebDekho</p>`;
+    const text = `Hi ${data.name},\n\nYour JebDekho franchise partner account is active.\n\nReferral code: ${data.referralCode}\nMerchant invite link: ${data.referralUrl}\nPortal: ${data.portalUrl}\n\nTeam JebDekho`;
+    return { subject, html: this.layout(subject, body, 'Your franchise account is active'), text };
+  }
+
+  riderWelcome(name: string, dashboardUrl: string): { subject: string; html: string; text: string } {
+    const subject = 'Welcome to JebDekho Rider';
+    const body = `
+      <p>Hi ${this.escape(name)},</p>
+      <p>Your rider profile has been created and your KYC review is pending.</p>
+      <p>Once approved, you can go online, accept deliveries, and track your work from the rider app.</p>
+      <a class="btn" href="${this.escape(dashboardUrl)}">Open rider app</a>
+      <p>Team JebDekho</p>`;
+    const text = `Hi ${name},\n\nYour rider profile has been created and your KYC review is pending. Once approved, you can go online and accept deliveries.\n\nRider app: ${dashboardUrl}\n\nTeam JebDekho`;
+    return { subject, html: this.layout(subject, body, 'Your rider profile is created'), text };
+  }
+
   orderConfirmation(data: {
     orderNumber: string;
     items: Array<{ name: string; qty: number; price: string }>;

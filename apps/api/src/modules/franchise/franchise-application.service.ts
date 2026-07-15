@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { PasswordService } from '../auth/password.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 import { TerritoryService } from './territory.service';
 import { ApproveExpansionLeadDto, RejectExpansionLeadDto, SubmitFranchiseApplicationDto } from './dto/franchise.dto';
 
@@ -28,6 +29,9 @@ export class FranchiseApplicationService {
     private readonly prisma: PrismaService,
     private readonly territory: TerritoryService,
     private readonly passwords: PasswordService,
+    private readonly emailNotifications: EmailNotificationService = {
+      sendFranchiseWelcomeEmail: async () => undefined,
+    } as unknown as EmailNotificationService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -171,7 +175,7 @@ export class FranchiseApplicationService {
       const referralCode = await this.nextReferralCode(lead.city);
 
       try {
-        return await this.prisma.$transaction(async (tx) => {
+        const result = await this.prisma.$transaction(async (tx) => {
           // PHONE is the identity in this system: it is unique, required, and the
           // franchise portal signs in with a phone OTP. Email is optional and merely
           // decorative here — so we match on phone, never on email.
@@ -297,6 +301,20 @@ export class FranchiseApplicationService {
             referralCode,
           };
         });
+
+        void this.emailNotifications
+          .sendFranchiseWelcomeEmail({
+            to: lead.email,
+            name: businessName,
+            leadId,
+            franchiseId: result.partner.id,
+            referralCode: result.referralCode,
+          })
+          .catch((err) =>
+            this.logger.error({ err, leadId, email: lead.email }, 'Franchise welcome email failed'),
+          );
+
+        return result;
       } catch (err) {
         if (isReferralCodeCollision(err) && attempt < MAX_CODE_ATTEMPTS - 1) {
           this.logger.warn(`Referral code ${referralCode} taken; retrying lead ${leadId}`);
