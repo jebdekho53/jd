@@ -1,3 +1,4 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CheckoutStatus, PaymentStatus } from '@prisma/client';
@@ -125,6 +126,7 @@ describe('PaymentService', () => {
           },
         },
         { provide: OrderRefundService, useValue: { reconcileRazorpayRefund: jest.fn() } },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
 

@@ -7,17 +7,24 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  LedgerReferenceType,
   PayoutRequestStatus,
   PayoutTransactionStatus,
   Prisma,
   SettlementLedgerStatus,
 } from '@prisma/client';
+import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma.service';
 import { startOfIstDay } from '../../common/utils/ist-day.util';
 import { AuditService } from '../audit/audit.service';
 import { SettlementCommissionService } from './settlement-commission.service';
 import { FinanceCommissionService } from '../finance/finance-commission.service';
 import { LedgerService } from '../finance/ledger.service';
+import { LEDGER_ACCOUNT_CODES } from '../finance/ledger-accounts.constants';
+import {
+  RAZORPAY_TRANSFER_EVENTS,
+  type RazorpayTransferEvent,
+} from '../payment/razorpay-transfer.events';
 import { FinanceCacheService } from '../finance/finance-cache.service';
 import { addDays, decimalToNumber, roundMoney } from './settlement.utils';
 import { RazorpayService } from '../payment/razorpay.service';
@@ -853,6 +860,81 @@ export class SettlementService {
       referenceId: result.referenceId,
       transactionId: result.txn.id,
     };
+  }
+
+  /**
+   * Reconcile a merchant Route transfer that failed after we marked the payout
+   * COMPLETED. Symmetric to the completion path: the request goes back to APPROVED
+   * (retryable), the wallet's paid-out total is credited back, the settled ledger
+   * entries are un-earmarked, and the payout journal is reversed — so a bank-level
+   * failure never leaves a merchant shown as paid for money they never received.
+   * Idempotent on the transfer id.
+   */
+  @OnEvent(RAZORPAY_TRANSFER_EVENTS.FAILED)
+  async onTransferFailed(event: RazorpayTransferEvent): Promise<void> {
+    const txn = await this.prisma.payoutTransaction.findFirst({
+      where: { referenceId: event.transferId, status: PayoutTransactionStatus.SUCCESS },
+      include: { payoutRequest: true },
+    });
+    if (!txn) return; // not a merchant payout (or already reconciled)
+
+    const payoutId = txn.payoutRequestId;
+    const merchantProfileId = txn.payoutRequest.merchantProfileId;
+    const amount = txn.amount;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.payoutTransaction.update({
+        where: { id: txn.id },
+        data: {
+          status: PayoutTransactionStatus.FAILED,
+          failureReason: (event.failureReason ?? `Transfer ${event.status}`).slice(0, 500),
+        },
+      });
+      await tx.payoutRequest.update({
+        where: { id: payoutId },
+        data: { status: PayoutRequestStatus.APPROVED, processedAt: null },
+      });
+      await tx.merchantPayout.updateMany({
+        where: { payoutRequestId: payoutId },
+        data: { status: 'FAILED' },
+      });
+      // Give the paid-out total back — the money did not actually leave.
+      await tx.merchantWallet.update({
+        where: { merchantProfileId },
+        data: { totalPaidOut: { decrement: amount } },
+      });
+      // Un-earmark the settled entries so they can be paid again.
+      await tx.settlementLedger.updateMany({
+        where: { payoutRequestId: payoutId },
+        data: { status: SettlementLedgerStatus.SETTLED, payoutRequestId: null },
+      });
+    });
+
+    // Reverse the payout journal (swap of recordMerchantPayout's lines).
+    await this.ledger.postJournal({
+      referenceType: LedgerReferenceType.MERCHANT_PAYOUT,
+      referenceId: payoutId,
+      description: `Merchant payout REVERSED ${payoutId}`,
+      idempotencyKey: `merchant-payout-reversal:${payoutId}`,
+      metadata: { transferId: event.transferId, reason: event.failureReason },
+      lines: [
+        { accountCode: LEDGER_ACCOUNT_CODES.CUSTOMER_RECEIVABLE, debit: decimalToNumber(amount), credit: 0 },
+        { accountCode: LEDGER_ACCOUNT_CODES.MERCHANT_PAYABLE, debit: 0, credit: decimalToNumber(amount) },
+      ],
+    });
+
+    void this.financeCache.invalidatePayouts();
+    await this.audit.log({
+      actorId: 'razorpay-webhook',
+      action: 'PAYOUT_TRANSFER_REVERSED',
+      resourceType: 'payout_request',
+      resourceId: payoutId,
+      metadata: { transferId: event.transferId, reason: event.failureReason } as Prisma.InputJsonValue,
+    });
+    this.logger.warn(
+      { payoutId, transferId: event.transferId },
+      'Merchant payout reversed after Route transfer failure',
+    );
   }
 
   async assertMerchantOwnsPayout(userId: string, payoutId: string) {
