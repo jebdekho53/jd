@@ -347,27 +347,11 @@ describe('StoreCategoryAccessService menu subcategory', () => {
     mockPrisma.storeCategoryRequest.findMany.mockResolvedValue([
       { categoryId: 'food-parent', subcategoryId: 'pizza-sub' },
     ]);
+    // Flat list — listApprovedCategoryTree now fetches all nodes and builds the
+    // tree in-memory (supporting arbitrary depth).
     mockPrisma.category.findMany.mockResolvedValue([
-      {
-        id: 'food-parent',
-        name: 'Food',
-        slug: 'menu-food',
-        imageUrl: null,
-        icon: null,
-        parentId: null,
-        sortOrder: 1,
-        children: [
-          {
-            id: 'pizza-sub',
-            name: 'Pizza',
-            slug: 'pizza',
-            imageUrl: null,
-            icon: null,
-            parentId: 'food-parent',
-            sortOrder: 5,
-          },
-        ],
-      },
+      { id: 'food-parent', name: 'Food', slug: 'menu-food', imageUrl: null, icon: null, parentId: null, sortOrder: 1 },
+      { id: 'pizza-sub', name: 'Pizza', slug: 'pizza', imageUrl: null, icon: null, parentId: 'food-parent', sortOrder: 5 },
     ]);
 
     const tree = await accessService.listApprovedCategoryTree(
@@ -378,5 +362,33 @@ describe('StoreCategoryAccessService menu subcategory', () => {
     expect(tree).toHaveLength(1);
     expect(tree[0]?.name).toBe('Food');
     expect(tree[0]?.children[0]?.name).toBe('Pizza');
+  });
+
+  it('grants the full subtree when a deep (L3) node is approved', async () => {
+    mockPrisma.store.findFirst.mockResolvedValue({ merchantProfileId: 'mp-1' });
+    mockPrisma.storeCategory.findMany.mockResolvedValue([]);
+    // Approved for the L3 node "Dals & Pulses" only.
+    mockPrisma.storeCategoryRequest.findMany.mockResolvedValue([
+      { subcategoryId: 'dals' },
+    ]);
+    mockPrisma.category.findMany.mockResolvedValue([
+      { id: 'grocery', name: 'Grocery', slug: 'grocery', imageUrl: null, icon: null, parentId: null, sortOrder: 1 },
+      { id: 'staples', name: 'Staples', slug: 'grocery-staples', imageUrl: null, icon: null, parentId: 'grocery', sortOrder: 2 },
+      { id: 'dals', name: 'Dals & Pulses', slug: 'dals-pulses', imageUrl: null, icon: null, parentId: 'staples', sortOrder: 3 },
+      { id: 'moong', name: 'Moong Dal', slug: 'moong-dal', imageUrl: null, icon: null, parentId: 'dals', sortOrder: 1 },
+      { id: 'toor', name: 'Toor Dal', slug: 'toor-dal', imageUrl: null, icon: null, parentId: 'dals', sortOrder: 2 },
+      // A sibling branch the store is NOT approved for — must be excluded.
+      { id: 'snacks', name: 'Snacks', slug: 'grocery-snacks', imageUrl: null, icon: null, parentId: 'grocery', sortOrder: 4 },
+    ]);
+
+    const tree = await accessService.listApprovedCategoryTree('store-g', CategoryCatalogKind.PRODUCT);
+
+    // Root path preserved, sibling branch excluded, full L4 subtree included.
+    expect(tree).toHaveLength(1);
+    expect(tree[0]?.name).toBe('Grocery');
+    expect(tree[0]?.children.map((c) => c.name)).toEqual(['Staples']);
+    expect(tree[0]?.children[0]?.children[0]?.name).toBe('Dals & Pulses');
+    const l4 = tree[0]?.children[0]?.children[0]?.children.map((c) => c.name);
+    expect(l4).toEqual(['Moong Dal', 'Toor Dal']);
   });
 });
