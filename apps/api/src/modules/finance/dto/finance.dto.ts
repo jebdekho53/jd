@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsArray, IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Length, Matches, Min } from 'class-validator';
 import { CodReconciliationStatus, SettlementCycle } from '@prisma/client';
 
 export class ListFinanceQueryDto {
@@ -61,4 +61,26 @@ export class ExportQueryDto {
   @IsOptional()
   @IsString()
   merchantProfileId?: string;
+}
+
+export class SaveRiderBankAccountDto {
+  @IsString()
+  @Length(2, 120)
+  accountHolderName!: string;
+
+  @Matches(/^\d{6,20}$/, { message: 'Account number must be 6-20 digits' })
+  accountNumber!: string;
+
+  @Matches(/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/, { message: 'IFSC is not valid' })
+  ifsc!: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 120)
+  bankName?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 120)
+  upiId?: string;
 }

@@ -1,17 +1,27 @@
-import { Injectable } from '@nestjs/common';
-import { DeliveryStatus, RiderPayoutStatus } from '@prisma/client';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { DeliveryStatus, LedgerReferenceType, RiderPayoutStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { startOfIstDay, startOfIstWeek } from '../../common/utils/ist-day.util';
 import { LedgerService } from './ledger.service';
+import { LEDGER_ACCOUNT_CODES } from './ledger-accounts.constants';
 import { FinanceCacheService } from './finance-cache.service';
 import { decimalToNumber, roundMoney } from '../settlement/settlement.utils';
+import { RazorpayService } from '../payment/razorpay.service';
+import {
+  RAZORPAY_TRANSFER_EVENTS,
+  type RazorpayTransferEvent,
+} from '../payment/razorpay-transfer.events';
 
 @Injectable()
 export class RiderPayoutService {
+  private readonly logger = new Logger(RiderPayoutService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: LedgerService,
     private readonly cache: FinanceCacheService,
+    private readonly razorpay: RazorpayService,
   ) {}
 
   async getRiderEarnings(riderProfileId: string) {
@@ -122,6 +132,95 @@ export class RiderPayoutService {
     await this.cache.invalidatePayouts();
 
     return payout;
+  }
+
+  /**
+   * Pay a rider payout via Razorpay Route instead of a manual bank transfer.
+   * Requires a verified rider bank account (which carries the linked account).
+   * Marks the payout PAID optimistically; a bank-level failure is reconciled by
+   * the webhook (onTransferFailed). Idempotent: an already-paid payout is returned.
+   */
+  async processViaRoute(payoutId: string, adminUserId: string) {
+    const payout = await this.prisma.riderPayout.findUnique({
+      where: { id: payoutId },
+      include: { riderProfile: { include: { bankAccount: true } } },
+    });
+    if (!payout) throw new NotFoundException('Rider payout not found');
+    if (payout.status === RiderPayoutStatus.PAID) return payout;
+
+    const bank = payout.riderProfile.bankAccount;
+    if (!bank || !bank.verified || !bank.razorpayLinkedAccountId) {
+      throw new BadRequestException('Rider bank account is not verified yet');
+    }
+    if (!this.razorpay.isRouteEnabled()) {
+      throw new BadRequestException('Razorpay Route is not enabled');
+    }
+
+    const amount = decimalToNumber(payout.totalAmount);
+    if (amount <= 0) throw new BadRequestException('Nothing to pay out');
+
+    let transferId: string;
+    try {
+      const transfer = await this.razorpay.createTransfer({
+        linkedAccountId: bank.razorpayLinkedAccountId,
+        amountRupees: amount,
+        referenceId: payoutId,
+        notes: { riderPayoutId: payoutId },
+      });
+      transferId = transfer.id;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await this.prisma.riderPayout.update({
+        where: { id: payoutId },
+        data: { status: RiderPayoutStatus.FAILED, failureReason: message.slice(0, 500) },
+      });
+      throw new BadRequestException(`Rider payout transfer failed: ${message}`);
+    }
+
+    const updated = await this.prisma.riderPayout.update({
+      where: { id: payoutId },
+      data: { status: RiderPayoutStatus.PAID, paidAt: new Date(), referenceId: transferId, failureReason: null },
+    });
+    await this.ledger.recordRiderPayout(payoutId, payout.riderProfileId, amount);
+    await this.cache.invalidatePayouts();
+    this.logger.log({ payoutId, transferId }, 'Rider payout paid via Route');
+    return updated;
+  }
+
+  /**
+   * Reconcile a rider Route transfer that failed after we marked the payout PAID.
+   * Reverts to FAILED (retryable) and reverses the ledger. Idempotent / no-op for
+   * unknown transfers. Listens on the same bus the payment webhook broadcasts on.
+   */
+  @OnEvent(RAZORPAY_TRANSFER_EVENTS.FAILED)
+  async onTransferFailed(event: RazorpayTransferEvent): Promise<void> {
+    const payout = await this.prisma.riderPayout.findFirst({
+      where: { referenceId: event.transferId, status: RiderPayoutStatus.PAID },
+    });
+    if (!payout) return;
+
+    await this.prisma.riderPayout.update({
+      where: { id: payout.id },
+      data: {
+        status: RiderPayoutStatus.FAILED,
+        paidAt: null,
+        failureReason: (event.failureReason ?? `Transfer ${event.status}`).slice(0, 500),
+      },
+    });
+    // Reverse the payout journal (swap of recordRiderPayout's lines).
+    await this.ledger.postJournal({
+      referenceType: LedgerReferenceType.RIDER_PAYOUT,
+      referenceId: payout.id,
+      description: `Rider payout REVERSED ${payout.id}`,
+      idempotencyKey: `rider-payout-reversal:${payout.id}`,
+      metadata: { transferId: event.transferId, reason: event.failureReason },
+      lines: [
+        { accountCode: LEDGER_ACCOUNT_CODES.CUSTOMER_RECEIVABLE, debit: decimalToNumber(payout.totalAmount), credit: 0 },
+        { accountCode: LEDGER_ACCOUNT_CODES.RIDER_PAYABLE, debit: 0, credit: decimalToNumber(payout.totalAmount) },
+      ],
+    });
+    await this.cache.invalidatePayouts();
+    this.logger.warn({ payoutId: payout.id, transferId: event.transferId }, 'Rider payout reversed after Route failure');
   }
 
   async listAdmin(page = 1, limit = 25) {

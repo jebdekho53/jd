@@ -7,6 +7,7 @@ import { OrderFinancialsService } from './order-financials.service';
 import { SettlementBatchService } from './settlement-batch.service';
 import { CodReconciliationService } from './cod-reconciliation.service';
 import { RiderPayoutService } from './rider-payout.service';
+import { RiderBankAccountService } from './rider-bank-account.service';
 import { FinanceExportService } from './finance-export.service';
 import { FinanceAlertService } from './finance-alert.service';
 import { FinanceCacheService } from './finance-cache.service';
@@ -26,6 +27,7 @@ import { RiderFinanceController } from './rider-finance.controller';
     SettlementBatchService,
     CodReconciliationService,
     RiderPayoutService,
+    RiderBankAccountService,
     FinanceExportService,
     FinanceAlertService,
     FinanceCacheService,
