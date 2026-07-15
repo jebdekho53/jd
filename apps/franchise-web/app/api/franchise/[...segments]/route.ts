@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { proxyGet, proxyPatch, proxyPost } from '@/lib/auth/session';
+import { proxyGet, proxyPatch, proxyPost, proxyPut } from '@/lib/auth/session';
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ segments: string[] }> }) {
   const { segments } = await ctx.params;
@@ -15,4 +15,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ segments: 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ segments: string[] }> }) {
   const { segments } = await ctx.params;
   return proxyPatch(req, `/franchise/${segments.join('/')}`);
+}
+
+export async function PUT(req: NextRequest, ctx: { params: Promise<{ segments: string[] }> }) {
+  const { segments } = await ctx.params;
+  return proxyPut(req, `/franchise/${segments.join('/')}`);
 }
