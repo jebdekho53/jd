@@ -2,8 +2,11 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -21,6 +24,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { RequestUser } from '../../common/types/index';
 import { OrderClaimService } from './order-claim.service';
+import { ReturnPickupService } from './return-pickup.service';
 import { ListMerchantClaimsDto, PatchAdminClaimDto } from './dto/order-claim.dto';
 
 @ApiTags('admin / claims')
@@ -29,7 +33,10 @@ import { ListMerchantClaimsDto, PatchAdminClaimDto } from './dto/order-claim.dto
 @Roles('ADMIN')
 @Controller('admin/claims')
 export class AdminClaimController {
-  constructor(private readonly claims: OrderClaimService) {}
+  constructor(
+    private readonly claims: OrderClaimService,
+    private readonly returnPickups: ReturnPickupService,
+  ) {}
 
   @Get()
   @Permissions('orders:read')
@@ -50,5 +57,23 @@ export class AdminClaimController {
   ) {
     const data = await this.claims.patchAdminClaim(user.id, claimId, dto);
     return { success: true, data };
+  }
+
+  /** Re-run rider assignment for a return pickup that's still unassigned. */
+  @Post(':claimId/return-pickup/reassign')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('orders:write')
+  async reassignPickup(@Param('claimId') claimId: string) {
+    await this.returnPickups.reassignByClaim(claimId);
+    return { success: true };
+  }
+
+  /** Safety valve: mark the returned item received (rider offline) → triggers refund. */
+  @Post(':claimId/return-pickup/received')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('orders:write')
+  async markReceived(@CurrentUser() user: RequestUser, @Param('claimId') claimId: string) {
+    await this.returnPickups.adminMarkReceived(claimId, user.id);
+    return { success: true };
   }
 }

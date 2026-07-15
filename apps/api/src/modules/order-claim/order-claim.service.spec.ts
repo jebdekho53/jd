@@ -15,6 +15,7 @@ import { ClaimEligibilityService } from './claim-eligibility.service';
 import { ClaimRefundService } from './claim-refund.service';
 import { ClaimReplacementService } from './claim-replacement.service';
 import { ClaimNotificationService } from './claim-notification.service';
+import { ReturnPickupService } from './return-pickup.service';
 
 describe('OrderClaimService security guards', () => {
   let service: OrderClaimService;
@@ -93,6 +94,7 @@ describe('OrderClaimService security guards', () => {
         { provide: ClaimReplacementService, useValue: claimReplacement },
         { provide: ClaimNotificationService, useValue: notifications },
         { provide: ConfigService, useValue: config },
+        { provide: ReturnPickupService, useValue: { scheduleForClaim: jest.fn() } },
       ],
     }).compile();
     service = module.get(OrderClaimService);

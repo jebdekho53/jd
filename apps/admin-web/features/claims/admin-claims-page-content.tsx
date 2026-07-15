@@ -11,6 +11,7 @@ interface ClaimRow {
   storeId: string;
   requestedAmount: number;
   createdAt: string;
+  returnPickup?: { status: string; riderProfileId: string | null } | null;
 }
 
 export function AdminClaimsPageContent() {
@@ -29,12 +30,17 @@ export function AdminClaimsPageContent() {
     void load();
   }, [status]);
 
-  const act = async (claimId: string, action: string, adminAction?: string) => {
+  const act = async (claimId: string, action: string, extra?: Record<string, unknown>) => {
     await fetch(`/api/admin/claims/${claimId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, adminAction }),
+      body: JSON.stringify({ action, ...extra }),
     });
+    void load();
+  };
+
+  const pickupAction = async (claimId: string, verb: 'reassign' | 'received') => {
+    await fetch(`/api/admin/claims/${claimId}/return-pickup/${verb}`, { method: 'POST' });
     void load();
   };
 
@@ -65,6 +71,7 @@ export function AdminClaimsPageContent() {
               <th className="px-4 py-3">Store</th>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Pickup</th>
               <th className="px-4 py-3">Amount</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
@@ -76,15 +83,31 @@ export function AdminClaimsPageContent() {
                 <td className="px-4 py-3">{c.storeId.slice(0, 8)}…</td>
                 <td className="px-4 py-3">{c.claimType}</td>
                 <td className="px-4 py-3">{c.status}</td>
+                <td className="px-4 py-3 text-xs">
+                  {c.returnPickup ? c.returnPickup.status.replace(/_/g, ' ') : '—'}
+                </td>
                 <td className="px-4 py-3">₹{c.requestedAmount.toFixed(2)}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-1">
-                    <Button size="sm" onClick={() => act(c.id, 'APPROVE_REFUND', 'FORCE_REFUND')}>
+                    <Button size="sm" onClick={() => act(c.id, 'APPROVE', { returnPickupEnabled: true })}>
+                      Approve + pickup
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => act(c.id, 'APPROVE_REFUND', { adminAction: 'FORCE_REFUND' })}>
                       Force refund
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => act(c.id, 'APPROVE_REPLACEMENT')}>
-                      Approve replacement
+                      Replacement
                     </Button>
+                    {c.returnPickup && c.returnPickup.status !== 'COMPLETED' && (
+                      <>
+                        <Button size="sm" variant="ghost" onClick={() => pickupAction(c.id, 'reassign')}>
+                          Reassign rider
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => pickupAction(c.id, 'received')}>
+                          Mark received
+                        </Button>
+                      </>
+                    )}
                     <Button size="sm" variant="ghost" onClick={() => act(c.id, 'REJECT')}>
                       Reject
                     </Button>

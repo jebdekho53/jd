@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ReturnPickupsCard } from './return-pickups-card';
 import {
   acceptOrder,
   arrivedCustomer,
@@ -327,6 +328,8 @@ function HomeTab({
           body={me.profile?.status === 'OFFLINE' ? 'Go online when you are ready to receive delivery assignments.' : 'Stay online. New assigned orders will appear here.'}
         />
       )}
+
+      <ReturnPickupsCard />
     </div>
   );
 }

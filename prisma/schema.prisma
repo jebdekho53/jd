@@ -803,6 +803,7 @@ model BuyerProfile {
   wallet                  BuyerWallet?
   membershipSubscriptions MembershipSubscription[]
   orderClaims             OrderClaim[]
+  returnPickups           ReturnPickup[]
 
   @@map("buyer_profiles")
 }
@@ -1024,6 +1025,7 @@ model RiderProfile {
   routeOptimizations RouteOptimization[]
   fleetAlerts        FleetAlert[]
   bankAccount        RiderBankAccount?
+  returnPickups      ReturnPickup[]
 
   @@index([status])
   @@index([kycStatus])
@@ -1635,6 +1637,7 @@ model Store {
   foodCarts              FoodCart[]
   addonGroups            RestaurantAddonGroup[]
   orderClaims            OrderClaim[]
+  returnPickups          ReturnPickup[]
 
   @@index([franchiseId])
   @@index([cityId, isActive])
@@ -8084,6 +8087,9 @@ enum OrderClaimStatus {
   REJECTED
   REPLACEMENT_APPROVED
   REPLACEMENT_SHIPPED
+  RETURN_PICKUP_SCHEDULED
+  RETURN_PICKED_UP
+  RETURN_RECEIVED
   REFUND_PROCESSING
   REFUND_PROCESSED
   CLOSED
@@ -8094,6 +8100,50 @@ enum ClaimActorType {
   MERCHANT
   ADMIN
   SYSTEM
+}
+
+/// Reverse-logistics pickup: a rider collects a returned item from the buyer and
+/// drops it at the store. Refund is processed only after the store receives it.
+enum ReturnPickupStatus {
+  PENDING
+  ASSIGNED
+  ACCEPTED
+  PICKED_UP
+  COMPLETED
+  CANCELLED
+}
+
+model ReturnPickup {
+  id             String             @id @default(cuid())
+  claimId        String             @unique @map("claim_id")
+  storeId        String             @map("store_id")
+  buyerProfileId String             @map("buyer_profile_id")
+  riderProfileId String?            @map("rider_profile_id")
+  status         ReturnPickupStatus @default(PENDING)
+  /// Where the rider collects (the buyer) and drops (the store).
+  pickupLat      Float              @map("pickup_lat")
+  pickupLng      Float              @map("pickup_lng")
+  pickupAddress  Json?              @map("pickup_address")
+  dropLat        Float?             @map("drop_lat")
+  dropLng        Float?             @map("drop_lng")
+  riderEarning   Decimal?           @map("rider_earning") @db.Decimal(10, 2)
+  assignedAt     DateTime?          @map("assigned_at")
+  acceptedAt     DateTime?          @map("accepted_at")
+  pickedUpAt     DateTime?          @map("picked_up_at")
+  completedAt    DateTime?          @map("completed_at")
+  cancelledAt    DateTime?          @map("cancelled_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  claim        OrderClaim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  store        Store         @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  buyerProfile BuyerProfile  @relation(fields: [buyerProfileId], references: [id], onDelete: Restrict)
+  riderProfile RiderProfile? @relation(fields: [riderProfileId], references: [id], onDelete: SetNull)
+
+  @@index([riderProfileId, status])
+  @@index([storeId, status])
+  @@index([status, createdAt])
+  @@map("return_pickups")
 }
 
 model OrderClaim {
@@ -8127,6 +8177,7 @@ model OrderClaim {
   history      ClaimHistory[]
   refund       ClaimRefund?
   replacement  ClaimReplacement?
+  returnPickup ReturnPickup?
 
   @@unique([buyerProfileId, idempotencyKey])
   @@index([orderId])
