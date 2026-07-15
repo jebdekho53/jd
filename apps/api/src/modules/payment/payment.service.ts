@@ -16,8 +16,13 @@ import {
   Prisma,
   ReservationStatus,
 } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import {
+  RAZORPAY_TRANSFER_EVENTS,
+  type RazorpayTransferEvent,
+} from './razorpay-transfer.events';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { ReservationService } from '../checkout/reservation.service';
 import { OrderStatusHistoryService } from '../order/order-status-history.service';
@@ -55,6 +60,7 @@ export class PaymentService {
     private readonly foodPayment: FoodPaymentService,
     private readonly webhookDedup: WebhookDedupService,
     private readonly orderRefunds: OrderRefundService,
+    private readonly events: EventEmitter2,
   ) {}
 
   // ── Create Razorpay order for a reserved checkout ─────────────────────────
@@ -327,6 +333,15 @@ export class PaymentService {
           await this.orderRefunds.reconcileRazorpayRefund(event.payload);
           break;
 
+        // Route transfer outcome. Both franchise payouts and merchant settlements
+        // mark their record paid on `createTransfer`, before the money has actually
+        // moved; these events carry the real result so each consumer can reconcile.
+        case 'transfer.processed':
+        case 'transfer.failed':
+        case 'transfer.reversed':
+          this.emitTransferOutcome(event.event, event.payload);
+          break;
+
         default:
           this.logger.debug(`Unhandled webhook event: ${event.event}`);
       }
@@ -336,6 +351,32 @@ export class PaymentService {
       await this.webhookDedup.markFailed(claim.recordId, message);
       throw err;
     }
+  }
+
+  /**
+   * Turn a Route transfer webhook into an internal event. Consumers (franchise,
+   * settlement) listen and reconcile their own record by the transfer id, keeping
+   * the payment module decoupled from them.
+   */
+  private emitTransferOutcome(
+    eventName: string,
+    payload: Record<string, unknown> | undefined,
+  ): void {
+    const entity = (payload?.transfer as { entity?: Record<string, unknown> } | undefined)?.entity;
+    const transferId = typeof entity?.id === 'string' ? entity.id : undefined;
+    if (!transferId) {
+      this.logger.warn({ eventName }, 'Transfer webhook with no transfer id — ignored');
+      return;
+    }
+    const status = typeof entity?.status === 'string' ? entity.status : eventName;
+    const failed = eventName === 'transfer.failed' || eventName === 'transfer.reversed';
+    const failureReason =
+      (entity?.error as { description?: string } | undefined)?.description ??
+      (failed ? eventName : null);
+
+    const channel = failed ? RAZORPAY_TRANSFER_EVENTS.FAILED : RAZORPAY_TRANSFER_EVENTS.PROCESSED;
+    this.events.emit(channel, { transferId, status, failureReason } as RazorpayTransferEvent);
+    this.logger.log({ transferId, eventName, channel }, 'Route transfer outcome re-broadcast');
   }
 
   // ── Webhook event handlers ─────────────────────────────────────────────────

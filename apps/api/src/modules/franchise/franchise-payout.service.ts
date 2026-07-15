@@ -8,7 +8,12 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { LedgerService } from '../finance/ledger.service';
 import { LEDGER_ACCOUNT_CODES } from '../finance/ledger-accounts.constants';
+import { OnEvent } from '@nestjs/event-emitter';
 import { RazorpayService } from '../payment/razorpay.service';
+import {
+  RAZORPAY_TRANSFER_EVENTS,
+  type RazorpayTransferEvent,
+} from '../payment/razorpay-transfer.events';
 import { FranchiseKycService } from './franchise-kyc.service';
 import { FranchiseNotificationService } from './franchise-notification.service';
 
@@ -194,6 +199,68 @@ export class FranchisePayoutService {
       this.logger.error({ payoutId: payout.id, err: message }, 'Franchise payout failed');
       throw new BadRequestException(`Payout failed: ${message}`);
     }
+  }
+
+  /**
+   * Reconcile a Route transfer that failed AFTER we optimistically marked the
+   * payout COMPLETED. Without this a bank-level failure would leave the partner
+   * shown as paid forever, with the ledger claiming the money left escrow.
+   *
+   * Reverses the payout to FAILED, the settlement back to PROCESSING (so it can be
+   * paid again), posts a reversing ledger journal, and tells the partner.
+   * Idempotent: a repeated or unknown transfer id is a no-op.
+   */
+  @OnEvent(RAZORPAY_TRANSFER_EVENTS.FAILED)
+  async onTransferFailed(event: RazorpayTransferEvent): Promise<void> {
+    const payout = await this.prisma.franchisePayout.findUnique({
+      where: { razorpayTransferId: event.transferId },
+      include: { settlement: { select: { id: true, franchiseShare: true, gstAmount: true } } },
+    });
+    if (!payout || payout.status !== FranchisePayoutStatus.COMPLETED) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.franchisePayout.update({
+        where: { id: payout.id },
+        data: {
+          status: FranchisePayoutStatus.FAILED,
+          failureReason: event.failureReason ?? `Transfer ${event.status}`,
+        },
+      });
+      // Settlement goes back to unpaid so an admin can retry the payout.
+      await tx.franchiseSettlement.update({
+        where: { id: payout.settlementId },
+        data: { status: FranchiseSettlementStatus.PROCESSING, paidAt: null },
+      });
+    });
+
+    // Reverse the payout journal — the money never left escrow. Mirror of the
+    // original: escrow debited back, FRANCHISE_PAYABLE re-owed, TDS liability undone.
+    await this.ledger.postJournal({
+      referenceType: LedgerReferenceType.ADJUSTMENT,
+      referenceId: payout.id,
+      description: `Franchise payout REVERSED ${payout.franchiseId}`,
+      idempotencyKey: `franchise-payout-reversal:${payout.id}`,
+      metadata: { transferId: event.transferId, reason: event.failureReason },
+      lines: [
+        { accountCode: LEDGER_ACCOUNT_CODES.PLATFORM_ESCROW, debit: Number(payout.netAmount), credit: 0 },
+        { accountCode: LEDGER_ACCOUNT_CODES.TDS_PAYABLE, debit: Number(payout.tdsAmount), credit: 0 },
+        {
+          accountCode: LEDGER_ACCOUNT_CODES.FRANCHISE_PAYABLE,
+          debit: 0,
+          credit: Number(payout.settlement.franchiseShare) + Number(payout.settlement.gstAmount),
+        },
+      ],
+    });
+
+    await this.notifications.payoutFailed(
+      payout.franchiseId,
+      Number(payout.netAmount),
+      event.failureReason ?? 'the bank transfer failed',
+    );
+    this.logger.warn(
+      { payoutId: payout.id, transferId: event.transferId },
+      'Franchise payout reversed after Route transfer failure',
+    );
   }
 
   async listPayouts(franchiseId: string) {
