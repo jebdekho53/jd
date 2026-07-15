@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LayoutDashboard, Landmark, Map, ShieldCheck, Store, Users, TrendingUp, Wallet } from 'lucide-react';
+import { IdCard, LayoutDashboard, Landmark, Map, ShieldCheck, Store, Users, TrendingUp, Wallet } from 'lucide-react';
 import { requireFranchiseUser } from '@/lib/auth/session';
 import { LogoutButton } from './logout-button';
 
@@ -11,6 +11,7 @@ const NAV = [
   { href: '/growth', label: 'Growth', icon: TrendingUp },
   { href: '/finance', label: 'Finance', icon: Wallet },
   { href: '/bank-account', label: 'Bank account', icon: Landmark },
+  { href: '/card', label: 'My card', icon: IdCard },
   { href: '/kyc', label: 'Verification', icon: ShieldCheck },
 ];
 
