@@ -10,7 +10,9 @@ import { DomainEventsService } from '../domain-events/domain-events.service';
 import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { VerificationBlocklistService } from '../merchant/verification-blocklist.service';
 import { EmailNotificationService } from '../email/email-notification.service';
+import { ConfigService } from '@nestjs/config';
 import { MerchantService } from '../merchant/merchant.service';
+import { MarketingCardService } from '../marketing/marketing-card.service';
 import { VerticalService } from '../store-vertical/vertical.service';
 import { MERCHANT_BLOCKED_MESSAGE } from '../../common/constants/rejection.constants';
 import { FranchiseStoreLinkService } from '../franchise/franchise-store-link.service';
@@ -289,6 +291,8 @@ describe('MerchantService blacklist checks', () => {
         },
         { provide: AuditService, useValue: { log: jest.fn() } },
         { provide: VerificationBlocklistService, useValue: blocklist },
+        { provide: ConfigService, useValue: { get: () => undefined } },
+        { provide: MarketingCardService, useValue: {} },
       ],
     }).compile();
 

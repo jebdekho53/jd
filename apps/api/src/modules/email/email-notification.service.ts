@@ -55,7 +55,7 @@ export class EmailNotificationService {
     });
   }
 
-  async sendMerchantWelcomeEmail(to: string, name: string, applicationId?: string): Promise<void> {
+  async sendMerchantWelcomeEmail(to: string, name: string, applicationId?: string, cardPng?: Buffer | null): Promise<void> {
     const dashboardUrl = `${this.merchantSiteUrl.replace(/\/$/, '')}/signup`;
     const tpl = this.templates.merchantWelcome(name, dashboardUrl);
     await this.safeSend({
@@ -63,6 +63,9 @@ export class EmailNotificationService {
       ...tpl,
       templateCode: EMAIL_TEMPLATE.MERCHANT_WELCOME,
       metadata: { name, ...(applicationId ? { applicationId } : {}) },
+      ...(cardPng
+        ? { attachments: [{ filename: 'jebdekho-store-card.png', content: cardPng, contentType: 'image/png' }] }
+        : {}),
     });
   }
 
@@ -72,6 +75,7 @@ export class EmailNotificationService {
     leadId?: string;
     franchiseId?: string;
     referralCode: string;
+    cardPng?: Buffer | null;
   }): Promise<void> {
     if (!data.to) return;
     const merchantBase = this.merchantSiteUrl.replace(/\/$/, '');
@@ -91,6 +95,9 @@ export class EmailNotificationService {
         ...(data.franchiseId ? { franchiseId: data.franchiseId } : {}),
         referralCode: data.referralCode,
       },
+      ...(data.cardPng
+        ? { attachments: [{ filename: 'jebdekho-partner-card.png', content: data.cardPng, contentType: 'image/png' }] }
+        : {}),
     });
   }
 

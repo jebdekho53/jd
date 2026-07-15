@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Put, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Header, Post, Put, Req, StreamableFile, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -15,6 +15,7 @@ import { FranchiseKycService } from './franchise-kyc.service';
 import {
   AcceptFranchiseAgreementDto,
   SaveFranchiseBankAccountDto,
+  SaveFranchiseProfileDto,
   UploadFranchiseDocumentDto,
 } from './dto/franchise.dto';
 
@@ -101,6 +102,28 @@ export class FranchisePortalController {
   async referral(@CurrentUser() user: RequestUser) {
     const id = await this.franchise.resolveFranchiseId(user.id);
     return { success: true, data: await this.franchise.getReferral(id) };
+  }
+
+  /** Card details the partner edits (full address + owner photo). */
+  @Get('profile')
+  async getProfile(@CurrentUser() user: RequestUser) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.franchise.getProfile(id) };
+  }
+
+  @Put('profile')
+  async saveProfile(@CurrentUser() user: RequestUser, @Body() dto: SaveFranchiseProfileDto) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.franchise.saveProfile(id, dto) };
+  }
+
+  /** The partner's shareable card (PNG) — for the dashboard download / share. */
+  @Get('marketing-card')
+  @Header('Content-Type', 'image/png')
+  @Header('Content-Disposition', 'inline; filename="jebdekho-partner-card.png"')
+  async marketingCard(@CurrentUser() user: RequestUser): Promise<StreamableFile> {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return new StreamableFile(await this.franchise.getMarketingCardPng(id));
   }
 
   /** Merchants recruited via this partner's referral code, and their status. */

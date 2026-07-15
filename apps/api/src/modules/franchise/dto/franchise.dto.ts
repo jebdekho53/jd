@@ -274,3 +274,18 @@ export class ResolveTerritoryConflictDto {
   @Length(3, 1000)
   resolution!: string;
 }
+
+/** Partner-editable card details: full address + an uploaded owner photo URL. */
+export class SaveFranchiseProfileDto {
+  @ApiProperty({ required: false, example: 'Sherwani Nagar, Sitapur Road, Lucknow, UP' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 300)
+  address?: string;
+
+  @ApiProperty({ required: false, description: 'URL from POST /uploads/image (purpose owner-photo)' })
+  @IsOptional()
+  @IsString()
+  @Length(0, 500)
+  photoUrl?: string;
+}

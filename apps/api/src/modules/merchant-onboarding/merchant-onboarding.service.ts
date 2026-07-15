@@ -1076,10 +1076,16 @@ export class MerchantOnboardingService {
     });
 
     if (app.ownerEmail) {
+      // Best-effort: attach the shareable store card. A card failure must never
+      // block the welcome email or the approval itself.
+      const cardPng = await this.merchantService
+        .getMarketingCardPng(app.userId)
+        .catch(() => null);
       void this.emailNotifications.sendMerchantWelcomeEmail(
         app.ownerEmail,
         app.ownerName ?? 'Partner',
         app.id,
+        cardPng,
       );
     }
 

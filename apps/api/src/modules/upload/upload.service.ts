@@ -51,6 +51,14 @@ const PURPOSE_SPECS: Record<UploadImagePurpose, PurposeSpec> = {
     aspectRatio: 1,
     aspectTolerance: 10,
   },
+  // Owner/partner photo for the shareable card. The card cover-crops it, so any
+  // orientation is fine — just require a usable resolution.
+  [UploadImagePurpose.OWNER_PHOTO]: {
+    minWidth: 256,
+    minHeight: 256,
+    aspectRatio: 1,
+    aspectTolerance: 10,
+  },
 };
 
 @Injectable()

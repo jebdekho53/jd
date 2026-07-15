@@ -2,11 +2,13 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Ip,
   Patch,
   Post,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -32,6 +34,14 @@ export class MerchantController {
   // --------------------------------------------------------------------------
   // POST /merchant/profile
   // --------------------------------------------------------------------------
+  /** The store's shareable card (PNG) — for the dashboard download / share. */
+  @Get('marketing-card')
+  @Header('Content-Type', 'image/png')
+  @Header('Content-Disposition', 'inline; filename="jebdekho-store-card.png"')
+  async marketingCard(@CurrentUser() user: RequestUser): Promise<StreamableFile> {
+    return new StreamableFile(await this.merchantService.getMarketingCardPng(user.id));
+  }
+
   @Post('profile')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create merchant profile — upgrades account to MERCHANT role' })
