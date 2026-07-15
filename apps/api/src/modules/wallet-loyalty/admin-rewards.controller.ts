@@ -6,10 +6,11 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { WalletTransactionType } from '@prisma/client';
+import { ReferralStatus, WalletTransactionType } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -96,6 +97,71 @@ export class AdminRewardsController {
           tier: w.tier,
           lifetimePoints: w.lifetimePoints,
           balance: Number(w.balance),
+        })),
+      },
+    };
+  }
+
+  /**
+   * Full referral list for admin — who referred whom, status (incl. PENDING and
+   * FRAUD_FLAGGED), rewards and dates. The analytics card only showed a count;
+   * this is the detail behind it.
+   */
+  @Get('referrals')
+  @ApiOperation({ summary: 'List referrals with referrer/referred details' })
+  async referrals(
+    @Query('status') status?: ReferralStatus,
+    @Query('page') page = '1',
+    @Query('limit') limit = '50',
+  ) {
+    const take = Math.min(100, Math.max(1, Number(limit) || 50));
+    const skip = (Math.max(1, Number(page) || 1) - 1) * take;
+    const where = status ? { status } : {};
+
+    const [rows, total, counts] = await Promise.all([
+      this.prisma.referral.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+        include: {
+          referrer: { select: { referralCode: true, buyerProfile: { select: { name: true } } } },
+          referred: { select: { buyerProfile: { select: { name: true } } } },
+        },
+      }),
+      this.prisma.referral.count({ where }),
+      this.prisma.referral.groupBy({ by: ['status'], _count: true }),
+    ]);
+
+    const byStatus = Object.fromEntries(counts.map((c) => [c.status, c._count])) as Record<
+      ReferralStatus,
+      number
+    >;
+
+    return {
+      success: true,
+      data: {
+        total,
+        page: Number(page) || 1,
+        limit: take,
+        counts: {
+          PENDING: byStatus.PENDING ?? 0,
+          COMPLETED: byStatus.COMPLETED ?? 0,
+          REJECTED: byStatus.REJECTED ?? 0,
+          FRAUD_FLAGGED: byStatus.FRAUD_FLAGGED ?? 0,
+        },
+        referrals: rows.map((r) => ({
+          id: r.id,
+          status: r.status,
+          referrerName: r.referrer.buyerProfile?.name ?? '—',
+          referrerCode: r.referrer.referralCode,
+          referredName: r.referred.buyerProfile?.name ?? '—',
+          referrerReward: Number(r.referrerWalletCredit ?? 0),
+          referredReward: Number(r.referredWalletCredit ?? 0),
+          referrerPoints: r.referrerRewardPoints ?? 0,
+          deviceFingerprint: r.deviceFingerprint,
+          createdAt: r.createdAt,
+          completedAt: r.completedAt,
         })),
       },
     };
