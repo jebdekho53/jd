@@ -888,6 +888,8 @@ model MerchantApplication {
   deliveryRadiusKm         Float?                    @map("delivery_radius_km")
   storeLogoUrl             String?                   @map("store_logo_url") @db.Text
   storeBannerUrl           String?                   @map("store_banner_url") @db.Text
+  // Owner's photo for the shareable marketing card (distinct from the store logo).
+  ownerPhotoUrl            String?                   @map("owner_photo_url") @db.Text
   deliveryCoveragePincodes Json?                     @map("delivery_coverage_pincodes")
   rejectionReason          String?                   @map("rejection_reason") @db.Text
   adminNotes               String?                   @map("admin_notes") @db.Text

@@ -581,6 +581,7 @@ export class MerchantOnboardingService {
     if (deliveryRadiusKm !== undefined) data.deliveryRadiusKm = deliveryRadiusKm;
     if (dto.storeLogoUrl) data.storeLogoUrl = dto.storeLogoUrl;
     if (dto.storeBannerUrl) data.storeBannerUrl = dto.storeBannerUrl;
+    if (dto.ownerPhotoUrl) data.ownerPhotoUrl = dto.ownerPhotoUrl;
     if (deliveryCoveragePincodes) {
       data.deliveryCoveragePincodes = deliveryCoveragePincodes;
     }

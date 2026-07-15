@@ -419,6 +419,12 @@ export class UpdateOnboardingStepDto {
   @IsUrl()
   storeBannerUrl?: string;
 
+  /** Owner's photo for the shareable marketing card (not the store logo). */
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/owner.jpg' })
+  @IsOptional()
+  @IsUrl()
+  ownerPhotoUrl?: string;
+
   @ApiPropertyOptional({ type: [String], example: ['201206', '201204'] })
   @IsOptional()
   @IsArray()

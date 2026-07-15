@@ -15,6 +15,7 @@ import {
   ChefHat,
   BarChart3,
   RefreshCw,
+  Share2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -44,6 +45,7 @@ export const baseNav: NavItem[] = [
   { href: '/support', label: 'Support', icon: Headphones, keywords: 'help ticket contact' },
   { href: '/customers', label: 'Customers', icon: Users, keywords: 'buyers' },
   { href: '/growth', label: 'Growth', icon: Star, keywords: 'marketing insights' },
+  { href: '/marketing-card', label: 'My Card', icon: Share2, keywords: 'share whatsapp business card qr poster' },
   { href: '/ai', label: 'AI Commerce', icon: Star, keywords: 'ai credits image generation wallet' },
   { href: '/network', label: 'Network', icon: Layers },
   { href: '/procurement', label: 'Procurement', icon: Package, keywords: 'purchase supplier' },

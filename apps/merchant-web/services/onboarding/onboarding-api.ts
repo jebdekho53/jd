@@ -49,6 +49,7 @@ export interface MerchantApplication {
   deliveryCoveragePincodes?: string[] | null;
   storeLogoUrl?: string | null;
   storeBannerUrl?: string | null;
+  ownerPhotoUrl?: string | null;
   documents?: Array<{ documentType: string; fileName: string; fileUrl: string }>;
   bankAccount?: {
     accountHolderName: string;
