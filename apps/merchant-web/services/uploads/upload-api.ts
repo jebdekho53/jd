@@ -1,7 +1,7 @@
 import { merchantFetch } from '@/services/api/merchant-client';
 import type { ImageCropMode } from '@jebdekho/image-utils';
 
-export type UploadPurpose = 'product' | 'store-logo' | 'store-banner' | 'category';
+export type UploadPurpose = 'product' | 'store-logo' | 'store-banner' | 'category' | 'owner-photo';
 
 const PURPOSE_MAP: Record<ImageCropMode | 'square', UploadPurpose> = {
   square: 'product',

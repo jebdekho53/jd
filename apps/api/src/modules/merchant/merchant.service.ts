@@ -54,9 +54,21 @@ export class MerchantService {
     });
     if (!store) throw new NotFoundException('No store to build a card for yet');
 
+    // The card shows the OWNER's photo (uploaded in onboarding), falling back to the
+    // store logo for merchants who never set one.
+    const application = await this.prisma.merchantApplication.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: { ownerPhotoUrl: true },
+    });
+
     const cfg = getConfig(this.config);
     const base = cfg.buyerSiteUrl.replace(/\/$/, '');
-    const photo = await readUploadFileFromUrl(cfg.storage.uploadDir, cfg.storage, store.logoUrl);
+    const photo = await readUploadFileFromUrl(
+      cfg.storage.uploadDir,
+      cfg.storage,
+      application?.ownerPhotoUrl ?? store.logoUrl,
+    );
     const address = [store.line1, store.line2, store.locality, store.city?.name, store.pincode]
       .filter(Boolean)
       .join(', ');

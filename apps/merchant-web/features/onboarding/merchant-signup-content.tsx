@@ -236,6 +236,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
     preferredCategories: [] as string[],
     storeLogoUrl: '',
     storeBannerUrl: '',
+    ownerPhotoUrl: '',
     accountHolderName: '',
     accountNumber: '',
     confirmAccountNumber: '',
@@ -351,6 +352,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
         : f.deliveryCoverageInput,
       storeLogoUrl: app.storeLogoUrl ?? f.storeLogoUrl,
       storeBannerUrl: app.storeBannerUrl ?? f.storeBannerUrl,
+      ownerPhotoUrl: app.ownerPhotoUrl ?? f.ownerPhotoUrl,
       accountHolderName: app.bankAccount?.accountHolderName ?? f.accountHolderName,
       accountNumber: app.bankAccount?.accountNumber ?? f.accountNumber,
       confirmAccountNumber: app.bankAccount?.accountNumber ?? f.confirmAccountNumber,
@@ -427,6 +429,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       storeAddress: form.storeAddress.trim() || undefined,
       storeLogoUrl: form.storeLogoUrl || undefined,
       storeBannerUrl: form.storeBannerUrl || undefined,
+      ownerPhotoUrl: form.ownerPhotoUrl || undefined,
       deliveryRadiusKm: form.deliveryRadiusKm,
       locality: form.locality.trim() || undefined,
       state: form.state.trim() || undefined,
@@ -527,6 +530,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
         storeName: form.storeName.trim(),
         storeLogoUrl: form.storeLogoUrl,
         storeBannerUrl: form.storeBannerUrl,
+        ownerPhotoUrl: form.ownerPhotoUrl || undefined,
       });
       setStep(3);
     } catch (e) {
@@ -700,6 +704,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
         ],
         storeLogoUrl: form.storeLogoUrl,
         storeBannerUrl: form.storeBannerUrl,
+        ownerPhotoUrl: form.ownerPhotoUrl || undefined,
       });
       setStep(5);
     } catch (e) {
@@ -1103,6 +1108,13 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                     value={form.storeBannerUrl}
                     onChange={(url) => setForm((f) => ({ ...f, storeBannerUrl: url }))}
                     allowRemove={false}
+                  />
+                  <ImageUploadField
+                    label="Your photo (for your shareable card)"
+                    mode="square"
+                    purpose="owner-photo"
+                    value={form.ownerPhotoUrl}
+                    onChange={(url) => setForm((f) => ({ ...f, ownerPhotoUrl: url }))}
                   />
                 </div>
                 <NavButtons saving={false} onBack={() => setStep(1)} onNext={nextFromStoreBasics} />
