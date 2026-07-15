@@ -29,6 +29,18 @@ import { uploadPublicBases } from '../../common/utils/asset-url.util';
 import { resolveStoreCatalogKind } from './utils/catalog-kind.util';
 import { VerticalService } from '../store-vertical/vertical.service';
 
+/** A node of the drill-down catalog tree returned to the merchant (any depth). */
+export type CategoryTreeNode = {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  sortOrder: number;
+  icon: string | null;
+  requestStatus: StoreCategoryRequestStatus | null;
+  children: CategoryTreeNode[];
+};
+
 @Injectable()
 export class StoreCategoryRequestService {
   private readonly logger = new Logger(StoreCategoryRequestService.name);
@@ -58,52 +70,45 @@ export class StoreCategoryRequestService {
     await this.verticalService.ensureStoreBusinessTypesFromApplication(storeId);
     const kind = await resolveStoreCatalogKind(this.prisma, storeId, catalogKind);
 
-    const existing = await this.prisma.storeCategoryRequest.findMany({
-      where: { storeId },
-      select: { categoryId: true, subcategoryId: true, status: true },
-    });
-    const existingMap = new Map(
-      existing.map((e) => [`${e.categoryId}:${e.subcategoryId}`, e.status]),
-    );
-
-    const approved = await this.prisma.storeCategory.findMany({
-      where: { storeId },
-      select: { categoryId: true, subcategoryId: true },
-    });
-    const approvedSet = new Set(
-      approved.map((a) => `${a.categoryId}:${a.subcategoryId}`),
-    );
-
-    const categories = await this.prisma.category.findMany({
-      where: {
-        storeId: null,
-        scope: CategoryScope.GLOBAL,
-        catalogKind: kind,
-        isActive: true,
-        deletedAt: null,
-        parentId: null,
-      },
-      include: {
-        children: {
-          where: { isActive: true, deletedAt: null, catalogKind: kind },
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-    });
-
-    return categories.map((c) => ({
-      ...c,
-      children: c.children.map((ch) => {
-        const key = `${c.id}:${ch.id}`;
-        return {
-          ...ch,
-          requestStatus: approvedSet.has(key)
-            ? StoreCategoryRequestStatus.APPROVED
-            : (existingMap.get(key) ?? null),
-        };
+    const [requests, approved, all] = await Promise.all([
+      this.prisma.storeCategoryRequest.findMany({
+        where: { storeId },
+        select: { categoryId: true, subcategoryId: true, status: true },
       }),
-    }));
+      this.prisma.storeCategory.findMany({
+        where: { storeId },
+        select: { categoryId: true, subcategoryId: true },
+      }),
+      // Whole GLOBAL tree of this kind — the merchant drills down and picks any
+      // node (L1…L4). Access is by-branch, so selecting a node grants its subtree.
+      this.prisma.category.findMany({
+        where: { storeId: null, scope: CategoryScope.GLOBAL, catalogKind: kind, isActive: true, deletedAt: null },
+        select: { id: true, name: true, slug: true, parentId: true, sortOrder: true, icon: true },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      }),
+    ]);
+
+    // A node counts as approved if it (or, via the request's stored pair, its
+    // selected node / root) is approved; pending/rejected come from requests.
+    const approvedIds = new Set<string>();
+    approved.forEach((a) => { approvedIds.add(a.subcategoryId); approvedIds.add(a.categoryId); });
+    const statusById = new Map<string, StoreCategoryRequestStatus>();
+    requests.forEach((r) => { if (!statusById.has(r.subcategoryId)) statusById.set(r.subcategoryId, r.status); });
+
+    const nodeMap = new Map<string, CategoryTreeNode>(
+      all.map((c) => [c.id, {
+        ...c,
+        requestStatus: approvedIds.has(c.id) ? StoreCategoryRequestStatus.APPROVED : (statusById.get(c.id) ?? null),
+        children: [],
+      }]),
+    );
+    const roots: CategoryTreeNode[] = [];
+    for (const node of nodeMap.values()) {
+      const parent = node.parentId ? nodeMap.get(node.parentId) : null;
+      if (parent) parent.children.push(node);
+      else if (!node.parentId) roots.push(node);
+    }
+    return roots;
   }
 
   async listStoreRequests(userId: string, storeId: string) {
@@ -143,40 +148,43 @@ export class StoreCategoryRequestService {
 
     const expectedKind = await resolveStoreCatalogKind(this.prisma, storeId);
 
-    const parent = await this.prisma.category.findFirst({
+    // The merchant picks ONE node at any depth (L1…L4). Validate it and derive
+    // its root ancestor — access is stored as (root, selectedNode) and, being
+    // by-branch, grants the whole subtree beneath the selected node.
+    const selectedId = dto.subcategoryId;
+    const selected = await this.prisma.category.findFirst({
       where: {
-        id: dto.categoryId,
-        storeId: null,
-        scope: CategoryScope.GLOBAL,
-        catalogKind: expectedKind,
-        isActive: true,
-        deletedAt: null,
-        parentId: null,
-      },
-    });
-    if (!parent) throw new NotFoundException('Parent category not found');
-
-    const subcategory = await this.prisma.category.findFirst({
-      where: {
-        id: dto.subcategoryId,
-        parentId: dto.categoryId,
+        id: selectedId,
         storeId: null,
         scope: CategoryScope.GLOBAL,
         catalogKind: expectedKind,
         isActive: true,
         deletedAt: null,
       },
+      select: { id: true },
     });
-    if (!subcategory) {
-      throw new BadRequestException('Subcategory not found or does not belong to the selected category');
+    if (!selected) {
+      throw new BadRequestException('Selected category not found or is not available');
     }
+    // Walk to the root; that becomes categoryId (grouping + unique key).
+    let rootId = selectedId;
+    for (let i = 0; i < 10; i++) {
+      const node: { parentId: string | null } | null = await this.prisma.category.findUnique({
+        where: { id: rootId },
+        select: { parentId: true },
+      });
+      if (!node?.parentId) break;
+      rootId = node.parentId;
+    }
+    const categoryId = rootId;
+    const subcategoryId = selectedId;
 
     const existingApproval = await this.prisma.storeCategory.findUnique({
       where: {
         storeId_categoryId_subcategoryId: {
           storeId,
-          categoryId: dto.categoryId,
-          subcategoryId: dto.subcategoryId,
+          categoryId,
+          subcategoryId,
         },
       },
     });
@@ -188,8 +196,8 @@ export class StoreCategoryRequestService {
       where: {
         storeId_categoryId_subcategoryId: {
           storeId,
-          categoryId: dto.categoryId,
-          subcategoryId: dto.subcategoryId,
+          categoryId,
+          subcategoryId,
         },
       },
     });
@@ -229,8 +237,8 @@ export class StoreCategoryRequestService {
     const created = await this.prisma.storeCategoryRequest.create({
       data: {
         storeId,
-        categoryId: dto.categoryId,
-        subcategoryId: dto.subcategoryId,
+        categoryId,
+        subcategoryId,
         reason: dto.reason,
         status: StoreCategoryRequestStatus.PENDING,
       },
