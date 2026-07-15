@@ -10,6 +10,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { PasswordService } from '../auth/password.service';
 import { EmailNotificationService } from '../email/email-notification.service';
 import { TerritoryService } from './territory.service';
+import { FranchiseService } from './franchise.service';
 import { ApproveExpansionLeadDto, RejectExpansionLeadDto, SubmitFranchiseApplicationDto } from './dto/franchise.dto';
 
 /** Statuses in which a lead is still being worked — a repeat application is a no-op. */
@@ -32,6 +33,9 @@ export class FranchiseApplicationService {
     private readonly emailNotifications: EmailNotificationService = {
       sendFranchiseWelcomeEmail: async () => undefined,
     } as unknown as EmailNotificationService,
+    // Optional so unit tests that construct this service directly keep working;
+    // present in production DI. Used only to attach the shareable partner card.
+    private readonly franchise?: FranchiseService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -302,6 +306,10 @@ export class FranchiseApplicationService {
           };
         });
 
+        // Best-effort partner card for the welcome email; never blocks approval.
+        const cardPng = this.franchise
+          ? await this.franchise.getMarketingCardPng(result.partner.id).catch(() => null)
+          : null;
         void this.emailNotifications
           .sendFranchiseWelcomeEmail({
             to: lead.email,
@@ -309,6 +317,7 @@ export class FranchiseApplicationService {
             leadId,
             franchiseId: result.partner.id,
             referralCode: result.referralCode,
+            cardPng,
           })
           .catch((err) =>
             this.logger.error({ err, leadId, email: lead.email }, 'Franchise welcome email failed'),

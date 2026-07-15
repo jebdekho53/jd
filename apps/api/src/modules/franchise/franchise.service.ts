@@ -14,6 +14,10 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { FranchiseStoreLinkService } from './franchise-store-link.service';
+import { MarketingCardService } from '../marketing/marketing-card.service';
+import { getConfig } from '../../config/configuration';
+import { readUploadFileFromUrl } from '../../common/utils/upload-file.util';
+import { resolvePublicAssetUrl } from '../../common/utils/asset-url.util';
 
 @Injectable()
 export class FranchiseService {
@@ -23,7 +27,67 @@ export class FranchiseService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly storeLink: FranchiseStoreLinkService,
+    private readonly card: MarketingCardService,
   ) {}
+
+  /** Card details the partner can edit (address + owner photo). */
+  async getProfile(franchiseId: string) {
+    const fp = await this.prisma.franchisePartner.findUnique({
+      where: { id: franchiseId },
+      select: { businessName: true, address: true, photoUrl: true, city: { select: { name: true } } },
+    });
+    if (!fp) throw new NotFoundException('Franchise not found');
+    const cfg = getConfig(this.config);
+    return {
+      businessName: fp.businessName,
+      city: fp.city?.name ?? null,
+      address: fp.address,
+      photoUrl: resolvePublicAssetUrl(cfg.storage, fp.photoUrl),
+    };
+  }
+
+  async saveProfile(franchiseId: string, data: { address?: string; photoUrl?: string }) {
+    await this.prisma.franchisePartner.update({
+      where: { id: franchiseId },
+      data: {
+        ...(data.address !== undefined ? { address: data.address.trim() || null } : {}),
+        ...(data.photoUrl !== undefined ? { photoUrl: data.photoUrl.trim() || null } : {}),
+      },
+    });
+    return this.getProfile(franchiseId);
+  }
+
+  /** The partner's shareable card (PNG) — invite QR, contacts and their photo. */
+  async getMarketingCardPng(franchiseId: string): Promise<Buffer> {
+    const fp = await this.prisma.franchisePartner.findUnique({
+      where: { id: franchiseId },
+      select: {
+        businessName: true,
+        address: true,
+        photoUrl: true,
+        city: { select: { name: true } },
+        user: { select: { email: true, phone: true } },
+      },
+    });
+    if (!fp) throw new NotFoundException('Franchise not found');
+
+    const { inviteUrl } = await this.getReferral(franchiseId);
+    const cfg = getConfig(this.config);
+    const photo = await readUploadFileFromUrl(cfg.storage.uploadDir, cfg.storage, fp.photoUrl);
+
+    return this.card.render({
+      name: fp.businessName,
+      roleTitle: 'Business Development Partner',
+      pillLabel: fp.city?.name ? `${fp.city.name} Franchise Partner` : 'Franchise Partner',
+      phone: fp.user.phone,
+      whatsapp: fp.user.phone,
+      email: fp.user.email,
+      address: fp.address ?? fp.city?.name ?? null,
+      qrUrl: inviteUrl,
+      qrCaption: 'Scan to Connect',
+      photo,
+    });
+  }
 
   async resolveFranchiseId(userId: string): Promise<string> {
     const fp = await this.prisma.franchisePartner.findUnique({ where: { userId } });

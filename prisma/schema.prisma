@@ -5692,6 +5692,10 @@ model FranchisePartner {
   agreementVersion    String?                @map("agreement_version")
   agreementIp         String?                @map("agreement_ip")
   cityId              String?                @map("city_id")
+  /// Shown on the partner's shareable card. Free-text full address.
+  address             String?                @db.Text
+  /// Owner photo shown on the partner's shareable card (uploaded at onboarding).
+  photoUrl            String?                @map("photo_url")
   createdAt           DateTime               @default(now()) @map("created_at")
   updatedAt           DateTime               @updatedAt @map("updated_at")
 

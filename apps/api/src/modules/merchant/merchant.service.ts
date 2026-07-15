@@ -5,12 +5,16 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { KycStatus, MerchantProfile, Prisma, RoleName } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { VerificationBlocklistService } from './verification-blocklist.service';
 import { CreateMerchantProfileDto } from './dto/create-merchant-profile.dto';
 import { UpdateMerchantProfileDto } from './dto/update-merchant-profile.dto';
+import { MarketingCardService } from '../marketing/marketing-card.service';
+import { getConfig } from '../../config/configuration';
+import { readUploadFileFromUrl } from '../../common/utils/upload-file.util';
 
 @Injectable()
 export class MerchantService {
@@ -20,7 +24,56 @@ export class MerchantService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly blocklist: VerificationBlocklistService,
+    private readonly config: ConfigService,
+    private readonly card: MarketingCardService,
   ) {}
+
+  /** The store's shareable card (PNG): store logo, contacts, and a QR to shop. */
+  async getMarketingCardPng(userId: string): Promise<Buffer> {
+    const profile = await this.prisma.merchantProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!profile) throw new NotFoundException('Merchant profile required');
+
+    const store = await this.prisma.store.findFirst({
+      where: { merchantProfileId: profile.id },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        name: true,
+        slug: true,
+        logoUrl: true,
+        phone: true,
+        email: true,
+        line1: true,
+        line2: true,
+        locality: true,
+        pincode: true,
+        city: { select: { name: true } },
+      },
+    });
+    if (!store) throw new NotFoundException('No store to build a card for yet');
+
+    const cfg = getConfig(this.config);
+    const base = cfg.buyerSiteUrl.replace(/\/$/, '');
+    const photo = await readUploadFileFromUrl(cfg.storage.uploadDir, cfg.storage, store.logoUrl);
+    const address = [store.line1, store.line2, store.locality, store.city?.name, store.pincode]
+      .filter(Boolean)
+      .join(', ');
+
+    return this.card.render({
+      name: store.name,
+      roleTitle: 'JebDekho Store',
+      pillLabel: store.city?.name ? `Now on JebDekho · ${store.city.name}` : 'Now on JebDekho',
+      phone: store.phone,
+      whatsapp: store.phone,
+      email: store.email,
+      address: address || store.city?.name || null,
+      qrUrl: `${base}/store/${store.slug}`,
+      qrCaption: 'Scan to Shop',
+      photo,
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Create merchant profile

@@ -13,6 +13,7 @@ import { FranchiseBankAccountService } from './franchise-bank-account.service';
 import { FranchiseKycService } from './franchise-kyc.service';
 import { FranchiseNotificationService } from './franchise-notification.service';
 import { EmailModule } from '../email/email.module';
+import { MarketingModule } from '../marketing/marketing.module';
 import { PasswordService } from '../auth/password.service';
 import { FranchiseExpansionMerchantService } from './franchise-expansion-merchant.service';
 import { AdminExpansionController, AdminFranchiseAnalyticsController } from './admin-expansion.controller';
@@ -24,7 +25,7 @@ import { MerchantFranchiseExpansionController } from './merchant-franchise-expan
 @Module({
   // PaymentModule gives us RazorpayService (Route linked accounts + transfers) —
   // the same rail merchants are already paid on.
-  imports: [FinanceModule, MerchantDashboardModule, PaymentModule, EmailModule],
+  imports: [FinanceModule, MerchantDashboardModule, PaymentModule, EmailModule, MarketingModule],
   controllers: [
     AdminExpansionController,
     AdminFranchiseAnalyticsController,

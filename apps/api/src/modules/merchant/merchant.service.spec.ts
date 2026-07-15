@@ -1,10 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { KycStatus } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 import { MerchantService } from './merchant.service';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { VerificationBlocklistService } from './verification-blocklist.service';
+import { MarketingCardService } from '../marketing/marketing-card.service';
 
 const mockPrisma = {
   merchantProfile: {
@@ -40,6 +42,8 @@ describe('MerchantService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
         { provide: VerificationBlocklistService, useValue: mockBlocklist },
+        { provide: ConfigService, useValue: { get: () => undefined } },
+        { provide: MarketingCardService, useValue: {} },
       ],
     }).compile();
     service = module.get<MerchantService>(MerchantService);

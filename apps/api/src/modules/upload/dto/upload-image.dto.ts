@@ -8,6 +8,7 @@ export enum UploadImagePurpose {
   CATEGORY = 'category',
   REVIEW = 'review',
   AI_PRODUCT = 'ai-product',
+  OWNER_PHOTO = 'owner-photo',
 }
 
 export class UploadImageDto {
