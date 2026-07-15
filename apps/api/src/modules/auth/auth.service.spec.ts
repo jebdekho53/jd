@@ -35,6 +35,7 @@ const mockPrismaService = {
 const mockEmailNotifications = {
   sendOtpEmail: jest.fn(),
   sendWelcomeEmail: jest.fn(),
+  sendBuyerWelcomeEmail: jest.fn(),
   sendPasswordResetEmail: jest.fn(),
 };
 

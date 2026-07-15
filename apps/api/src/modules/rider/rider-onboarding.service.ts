@@ -1,13 +1,17 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { RoleName } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 import { RegisterRiderDto } from './dto/register-rider.dto';
 
 @Injectable()
 export class RiderOnboardingService {
   private readonly logger = new Logger(RiderOnboardingService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailNotifications: EmailNotificationService,
+  ) {}
 
   /**
    * Self-onboard the authenticated user as a rider: create their RiderProfile
@@ -44,6 +48,15 @@ export class RiderOnboardingService {
     });
 
     this.logger.log({ userId, riderProfileId: profile.id }, 'New rider registered (KYC pending)');
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    void this.emailNotifications
+      .sendRiderWelcomeEmail(user?.email, profile.name, profile.id)
+      .catch((err) =>
+        this.logger.error({ err, userId, riderProfileId: profile.id }, 'Rider welcome email failed'),
+      );
     return this.toResult(profile);
   }
 
