@@ -11,6 +11,9 @@ export const EMAIL_LOGO_URL = 'https://jebdekho.com/logo.png';
 export const EMAIL_TEMPLATE = {
   OTP: 'otp',
   WELCOME: 'welcome',
+  MERCHANT_WELCOME: 'merchant_welcome',
+  FRANCHISE_WELCOME: 'franchise_welcome',
+  RIDER_WELCOME: 'rider_welcome',
   ORDER_CONFIRMATION: 'order_confirmation',
   PAYMENT_SUCCESS: 'payment_success',
   PAYMENT_FAILED: 'payment_failed',

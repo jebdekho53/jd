@@ -398,7 +398,7 @@ export class AuthService {
       metadata: { email, signupMethod: 'email' },
     }).then(async (result) => {
       void this.emailNotifications
-        .sendWelcomeEmail(email, dto.name.trim())
+        .sendBuyerWelcomeEmail(email, dto.name.trim(), user.id)
         .catch((err) => this.logger.error({ err, email }, 'Welcome email failed'));
       return result;
     });
@@ -928,6 +928,6 @@ export class AuthService {
     });
     if (!user?.email) return;
     const name = preferredName || user.buyerProfile?.name || 'there';
-    await this.emailNotifications.sendWelcomeEmail(user.email, name);
+    await this.emailNotifications.sendBuyerWelcomeEmail(user.email, name, user.id);
   }
 }
