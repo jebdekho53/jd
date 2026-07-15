@@ -10,11 +10,12 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { PRODUCT_TAXONOMY } from './data/taxonomy/product-taxonomy';
+import { EXTRA_TAXONOMY } from './data/taxonomy/taxonomy-extra';
 import { MENU_TAXONOMY } from './data/taxonomy/menu-taxonomy';
 import { assertUniqueSlugs, upsertTaxonomy, type TaxRoot } from './data/taxonomy/engine';
 
 const prisma = new PrismaClient();
-const ALL: TaxRoot[] = [...PRODUCT_TAXONOMY, ...MENU_TAXONOMY];
+const ALL: TaxRoot[] = [...PRODUCT_TAXONOMY, ...EXTRA_TAXONOMY, ...MENU_TAXONOMY];
 
 async function main() {
   const apply = process.argv.includes('--apply');
@@ -23,7 +24,7 @@ async function main() {
   assertUniqueSlugs(ALL); // fails fast on any duplicate slug in the definition
 
   console.log(`JebDekho taxonomy seed — mode: ${apply ? 'APPLY (writing)' : 'DRY-RUN (no writes)'}`);
-  console.log(`Roots: ${ALL.length} (PRODUCT ${PRODUCT_TAXONOMY.length}, MENU ${MENU_TAXONOMY.length})`);
+  console.log(`Roots: ${ALL.length} (PRODUCT ${PRODUCT_TAXONOMY.length + EXTRA_TAXONOMY.length}, MENU ${MENU_TAXONOMY.length})`);
 
   const stats = await upsertTaxonomy(prisma, ALL, { dryRun: !apply });
 
