@@ -43,13 +43,26 @@ export const PRODUCT_TAXONOMY: TaxRoot[] = [
         name: 'Staples',
         slug: 'grocery-staples',
         children: [
-          { name: 'Atta, Flours & Sooji', slug: 'atta-flours-sooji' },
+          { name: 'Atta, Flours & Sooji', slug: 'atta-flours-sooji', children: [
+            { name: 'Wheat Atta', slug: 'wheat-atta' },
+            { name: 'Multigrain Atta', slug: 'multigrain-atta' },
+            { name: 'Besan', slug: 'besan' },
+            { name: 'Maida', slug: 'maida' },
+            { name: 'Sooji & Rava', slug: 'sooji-rava' },
+          ] },
           { name: 'Rice & Rice Products', slug: 'rice-rice-products', children: [
             { name: 'Basmati Rice', slug: 'basmati-rice' },
             { name: 'Non-Basmati Rice', slug: 'non-basmati-rice' },
             { name: 'Poha & Flattened Rice', slug: 'poha-flattened-rice' },
           ] },
-          { name: 'Dals & Pulses', slug: 'dals-pulses' },
+          { name: 'Dals & Pulses', slug: 'dals-pulses', children: [
+            { name: 'Toor / Arhar Dal', slug: 'toor-arhar-dal' },
+            { name: 'Moong Dal', slug: 'moong-dal' },
+            { name: 'Chana Dal', slug: 'chana-dal' },
+            { name: 'Urad Dal', slug: 'urad-dal' },
+            { name: 'Masoor Dal', slug: 'masoor-dal' },
+            { name: 'Rajma & Chole', slug: 'rajma-chole' },
+          ] },
           { name: 'Sugar, Jaggery & Salt', slug: 'sugar-jaggery-salt' },
           { name: 'Edible Oils & Ghee', slug: 'edible-oils-ghee', children: [
             { name: 'Refined & Sunflower Oil', slug: 'refined-sunflower-oil' },
@@ -62,14 +75,26 @@ export const PRODUCT_TAXONOMY: TaxRoot[] = [
             { name: 'Powdered Spices', slug: 'powdered-spices' },
             { name: 'Blended Masalas', slug: 'blended-masalas' },
           ] },
-          { name: 'Dry Fruits & Nuts', slug: 'dry-fruits-nuts' },
+          { name: 'Dry Fruits & Nuts', slug: 'dry-fruits-nuts', children: [
+            { name: 'Almonds', slug: 'almonds' },
+            { name: 'Cashews', slug: 'cashews' },
+            { name: 'Raisins', slug: 'raisins' },
+            { name: 'Walnuts', slug: 'walnuts' },
+            { name: 'Pistachios', slug: 'pistachios' },
+            { name: 'Dates', slug: 'dates' },
+          ] },
         ],
       },
       {
         name: 'Dairy & Bakery',
         slug: 'dairy-bakery',
         children: [
-          { name: 'Milk & Milk Drinks', slug: 'milk-milk-drinks' },
+          { name: 'Milk & Milk Drinks', slug: 'milk-milk-drinks', children: [
+            { name: 'Full Cream Milk', slug: 'full-cream-milk' },
+            { name: 'Toned & Double Toned', slug: 'toned-milk' },
+            { name: 'Flavoured Milk', slug: 'flavoured-milk' },
+            { name: 'Plant-Based Milk', slug: 'plant-based-milk' },
+          ] },
           { name: 'Curd, Paneer & Cream', slug: 'curd-paneer-cream' },
           { name: 'Butter, Cheese & Ghee', slug: 'butter-cheese' },
           { name: 'Bread & Buns', slug: 'bread-buns' },
@@ -80,8 +105,18 @@ export const PRODUCT_TAXONOMY: TaxRoot[] = [
         name: 'Snacks & Branded Foods',
         slug: 'grocery-snacks',
         children: [
-          { name: 'Chips & Namkeen', slug: 'chips-namkeen' },
-          { name: 'Biscuits & Cookies', slug: 'biscuits-cookies' },
+          { name: 'Chips & Namkeen', slug: 'chips-namkeen', children: [
+            { name: 'Potato Chips', slug: 'potato-chips' },
+            { name: 'Bhujia & Sev', slug: 'bhujia-sev' },
+            { name: 'Mixture & Namkeen', slug: 'mixture-namkeen' },
+            { name: 'Popcorn & Nachos', slug: 'popcorn-nachos' },
+          ] },
+          { name: 'Biscuits & Cookies', slug: 'biscuits-cookies', children: [
+            { name: 'Cream Biscuits', slug: 'cream-biscuits' },
+            { name: 'Marie & Digestive', slug: 'marie-digestive' },
+            { name: 'Glucose & Milk Biscuits', slug: 'glucose-milk-biscuits' },
+            { name: 'Cookies', slug: 'grocery-cookies' },
+          ] },
           { name: 'Chocolates & Candies', slug: 'chocolates-candies' },
           { name: 'Noodles, Pasta & Vermicelli', slug: 'noodles-pasta-vermicelli' },
           { name: 'Sauces, Ketchup & Spreads', slug: 'sauces-ketchup-spreads' },
@@ -170,12 +205,28 @@ export const PRODUCT_TAXONOMY: TaxRoot[] = [
         name: 'Mobile Accessories',
         slug: 'mobile-accessories',
         children: [
-          { name: 'Chargers & Adapters', slug: 'chargers-adapters' },
-          { name: 'USB & Data Cables', slug: 'usb-data-cables' },
-          { name: 'Power Banks', slug: 'power-banks' },
+          { name: 'Chargers & Adapters', slug: 'chargers-adapters', children: [
+            { name: 'Fast Chargers', slug: 'fast-chargers' },
+            { name: 'Wireless Chargers', slug: 'wireless-chargers' },
+            { name: 'Car Chargers', slug: 'mobile-car-chargers' },
+          ] },
+          { name: 'USB & Data Cables', slug: 'usb-data-cables', children: [
+            { name: 'Type-C Cables', slug: 'type-c-cables' },
+            { name: 'Micro USB Cables', slug: 'micro-usb-cables' },
+            { name: 'Lightning Cables', slug: 'lightning-cables' },
+          ] },
+          { name: 'Power Banks', slug: 'power-banks', children: [
+            { name: '10000mAh', slug: 'power-bank-10000' },
+            { name: '20000mAh', slug: 'power-bank-20000' },
+            { name: 'Wireless Power Banks', slug: 'wireless-power-banks' },
+          ] },
           { name: 'Mobile Covers & Cases', slug: 'mobile-covers-cases' },
           { name: 'Screen Guards', slug: 'screen-guards' },
-          { name: 'Earphones & Headsets', slug: 'earphones-headsets' },
+          { name: 'Earphones & Headsets', slug: 'earphones-headsets', children: [
+            { name: 'Wired Earphones', slug: 'wired-earphones' },
+            { name: 'Neckband Earphones', slug: 'neckband-earphones' },
+            { name: 'Gaming Headsets', slug: 'gaming-headsets' },
+          ] },
         ],
       },
       {
@@ -193,7 +244,10 @@ export const PRODUCT_TAXONOMY: TaxRoot[] = [
         name: 'Audio',
         slug: 'audio',
         children: [
-          { name: 'Headphones', slug: 'headphones' },
+          { name: 'Headphones', slug: 'headphones', children: [
+            { name: 'Over-Ear', slug: 'over-ear-headphones' },
+            { name: 'On-Ear', slug: 'on-ear-headphones' },
+          ] },
           { name: 'True Wireless Earbuds', slug: 'true-wireless-earbuds' },
           { name: 'Bluetooth Speakers', slug: 'bluetooth-speakers' },
           { name: 'Soundbars & Home Audio', slug: 'soundbars-home-audio' },
@@ -220,7 +274,13 @@ export const PRODUCT_TAXONOMY: TaxRoot[] = [
         name: 'Home Appliances',
         slug: 'home-appliances',
         children: [
-          { name: 'Kitchen Appliances', slug: 'kitchen-appliances' },
+          { name: 'Kitchen Appliances', slug: 'kitchen-appliances', children: [
+            { name: 'Mixer Grinders', slug: 'mixer-grinders' },
+            { name: 'Electric Kettles', slug: 'electric-kettles' },
+            { name: 'Induction Cooktops', slug: 'induction-cooktops' },
+            { name: 'Toasters & Sandwich Makers', slug: 'toasters-sandwich-makers' },
+            { name: 'Microwave Ovens', slug: 'microwave-ovens' },
+          ] },
           { name: 'Fans & Coolers', slug: 'fans-coolers' },
           { name: 'Irons & Garment Care', slug: 'irons-garment-care' },
           { name: 'Large Appliances', slug: 'large-appliances' },
@@ -379,9 +439,21 @@ export const PRODUCT_TAXONOMY: TaxRoot[] = [
         name: "Men's Clothing",
         slug: 'mens-clothing',
         children: [
-          { name: 'T-Shirts & Polos', slug: 'mens-tshirts-polos' },
-          { name: 'Shirts', slug: 'mens-shirts' },
-          { name: 'Jeans & Trousers', slug: 'mens-jeans-trousers' },
+          { name: 'T-Shirts & Polos', slug: 'mens-tshirts-polos', children: [
+            { name: 'Round Neck T-Shirts', slug: 'mens-round-neck-tshirts' },
+            { name: 'Polo T-Shirts', slug: 'mens-polo-tshirts' },
+            { name: 'Full Sleeve T-Shirts', slug: 'mens-full-sleeve-tshirts' },
+          ] },
+          { name: 'Shirts', slug: 'mens-shirts', children: [
+            { name: 'Formal Shirts', slug: 'mens-formal-shirts' },
+            { name: 'Casual Shirts', slug: 'mens-casual-shirts' },
+            { name: 'Check Shirts', slug: 'mens-check-shirts' },
+          ] },
+          { name: 'Jeans & Trousers', slug: 'mens-jeans-trousers', children: [
+            { name: 'Jeans', slug: 'mens-jeans' },
+            { name: 'Formal Trousers', slug: 'mens-formal-trousers' },
+            { name: 'Chinos & Joggers', slug: 'mens-chinos-joggers' },
+          ] },
           { name: 'Winterwear', slug: 'mens-winterwear' },
           { name: 'Innerwear', slug: 'mens-innerwear' },
         ],
@@ -391,8 +463,17 @@ export const PRODUCT_TAXONOMY: TaxRoot[] = [
         slug: 'womens-clothing',
         children: [
           { name: 'Tops & T-Shirts', slug: 'womens-tops-tshirts' },
-          { name: 'Dresses & Jumpsuits', slug: 'womens-dresses-jumpsuits' },
-          { name: 'Jeans & Bottoms', slug: 'womens-jeans-bottoms' },
+          { name: 'Dresses & Jumpsuits', slug: 'womens-dresses-jumpsuits', children: [
+            { name: 'Maxi Dresses', slug: 'womens-maxi-dresses' },
+            { name: 'Bodycon Dresses', slug: 'womens-bodycon-dresses' },
+            { name: 'Jumpsuits', slug: 'womens-jumpsuits' },
+          ] },
+          { name: 'Jeans & Bottoms', slug: 'womens-jeans-bottoms', children: [
+            { name: 'Jeans & Jeggings', slug: 'womens-jeans-jeggings' },
+            { name: 'Leggings', slug: 'womens-leggings' },
+            { name: 'Palazzos & Trousers', slug: 'womens-palazzos-trousers' },
+            { name: 'Skirts', slug: 'womens-skirts' },
+          ] },
           { name: 'Winterwear', slug: 'womens-winterwear' },
           { name: 'Lingerie & Innerwear', slug: 'womens-innerwear' },
         ],
@@ -429,9 +510,23 @@ export const PRODUCT_TAXONOMY: TaxRoot[] = [
         name: 'Footwear',
         slug: 'footwear',
         children: [
-          { name: "Men's Footwear", slug: 'mens-footwear' },
-          { name: "Women's Footwear", slug: 'womens-footwear' },
-          { name: 'Sports Shoes', slug: 'sports-shoes' },
+          { name: "Men's Footwear", slug: 'mens-footwear', children: [
+            { name: 'Formal Shoes', slug: 'mens-formal-shoes' },
+            { name: 'Casual Shoes & Sneakers', slug: 'mens-casual-sneakers' },
+            { name: 'Loafers', slug: 'mens-loafers' },
+            { name: 'Sandals & Floaters', slug: 'mens-sandals-floaters' },
+          ] },
+          { name: "Women's Footwear", slug: 'womens-footwear', children: [
+            { name: 'Heels', slug: 'womens-heels' },
+            { name: 'Flats & Bellies', slug: 'womens-flats-bellies' },
+            { name: 'Sandals', slug: 'womens-sandals' },
+            { name: 'Casual Sneakers', slug: 'womens-casual-sneakers' },
+          ] },
+          { name: 'Sports Shoes', slug: 'sports-shoes', children: [
+            { name: 'Running Shoes', slug: 'running-shoes' },
+            { name: 'Training Shoes', slug: 'training-shoes' },
+            { name: 'Walking Shoes', slug: 'walking-shoes' },
+          ] },
           { name: 'Slippers & Flip-Flops', slug: 'slippers-flip-flops' },
         ],
       },
