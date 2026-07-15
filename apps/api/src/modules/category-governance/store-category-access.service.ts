@@ -210,93 +210,70 @@ export class StoreCategoryAccessService {
     });
     if (!store) return [];
 
+    // The exact nodes the store is approved for (any depth). Access is by-branch,
+    // so each granted node makes its whole subtree sellable.
+    const grantedIds = new Set<string>();
     const storeRows = await this.prisma.storeCategory.findMany({
       where: { storeId },
-      select: { categoryId: true, subcategoryId: true },
+      select: { subcategoryId: true },
     });
-
-    const approvedSubIds = new Set(storeRows.map((r) => r.subcategoryId));
-    const approvedParentIds = new Set(storeRows.map((r) => r.categoryId));
+    storeRows.forEach((r) => grantedIds.add(r.subcategoryId));
 
     const approvedRequests = await this.prisma.storeCategoryRequest.findMany({
       where: { storeId, status: StoreCategoryRequestStatus.APPROVED },
-      select: { categoryId: true, subcategoryId: true },
+      select: { subcategoryId: true },
     });
-    for (const row of approvedRequests) {
-      approvedSubIds.add(row.subcategoryId);
-      approvedParentIds.add(row.categoryId);
-    }
+    approvedRequests.forEach((r) => grantedIds.add(r.subcategoryId));
 
-    if (approvedSubIds.size === 0) {
+    if (grantedIds.size === 0) {
       const legacy = await this.prisma.merchantCategory.findMany({
-        where: {
-          merchantProfileId: store.merchantProfileId,
-          status: MerchantCategoryStatus.APPROVED,
-        },
+        where: { merchantProfileId: store.merchantProfileId, status: MerchantCategoryStatus.APPROVED },
         select: { categoryId: true },
       });
-      for (const row of legacy) {
-        const cat = await this.prisma.category.findUnique({
-          where: { id: row.categoryId },
-          select: { id: true, parentId: true },
-        });
-        if (!cat) continue;
-        if (cat.parentId) {
-          approvedSubIds.add(cat.id);
-          approvedParentIds.add(cat.parentId);
-        } else {
-          approvedParentIds.add(cat.id);
-        }
-      }
+      legacy.forEach((r) => grantedIds.add(r.categoryId));
     }
+    if (grantedIds.size === 0) return [];
 
-    if (approvedSubIds.size === 0 && approvedParentIds.size === 0) return [];
-
-    const categories = await this.prisma.category.findMany({
-      where: {
-        storeId: null,
-        scope: CategoryScope.GLOBAL,
-        catalogKind,
-        isActive: true,
-        deletedAt: null,
-        OR: [
-          { id: { in: [...approvedParentIds] } },
-          { children: { some: { id: { in: [...approvedSubIds] }, deletedAt: null } } },
-        ],
-      },
-      include: {
-        children: {
-          where: {
-            isActive: true,
-            deletedAt: null,
-            id: { in: [...approvedSubIds] },
-          },
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
+    // Build the full GLOBAL tree of this kind, then return the subtree rooted at
+    // each granted node — dropping any granted node that sits beneath another
+    // granted node (its subtree is already covered).
+    const all = await this.prisma.category.findMany({
+      where: { storeId: null, scope: CategoryScope.GLOBAL, catalogKind, isActive: true, deletedAt: null },
+      select: { id: true, name: true, slug: true, imageUrl: true, icon: true, parentId: true, sortOrder: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
+    const map = new Map<string, ApprovedCategoryTree>(all.map((c) => [c.id, { ...c, children: [] }]));
+    for (const node of map.values()) {
+      const parent = node.parentId ? map.get(node.parentId) : null;
+      if (parent) parent.children.push(node);
+    }
 
-    return categories
-      .filter((c) => c.parentId === null && (approvedParentIds.has(c.id) || c.children.length > 0))
-      .map((c) => ({
-        id: c.id,
-        name: c.name,
-        slug: c.slug,
-        imageUrl: c.imageUrl,
-        icon: c.icon,
-        parentId: c.parentId,
-        sortOrder: c.sortOrder,
-        children: c.children.map((ch) => ({
-          id: ch.id,
-          name: ch.name,
-          slug: ch.slug,
-          imageUrl: ch.imageUrl,
-          icon: ch.icon,
-          parentId: ch.parentId,
-          sortOrder: ch.sortOrder,
-          children: [],
-        })),
-      }));
+    // Sellable = every granted node + its entire subtree.
+    const sellable = new Set<string>();
+    const markSubtree = (id: string) => {
+      const n = map.get(id);
+      if (!n || sellable.has(id)) return;
+      sellable.add(id);
+      n.children.forEach((c) => markSubtree(c.id));
+    };
+    grantedIds.forEach((id) => markSubtree(id));
+
+    // Keep = sellable nodes + the ancestor path from each granted node up to its
+    // root, so the returned tree stays grouped by vertical (Grocery › … › node).
+    const keep = new Set(sellable);
+    for (const id of grantedIds) {
+      let cur = map.get(id)?.parentId ?? null;
+      for (let i = 0; cur && i < 12; i++) {
+        keep.add(cur);
+        cur = map.get(cur)?.parentId ?? null;
+      }
+    }
+    for (const node of map.values()) {
+      node.children = node.children.filter((c) => keep.has(c.id));
+    }
+    return all
+      .filter((c) => c.parentId === null && keep.has(c.id))
+      .map((c) => map.get(c.id)!)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   }
 }
