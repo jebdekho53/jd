@@ -305,3 +305,24 @@ export const markNotificationsRead = (notificationId?: string) =>
     method: 'POST',
     body: JSON.stringify({ notificationId }),
   });
+
+// ── Return pickups (reverse logistics) ────────────────────────────────────────
+export type ReturnPickupStatus = 'PENDING' | 'ASSIGNED' | 'ACCEPTED' | 'PICKED_UP' | 'COMPLETED' | 'CANCELLED';
+
+export interface ReturnPickup {
+  id: string;
+  status: ReturnPickupStatus;
+  pickupLat: number;
+  pickupLng: number;
+  pickupAddress?: Record<string, string> | null;
+  dropLat?: number | null;
+  dropLng?: number | null;
+  riderEarning?: number | null;
+  claim: { claimNumber: string; reason: string };
+  store: { name: string; latitude: number | null; longitude: number | null; line1?: string | null };
+}
+
+export const getReturnPickups = () => jfetch<ReturnPickup[]>('/api/rider/return-pickups');
+
+export const returnPickupAction = (id: string, action: 'accept' | 'picked-up' | 'completed') =>
+  jfetch<ReturnPickup>(`/api/rider/return-pickups/${id}/${action}`, { method: 'POST' });

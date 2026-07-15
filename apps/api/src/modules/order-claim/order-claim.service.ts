@@ -22,6 +22,7 @@ import { ClaimEligibilityService } from './claim-eligibility.service';
 import { ClaimRefundService } from './claim-refund.service';
 import { ClaimReplacementService } from './claim-replacement.service';
 import { ClaimNotificationService } from './claim-notification.service';
+import { ReturnPickupService } from './return-pickup.service';
 import { getConfig } from '../../config/configuration';
 import { uploadPublicBases } from '../../common/utils/asset-url.util';
 import { assertClaimEvidenceUrls } from './claim-evidence.util';
@@ -43,6 +44,7 @@ const CLAIM_INCLUDE = {
   history: { orderBy: { createdAt: 'asc' as const } },
   refund: true,
   replacement: true,
+  returnPickup: true,
   order: { select: { orderNumber: true, status: true } },
 } satisfies Prisma.OrderClaimInclude;
 
@@ -58,6 +60,7 @@ export class OrderClaimService {
     private readonly claimReplacement: ClaimReplacementService,
     private readonly notifications: ClaimNotificationService,
     private readonly config: ConfigService,
+    private readonly returnPickup: ReturnPickupService,
   ) {}
 
   private generateClaimNumber(): string {
@@ -612,6 +615,14 @@ export class OrderClaimService {
     });
     if (!claim || claim.status !== OrderClaimStatus.APPROVED) return;
 
+    // RETURN with pickup enabled: collect the item first (reverse logistics),
+    // then refund on receipt at the store — do NOT refund up front.
+    if (claim.claimType === OrderClaimType.RETURN && claim.returnPickupEnabled) {
+      if (claim.refund?.status === PaymentStatus.REFUNDED) return;
+      await this.returnPickup.scheduleForClaim(claimId, actorId, actorType);
+      return;
+    }
+
     if (
       claim.claimType === OrderClaimType.REFUND ||
       claim.claimType === OrderClaimType.RETURN ||
@@ -653,6 +664,16 @@ export class OrderClaimService {
       adminNote: claim.adminNote,
       replacementOrderId: claim.replacementOrderId,
       returnPickupEnabled: claim.returnPickupEnabled,
+      returnPickup: claim.returnPickup
+        ? {
+            id: claim.returnPickup.id,
+            status: claim.returnPickup.status,
+            riderProfileId: claim.returnPickup.riderProfileId,
+            assignedAt: claim.returnPickup.assignedAt,
+            pickedUpAt: claim.returnPickup.pickedUpAt,
+            completedAt: claim.returnPickup.completedAt,
+          }
+        : null,
       resolvedAt: claim.resolvedAt,
       createdAt: claim.createdAt,
       updatedAt: claim.updatedAt,
