@@ -6,6 +6,7 @@ import { RiderLocationService } from './rider-location.service';
 import { RiderController } from './rider.controller';
 import { RiderOnboardingController } from './rider-onboarding.controller';
 import { RiderOnboardingService } from './rider-onboarding.service';
+import { RiderCaptainService } from './rider-captain.service';
 import { AdminRiderController } from './admin-rider.controller';
 import { OrderFulfillmentModule } from '../order/order-fulfillment.module';
 import { CheckoutModule } from '../checkout/checkout.module';
@@ -21,7 +22,7 @@ import { PushModule } from '../push/push.module';
 @Module({
   imports: [RiderAssignmentModule, DeliveryTrackingModule, OrderFulfillmentModule, FinanceModule, CheckoutModule, OrderTimelineModule, PushModule, EmailModule],
   controllers: [RiderController, RiderOnboardingController, AdminRiderController],
-  providers: [DeliveryService, RiderLocationService, RiderOnboardingService],
+  providers: [DeliveryService, RiderLocationService, RiderOnboardingService, RiderCaptainService],
   exports: [DeliveryService, RiderAssignmentModule],
 })
 export class RiderModule {}

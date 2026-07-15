@@ -61,6 +61,33 @@ enum KycStatus {
   REJECTED
 }
 
+enum RiderDocumentType {
+  ID_PROOF
+  PAN_CARD
+  DRIVING_LICENSE
+  VEHICLE_RC
+  PROFILE_PHOTO
+  OTHER
+}
+
+enum RiderDocumentStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum RiderShiftStatus {
+  ACTIVE
+  COMPLETED
+}
+
+enum RiderIncentiveStatus {
+  ACTIVE
+  COMPLETED
+  EXPIRED
+}
+
 enum StoreStatus {
   DRAFT
   PENDING_REVIEW
@@ -986,6 +1013,9 @@ model RiderProfile {
   locations          RiderLocation[]
   trackingPoints     DeliveryTracking[]
   zones              RiderZone[]
+  kycDocuments       RiderDocument[]
+  shifts             RiderShift[]
+  incentiveProgress  RiderIncentiveProgress[]
   riderPayouts       RiderPayout[]
   codReconciliations CodReconciliation[]
   deliveryBatches    DeliveryBatch[]
@@ -997,6 +1027,84 @@ model RiderProfile {
   @@index([kycStatus])
   @@index([currentLat, currentLng])
   @@map("rider_profiles")
+}
+
+model RiderDocument {
+  id             String              @id @default(cuid())
+  riderProfileId String              @map("rider_profile_id")
+  documentType   RiderDocumentType   @map("document_type")
+  fileUrl        String              @map("file_url")
+  status         RiderDocumentStatus @default(SUBMITTED)
+  rejectionReason String?            @map("rejection_reason") @db.Text
+  reviewedBy     String?             @map("reviewed_by")
+  reviewedAt     DateTime?           @map("reviewed_at")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  riderProfile RiderProfile @relation(fields: [riderProfileId], references: [id], onDelete: Cascade)
+
+  @@index([riderProfileId, status])
+  @@unique([riderProfileId, documentType])
+  @@map("rider_documents")
+}
+
+model RiderShift {
+  id             String           @id @default(cuid())
+  riderProfileId String           @map("rider_profile_id")
+  status         RiderShiftStatus @default(ACTIVE)
+  startedAt      DateTime         @default(now()) @map("started_at")
+  endedAt        DateTime?        @map("ended_at")
+  startLat       Float?           @map("start_lat")
+  startLng       Float?           @map("start_lng")
+  endLat         Float?           @map("end_lat")
+  endLng         Float?           @map("end_lng")
+  deliveries     Int              @default(0)
+  earnings       Decimal          @default(0) @db.Decimal(12, 2)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  riderProfile RiderProfile @relation(fields: [riderProfileId], references: [id], onDelete: Cascade)
+
+  @@index([riderProfileId, status])
+  @@index([startedAt(sort: Desc)])
+  @@map("rider_shifts")
+}
+
+model RiderIncentive {
+  id             String                @id @default(cuid())
+  code           String                @unique
+  title          String
+  description    String?               @db.Text
+  targetDeliveries Int                 @default(0) @map("target_deliveries")
+  rewardAmount   Decimal               @default(0) @map("reward_amount") @db.Decimal(12, 2)
+  startsAt       DateTime              @map("starts_at")
+  endsAt         DateTime              @map("ends_at")
+  status         RiderIncentiveStatus  @default(ACTIVE)
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+
+  progress RiderIncentiveProgress[]
+
+  @@index([status, startsAt, endsAt])
+  @@map("rider_incentives")
+}
+
+model RiderIncentiveProgress {
+  id             String   @id @default(cuid())
+  riderProfileId String   @map("rider_profile_id")
+  incentiveId    String   @map("incentive_id")
+  deliveries     Int      @default(0)
+  completed      Boolean  @default(false)
+  completedAt    DateTime? @map("completed_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  riderProfile RiderProfile   @relation(fields: [riderProfileId], references: [id], onDelete: Cascade)
+  incentive    RiderIncentive @relation(fields: [incentiveId], references: [id], onDelete: Cascade)
+
+  @@unique([riderProfileId, incentiveId])
+  @@index([riderProfileId, completed])
+  @@map("rider_incentive_progress")
 }
 
 model AdminProfile {

@@ -31,6 +31,17 @@ function RidersPageInner() {
 
   return (
   <DashboardShell title={title}>
+    <div className="mb-4 flex flex-wrap gap-2">
+      <a href="/riders/kyc" className="rounded-lg border bg-card px-3 py-2 text-sm hover:bg-muted">
+        KYC review
+      </a>
+      <a href="/riders/incentives" className="rounded-lg border bg-card px-3 py-2 text-sm hover:bg-muted">
+        Incentives
+      </a>
+      <a href="/riders/live" className="rounded-lg border bg-card px-3 py-2 text-sm hover:bg-muted">
+        Live operations
+      </a>
+    </div>
     {isLoading && <p className="text-sm text-muted-foreground">Loading riders…</p>}
     {!isLoading && filtered.length === 0 && (
       <p className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">

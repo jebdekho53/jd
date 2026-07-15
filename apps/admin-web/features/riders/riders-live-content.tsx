@@ -56,13 +56,21 @@ export function RidersLiveContent() {
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted"
-        >
-          {isFetching ? 'Refreshing…' : 'Refresh'}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/riders/kyc" className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted">
+            KYC review
+          </Link>
+          <Link href="/riders/incentives" className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted">
+            Incentives
+          </Link>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted"
+          >
+            {isFetching ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {isLoading && <p className="text-sm text-muted-foreground">Loading riders…</p>}

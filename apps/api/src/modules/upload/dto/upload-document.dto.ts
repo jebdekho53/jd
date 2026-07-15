@@ -4,6 +4,7 @@ import { IsEnum, IsString, MaxLength, MinLength } from 'class-validator';
 /** Where a document is filed. Doubles as the storage folder. */
 export enum UploadDocumentPurpose {
   FRANCHISE_DOCUMENT = 'franchise-document',
+  RIDER_DOCUMENT = 'rider-document',
 }
 
 export class UploadDocumentDto {

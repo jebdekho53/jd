@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Ip,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -27,6 +28,14 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { RequestUser } from '../../common/types/index';
 import { RiderAssignmentService } from '../rider-assignment/rider-assignment.service';
 import { AssignRiderDto } from './dto/assign-rider.dto';
+import { RiderCaptainService } from './rider-captain.service';
+import {
+  ListRiderDocumentsQueryDto,
+  ListRiderIncentivesQueryDto,
+  RejectRiderDocumentDto,
+  UpdateRiderIncentiveDto,
+  UpsertRiderIncentiveDto,
+} from './dto/rider-captain.dto';
 
 @ApiTags('admin / riders')
 @ApiBearerAuth('access-token')
@@ -34,7 +43,10 @@ import { AssignRiderDto } from './dto/assign-rider.dto';
 @Roles('ADMIN', 'SUPER_ADMIN')
 @Controller('admin')
 export class AdminRiderController {
-  constructor(private readonly assignmentService: RiderAssignmentService) {}
+  constructor(
+    private readonly assignmentService: RiderAssignmentService,
+    private readonly captain: RiderCaptainService,
+  ) {}
 
   // ── Rider queue — orders ready for pickup with no assigned rider ──────────
 
@@ -154,5 +166,61 @@ export class AdminRiderController {
   ) {
     await this.assignmentService.unassign(orderId, user.id, ip);
     return { success: true };
+  }
+
+  @Get('riders/kyc/documents')
+  @Permissions('orders:manage')
+  @ApiOperation({ summary: 'List rider KYC documents for admin review' })
+  async listRiderKycDocuments(@Query() query: ListRiderDocumentsQueryDto) {
+    return { success: true, data: await this.captain.adminListDocuments(query.status) };
+  }
+
+  @Post('riders/kyc/documents/:documentId/approve')
+  @Permissions('orders:manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Approve a rider KYC document' })
+  async approveRiderKycDocument(
+    @CurrentUser() user: RequestUser,
+    @Param('documentId') documentId: string,
+  ) {
+    return { success: true, data: await this.captain.adminApproveDocument(documentId, user.id) };
+  }
+
+  @Post('riders/kyc/documents/:documentId/reject')
+  @Permissions('orders:manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reject a rider KYC document with a reason' })
+  async rejectRiderKycDocument(
+    @CurrentUser() user: RequestUser,
+    @Param('documentId') documentId: string,
+    @Body() dto: RejectRiderDocumentDto,
+  ) {
+    return { success: true, data: await this.captain.adminRejectDocument(documentId, user.id, dto.reason) };
+  }
+
+  @Get('riders/incentives')
+  @Permissions('orders:manage')
+  @ApiOperation({ summary: 'List rider incentive campaigns' })
+  async listRiderIncentives(@Query() query: ListRiderIncentivesQueryDto) {
+    return { success: true, data: await this.captain.adminListIncentives(query.status) };
+  }
+
+  @Post('riders/incentives')
+  @Permissions('orders:manage')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a rider incentive campaign' })
+  async createRiderIncentive(@Body() dto: UpsertRiderIncentiveDto) {
+    return { success: true, data: await this.captain.adminCreateIncentive(dto) };
+  }
+
+  @Patch('riders/incentives/:incentiveId')
+  @Permissions('orders:manage')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update or deactivate a rider incentive campaign' })
+  async updateRiderIncentive(
+    @Param('incentiveId') incentiveId: string,
+    @Body() dto: UpdateRiderIncentiveDto,
+  ) {
+    return { success: true, data: await this.captain.adminUpdateIncentive(incentiveId, dto) };
   }
 }

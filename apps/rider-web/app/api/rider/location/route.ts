@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { errorResponse, fetchWithAuth } from '@/lib/auth/session';
+import { errorResponse, fetchWithAuth, getAccessToken } from '@/lib/auth/session';
 
 const lastLocations = new Map<string, { lat: number; lng: number; at: number }>();
 const MAX_SPEED_KMH = 120;
@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const riderKey = req.headers.get('authorization') ?? 'anon';
+    const riderKey = (await getAccessToken(req)) ?? req.headers.get('authorization') ?? 'anon';
     const prev = lastLocations.get(riderKey);
     const now = Date.now();
 
