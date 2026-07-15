@@ -1,6 +1,11 @@
 'use client';
 
-/** Thin client for the rider BFF routes (all under /api). */
+import {
+  normalizeLocationPayload,
+  riderCodSubmitPayload,
+  riderOrderActionPath,
+  riderSupportTicketPath,
+} from './rider-helpers';
 
 async function jfetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -15,21 +20,31 @@ async function jfetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export type RiderStatus = 'OFFLINE' | 'ONLINE' | 'BUSY' | 'ON_DELIVERY';
+export type KycStatus = 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+export type VehicleType = 'BICYCLE' | 'MOTORCYCLE' | 'SCOOTER' | 'CAR' | 'WALK';
 
 export interface RiderMe {
-  user: { id: string; phone: string; roles: string[] };
+  user: { id: string; phone: string; email?: string | null; roles: string[] };
   isRider: boolean;
   profile: {
     id: string;
-    displayName: string;
+    userId: string;
+    name: string;
+    vehicleType: VehicleType;
+    vehicleNumber: string | null;
+    licenseNumber: string | null;
+    kycStatus: KycStatus;
     status: RiderStatus;
-    kycStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
-    vehicleType: string | null;
-    isVerified: boolean;
+    ratingAvg: number;
+    ratingCount: number;
+    totalDeliveries: number;
+    currentLat: number | null;
+    currentLng: number | null;
+    lastLocationAt: string | null;
+    createdAt: string;
+    updatedAt: string;
   } | null;
 }
-
-export type VehicleType = 'BICYCLE' | 'MOTORCYCLE' | 'SCOOTER' | 'CAR' | 'WALK';
 
 export interface RegisterRiderInput {
   name: string;
@@ -62,17 +77,99 @@ export interface RiderOrderDetail extends RiderOrder {
   buyerNote: string | null;
   distanceKm: number | null;
   estimatedMins: number | null;
-  items: { name: string; variant: string; quantity: number }[];
+  items: { name: string; variant: string | null; quantity: number }[];
   timeline: { status: string; at: string }[];
 }
 
-export interface TodayEarnings {
-  deliveries: number;
-  /** Total rider earning today (₹). BFF returns this as `amount`. */
-  amount: number;
+export interface RiderEarnings {
+  today: number;
+  thisWeek: number;
+  pendingPayout: number;
+  totalPaid: number;
+  recentDeliveries: Array<{
+    orderNumber: string;
+    earning: number;
+    deliveredAt: string | null;
+    paymentMethod: string;
+  }>;
 }
 
-/** Normalise a 10-digit Indian mobile to E.164 (+91XXXXXXXXXX) for the API. */
+export interface PendingCod {
+  totalToDeposit: number;
+  count: number;
+  items: Array<{ id: string; orderId: string; orderNumber: string | null; amount: number; collectedAt: string }>;
+}
+
+export interface SupportTicketList {
+  items: SupportTicket[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface SupportTicket {
+  id: string;
+  ticketNumber: string;
+  status: string;
+  priority: string;
+  subject: string;
+  description: string;
+  orderId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  category?: { code: string; name: string } | null;
+  messages?: Array<{ id: string; body: string; createdAt: string; authorId: string }>;
+}
+
+export interface KnowledgeArticle {
+  id: string;
+  title: string;
+  summary?: string | null;
+  content?: string | null;
+  category?: string | null;
+}
+
+export type RiderDocumentType = 'ID_PROOF' | 'PAN_CARD' | 'DRIVING_LICENSE' | 'VEHICLE_RC' | 'PROFILE_PHOTO' | 'OTHER';
+
+export interface RiderDocument {
+  id: string;
+  documentType: RiderDocumentType;
+  fileUrl: string;
+  status: 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string | null;
+  updatedAt: string;
+}
+
+export interface RiderShift {
+  id: string;
+  status: 'ACTIVE' | 'COMPLETED';
+  startedAt: string;
+  endedAt?: string | null;
+  deliveries: number;
+  earnings: string | number;
+}
+
+export interface RiderIncentive {
+  id: string;
+  code: string;
+  title: string;
+  description?: string | null;
+  targetDeliveries: number;
+  rewardAmount: number;
+  startsAt: string;
+  endsAt: string;
+  progress: { deliveries: number; completed: boolean; remaining: number };
+}
+
+export interface RiderNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export function toE164(input: string): string {
   const digits = (input ?? '').replace(/\D/g, '');
   if (digits.length === 10) return `+91${digits}`;
@@ -81,7 +178,6 @@ export function toE164(input: string): string {
   return `+${digits}`;
 }
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
 export const requestOtp = (phone: string) =>
   jfetch<{ message: string; expiresIn: number }>('/api/auth/request-otp', {
     method: 'POST',
@@ -95,10 +191,7 @@ export const verifyOtp = (phone: string, code: string) =>
   });
 
 export const logout = () => jfetch('/api/auth/logout', { method: 'POST' });
-
-// ── Rider ────────────────────────────────────────────────────────────────────
 export const getMe = () => jfetch<RiderMe>('/api/rider/me');
-
 export const registerRider = (input: RegisterRiderInput) =>
   jfetch<{ id: string; kycStatus: string }>('/api/rider/register', {
     method: 'POST',
@@ -112,30 +205,34 @@ export const setStatus = (status: RiderStatus) =>
   });
 
 export const listOrders = () => jfetch<RiderOrder[]>('/api/rider/orders');
-export const getOrder = (id: string) => jfetch<RiderOrderDetail>(`/api/rider/orders/${id}`);
-export const getTodayEarnings = () => jfetch<TodayEarnings>('/api/rider/earnings/today');
+export const getOrder = (orderId: string) => jfetch<RiderOrderDetail>(`/api/rider/orders/${orderId}`);
+export const getEarnings = () => jfetch<RiderEarnings>('/api/rider/finance/earnings');
+export const getPendingCod = () => jfetch<PendingCod>('/api/rider/finance/cod/pending');
+export const submitCod = (orderIds: string[], amountDeposited: number, notes?: string) =>
+  jfetch('/api/rider/finance/cod/submit', {
+    method: 'POST',
+    body: JSON.stringify(riderCodSubmitPayload(orderIds, amountDeposited, notes)),
+  });
 
-const action = (id: string, verb: string, body?: unknown) =>
-  jfetch<RiderOrder>(`/api/rider/orders/${id}/${verb}`, {
+const action = (orderId: string, verb: string, body?: unknown) =>
+  jfetch<RiderOrder>(riderOrderActionPath(orderId, verb), {
     method: 'PATCH',
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
 
-export const acceptOrder = (id: string) => action(id, 'accept');
-export const rejectOrder = (id: string, reason: string) => action(id, 'reject', { reason });
-export const arrivedStore = (id: string) => action(id, 'arrived-store');
-export const pickedUp = (id: string) => action(id, 'picked-up');
-export const arrivedCustomer = (id: string) => action(id, 'arrived-customer');
-export const markDelivered = (id: string) => action(id, 'delivered');
-export const markFailed = (id: string, reason: string) => action(id, 'failed', { reason });
+export const acceptOrder = (orderId: string) => action(orderId, 'accept');
+export const rejectOrder = (orderId: string, reason: string) => action(orderId, 'reject', { reason });
+export const arrivedStore = (orderId: string) => action(orderId, 'arrived-store');
+export const pickedUp = (orderId: string) => action(orderId, 'picked-up');
+export const arrivedCustomer = (orderId: string) => action(orderId, 'arrived-customer');
+export const markDelivered = (orderId: string) => action(orderId, 'delivered');
+export const markFailed = (orderId: string, reason: string) => action(orderId, 'failed', { reason });
 
-export const pushLocation = (lat: number, lng: number) =>
-  jfetch('/api/rider/location', { method: 'PATCH', body: JSON.stringify({ lat, lng }) });
+export const pushLocation = (input: { latitude: number; longitude: number; heading?: number; speed?: number; accuracy?: number }) =>
+  jfetch('/api/rider/location', { method: 'PATCH', body: JSON.stringify(normalizeLocationPayload(input)) });
 
-// ── Payout bank account ───────────────────────────────────────────────────────
 export interface RiderBankAccount {
   accountHolderName: string;
-  /** Already masked by the API — the full number is never sent to the client. */
   accountNumber: string;
   ifsc: string;
   bankName?: string | null;
@@ -158,4 +255,53 @@ export const saveBankAccount = (input: SaveBankAccountInput) =>
   jfetch<RiderBankAccount>('/api/rider/finance/bank-account', {
     method: 'PUT',
     body: JSON.stringify(input),
+  });
+
+export const listSupportTickets = () => jfetch<SupportTicketList>('/api/rider/support/tickets');
+export const getSupportTicket = (id: string) => jfetch<SupportTicket>(riderSupportTicketPath(id));
+export const createSupportTicket = (input: {
+  categoryCode: string;
+  subject: string;
+  description: string;
+  priority?: string;
+  orderId?: string;
+}) =>
+  jfetch<SupportTicket>(riderSupportTicketPath(), {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+export const replySupportTicket = (id: string, body: string) =>
+  jfetch(riderSupportTicketPath(id, 'reply'), {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
+export const listSupportArticles = () => jfetch<KnowledgeArticle[]>('/api/rider/support/articles');
+
+export const uploadDocument = (dataUrl: string) =>
+  jfetch<{ url: string }>('/api/uploads/document', {
+    method: 'POST',
+    body: JSON.stringify({ dataUrl, purpose: 'rider-document' }),
+  });
+
+export const listRiderDocuments = () => jfetch<RiderDocument[]>('/api/rider/kyc/documents');
+export const saveRiderDocument = (documentType: RiderDocumentType, fileUrl: string) =>
+  jfetch<RiderDocument>('/api/rider/kyc/documents', {
+    method: 'POST',
+    body: JSON.stringify({ documentType, fileUrl }),
+  });
+export const submitRiderKyc = () => jfetch('/api/rider/kyc/submit', { method: 'POST' });
+
+export const getCurrentShift = () => jfetch<RiderShift | null>('/api/rider/shifts/current');
+export const startShift = (input: { latitude?: number; longitude?: number } = {}) =>
+  jfetch<RiderShift>('/api/rider/shifts/start', { method: 'POST', body: JSON.stringify(input) });
+export const endShift = (input: { latitude?: number; longitude?: number } = {}) =>
+  jfetch<RiderShift>('/api/rider/shifts/end', { method: 'POST', body: JSON.stringify(input) });
+export const listShiftHistory = () => jfetch<RiderShift[]>('/api/rider/shifts/history');
+
+export const listIncentives = () => jfetch<RiderIncentive[]>('/api/rider/incentives');
+export const listNotifications = () => jfetch<RiderNotification[]>('/api/rider/notifications');
+export const markNotificationsRead = (notificationId?: string) =>
+  jfetch<{ updated: number }>('/api/rider/notifications/read', {
+    method: 'POST',
+    body: JSON.stringify({ notificationId }),
   });

@@ -7,6 +7,7 @@ import {
   Ip,
   Param,
   Patch,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -30,6 +31,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { UpdateRiderLocationDto } from './dto/update-rider-location.dto';
 import { UpdateRiderStatusDto } from './dto/update-rider-status.dto';
 import { FailDeliveryDto } from './dto/fail-delivery.dto';
+import { RiderCaptainService } from './rider-captain.service';
+import { MarkNotificationReadDto, SaveRiderDocumentDto, ShiftLocationDto } from './dto/rider-captain.dto';
 
 @ApiTags('rider')
 @ApiBearerAuth('access-token')
@@ -42,7 +45,52 @@ export class RiderController {
     private readonly locationService: RiderLocationService,
     private readonly assignmentService: RiderAssignmentService,
     private readonly prisma: PrismaService,
+    private readonly captain: RiderCaptainService,
   ) {}
+
+  // ── Profile ───────────────────────────────────────────────────────────────
+
+  @Get('me')
+  @Permissions('deliveries:read')
+  @ApiOperation({ summary: 'Current rider profile and operational state' })
+  @ApiResponse({ status: 200, description: 'Rider profile' })
+  async me(@CurrentUser() user: RequestUser) {
+    const profile = await this.prisma.riderProfile.findUnique({
+      where: { userId: user.id },
+      select: {
+        id: true,
+        userId: true,
+        name: true,
+        vehicleType: true,
+        vehicleNumber: true,
+        licenseNumber: true,
+        kycStatus: true,
+        status: true,
+        ratingAvg: true,
+        ratingCount: true,
+        totalDeliveries: true,
+        currentLat: true,
+        currentLng: true,
+        lastLocationAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          phone: user.phone,
+          email: user.email,
+          roles: user.roles,
+        },
+        isRider: Boolean(profile),
+        profile,
+      },
+    };
+  }
 
   // ── Availability ──────────────────────────────────────────────────────────
 
@@ -207,5 +255,74 @@ export class RiderController {
   ) {
     const data = await this.deliveryService.markFailed(user.id, orderId, dto.reason, ip);
     return { success: true, data };
+  }
+
+  // ── Captain: KYC documents ───────────────────────────────────────────────
+
+  @Get('kyc/documents')
+  @Permissions('rider:status')
+  async listDocuments(@CurrentUser() user: RequestUser) {
+    return { success: true, data: await this.captain.listDocuments(user.id) };
+  }
+
+  @Post('kyc/documents')
+  @Permissions('rider:status')
+  async saveDocument(@CurrentUser() user: RequestUser, @Body() dto: SaveRiderDocumentDto) {
+    return {
+      success: true,
+      data: await this.captain.saveDocument(user.id, dto.documentType, dto.fileUrl),
+    };
+  }
+
+  @Post('kyc/submit')
+  @Permissions('rider:status')
+  async submitKyc(@CurrentUser() user: RequestUser) {
+    return { success: true, data: await this.captain.submitKyc(user.id) };
+  }
+
+  // ── Captain: shifts / attendance ─────────────────────────────────────────
+
+  @Get('shifts/current')
+  @Permissions('rider:status')
+  async currentShift(@CurrentUser() user: RequestUser) {
+    return { success: true, data: await this.captain.currentShift(user.id) };
+  }
+
+  @Post('shifts/start')
+  @Permissions('rider:status')
+  async startShift(@CurrentUser() user: RequestUser, @Body() dto: ShiftLocationDto) {
+    return { success: true, data: await this.captain.startShift(user.id, dto) };
+  }
+
+  @Post('shifts/end')
+  @Permissions('rider:status')
+  async endShift(@CurrentUser() user: RequestUser, @Body() dto: ShiftLocationDto) {
+    return { success: true, data: await this.captain.endShift(user.id, dto) };
+  }
+
+  @Get('shifts/history')
+  @Permissions('rider:status')
+  async shiftHistory(@CurrentUser() user: RequestUser) {
+    return { success: true, data: await this.captain.shiftHistory(user.id) };
+  }
+
+  // ── Captain: incentives / notifications ──────────────────────────────────
+
+  @Get('incentives')
+  @Permissions('deliveries:read')
+  async incentives(@CurrentUser() user: RequestUser) {
+    return { success: true, data: await this.captain.incentives(user.id) };
+  }
+
+  @Get('notifications')
+  @Permissions('deliveries:read')
+  async notifications(@CurrentUser() user: RequestUser) {
+    return { success: true, data: await this.captain.notifications(user.id) };
+  }
+
+  @Post('notifications/read')
+  @Permissions('deliveries:read')
+  async markNotificationRead(@CurrentUser() user: RequestUser, @Body() dto: MarkNotificationReadDto) {
+    return { success: true, data: await this.captain.markNotificationRead(user.id, dto.notificationId) };
   }
 }
