@@ -6,6 +6,7 @@ import { FoodCartService } from './food-cart.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { GeospatialService } from '../geospatial/geospatial.service';
+import { OrderFinancialsService } from '../finance/order-financials.service';
 import { PaymentMethod, OrderStatus, OrderVertical } from '@prisma/client';
 
 describe('FoodCheckoutService', () => {
@@ -31,6 +32,8 @@ describe('FoodCheckoutService', () => {
   const audit = { log: jest.fn() };
   const domainEvents = { emit: jest.fn() };
   const geospatial = { validateCheckoutLocation: jest.fn() };
+  // Called fire-and-forget (`void`) after the order commits; just needs to resolve.
+  const orderFinancials = { freezeOnOrderCreate: jest.fn().mockResolvedValue(undefined) };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -41,6 +44,7 @@ describe('FoodCheckoutService', () => {
         { provide: AuditService, useValue: audit },
         { provide: DomainEventsService, useValue: domainEvents },
         { provide: GeospatialService, useValue: geospatial },
+        { provide: OrderFinancialsService, useValue: orderFinancials },
       ],
     }).compile();
     service = module.get(FoodCheckoutService);

@@ -9,6 +9,10 @@ describe('LedgerService', () => {
     },
     ledgerEntry: { create: jest.fn() },
     ledgerAccount: {
+      // onModuleInit -> seedAccounts upserts the chart of accounts on boot. Without
+      // this the rejection from `void svc.onModuleInit()` went unhandled and crashed
+      // the whole jest worker, swallowing the run summary.
+      upsert: jest.fn().mockResolvedValue({}),
       findMany: jest.fn().mockResolvedValue([
         { id: 'a1', code: 'PLATFORM_ESCROW' },
         { id: 'a2', code: 'CUSTOMER_RECEIVABLE' },
