@@ -130,3 +130,13 @@ export async function proxyPost(req: NextRequest, path: string) {
     return errorResponse(err);
   }
 }
+
+export async function proxyPut(req: NextRequest, path: string) {
+  try {
+    const body = await req.text();
+    const data = await fetchWithAuth(path, { method: 'PUT', body }, req);
+    return NextResponse.json({ success: true, data });
+  } catch (err) {
+    return errorResponse(err);
+  }
+}
