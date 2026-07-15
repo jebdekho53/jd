@@ -7,20 +7,23 @@ check_portal() {
   local port="$2"
   local html
   html=$(curl -fsS "http://127.0.0.1:${port}/login" 2>/dev/null || curl -fsS "http://127.0.0.1:${port}/" 2>/dev/null)
-  local build_id
-  build_id=$(printf '%s' "$html" | grep -oE '"buildId":"[^"]+"' | head -1 | cut -d'"' -f4)
-  if [[ -z "$build_id" ]]; then
-    echo "FAIL: ${name} — could not parse buildId from HTML"
+  # App Router (Next 15) doesn't embed "buildId" in the HTML the way Pages Router
+  # did; the real signal is whether a static chunk the page actually references
+  # still serves. Pull a chunk straight out of the served HTML and fetch it — a
+  # stale in-place build is exactly what makes that chunk 400.
+  local chunk
+  chunk=$(printf '%s' "$html" | grep -oE '/_next/static/(chunks|css)/[^"]+\.(js|css)' | head -1)
+  if [[ -z "$chunk" ]]; then
+    echo "FAIL: ${name} — no /_next/static asset referenced in HTML"
     return 1
   fi
   local code
-  code=$(curl -sS -o /dev/null -w "%{http_code}" \
-    "http://127.0.0.1:${port}/_next/static/${build_id}/_buildManifest.js")
+  code=$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:${port}${chunk}")
   if [[ "$code" != "200" ]]; then
-    echo "FAIL: ${name} — _buildManifest.js returned HTTP ${code} (buildId=${build_id})"
+    echo "FAIL: ${name} — static asset ${chunk} returned HTTP ${code}"
     return 1
   fi
-  echo "OK: ${name} buildId=${build_id}"
+  echo "OK: ${name} asset=${chunk}"
 }
 
 FAIL=0
