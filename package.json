@@ -39,7 +39,8 @@
     "shadowfax:health": "tsx scripts/shadowfax-runtime.ts health",
     "shadowfax:serviceability": "tsx scripts/shadowfax-runtime.ts serviceability",
     "shadowfax:diagnose": "tsx scripts/shadowfax-runtime.ts diagnose",
-    "shadowfax:test-shipment": "tsx scripts/shadowfax-runtime.ts test-shipment"
+    "shadowfax:test-shipment": "tsx scripts/shadowfax-runtime.ts test-shipment",
+    "seed:taxonomy": "pnpm exec tsx prisma/seed-taxonomy.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
