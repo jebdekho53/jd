@@ -27,6 +27,7 @@ import { FinanceService } from './finance.service';
 import { SettlementBatchService } from './settlement-batch.service';
 import { CodReconciliationService } from './cod-reconciliation.service';
 import { RiderPayoutService } from './rider-payout.service';
+import { RiderBankAccountService } from './rider-bank-account.service';
 import { FinanceExportService } from './finance-export.service';
 import { OrderRefundService } from '../payment/order-refund.service';
 import { SettlementService } from '../settlement/settlement.service';
@@ -55,6 +56,7 @@ export class AdminFinanceController {
     private readonly batches: SettlementBatchService,
     private readonly cod: CodReconciliationService,
     private readonly riderPayouts: RiderPayoutService,
+    private readonly riderBankAccounts: RiderBankAccountService,
     private readonly exports: FinanceExportService,
     private readonly settlement: SettlementService,
     private readonly orderRefunds: OrderRefundService,
@@ -198,6 +200,24 @@ export class AdminFinanceController {
     @Body() dto: MarkRiderPayoutPaidDto,
   ) {
     const data = await this.riderPayouts.markPaid(id, user.id, dto.referenceId);
+    return { success: true, data };
+  }
+
+  /** Pay a rider payout via Razorpay Route (needs a verified rider bank account). */
+  @Post('rider-payouts/:id/pay-route')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('settlements:manage')
+  async payRiderViaRoute(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    const data = await this.riderPayouts.processViaRoute(id, user.id);
+    return { success: true, data };
+  }
+
+  /** Verify a rider's bank account and create their Razorpay linked account. */
+  @Post('riders/:riderProfileId/bank-account/verify')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('settlements:manage')
+  async verifyRiderBank(@CurrentUser() user: RequestUser, @Param('riderProfileId') id: string) {
+    const data = await this.riderBankAccounts.verify(user.id, id);
     return { success: true, data };
   }
 

@@ -991,6 +991,7 @@ model RiderProfile {
   deliveryBatches    DeliveryBatch[]
   routeOptimizations RouteOptimization[]
   fleetAlerts        FleetAlert[]
+  bankAccount        RiderBankAccount?
 
   @@index([status])
   @@index([kycStatus])
@@ -3472,6 +3473,7 @@ model RiderPayout {
   cancellationComp Decimal           @default(0) @map("cancellation_comp") @db.Decimal(12, 2)
   totalAmount      Decimal           @map("total_amount") @db.Decimal(12, 2)
   referenceId      String?           @map("reference_id")
+  failureReason    String?           @map("failure_reason") @db.Text
   paidAt           DateTime?         @map("paid_at")
   createdAt        DateTime          @default(now()) @map("created_at")
 
@@ -3480,6 +3482,28 @@ model RiderPayout {
 
   @@index([riderProfileId, status])
   @@map("rider_payouts")
+}
+
+/// Where a rider's earnings are paid. Mirrors FranchiseBankAccount: verified by an
+/// admin, then the Razorpay Route linked account is created and paid into.
+model RiderBankAccount {
+  id                      String    @id @default(cuid())
+  riderProfileId          String    @unique @map("rider_profile_id")
+  accountHolderName       String    @map("account_holder_name")
+  accountNumber           String    @map("account_number")
+  ifsc                    String
+  bankName                String?   @map("bank_name")
+  upiId                   String?   @map("upi_id")
+  verified                Boolean   @default(false)
+  verifiedAt              DateTime? @map("verified_at")
+  verifiedBy              String?   @map("verified_by")
+  razorpayLinkedAccountId String?   @unique @map("razorpay_linked_account_id")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  riderProfile RiderProfile @relation(fields: [riderProfileId], references: [id], onDelete: Cascade)
+
+  @@map("rider_bank_accounts")
 }
 
 model RiderPayoutItem {
