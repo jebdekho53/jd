@@ -48,6 +48,82 @@ describe('EmailNotificationService', () => {
     expect(email.send.mock.calls[0][0].subject).not.toContain('internal-order-id');
   });
 
+  it('sends buyer signup welcome with the buyer template code and user metadata', async () => {
+    await service.sendBuyerWelcomeEmail('buyer@example.com', 'Rahul', 'user-1');
+
+    expect(email.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'buyer@example.com',
+        templateCode: EMAIL_TEMPLATE.WELCOME,
+        metadata: { name: 'Rahul', userId: 'user-1' },
+      }),
+    );
+  });
+
+  it('sends merchant signup welcome with the merchant template code and application metadata', async () => {
+    await service.sendMerchantWelcomeEmail('merchant@example.com', 'Store Owner', 'app-1');
+
+    expect(email.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'merchant@example.com',
+        subject: 'Welcome to JebDekho Merchant',
+        templateCode: EMAIL_TEMPLATE.MERCHANT_WELCOME,
+        metadata: { name: 'Store Owner', applicationId: 'app-1' },
+      }),
+    );
+  });
+
+  it('sends franchise welcome with referral context and skips missing email', async () => {
+    await service.sendFranchiseWelcomeEmail({
+      to: null,
+      name: 'Partner',
+      leadId: 'lead-empty',
+      franchiseId: 'fr-empty',
+      referralCode: 'FR-GHA-01',
+    });
+    expect(email.send).not.toHaveBeenCalled();
+
+    await service.sendFranchiseWelcomeEmail({
+      to: 'franchise@example.com',
+      name: 'Partner',
+      leadId: 'lead-1',
+      franchiseId: 'fr-1',
+      referralCode: 'FR-GHA-01',
+    });
+
+    expect(email.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'franchise@example.com',
+        subject: 'Welcome to JebDekho Franchise',
+        templateCode: EMAIL_TEMPLATE.FRANCHISE_WELCOME,
+        metadata: {
+          name: 'Partner',
+          leadId: 'lead-1',
+          franchiseId: 'fr-1',
+          referralCode: 'FR-GHA-01',
+        },
+      }),
+    );
+    expect(email.send.mock.calls[0][0].text).toContain('FR-GHA-01');
+    expect(email.send.mock.calls[0][0].text).toContain('?ref=FR-GHA-01');
+  });
+
+  it('sends rider onboarding welcome with the rider template code and skips missing email', async () => {
+    await service.sendRiderWelcomeEmail(undefined, 'Rider', 'rp-empty');
+    expect(email.send).not.toHaveBeenCalled();
+
+    await service.sendRiderWelcomeEmail('rider@example.com', 'Rider', 'rp-1');
+
+    expect(email.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'rider@example.com',
+        subject: 'Welcome to JebDekho Rider',
+        templateCode: EMAIL_TEMPLATE.RIDER_WELCOME,
+        metadata: { name: 'Rider', riderProfileId: 'rp-1' },
+      }),
+    );
+  });
+
   it('maps admin support ticket alerts to the admin matrix template', async () => {
     await service.sendAdminSupportTicketCreated('TICKET-7');
 
