@@ -1,59 +1,63 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Modal, Button, Textarea } from '@/design-system/primitives';
-import type { CatalogCategory } from '@/types/category-governance';
+import type { CatalogNode } from '@/types/category-governance';
 
 interface Props {
   open: boolean;
-  catalog: CatalogCategory[];
+  catalog: CatalogNode[];
   loading: boolean;
   onClose: () => void;
   onSubmit: (categoryId: string, subcategoryId: string, reason?: string) => void;
 }
 
+const LEVEL_LABELS = ['Category', 'Subcategory', 'Sub-category', 'Product type'];
+
 export function RequestCategoryModal({ open, catalog, loading, onClose, onSubmit }: Props) {
-  const [categoryId, setCategoryId] = useState('');
-  const [subcategoryId, setSubcategoryId] = useState('');
-  const [itemId, setItemId] = useState('');
+  // One selected node id per level; deeper levels are cleared when a level changes.
+  const [path, setPath] = useState<string[]>([]);
   const [note, setNote] = useState('');
 
-  const selectedParent = catalog.find((c) => c.id === categoryId);
-  const subcategories = selectedParent?.children ?? [];
-  const selectedSub = subcategories.find((s) => s.id === subcategoryId);
-  const items = selectedSub?.children ?? [];
+  // Build the visible cascade: level 0 = roots, each next level = children of the
+  // node chosen above it. Stops at the first level whose choice has no children.
+  const levels: { options: CatalogNode[]; value: string }[] = [];
+  let options: CatalogNode[] = catalog;
+  for (let i = 0; options.length > 0; i++) {
+    const value = path[i] ?? '';
+    levels.push({ options, value });
+    const chosen = options.find((n) => n.id === value);
+    if (!chosen || chosen.children.length === 0) break;
+    options = chosen.children;
+  }
 
-  useEffect(() => {
-    setSubcategoryId('');
-    setItemId('');
-  }, [categoryId]);
-  useEffect(() => {
-    setItemId('');
-  }, [subcategoryId]);
+  const selectedId = [...path].filter(Boolean).pop() ?? '';
+  const rootId = path[0] ?? '';
 
-  // Request the deepest chosen level: a specific product type if picked, else
-  // the subcategory. The stored pair is (direct parent, node) so admin approval
-  // and product validation resolve correctly.
-  const requestedId = itemId || subcategoryId;
-  const requestedParentId = itemId ? subcategoryId : categoryId;
+  const setLevel = (i: number, value: string) =>
+    setPath((prev) => [...prev.slice(0, i), value].filter((_, idx) => idx <= i));
+
+  const reset = () => { setPath([]); setNote(''); };
+
+  const isMenu = catalog[0]?.catalogKind === 'MENU';
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={() => { reset(); onClose(); }}
       title="Request category access"
       description={
-        catalog[0]?.catalogKind === 'MENU'
-          ? 'Select a menu category and subcategory (e.g. Food → Biryani, Cafe → Coffee). Admin approval is required before you can add menu items.'
-          : 'Select a category and subcategory. Admin approval is required before you can add products.'
+        isMenu
+          ? 'Drill down to the menu category you sell (e.g. Food → Chinese → Noodles). You can stop at any level — approval covers everything beneath it.'
+          : 'Drill down to the category you sell (e.g. Grocery → Staples → Dals & Pulses → Moong Dal). You can stop at any level — approval covers everything beneath it.'
       }
       footer={
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={() => { reset(); onClose(); }}>Cancel</Button>
           <Button
             loading={loading}
-            disabled={!categoryId || !requestedId}
-            onClick={() => onSubmit(requestedParentId, requestedId, note.trim() || undefined)}
+            disabled={!selectedId}
+            onClick={() => { onSubmit(rootId, selectedId, note.trim() || undefined); reset(); }}
           >
             Submit request
           </Button>
@@ -61,66 +65,37 @@ export function RequestCategoryModal({ open, catalog, loading, onClose, onSubmit
       }
     >
       <div className="space-y-4">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Category</label>
-          <select
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-          >
-            <option value="">Select category…</option>
-            {catalog.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Subcategory</label>
-          <select
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            value={subcategoryId}
-            onChange={(e) => setSubcategoryId(e.target.value)}
-            disabled={!categoryId}
-          >
-            <option value="">Select subcategory…</option>
-            {subcategories.map((ch) => (
-              <option
-                key={ch.id}
-                value={ch.id}
-                disabled={ch.requestStatus === 'APPROVED' || ch.requestStatus === 'PENDING'}
-              >
-                {ch.name}
-                {ch.requestStatus === 'APPROVED' ? ' (approved)' : ''}
-                {ch.requestStatus === 'PENDING' ? ' (pending)' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {items.length > 0 && (
-          <div>
+        {levels.map((level, i) => (
+          <div key={i}>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Product type <span className="font-normal text-slate-400">(optional — leave blank for the whole subcategory)</span>
+              {LEVEL_LABELS[i] ?? `Level ${i + 1}`}
+              {i > 0 && <span className="font-normal text-slate-400"> (optional — stop at any level)</span>}
             </label>
             <select
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              value={itemId}
-              onChange={(e) => setItemId(e.target.value)}
+              value={level.value}
+              onChange={(e) => setLevel(i, e.target.value)}
             >
-              <option value="">All of {selectedSub?.name}</option>
-              {items.map((leaf) => (
-                <option
-                  key={leaf.id}
-                  value={leaf.id}
-                  disabled={leaf.requestStatus === 'APPROVED' || leaf.requestStatus === 'PENDING'}
-                >
-                  {leaf.name}
-                  {leaf.requestStatus === 'APPROVED' ? ' (approved)' : ''}
-                  {leaf.requestStatus === 'PENDING' ? ' (pending)' : ''}
-                </option>
-              ))}
+              <option value="">{i === 0 ? 'Select category…' : 'All of the above / choose deeper…'}</option>
+              {level.options.map((n) => {
+                const locked = n.requestStatus === 'APPROVED' || n.requestStatus === 'PENDING';
+                return (
+                  <option key={n.id} value={n.id} disabled={locked}>
+                    {n.name}
+                    {n.children.length > 0 ? ' ›' : ''}
+                    {n.requestStatus === 'APPROVED' ? ' (approved)' : ''}
+                    {n.requestStatus === 'PENDING' ? ' (pending)' : ''}
+                  </option>
+                );
+              })}
             </select>
           </div>
+        ))}
+
+        {selectedId && (
+          <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700">
+            Requesting: <strong>{buildPathLabel(catalog, path)}</strong>
+          </p>
         )}
 
         <Textarea
@@ -132,4 +107,18 @@ export function RequestCategoryModal({ open, catalog, loading, onClose, onSubmit
       </div>
     </Modal>
   );
+}
+
+/** Human-readable "Root › … › Selected" from the chosen id path. */
+function buildPathLabel(catalog: CatalogNode[], path: string[]): string {
+  const names: string[] = [];
+  let options: CatalogNode[] = catalog;
+  for (const id of path) {
+    if (!id) break;
+    const node = options.find((n) => n.id === id);
+    if (!node) break;
+    names.push(node.name);
+    options = node.children;
+  }
+  return names.join(' › ');
 }

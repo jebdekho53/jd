@@ -19,28 +19,22 @@ export type StoreDocumentType =
 
 export type CategoryCatalogKind = 'PRODUCT' | 'MENU';
 
-export interface CatalogCategory {
+/** Recursive catalog node (L1…L4) returned by the catalog endpoint. */
+export interface CatalogNode {
   id: string;
   name: string;
   slug: string;
-  imageUrl: string | null;
+  parentId?: string | null;
   sortOrder: number;
+  icon?: string | null;
+  imageUrl?: string | null;
   catalogKind?: CategoryCatalogKind;
   requestStatus: StoreCategoryRequestStatus | null;
-  children: Array<{
-    id: string;
-    name: string;
-    slug: string;
-    catalogKind?: CategoryCatalogKind;
-    requestStatus: StoreCategoryRequestStatus | null;
-    children?: Array<{
-      id: string;
-      name: string;
-      slug: string;
-      requestStatus: StoreCategoryRequestStatus | null;
-    }>;
-  }>;
+  children: CatalogNode[];
 }
+
+/** @deprecated the catalog is now a recursive tree — use CatalogNode */
+export type CatalogCategory = CatalogNode;
 
 export interface StoreCategoryRequest {
   id: string;
