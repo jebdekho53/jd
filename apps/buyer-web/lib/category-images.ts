@@ -120,7 +120,13 @@ function normalizeCategoryKey(value: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+/**
+ * Image precedence: what admin uploaded wins, then a curated static asset for
+ * known categories, then a keyword guess. The bundled assets are a fallback for
+ * categories nobody has given an image yet — they must never shadow an upload.
+ */
 export function resolveCategoryImage(category: Pick<CategoryItem, 'name' | 'slug' | 'imageUrl'>): string | null {
+  if (category.imageUrl) return category.imageUrl;
   const normalizedSlug = normalizeCategoryKey(category.slug);
   const normalizedName = normalizeCategoryKey(category.name);
   const staticImage =
@@ -128,7 +134,6 @@ export function resolveCategoryImage(category: Pick<CategoryItem, 'name' | 'slug
     STATIC_CATEGORY_IMAGES[normalizedSlug.replace(/^menu-/, '')] ??
     STATIC_CATEGORY_IMAGES[normalizedName];
   if (staticImage) return staticImage;
-  if (category.imageUrl) return category.imageUrl;
   const haystack = `${category.slug} ${category.name}`;
   const match = CATEGORY_MATCHERS.find(([, pattern]) => pattern.test(haystack));
   return match ? CATEGORY_IMAGE_PATHS[match[0]] : null;
