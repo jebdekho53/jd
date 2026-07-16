@@ -12,10 +12,13 @@ import {
   KycStatus,
   OrderActorType,
   OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
   Prisma,
   RiderStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { HANDOVER_OTP_MAX_ATTEMPTS, otpMatches } from './delivery-otp.util';
 import { activeDeliveryStatuses } from '../rider-assignment/rider-assignment.util';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
@@ -44,6 +47,9 @@ const TERMINAL_DELIVERY = new Set<DeliveryStatus>([
   DeliveryStatus.CANCELLED,
   DeliveryStatus.REJECTED,
 ]);
+
+// Payment methods that require the rider to physically collect cash at the door.
+const COD_METHODS = new Set<PaymentMethod>([PaymentMethod.COD, PaymentMethod.WALLET_COD]);
 
 // Map delivery status → corresponding Order status update (only steps that change order status)
 const DELIVERY_TO_ORDER_STATUS: Partial<Record<DeliveryStatus, OrderStatus>> = {
@@ -84,7 +90,7 @@ export class DeliveryService {
   async getRiderDeliveries(userId: string) {
     const riderProfile = await this.requireRiderProfile(userId);
 
-    return this.prisma.delivery.findMany({
+    const deliveries = await this.prisma.delivery.findMany({
       where: {
         riderProfileId: riderProfile.id,
         status: { in: activeDeliveryStatuses() },
@@ -98,6 +104,7 @@ export class DeliveryService {
             orderNumber: true,
             status: true,
             paymentMethod: true,
+            paymentStatus: true,
             totalAmount: true,
             deliveryAddress: true,
             buyerNote: true,
@@ -106,6 +113,7 @@ export class DeliveryService {
         },
       },
     });
+    return deliveries.map((d) => this.sanitizeForRider(d));
   }
 
   async getRiderDeliveryByOrderId(userId: string, orderId: string) {
@@ -120,6 +128,7 @@ export class DeliveryService {
             orderNumber: true,
             status: true,
             paymentMethod: true,
+            paymentStatus: true,
             totalAmount: true,
             deliveryAddress: true,
             deliveryLat: true,
@@ -134,7 +143,48 @@ export class DeliveryService {
     });
 
     if (!delivery) throw new NotFoundException('Delivery not found or not assigned to you');
-    return delivery;
+    return this.sanitizeForRider(delivery);
+  }
+
+  /**
+   * Strip the raw handover codes (the rider must NEVER see them) and surface
+   * only rider-safe derived state: whether each OTP is required/verified and the
+   * server-authoritative cash-on-delivery amount to collect.
+   */
+  private sanitizeForRider<
+    T extends {
+      pickupOtp?: string | null;
+      deliveryOtp?: string | null;
+      pickupVerifiedAt?: Date | null;
+      deliveryVerifiedAt?: Date | null;
+      order?: {
+        paymentMethod?: PaymentMethod;
+        paymentStatus?: PaymentStatus;
+        totalAmount?: Prisma.Decimal;
+      } | null;
+    },
+  >(delivery: T) {
+    const {
+      pickupOtp,
+      deliveryOtp,
+      ...rest
+    } = delivery as T & { pickupOtp?: string | null; deliveryOtp?: string | null };
+
+    const order = delivery.order ?? null;
+    const codDue =
+      order?.paymentMethod &&
+      COD_METHODS.has(order.paymentMethod) &&
+      order.paymentStatus !== PaymentStatus.PAID;
+
+    return {
+      ...rest,
+      pickupOtpRequired: Boolean(pickupOtp),
+      pickupVerified: Boolean(delivery.pickupVerifiedAt),
+      deliveryOtpRequired: Boolean(deliveryOtp),
+      deliveryVerified: Boolean(delivery.deliveryVerifiedAt),
+      codDue: Boolean(codDue),
+      codAmount: codDue && order?.totalAmount ? order.totalAmount.toString() : null,
+    };
   }
 
   // ── Accept assignment ────────────────────────────────────────────────────
@@ -175,8 +225,25 @@ export class DeliveryService {
     const delivery = await this.requireRiderOwnershipByOrder(userId, orderId);
     this.assertCanAdvance(delivery.status, DeliveryStatus.PICKED_UP);
 
+    // OTP-enabled deliveries must be confirmed through verifyPickup so the code
+    // can't be bypassed via the plain endpoint.
+    if (delivery.pickupOtp && !delivery.pickupVerifiedAt) {
+      throw new BadRequestException('Pickup requires handover OTP verification');
+    }
+
     await this.applyTransition(delivery, DeliveryStatus.PICKED_UP, userId, ipAddress);
     return { deliveryId: delivery.id, status: DeliveryStatus.PICKED_UP };
+  }
+
+  // ── Verify pickup (merchant handover OTP) ─────────────────────────────────
+
+  async verifyPickup(userId: string, orderId: string, otp: string, ipAddress?: string) {
+    const delivery = await this.requireRiderOwnershipByOrder(userId, orderId);
+    this.assertCanAdvance(delivery.status, DeliveryStatus.PICKED_UP);
+
+    await this.assertOtpOrThrow(delivery, 'pickup', otp, userId, ipAddress);
+    await this.applyTransition(delivery, DeliveryStatus.PICKED_UP, userId, ipAddress);
+    return { deliveryId: delivery.id, status: DeliveryStatus.PICKED_UP, pickupVerified: true };
   }
 
   // ── Arrived at customer ─────────────────────────────────────────────────
@@ -195,8 +262,145 @@ export class DeliveryService {
     const delivery = await this.requireRiderOwnershipByOrder(userId, orderId);
     this.assertCanAdvance(delivery.status, DeliveryStatus.DELIVERED);
 
+    // OTP-enabled deliveries must be confirmed through verifyDelivery.
+    if (delivery.deliveryOtp && !delivery.deliveryVerifiedAt) {
+      throw new BadRequestException('Delivery requires customer OTP verification');
+    }
+    this.assertCodAcknowledged(delivery, false);
+
     await this.applyTransition(delivery, DeliveryStatus.DELIVERED, userId, ipAddress);
     return { deliveryId: delivery.id, status: DeliveryStatus.DELIVERED };
+  }
+
+  // ── Verify delivery (buyer OTP + COD acknowledgment) ──────────────────────
+
+  async verifyDelivery(
+    userId: string,
+    orderId: string,
+    otp: string,
+    codCollected: boolean,
+    ipAddress?: string,
+  ) {
+    const delivery = await this.requireRiderOwnershipByOrder(userId, orderId);
+    this.assertCanAdvance(delivery.status, DeliveryStatus.DELIVERED);
+
+    // Cash must be acknowledged before the OTP is even checked so a rider can't
+    // mark a COD order delivered without confirming collection.
+    this.assertCodAcknowledged(delivery, codCollected);
+    await this.assertOtpOrThrow(delivery, 'delivery', otp, userId, ipAddress);
+    await this.applyTransition(delivery, DeliveryStatus.DELIVERED, userId, ipAddress);
+    return {
+      deliveryId: delivery.id,
+      status: DeliveryStatus.DELIVERED,
+      deliveryVerified: true,
+      codCollected: this.isCodDue(delivery) ? true : false,
+    };
+  }
+
+  /** Amount the rider must collect at the door (server-authoritative), or null. */
+  private isCodDue(delivery: {
+    order: { paymentMethod: PaymentMethod; paymentStatus: PaymentStatus };
+  }): boolean {
+    return (
+      COD_METHODS.has(delivery.order.paymentMethod) &&
+      delivery.order.paymentStatus !== PaymentStatus.PAID
+    );
+  }
+
+  /**
+   * Reject completion of a COD order unless the rider explicitly acknowledged
+   * cash collection. The amount is never taken from the client — it is the
+   * server's order.totalAmount.
+   */
+  private assertCodAcknowledged(
+    delivery: {
+      order: { paymentMethod: PaymentMethod; paymentStatus: PaymentStatus; totalAmount: Prisma.Decimal };
+    },
+    codCollected: boolean,
+  ): void {
+    if (this.isCodDue(delivery) && !codCollected) {
+      throw new BadRequestException(
+        `Cash collection of ₹${delivery.order.totalAmount.toString()} must be acknowledged before completing this COD delivery`,
+      );
+    }
+  }
+
+  /**
+   * Verify a handover OTP with one-time-use and brute-force protection.
+   * Idempotent: if already verified, returns without re-checking.
+   */
+  private async assertOtpOrThrow(
+    delivery: {
+      id: string;
+      orderId: string;
+      pickupOtp: string | null;
+      pickupVerifiedAt: Date | null;
+      pickupOtpAttempts: number;
+      deliveryOtp: string | null;
+      deliveryVerifiedAt: Date | null;
+      deliveryOtpAttempts: number;
+    },
+    kind: 'pickup' | 'delivery',
+    submitted: string,
+    actorId: string,
+    ipAddress?: string,
+  ): Promise<void> {
+    const stored = kind === 'pickup' ? delivery.pickupOtp : delivery.deliveryOtp;
+    const verifiedAt = kind === 'pickup' ? delivery.pickupVerifiedAt : delivery.deliveryVerifiedAt;
+    const attempts = kind === 'pickup' ? delivery.pickupOtpAttempts : delivery.deliveryOtpAttempts;
+
+    if (verifiedAt) return; // one-time use — already verified
+
+    if (!stored) {
+      throw new BadRequestException('No handover code is set for this delivery');
+    }
+    if (attempts >= HANDOVER_OTP_MAX_ATTEMPTS) {
+      throw new BadRequestException(
+        'Too many incorrect attempts. Contact support to complete this handover.',
+      );
+    }
+
+    if (!otpMatches(submitted, stored)) {
+      const nextAttempts = attempts + 1;
+      await this.prisma.delivery.update({
+        where: { id: delivery.id },
+        data:
+          kind === 'pickup'
+            ? { pickupOtpAttempts: nextAttempts }
+            : { deliveryOtpAttempts: nextAttempts },
+      });
+      void this.audit.log({
+        actorId,
+        action: kind === 'pickup' ? 'PICKUP_OTP_FAILED' : 'DELIVERY_OTP_FAILED',
+        resourceType: 'delivery',
+        resourceId: delivery.id,
+        ipAddress,
+        metadata: { orderId: delivery.orderId, attempts: nextAttempts } as Prisma.InputJsonValue,
+      });
+      const remaining = Math.max(0, HANDOVER_OTP_MAX_ATTEMPTS - nextAttempts);
+      throw new BadRequestException(
+        remaining > 0
+          ? `Incorrect code. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`
+          : 'Incorrect code. Contact support to complete this handover.',
+      );
+    }
+
+    // Success — record one-time-use marker.
+    await this.prisma.delivery.update({
+      where: { id: delivery.id },
+      data:
+        kind === 'pickup'
+          ? { pickupVerifiedAt: new Date() }
+          : { deliveryVerifiedAt: new Date() },
+    });
+    void this.audit.log({
+      actorId,
+      action: kind === 'pickup' ? 'PICKUP_OTP_VERIFIED' : 'DELIVERY_OTP_VERIFIED',
+      resourceType: 'delivery',
+      resourceId: delivery.id,
+      ipAddress,
+      metadata: { orderId: delivery.orderId } as Prisma.InputJsonValue,
+    });
   }
 
   // ── Mark failed ─────────────────────────────────────────────────────────
@@ -468,7 +672,20 @@ export class DeliveryService {
         orderId: true,
         status: true,
         riderProfileId: true,
-        order: { select: { status: true } },
+        pickupOtp: true,
+        pickupVerifiedAt: true,
+        pickupOtpAttempts: true,
+        deliveryOtp: true,
+        deliveryVerifiedAt: true,
+        deliveryOtpAttempts: true,
+        order: {
+          select: {
+            status: true,
+            paymentMethod: true,
+            paymentStatus: true,
+            totalAmount: true,
+          },
+        },
       },
     });
 

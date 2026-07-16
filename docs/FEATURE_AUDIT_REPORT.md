@@ -1,5 +1,14 @@
 # JebDekho — Feature Audit Report
 
+> ⚠️ **POINT-IN-TIME SNAPSHOT (28 Jun 2026), partly stale.** This audit predates
+> the rider/captain completion and delivery-OTP work. In particular its rider
+> claims are outdated: `rider-web` now hosts a **captain PWA UI** (not "BFF only"),
+> `rider-mobile` has a full active-delivery + OTP flow (still pending device QA),
+> and pickup/delivery **OTP handover is implemented** across API, rider apps,
+> buyer and merchant. For current rider/delivery status use the canonical
+> **[RIDER_DELIVERY_STATUS.md](RIDER_DELIVERY_STATUS.md)**. Other sections remain a
+> useful platform snapshot but should be re-verified against current code.
+
 **Generated:** 28 June 2026  
 **Repository:** `jebdekho53/jd`  
 **Latest commit:** `664be46` — *feat: merchant AI wallet billing, checkout payment sync, and dispatch on place*  

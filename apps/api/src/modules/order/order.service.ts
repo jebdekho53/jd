@@ -7,6 +7,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import {
+  DeliveryStatus,
   DomainEventType,
   FoodKitchenStatus,
   OrderActorType,
@@ -97,6 +98,14 @@ const TERMINAL = new Set<OrderStatus>([
   OrderStatus.CANCELLED_BY_ADMIN,
   OrderStatus.PAYMENT_FAILED,
   OrderStatus.REFUNDED,
+]);
+
+// Delivery statuses past which a handover OTP is no longer usable.
+const HANDOVER_TERMINAL = new Set<DeliveryStatus>([
+  DeliveryStatus.DELIVERED,
+  DeliveryStatus.FAILED,
+  DeliveryStatus.CANCELLED,
+  DeliveryStatus.REJECTED,
 ]);
 
 const ADMIN_STATUS_GROUPS = {
@@ -349,6 +358,53 @@ export class OrderService implements OnModuleInit {
     const view = serializeDetail(order);
     void this.cache.setDetail(orderId, view);
     return view;
+  }
+
+  /**
+   * Delivery OTP the buyer reads out to the rider at the door. Scoped to the
+   * buyer's own order; only returned while the code is still usable (a rider is
+   * assigned and the delivery isn't already verified/terminal).
+   */
+  async getBuyerDeliveryOtp(userId: string, orderId: string) {
+    const bp = await this.requireBuyerProfile(userId);
+    const delivery = await this.prisma.delivery.findFirst({
+      where: { order: { id: orderId, buyerProfileId: bp.id } },
+      select: { status: true, deliveryOtp: true, deliveryVerifiedAt: true },
+    });
+    if (!delivery) throw new NotFoundException('No delivery for this order');
+
+    const usable =
+      Boolean(delivery.deliveryOtp) &&
+      !delivery.deliveryVerifiedAt &&
+      !HANDOVER_TERMINAL.has(delivery.status);
+    return {
+      deliveryOtp: usable ? delivery.deliveryOtp : null,
+      verified: Boolean(delivery.deliveryVerifiedAt),
+      deliveryStatus: delivery.status,
+    };
+  }
+
+  /**
+   * Pickup/handover OTP the merchant reads out to the rider at the counter.
+   * Scoped to the merchant's own store order; hidden once pickup is verified.
+   */
+  async getMerchantPickupOtp(userId: string, orderId: string) {
+    await this.requireMerchantOrderOwnership(userId, orderId);
+    const delivery = await this.prisma.delivery.findFirst({
+      where: { orderId },
+      select: { status: true, pickupOtp: true, pickupVerifiedAt: true },
+    });
+    if (!delivery) throw new NotFoundException('No delivery for this order');
+
+    const usable =
+      Boolean(delivery.pickupOtp) &&
+      !delivery.pickupVerifiedAt &&
+      !HANDOVER_TERMINAL.has(delivery.status);
+    return {
+      pickupOtp: usable ? delivery.pickupOtp : null,
+      verified: Boolean(delivery.pickupVerifiedAt),
+      deliveryStatus: delivery.status,
+    };
   }
 
   private logDeliveryCoordinateWarnings(order: {

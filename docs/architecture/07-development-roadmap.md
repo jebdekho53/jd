@@ -1,5 +1,17 @@
 # Jebdekho — Development Roadmap
 
+> ⚠️ **HISTORICAL / SUPERSEDED (pre-build plan).** This is the original 24-week
+> phased plan written before implementation. The platform has since been built
+> well beyond this scope (NestJS API with 303 Prisma models, seven web apps + an
+> Expo rider app, provider-neutral logistics, OTP handover, franchise/vendor
+> portals, etc.). The phase checkboxes and week numbers below no longer reflect
+> reality and are kept for history only.
+>
+> **For current, verified status use:**
+> - Rider/delivery domain → [../RIDER_DELIVERY_STATUS.md](../RIDER_DELIVERY_STATUS.md) (canonical)
+> - Platform overview → [the root README](../../README.md)
+> - Snapshot audit → [../FEATURE_AUDIT_REPORT.md](../FEATURE_AUDIT_REPORT.md) (28 Jun 2026, point-in-time)
+
 ## Overview
 
 Phased delivery over **~24 weeks** for a production MVP with four apps, scalable backend, and VPS deployment. Timelines assume a small team (2–4 engineers); adjust for team size.

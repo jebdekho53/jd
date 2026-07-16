@@ -14,6 +14,13 @@ export interface BackendDelivery {
   distanceKm: number | null;
   estimatedMins: number | null;
   riderEarning: string | number | null;
+  // Rider-safe handover state (backend sanitizeForRider — never the raw OTP).
+  pickupOtpRequired?: boolean;
+  pickupVerified?: boolean;
+  deliveryOtpRequired?: boolean;
+  deliveryVerified?: boolean;
+  codDue?: boolean;
+  codAmount?: string | null;
   createdAt: string;
   order: {
     id: string;
@@ -54,6 +61,12 @@ export function mapDeliveryListItem(d: BackendDelivery) {
     paymentMethod: d.order.paymentMethod,
     assignedAt: d.assignedAt ?? d.createdAt,
     riderEarning: d.riderEarning != null ? Number(d.riderEarning) : null,
+    pickupOtpRequired: d.pickupOtpRequired ?? false,
+    pickupVerified: d.pickupVerified ?? false,
+    deliveryOtpRequired: d.deliveryOtpRequired ?? false,
+    deliveryVerified: d.deliveryVerified ?? false,
+    codDue: d.codDue ?? false,
+    codAmount: d.codAmount ?? null,
   };
 }
 

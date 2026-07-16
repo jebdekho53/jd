@@ -68,6 +68,7 @@ const mockPrisma = {
   },
   orderStatusHistory: { create: jest.fn() },
   payment: { findUnique: jest.fn(), update: jest.fn() },
+  delivery: { findFirst: jest.fn() },
 };
 
 const mockAudit = { log: jest.fn() };
@@ -508,6 +509,99 @@ describe('OrderService', () => {
       );
 
       await expect(service.cancelByMerchant(USER_ID, ORDER_ID, {})).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ── Handover OTP exposure (buyer delivery OTP / merchant pickup OTP) ─────────
+
+  describe('getBuyerDeliveryOtp', () => {
+    beforeEach(() => {
+      mockPrisma.buyerProfile.findUnique.mockResolvedValue({ id: BUYER_PROFILE_ID });
+    });
+
+    it('returns the delivery OTP for the owning buyer while active', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue({
+        status: 'ARRIVED_AT_CUSTOMER',
+        deliveryOtp: '7390',
+        deliveryVerifiedAt: null,
+      });
+      const res = await service.getBuyerDeliveryOtp(USER_ID, ORDER_ID);
+      expect(res.deliveryOtp).toBe('7390');
+      // Scoped to this buyer via the relation filter.
+      expect(mockPrisma.delivery.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { order: { id: ORDER_ID, buyerProfileId: BUYER_PROFILE_ID } },
+        }),
+      );
+    });
+
+    it('cannot fetch another buyer’s OTP (relation filter yields no row)', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue(null);
+      await expect(service.getBuyerDeliveryOtp(USER_ID, ORDER_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('hides the OTP once delivered (terminal)', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue({
+        status: 'DELIVERED',
+        deliveryOtp: '7390',
+        deliveryVerifiedAt: new Date(),
+      });
+      const res = await service.getBuyerDeliveryOtp(USER_ID, ORDER_ID);
+      expect(res.deliveryOtp).toBeNull();
+      expect(res.verified).toBe(true);
+    });
+
+    it('handles a legacy delivery with no OTP', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue({
+        status: 'PICKED_UP',
+        deliveryOtp: null,
+        deliveryVerifiedAt: null,
+      });
+      const res = await service.getBuyerDeliveryOtp(USER_ID, ORDER_ID);
+      expect(res.deliveryOtp).toBeNull();
+    });
+  });
+
+  describe('getMerchantPickupOtp', () => {
+    beforeEach(() => {
+      mockPrisma.merchantProfile.findUnique.mockResolvedValue({ id: 'mp1' });
+      mockPrisma.store.findMany.mockResolvedValue([{ id: STORE_ID }]);
+      mockPrisma.order.findFirst.mockResolvedValue({ id: ORDER_ID });
+    });
+
+    it('returns the pickup OTP for the owning store before pickup', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue({
+        status: 'ARRIVED_AT_STORE',
+        pickupOtp: '4821',
+        pickupVerifiedAt: null,
+      });
+      const res = await service.getMerchantPickupOtp(USER_ID, ORDER_ID);
+      expect(res.pickupOtp).toBe('4821');
+    });
+
+    it('cannot fetch another store’s OTP', async () => {
+      mockPrisma.order.findFirst.mockResolvedValue(null); // ownership check fails
+      await expect(service.getMerchantPickupOtp(USER_ID, ORDER_ID)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('hides the OTP after pickup verification', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue({
+        status: 'PICKED_UP',
+        pickupOtp: '4821',
+        pickupVerifiedAt: new Date(),
+      });
+      const res = await service.getMerchantPickupOtp(USER_ID, ORDER_ID);
+      expect(res.pickupOtp).toBeNull();
+    });
+
+    it('handles a legacy delivery with no OTP', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue({
+        status: 'ASSIGNED',
+        pickupOtp: null,
+        pickupVerifiedAt: null,
+      });
+      const res = await service.getMerchantPickupOtp(USER_ID, ORDER_ID);
+      expect(res.pickupOtp).toBeNull();
     });
   });
 });

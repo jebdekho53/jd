@@ -3,6 +3,7 @@
 import { MapPin, Phone, User, Bike } from 'lucide-react';
 import { Card, CardHeader, CardBody } from '@/design-system/primitives';
 import { AwaitingRiderAlert } from './awaiting-rider-alert';
+import { PickupOtpBanner } from './pickup-otp-banner';
 import type { OrderDelivery } from '@/types/order';
 import type { SlaLevel } from '@/lib/order-pipeline';
 
@@ -70,6 +71,7 @@ export function RiderAssignmentCard({
     <Card>
       <CardHeader><h2 className="font-semibold">Assigned Rider</h2></CardHeader>
       <CardBody className="space-y-3 text-sm">
+        {orderId && <PickupOtpBanner orderId={orderId} deliveryStatus={delivery.status} />}
         <div className="flex items-center gap-2">
           <User className="h-4 w-4 text-slate-400" />
           <span className="font-medium">{rider.name}</span>

@@ -8,6 +8,7 @@ import { Loader } from '@/components/ui/loader';
 import { OrderStatusTimeline } from '@/features/orders/order-status-timeline';
 import { AcceptRejectPanel } from '@/features/orders/accept-reject-panel';
 import { NavigationCTA } from '@/features/orders/navigation-cta';
+import { HandoverOtpPanel } from '@/features/orders/handover-otp-panel';
 import { useOrderDetailQuery } from '@/hooks/use-delivery';
 import { useDeliveryMutations, useAdvanceDelivery } from '@/hooks/use-delivery';
 import { useDeliveryStore } from '@/store/delivery-store';
@@ -23,7 +24,7 @@ export function OrderDetailScreen() {
   const lat = useLocationStore((s) => s.currentLat);
   const lng = useLocationStore((s) => s.currentLng);
 
-  const { accept, reject } = useDeliveryMutations(id ?? '');
+  const { accept, reject, verifyPickup, verifyDelivery } = useDeliveryMutations(id ?? '');
   const { next, advanceToNext, isPending } = useAdvanceDelivery(order);
 
   useEffect(() => {
@@ -42,6 +43,23 @@ export function OrderDetailScreen() {
   const isAssigned = order.deliveryStatus === 'ASSIGNED';
   const nextAction = next ? statusToAction(next) : null;
   const nextLabel = nextAction ? ACTION_LABELS[nextAction] : null;
+
+  // Handover gating: at the store/customer step, an OTP-enabled delivery must go
+  // through the verify panel; legacy deliveries with no OTP keep the plain button.
+  const showPickupOtp =
+    order.deliveryStatus === 'ARRIVED_AT_STORE' &&
+    order.pickupOtpRequired &&
+    !order.pickupVerified;
+  const showDeliveryOtp =
+    order.deliveryStatus === 'ARRIVED_AT_CUSTOMER' &&
+    order.deliveryOtpRequired &&
+    !order.deliveryVerified;
+  const showPlainAdvance =
+    !isAssigned &&
+    Boolean(nextLabel) &&
+    Boolean(getNextStatus(order.deliveryStatus)) &&
+    !showPickupOtp &&
+    !showDeliveryOtp;
 
   const targetLat =
     order.deliveryStatus === 'PICKED_UP' || order.deliveryStatus === 'ARRIVED_AT_CUSTOMER'
@@ -134,9 +152,29 @@ export function OrderDetailScreen() {
         <Text style={styles.hint}>Finish your active delivery before accepting another.</Text>
       )}
 
-      {!isAssigned && nextLabel && getNextStatus(order.deliveryStatus) && (
+      {showPickupOtp && (
+        <HandoverOtpPanel
+          kind="pickup"
+          loading={verifyPickup.isPending}
+          errorMessage={mutationMessage(verifyPickup.error)}
+          onSubmit={(otp) => verifyPickup.mutate(otp)}
+        />
+      )}
+
+      {showDeliveryOtp && (
+        <HandoverOtpPanel
+          kind="delivery"
+          codDue={order.codDue}
+          codAmount={order.codAmount}
+          loading={verifyDelivery.isPending}
+          errorMessage={mutationMessage(verifyDelivery.error)}
+          onSubmit={(otp, codCollected) => verifyDelivery.mutate({ otp, codCollected })}
+        />
+      )}
+
+      {showPlainAdvance && (
         <Button
-          label={nextLabel}
+          label={nextLabel!}
           onPress={advanceToNext}
           loading={isPending}
           disabled={!next}
@@ -144,6 +182,12 @@ export function OrderDetailScreen() {
       )}
     </ScrollView>
   );
+}
+
+function mutationMessage(err: unknown): string | null {
+  if (!err) return null;
+  if (err instanceof Error && err.message) return err.message;
+  return 'Something went wrong. Please try again.';
 }
 
 const styles = StyleSheet.create({

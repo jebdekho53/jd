@@ -32,6 +32,20 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail> {
   return res.data;
 }
 
+export interface PickupOtpResult {
+  pickupOtp: string | null;
+  verified: boolean;
+  deliveryStatus: string;
+}
+
+/** Pickup/handover OTP for this store's order (scoped server-side to the merchant). */
+export async function getPickupOtp(orderId: string): Promise<PickupOtpResult> {
+  const res = await merchantFetch<ApiResponse<PickupOtpResult>>(
+    `/api/merchant/orders/${orderId}/pickup-otp`,
+  );
+  return res.data;
+}
+
 async function patchOrderStatus(orderId: string, action: string, reason?: string): Promise<OrderDetail> {
   const res = await merchantFetch<ApiResponse<OrderDetail>>(
     `/api/merchant/orders/${orderId}/${action}`,

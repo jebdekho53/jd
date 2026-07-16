@@ -24,6 +24,14 @@ export interface RiderOrderListItem {
   paymentMethod: 'COD' | 'RAZORPAY';
   assignedAt: string;
   riderEarning: number | null;
+  // Rider-safe handover state — the raw OTP is never sent to the rider.
+  pickupOtpRequired: boolean;
+  pickupVerified: boolean;
+  deliveryOtpRequired: boolean;
+  deliveryVerified: boolean;
+  codDue: boolean;
+  /** Server-authoritative collectible amount as a string, or null when not COD. */
+  codAmount: string | null;
 }
 
 export interface RiderOrderDetail extends RiderOrderListItem {

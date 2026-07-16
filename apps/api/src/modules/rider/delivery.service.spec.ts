@@ -171,6 +171,123 @@ describe('DeliveryService', () => {
     });
   });
 
+  // ── Handover OTP verification ───────────────────────────────────────────────
+
+  function buildOtpDelivery(
+    status: DeliveryStatus,
+    opts: Partial<{
+      pickupOtp: string | null;
+      pickupVerifiedAt: Date | null;
+      pickupOtpAttempts: number;
+      deliveryOtp: string | null;
+      deliveryVerifiedAt: Date | null;
+      deliveryOtpAttempts: number;
+      paymentMethod: string;
+      paymentStatus: string;
+    }> = {},
+  ): any {
+    return {
+      id: DELIVERY_ID,
+      orderId: ORDER_ID,
+      status,
+      riderProfileId: RIDER_PROFILE_ID,
+      pickupOtp: opts.pickupOtp ?? null,
+      pickupVerifiedAt: opts.pickupVerifiedAt ?? null,
+      pickupOtpAttempts: opts.pickupOtpAttempts ?? 0,
+      deliveryOtp: opts.deliveryOtp ?? null,
+      deliveryVerifiedAt: opts.deliveryVerifiedAt ?? null,
+      deliveryOtpAttempts: opts.deliveryOtpAttempts ?? 0,
+      order: {
+        status: OrderStatus.OUT_FOR_DELIVERY,
+        paymentMethod: opts.paymentMethod ?? 'RAZORPAY',
+        paymentStatus: opts.paymentStatus ?? 'PAID',
+        totalAmount: { toString: () => '250.00' },
+      },
+    };
+  }
+
+  describe('verifyPickup', () => {
+    it('advances ARRIVED_AT_STORE → PICKED_UP with the correct OTP', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue(
+        buildOtpDelivery(DeliveryStatus.ARRIVED_AT_STORE, { pickupOtp: '4821' }),
+      );
+      const result = await service.verifyPickup(USER_ID, ORDER_ID, '4821');
+      expect(result.status).toBe(DeliveryStatus.PICKED_UP);
+      // one-time-use marker written
+      expect(mockPrisma.delivery.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ pickupVerifiedAt: expect.any(Date) }) }),
+      );
+    });
+
+    it('rejects an incorrect OTP and increments the attempt counter', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue(
+        buildOtpDelivery(DeliveryStatus.ARRIVED_AT_STORE, { pickupOtp: '4821', pickupOtpAttempts: 1 }),
+      );
+      await expect(service.verifyPickup(USER_ID, ORDER_ID, '0000')).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.delivery.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { pickupOtpAttempts: 2 } }),
+      );
+    });
+
+    it('blocks further attempts after the limit is reached', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue(
+        buildOtpDelivery(DeliveryStatus.ARRIVED_AT_STORE, { pickupOtp: '4821', pickupOtpAttempts: 5 }),
+      );
+      await expect(service.verifyPickup(USER_ID, ORDER_ID, '4821')).rejects.toThrow(/Too many/);
+    });
+  });
+
+  describe('pickedUp OTP gate', () => {
+    it('refuses the plain pickup endpoint when an unverified OTP exists', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue(
+        buildOtpDelivery(DeliveryStatus.ARRIVED_AT_STORE, { pickupOtp: '4821' }),
+      );
+      await expect(service.pickedUp(USER_ID, ORDER_ID)).rejects.toThrow(/OTP verification/);
+    });
+  });
+
+  describe('verifyDelivery', () => {
+    it('completes a prepaid order with the correct OTP', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue(
+        buildOtpDelivery(DeliveryStatus.ARRIVED_AT_CUSTOMER, { deliveryOtp: '7390' }),
+      );
+      const result = await service.verifyDelivery(USER_ID, ORDER_ID, '7390', false);
+      expect(result.status).toBe(DeliveryStatus.DELIVERED);
+    });
+
+    it('refuses a COD order when cash is not acknowledged — before checking OTP', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue(
+        buildOtpDelivery(DeliveryStatus.ARRIVED_AT_CUSTOMER, {
+          deliveryOtp: '7390',
+          paymentMethod: 'COD',
+          paymentStatus: 'PENDING',
+        }),
+      );
+      await expect(service.verifyDelivery(USER_ID, ORDER_ID, '7390', false)).rejects.toThrow(/Cash/);
+      // OTP path not reached, so no attempt/verify write
+      expect(mockPrisma.delivery.update).not.toHaveBeenCalled();
+    });
+
+    it('completes a COD order when cash acknowledged and OTP correct', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue(
+        buildOtpDelivery(DeliveryStatus.ARRIVED_AT_CUSTOMER, {
+          deliveryOtp: '7390',
+          paymentMethod: 'COD',
+          paymentStatus: 'PENDING',
+        }),
+      );
+      const result = await service.verifyDelivery(USER_ID, ORDER_ID, '7390', true);
+      expect(result.status).toBe(DeliveryStatus.DELIVERED);
+    });
+
+    it('rejects an incorrect delivery OTP', async () => {
+      mockPrisma.delivery.findFirst.mockResolvedValue(
+        buildOtpDelivery(DeliveryStatus.ARRIVED_AT_CUSTOMER, { deliveryOtp: '7390' }),
+      );
+      await expect(service.verifyDelivery(USER_ID, ORDER_ID, '0000', false)).rejects.toThrow(BadRequestException);
+    });
+  });
+
   // ── Security ───────────────────────────────────────────────────────────────
 
   describe('ownership enforcement', () => {

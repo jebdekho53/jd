@@ -68,6 +68,13 @@ export interface RiderOrder {
   paymentMethod: string;
   assignedAt: string;
   riderEarning: number | null;
+  // Rider-safe handover state (raw OTP is never sent to the rider).
+  pickupOtpRequired?: boolean;
+  pickupVerified?: boolean;
+  deliveryOtpRequired?: boolean;
+  deliveryVerified?: boolean;
+  codDue?: boolean;
+  codAmount?: string | null;
 }
 
 export interface RiderOrderDetail extends RiderOrder {
@@ -226,6 +233,18 @@ export const arrivedStore = (orderId: string) => action(orderId, 'arrived-store'
 export const pickedUp = (orderId: string) => action(orderId, 'picked-up');
 export const arrivedCustomer = (orderId: string) => action(orderId, 'arrived-customer');
 export const markDelivered = (orderId: string) => action(orderId, 'delivered');
+
+// Handover verification (POST — carries the code the counterparty read out).
+export const verifyPickupAction = (orderId: string, otp: string) =>
+  jfetch<{ deliveryId: string; status: string }>(riderOrderActionPath(orderId, 'verify-pickup'), {
+    method: 'POST',
+    body: JSON.stringify({ otp }),
+  });
+export const verifyDeliveryAction = (orderId: string, otp: string, codCollected: boolean) =>
+  jfetch<{ deliveryId: string; status: string }>(riderOrderActionPath(orderId, 'verify-delivery'), {
+    method: 'POST',
+    body: JSON.stringify({ otp, codCollected }),
+  });
 export const markFailed = (orderId: string, reason: string) => action(orderId, 'failed', { reason });
 
 export const pushLocation = (input: { latitude: number; longitude: number; heading?: number; speed?: number; accuracy?: number }) =>

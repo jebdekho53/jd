@@ -35,6 +35,7 @@ import {
   unassignedOrderWhere,
   type ScoredRider,
 } from './rider-assignment.util';
+import { generateHandoverOtp } from '../rider/delivery-otp.util';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 
 export const RIDER_ASSIGNMENT_EVENTS = {
@@ -764,6 +765,13 @@ export class RiderAssignmentService {
     const distanceKm = safeDistanceKm(storeLat, storeLng, deliveryLat, deliveryLng);
 
     if (order.delivery) {
+      // Generate handover codes only if this delivery record doesn't already have
+      // them (idempotent across re-assignment so the merchant/buyer keep the same
+      // code they were already shown).
+      const otpPatch = {
+        ...(order.delivery.pickupOtp ? {} : { pickupOtp: generateHandoverOtp() }),
+        ...(order.delivery.deliveryOtp ? {} : { deliveryOtp: generateHandoverOtp() }),
+      };
       return this.prisma.delivery.update({
         where: { id: order.delivery.id },
         data: {
@@ -772,6 +780,7 @@ export class RiderAssignmentService {
           assignedAt: new Date(),
           assignedBy,
           fulfillmentStoreId: fulfillmentStoreId ?? order.store?.id,
+          ...otpPatch,
           ...(distanceKm != null ? { distanceKm, estimatedMins: null } : {}),
           ...(storeLat != null ? { pickupLat: storeLat } : {}),
           ...(storeLng != null ? { pickupLng: storeLng } : {}),
@@ -793,6 +802,8 @@ export class RiderAssignmentService {
         estimatedMins: null,
         assignedAt: new Date(),
         assignedBy,
+        pickupOtp: generateHandoverOtp(),
+        deliveryOtp: generateHandoverOtp(),
       },
     });
   }

@@ -7,6 +7,8 @@ import {
   getRiderOrder,
   pickedUpOrder,
   rejectOrder,
+  verifyPickup,
+  verifyDelivery,
   RiderApiError,
   RequestLockError,
 } from '@/services/rider-api';
@@ -154,7 +156,39 @@ export function useDeliveryMutations(orderId: string) {
     onSettled: invalidate,
   });
 
-  return { advance, accept, reject };
+  // Reconcile store + query cache from an authoritative server delivery record.
+  const applyServerState = (data: RiderOrderDetail) => {
+    setActiveOrder(data);
+    setStatus(data.deliveryStatus);
+    setLocked(isActiveDelivery(data.deliveryStatus));
+    if (data.deliveryStatus === 'DELIVERED') {
+      setActiveDelivery(null);
+      setAvailability('ONLINE');
+      setLocked(false);
+    }
+    qc.setQueryData(orderDetailKey(orderId), data);
+  };
+
+  const verifyPickupMutation = useMutation({
+    mutationFn: (otp: string) => verifyPickup(orderId, otp),
+    onSuccess: applyServerState,
+    onSettled: invalidate,
+  });
+
+  const verifyDeliveryMutation = useMutation({
+    mutationFn: ({ otp, codCollected }: { otp: string; codCollected: boolean }) =>
+      verifyDelivery(orderId, otp, codCollected),
+    onSuccess: applyServerState,
+    onSettled: invalidate,
+  });
+
+  return {
+    advance,
+    accept,
+    reject,
+    verifyPickup: verifyPickupMutation,
+    verifyDelivery: verifyDeliveryMutation,
+  };
 }
 
 export function useAdvanceDelivery(order: RiderOrderDetail | undefined) {
