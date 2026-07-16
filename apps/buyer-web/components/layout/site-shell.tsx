@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { SearchOverlay } from '@/features/search/search-overlay';
+import { useSearchUi } from '@/store/search-ui-store';
 import {
   Grid3X3,
   Home,
@@ -115,6 +117,8 @@ export function SiteHeader() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { label, isReady } = useEffectiveLocation();
   const [locationOpen, setLocationOpen] = useState(false);
+  const searchOpen = useSearchUi((s) => s.open);
+  const setSearchOpen = useSearchUi((s) => s.setOpen);
   const { data: cart } = useCartQuery();
   const { data: foodCart } = useFoodCartQuery();
   const cartTotal = cart?.totals.grandTotal ?? 0;
@@ -124,6 +128,7 @@ export function SiteHeader() {
 
   return (
     <>
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
       <header className="sticky top-0 z-50 border-b border-border/50 bg-cream-1/95 backdrop-blur-md">
       <div className="mx-auto max-w-6xl px-4">
         {/* Desktop: single row */}
@@ -154,7 +159,7 @@ export function SiteHeader() {
 
           <button
             type="button"
-            onClick={() => router.push('/search')}
+            onClick={() => setSearchOpen(true)}
             className="flex flex-1 items-center gap-3 rounded-xl border border-border/60 bg-card px-4 py-2.5 text-sm text-jd-text-muted shadow-card transition hover:border-primary/30 hover:shadow-elevated"
             aria-label="Search products"
           >
@@ -253,7 +258,7 @@ export function SiteHeader() {
 
           <button
             type="button"
-            onClick={() => router.push('/search')}
+            onClick={() => setSearchOpen(true)}
             className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-card px-3 py-2.5 text-sm text-jd-text-muted shadow-card"
             aria-label="Search products"
           >

@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
-import { SearchOverlay } from '@/features/search/search-overlay';
+import { useSearchUi } from '@/store/search-ui-store';
 import { useSearchParams } from 'next/navigation';
 import {
   ArrowRight,
@@ -594,11 +594,10 @@ export function HomePageContent() {
   );
   const hasLocation = isReady && lat != null && lng != null;
   const isFoodVertical = selectedVertical === 'food';
-  const [searchOpen, setSearchOpen] = useState(false);
+  const setSearchOpen = useSearchUi((s) => s.setOpen);
 
   return (
     <div className="space-y-5 animate-fade-in md:space-y-8">
-      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
       <VerticalNav className="-mx-4 px-4 md:-mx-1 md:px-1" />
       <MarketplaceHero categories={visibleCategories} hasLocation={hasLocation} locationLabel={label} onSearchOpen={() => setSearchOpen(true)} />
       {!isFoodVertical && <VerticalEntryCards />}
