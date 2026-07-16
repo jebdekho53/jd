@@ -93,6 +93,7 @@ describe('OrderService', () => {
         { provide: DeliveryDispatchService, useValue: deliveryDispatch },
         { provide: ReservationService, useValue: mockReservation },
         { provide: OrderRefundService, useValue: { initiateRefund: jest.fn() } },
+        { provide: EmailNotificationService, useValue: emailNotifications },
         { provide: BuyerPushNotificationService, useValue: buyerPush },
         { provide: DeliveryTrackingService, useValue: tracking },
       ],
@@ -177,6 +178,8 @@ describe('OrderService', () => {
 
       expect(result.status).toBe(OrderStatus.CANCELLED_BY_BUYER);
       expect(mockStatusHistory.transition).toHaveBeenCalled();
+      expect(emailNotifications.sendBuyerOrderCancelled).toHaveBeenCalledWith(ORDER_ID, undefined);
+      expect(emailNotifications.sendMerchantOrderCancelled).toHaveBeenCalledWith(ORDER_ID);
     });
 
     it('cancels a PAYMENT_PENDING order (COD before confirmation)', async () => {
@@ -359,6 +362,7 @@ describe('OrderService', () => {
         storeId: STORE_ID,
         orderStatus: OrderStatus.MERCHANT_ACCEPTED,
       });
+      expect(emailNotifications.sendBuyerMerchantAccepted).toHaveBeenCalledWith(ORDER_ID);
     });
 
     it('CREATED → MERCHANT_ACCEPTED (legacy paid orders)', async () => {

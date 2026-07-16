@@ -41,7 +41,10 @@ describe('FoodPaymentService', () => {
         { provide: AuditService, useValue: { log: jest.fn() } },
         { provide: DomainEventsService, useValue: { emit: jest.fn() } },
         { provide: OrderStatusHistoryService, useValue: statusHistory },
-        { provide: EmailNotificationService, useValue: { sendOrderConfirmation: jest.fn().mockResolvedValue(undefined) } },
+        { provide: EmailNotificationService, useValue: {
+          sendOrderConfirmation: jest.fn().mockResolvedValue(undefined),
+          sendMerchantNewOrder: jest.fn().mockResolvedValue(undefined),
+        } },
         { provide: BuyerPushNotificationService, useValue: { notifyOrderPlaced: jest.fn().mockResolvedValue(undefined) } },
         { provide: OrderCacheService, useValue: { invalidateAll: jest.fn() } },
       ],

@@ -11,6 +11,7 @@ import { ReservationService } from '../checkout/reservation.service';
 import { OrderStatusHistoryService } from '../order/order-status-history.service';
 import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 
 const orderDelivered = { handleDelivered: jest.fn().mockResolvedValue(undefined) };
 
@@ -25,7 +26,7 @@ function buildDelivery(status: DeliveryStatus, orderStatus: string = OrderStatus
     orderId: ORDER_ID,
     status,
     riderProfileId: RIDER_PROFILE_ID,
-    order: { status: orderStatus },
+    order: { status: orderStatus, orderNumber: 'JD-1' },
   };
 }
 
@@ -73,6 +74,7 @@ describe('DeliveryService', () => {
         { provide: OrderStatusHistoryService, useValue: deliveryServiceMocks.statusHistory },
         { provide: DeliveryTrackingService, useValue: deliveryServiceMocks.tracking },
         { provide: BuyerPushNotificationService, useValue: deliveryServiceMocks.buyerPush },
+        { provide: EmailNotificationService, useValue: deliveryServiceMocks.emailNotifications },
       ],
     }).compile();
 

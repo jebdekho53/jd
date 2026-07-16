@@ -275,6 +275,9 @@ export class FoodPaymentService {
     void this.emailNotifications.sendOrderConfirmation(orderResult.orderId).catch((err) => {
       this.logger.warn(`Food order confirmation email failed: ${(err as Error).message}`);
     });
+    void this.emailNotifications.sendMerchantNewOrder(orderResult.orderId).catch((err) => {
+      this.logger.warn(`Food merchant new order email failed: ${(err as Error).message}`);
+    });
     void this.buyerPush.notifyOrderPlaced(orderResult.orderId).catch(() => {});
     void this.orderCache.invalidateAll(orderResult.orderId);
 

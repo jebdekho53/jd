@@ -28,6 +28,7 @@ import { OrderStatusHistoryService } from '../order/order-status-history.service
 import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
 import { TRACKING_EVENTS } from '../delivery-tracking/delivery-tracking.events';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 
 // ── State machine ────────────────────────────────────────────────────────────
 //
@@ -83,6 +84,7 @@ export class DeliveryService {
     private readonly statusHistory: OrderStatusHistoryService,
     private readonly tracking: DeliveryTrackingService,
     private readonly buyerPush: BuyerPushNotificationService,
+    private readonly emailNotifications: EmailNotificationService,
   ) {}
 
   // ── Get delivery for a rider ───────────────────────────────────────────────
@@ -459,6 +461,8 @@ export class DeliveryService {
       ),
     ]);
 
+    void this.emailNotifications.sendAdminDeliveryFailedOrDelayed(delivery.order.orderNumber).catch(() => {});
+
     return { deliveryId: delivery.id, status: DeliveryStatus.FAILED };
   }
 
@@ -561,6 +565,7 @@ export class DeliveryService {
     }
 
     if (toStatus === DeliveryStatus.PICKED_UP) {
+      void this.emailNotifications.sendBuyerPickedUpOrOutForDelivery(delivery.orderId).catch(() => {});
       void this.buyerPush.notifyOutForDelivery(delivery.orderId).catch(() => {});
     }
 
@@ -681,6 +686,7 @@ export class DeliveryService {
         order: {
           select: {
             status: true,
+            orderNumber: true,
             paymentMethod: true,
             paymentStatus: true,
             totalAmount: true,
@@ -693,4 +699,3 @@ export class DeliveryService {
     return delivery;
   }
 }
-

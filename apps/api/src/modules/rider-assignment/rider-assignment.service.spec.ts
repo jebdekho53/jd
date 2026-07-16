@@ -10,8 +10,10 @@ import { DomainEventsService } from '../domain-events/domain-events.service';
 import { OrderStatusHistoryService } from '../order/order-status-history.service';
 import { RiderAssignmentCacheService } from './rider-assignment-cache.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 
 const mockBuyerPush = { notifyRiderAssigned: jest.fn().mockResolvedValue(undefined) };
+const mockEmailNotifications = { sendBuyerDeliveryAssigned: jest.fn().mockResolvedValue(undefined) };
 
 const ORDER_ID = 'ord1';
 const RIDER_ID = 'rp1';
@@ -64,6 +66,7 @@ describe('RiderAssignmentService', () => {
         { provide: RiderAssignmentCacheService, useValue: mockCache },
         { provide: EventEmitter2, useValue: mockEvents },
         { provide: BuyerPushNotificationService, useValue: mockBuyerPush },
+        { provide: EmailNotificationService, useValue: mockEmailNotifications },
         { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();
@@ -135,6 +138,7 @@ describe('RiderAssignmentService', () => {
       expect(result?.riderProfileId).toBe(RIDER_ID);
       expect(mockPrisma.delivery.create).toHaveBeenCalled();
       expect(mockStatusHistory.transition).toHaveBeenCalled();
+      expect(mockEmailNotifications.sendBuyerDeliveryAssigned).toHaveBeenCalledWith(ORDER_ID);
     });
 
     it('excludes offline riders', async () => {

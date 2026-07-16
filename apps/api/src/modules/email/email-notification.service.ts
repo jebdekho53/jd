@@ -123,6 +123,20 @@ export class EmailNotificationService {
     });
   }
 
+  async sendLoginSecurityAlert(to: string, ipAddress = 'Unknown'): Promise<void> {
+    const tpl = this.templates.eventNotice({
+      subject: 'New JebDekho login detected',
+      heading: 'A sign-in to your JebDekho account was detected.',
+      lines: [`IP Address: ${ipAddress}`, 'If this was you, no action is needed. If not, reset your password immediately.'],
+    });
+    await this.safeSend({
+      to,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.LOGIN_SECURITY_ALERT,
+      metadata: { ipAddress },
+    });
+  }
+
   async sendOrderConfirmation(orderId: string): Promise<void> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -229,6 +243,24 @@ export class EmailNotificationService {
     await this.safeSend({ to: ctx.to, ...tpl, templateCode: EMAIL_TEMPLATE.ORDER_REJECTED, metadata: { orderNumber: ctx.orderNumber } });
   }
 
+  async sendBuyerOrderCancelled(orderId: string, reason = 'Your order was cancelled.'): Promise<void> {
+    const ctx = await this.getBuyerOrderContext(orderId);
+    if (!ctx) return;
+    const tpl = this.templates.eventNotice({
+      subject: `Order Cancelled - ${ctx.orderNumber}`,
+      heading: 'Your order was cancelled.',
+      referenceLabel: 'Order Number',
+      referenceValue: ctx.orderNumber,
+      lines: [reason],
+    });
+    await this.safeSend({
+      to: ctx.to,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.BUYER_ORDER_CANCELLED,
+      metadata: { orderId, orderNumber: ctx.orderNumber },
+    });
+  }
+
   async sendBuyerDeliveryAssigned(orderId: string): Promise<void> {
     const ctx = await this.getBuyerOrderContext(orderId);
     if (!ctx) return;
@@ -276,6 +308,48 @@ export class EmailNotificationService {
       to: ticket.requester.email,
       ...tpl,
       templateCode: EMAIL_TEMPLATE.SUPPORT_TICKET,
+      metadata: { ticketId, ticketNumber: ticket.ticketNumber },
+    });
+  }
+
+  async sendSupportTicketReply(ticketId: string, replyPreview: string): Promise<void> {
+    const ticket = await this.prisma.supportTicket.findUnique({
+      where: { id: ticketId },
+      include: { requester: { select: { email: true } } },
+    });
+    if (!ticket?.requester.email) return;
+    const tpl = this.templates.eventNotice({
+      subject: `Support replied - ${ticket.ticketNumber}`,
+      heading: 'Support replied to your ticket.',
+      referenceLabel: 'Ticket',
+      referenceValue: ticket.ticketNumber,
+      lines: [replyPreview.length > 240 ? `${replyPreview.slice(0, 237)}...` : replyPreview],
+    });
+    await this.safeSend({
+      to: ticket.requester.email,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.SUPPORT_TICKET_REPLY,
+      metadata: { ticketId, ticketNumber: ticket.ticketNumber },
+    });
+  }
+
+  async sendSupportTicketResolved(ticketId: string, summary: string): Promise<void> {
+    const ticket = await this.prisma.supportTicket.findUnique({
+      where: { id: ticketId },
+      include: { requester: { select: { email: true } } },
+    });
+    if (!ticket?.requester.email) return;
+    const tpl = this.templates.eventNotice({
+      subject: `Support ticket resolved - ${ticket.ticketNumber}`,
+      heading: 'Your support ticket was resolved.',
+      referenceLabel: 'Ticket',
+      referenceValue: ticket.ticketNumber,
+      lines: [summary],
+    });
+    await this.safeSend({
+      to: ticket.requester.email,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.SUPPORT_TICKET_RESOLVED,
       metadata: { ticketId, ticketNumber: ticket.ticketNumber },
     });
   }
@@ -513,6 +587,96 @@ export class EmailNotificationService {
     await this.sendAdminNotice(EMAIL_TEMPLATE.ADMIN_SUPPORT_TICKET_CREATED, `Support ticket created - ${ticketNumber}`, 'A support ticket was created.', [`Ticket Number: ${ticketNumber}`]);
   }
 
+  async sendFranchiseApplicationReceived(to: string, name: string, city: string): Promise<void> {
+    const tpl = this.templates.eventNotice({
+      subject: 'JebDekho franchise application received',
+      heading: 'We received your franchise application.',
+      referenceLabel: 'Applicant',
+      referenceValue: name,
+      lines: [`City: ${city}`, 'Our expansion team will review your territory request and contact you with the next update.'],
+    });
+    await this.safeSend({ to, ...tpl, templateCode: EMAIL_TEMPLATE.FRANCHISE_APPLICATION_RECEIVED, metadata: { name, city } });
+  }
+
+  async sendFranchiseApproved(userId: string, referralCode: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (!user?.email) return;
+    const referralUrl = `${this.merchantSiteUrl.replace(/\/$/, '')}/?ref=${encodeURIComponent(referralCode)}`;
+    const tpl = this.templates.eventNotice({
+      subject: 'Your JebDekho franchise account is approved',
+      heading: 'Your franchise partner account is live.',
+      referenceLabel: 'Referral Code',
+      referenceValue: referralCode,
+      lines: ['Share your referral link with merchants to start building your pipeline.'],
+      actionLabel: 'Copy referral link',
+      actionUrl: referralUrl,
+    });
+    await this.safeSend({ to: user.email, ...tpl, templateCode: EMAIL_TEMPLATE.FRANCHISE_APPROVED, metadata: { userId, referralCode } });
+  }
+
+  async sendFranchiseRejected(to: string, name: string, reason: string): Promise<void> {
+    const tpl = this.templates.eventNotice({
+      subject: 'JebDekho franchise application update',
+      heading: 'We could not approve your franchise application at this time.',
+      referenceLabel: 'Applicant',
+      referenceValue: name,
+      lines: [`Reason: ${reason}`],
+    });
+    await this.safeSend({ to, ...tpl, templateCode: EMAIL_TEMPLATE.FRANCHISE_REJECTED, metadata: { name, reason } });
+  }
+
+  async sendFranchiseSettlementCreated(franchiseId: string, settlementId: string): Promise<void> {
+    const settlement = await this.getFranchiseSettlementContext(franchiseId, settlementId);
+    if (!settlement) return;
+    const tpl = this.templates.eventNotice({
+      subject: `Franchise settlement generated - ${settlement.period}`,
+      heading: 'A franchise settlement was generated.',
+      referenceLabel: 'Settlement',
+      referenceValue: settlement.period,
+      lines: [`Commission base: ${settlement.commissionBase}`, `Your share: ${settlement.franchiseShare}`, `Status: ${settlement.status}`],
+    });
+    await this.safeSend({
+      to: settlement.to,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.FRANCHISE_SETTLEMENT_CREATED,
+      metadata: { franchiseId, settlementId },
+    });
+  }
+
+  async sendFranchiseSettlementPaid(franchiseId: string, settlementId: string): Promise<void> {
+    const settlement = await this.getFranchiseSettlementContext(franchiseId, settlementId);
+    if (!settlement) return;
+    const tpl = this.templates.eventNotice({
+      subject: `Franchise settlement paid - ${settlement.period}`,
+      heading: 'Your franchise settlement was marked paid.',
+      referenceLabel: 'Settlement',
+      referenceValue: settlement.period,
+      lines: [`Paid amount: ${settlement.franchiseShare}`, 'The payout should reflect as per banking timelines.'],
+    });
+    await this.safeSend({
+      to: settlement.to,
+      ...tpl,
+      templateCode: EMAIL_TEMPLATE.FRANCHISE_SETTLEMENT_PAID,
+      metadata: { franchiseId, settlementId },
+    });
+  }
+
+  async sendAdminFranchiseApplication(name: string, city: string, email?: string | null): Promise<void> {
+    await this.sendAdminNotice(EMAIL_TEMPLATE.ADMIN_FRANCHISE_APPLICATION, 'New franchise application', 'A new franchise application was submitted.', [
+      `Applicant: ${name}`,
+      `City: ${city}`,
+      email ? `Email: ${email}` : 'Email: not provided',
+    ]);
+  }
+
+  async sendAdminFranchiseSettlement(franchiseName: string, settlementReference: string, amount: string): Promise<void> {
+    await this.sendAdminNotice(EMAIL_TEMPLATE.ADMIN_FRANCHISE_SETTLEMENT, `Franchise settlement - ${settlementReference}`, 'A franchise settlement needs operational attention.', [
+      `Franchise: ${franchiseName}`,
+      `Settlement: ${settlementReference}`,
+      `Amount: ${amount}`,
+    ]);
+  }
+
   private async safeSend(input: Parameters<EmailService['send']>[0]): Promise<void> {
     try {
       if (await this.alreadyQueuedOrSent(input)) return;
@@ -560,6 +724,28 @@ export class EmailNotificationService {
     });
     const to = order?.store?.merchantProfile?.user?.email;
     return order && to ? { to, orderNumber: order.orderNumber } : null;
+  }
+
+  private async getFranchiseSettlementContext(franchiseId: string, settlementId: string): Promise<{
+    to: string;
+    period: string;
+    commissionBase: string;
+    franchiseShare: string;
+    status: string;
+  } | null> {
+    const settlement = await this.prisma.franchiseSettlement.findFirst({
+      where: { id: settlementId, franchiseId },
+      include: { franchise: { include: { user: { select: { email: true } } } } },
+    });
+    const to = settlement?.franchise.user.email;
+    if (!settlement || !to) return null;
+    return {
+      to,
+      period: `${settlement.periodStart.toISOString().slice(0, 10)} to ${settlement.periodEnd.toISOString().slice(0, 10)}`,
+      commissionBase: `₹${Number(settlement.commissionBase).toFixed(2)}`,
+      franchiseShare: `₹${Number(settlement.franchiseShare).toFixed(2)}`,
+      status: settlement.status,
+    };
   }
 
   private formatAddress(raw: unknown): string {

@@ -1145,6 +1145,12 @@ export class MerchantOnboardingService {
       data: { status: MerchantApplicationStatus.KYC_PENDING, adminNotes: dto.reason },
       include: this.applicationInclude(),
     });
+    if (updated.ownerEmail) {
+      void this.emailNotifications.sendMerchantMoreDocumentsRequired(
+        updated.ownerEmail,
+        updated.businessName ?? updated.storeName ?? 'your business',
+      ).catch((err) => this.logger.error({ err, applicationId: id }, 'Merchant documents email failed'));
+    }
 
     return this.formatApplication(updated);
   }
@@ -1159,6 +1165,12 @@ export class MerchantOnboardingService {
       },
       include: this.applicationInclude(),
     });
+    if (updated.ownerEmail) {
+      void this.emailNotifications.sendMerchantMoreDocumentsRequired(
+        updated.ownerEmail,
+        updated.businessName ?? updated.storeName ?? 'your business',
+      ).catch((err) => this.logger.error({ err, applicationId: id }, 'Merchant changes email failed'));
+    }
     return this.formatApplication(updated);
   }
 
