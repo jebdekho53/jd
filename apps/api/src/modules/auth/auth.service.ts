@@ -486,6 +486,7 @@ export class AuthService {
           email,
           rawToken,
           Math.round(REDIS_TTL.PASSWORD_RESET / 60),
+          dto.portal ?? 'buyer',
         )
         .catch((err) => this.logger.error({ err, email }, 'Password reset email failed'));
 

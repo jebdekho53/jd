@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { getSiteUrl } from '@jebdekho/web-config';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -148,7 +147,9 @@ export function MerchantEmailAuth({
               <span className="text-slate-600">Remember me</span>
             </label>
             {showForgotPassword && (
-              <Link href={`${getSiteUrl()}/forgot-password`} className="font-medium text-brand-600 hover:underline">
+              // Must stay on THIS portal — getSiteUrl() resolves to the buyer site
+              // for merchant-web, which sent merchants to jebdekho.com to reset.
+              <Link href="/forgot-password" className="font-medium text-brand-600 hover:underline">
                 Forgot password?
               </Link>
             )}
