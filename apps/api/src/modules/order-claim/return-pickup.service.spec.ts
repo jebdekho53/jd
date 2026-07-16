@@ -96,4 +96,34 @@ describe('ReturnPickupService', () => {
     await svc.riderTransition('rp-1', 'rider-1', 'picked-up');
     expect(refunds.processRefund).not.toHaveBeenCalled();
   });
+
+  it('rider decline releases the pickup back to PENDING (unassigned)', async () => {
+    const prisma = makePrisma();
+    prisma.returnPickup.findUnique.mockResolvedValue({
+      id: 'rp-1', claimId: 'claim-1', riderProfileId: 'rider-1', status: ReturnPickupStatus.ASSIGNED,
+    });
+    const svc = new ReturnPickupService(prisma, {} as any, eligibility, { processRefund: jest.fn() } as any);
+    await svc.riderDecline('rp-1', 'rider-1');
+    expect(prisma.returnPickup.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ riderProfileId: null, status: ReturnPickupStatus.PENDING }) }),
+    );
+  });
+
+  it('cancel reverts the claim to APPROVED and never after completion', async () => {
+    const prisma = makePrisma();
+    prisma.returnPickup.findUnique.mockResolvedValue({ id: 'rp-1', claimId: 'claim-1', status: ReturnPickupStatus.ASSIGNED });
+    const svc = new ReturnPickupService(prisma, {} as any, eligibility, { processRefund: jest.fn() } as any);
+    await svc.cancel('claim-1', 'admin-1', ClaimActorType.ADMIN);
+    expect(prisma.returnPickup.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: ReturnPickupStatus.CANCELLED }) }),
+    );
+    expect(prisma.orderClaim.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: OrderClaimStatus.APPROVED }) }),
+    );
+
+    const prisma2 = makePrisma();
+    prisma2.returnPickup.findUnique.mockResolvedValue({ id: 'rp-2', claimId: 'claim-2', status: ReturnPickupStatus.COMPLETED });
+    const svc2 = new ReturnPickupService(prisma2, {} as any, eligibility, { processRefund: jest.fn() } as any);
+    await expect(svc2.cancel('claim-2', 'admin-1', ClaimActorType.ADMIN)).rejects.toThrow(/already completed/i);
+  });
 });

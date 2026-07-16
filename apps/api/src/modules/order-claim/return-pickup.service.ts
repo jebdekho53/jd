@@ -194,6 +194,46 @@ export class ReturnPickupService {
     await this.refunds.processRefund(claimId, actorId, actorType);
   }
 
+  /** Rider can't do an assigned pickup → release it back to the pool (PENDING). */
+  async riderDecline(pickupId: string, riderProfileId: string): Promise<void> {
+    const pickup = await this.prisma.returnPickup.findUnique({ where: { id: pickupId } });
+    if (!pickup) throw new NotFoundException('Return pickup not found');
+    if (pickup.riderProfileId !== riderProfileId) {
+      throw new BadRequestException('This pickup is not assigned to you');
+    }
+    if (pickup.status !== ReturnPickupStatus.ASSIGNED && pickup.status !== ReturnPickupStatus.ACCEPTED) {
+      throw new BadRequestException(`Cannot decline a pickup in status ${pickup.status}`);
+    }
+    await this.prisma.returnPickup.update({
+      where: { id: pickupId },
+      data: { riderProfileId: null, status: ReturnPickupStatus.PENDING, assignedAt: null, acceptedAt: null },
+    });
+  }
+
+  /**
+   * Cancel a scheduled return pickup (admin) — e.g. the buyer no longer wants to
+   * return. The claim reverts to APPROVED so an admin can re-decide (reschedule,
+   * refund without pickup, or reject). Cannot cancel once the item is at the store.
+   */
+  async cancel(claimId: string, actorId: string, actorType: ClaimActorType): Promise<void> {
+    const pickup = await this.prisma.returnPickup.findUnique({ where: { claimId } });
+    if (!pickup) throw new NotFoundException('No return pickup for this claim');
+    if (pickup.status === ReturnPickupStatus.COMPLETED) {
+      throw new BadRequestException('Pickup already completed — cannot cancel');
+    }
+    if (pickup.status === ReturnPickupStatus.CANCELLED) return;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.returnPickup.update({
+        where: { id: pickup.id },
+        data: { status: ReturnPickupStatus.CANCELLED, cancelledAt: new Date(), riderProfileId: null },
+      });
+      await tx.orderClaim.update({ where: { id: claimId }, data: { status: OrderClaimStatus.APPROVED } });
+      await this.eligibility.appendHistory(
+        tx, claimId, OrderClaimStatus.APPROVED, actorType, actorId, 'Return pickup cancelled',
+      );
+    });
+  }
+
   /** Admin marks the return received (rider offline / manual reconciliation). */
   async adminMarkReceived(claimId: string, adminId: string): Promise<void> {
     const pickup = await this.prisma.returnPickup.findUnique({ where: { claimId } });

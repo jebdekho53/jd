@@ -25,7 +25,7 @@ export function ReturnPickupsCard() {
   });
 
   const act = useMutation({
-    mutationFn: ({ id, verb }: { id: string; verb: 'accept' | 'picked-up' | 'completed' }) =>
+    mutationFn: ({ id, verb }: { id: string; verb: 'accept' | 'picked-up' | 'completed' | 'decline' }) =>
       returnPickupAction(id, verb),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['rider', 'return-pickups'] }),
   });
@@ -76,6 +76,15 @@ export function ReturnPickupsCard() {
                 >
                   Navigate {toStore ? 'to store' : 'to customer'}
                 </a>
+                {p.status === 'ASSIGNED' && (
+                  <button
+                    onClick={() => act.mutate({ id: p.id, verb: 'decline' })}
+                    disabled={act.isPending}
+                    className="h-11 flex-1 rounded-lg bg-slate-100 text-sm font-medium text-red-600 disabled:opacity-60"
+                  >
+                    Decline
+                  </button>
+                )}
                 {step && (
                   <button
                     onClick={() => act.mutate({ id: p.id, verb: step.verb })}
