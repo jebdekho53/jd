@@ -58,6 +58,21 @@ export class BuyerOrderController {
     return { success: true, data };
   }
 
+  @Get(':orderId/delivery-otp')
+  @ApiParam({ name: 'orderId' })
+  @ApiOperation({
+    summary: 'Get the delivery OTP to read out to the rider at the door',
+    description: 'Returned only while a rider is assigned and the delivery is not yet completed.',
+  })
+  @ApiResponse({ status: 200, description: 'Delivery OTP (or null when not yet available)' })
+  async getDeliveryOtp(
+    @CurrentUser() user: RequestUser,
+    @Param('orderId') orderId: string,
+  ) {
+    const data = await this.orderService.getBuyerDeliveryOtp(user.id, orderId);
+    return { success: true, data };
+  }
+
   @Post(':orderId/cancel')
   @HttpCode(HttpStatus.OK)
   @ApiParam({ name: 'orderId' })

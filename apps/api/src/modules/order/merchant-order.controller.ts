@@ -66,6 +66,22 @@ export class MerchantOrderController {
     return { success: true, data };
   }
 
+  @Get(':orderId/pickup-otp')
+  @Permissions('orders:read')
+  @ApiParam({ name: 'orderId' })
+  @ApiOperation({
+    summary: 'Get the handover OTP to read out to the rider at pickup',
+    description: 'Returned only while a rider is assigned and pickup is not yet verified.',
+  })
+  @ApiResponse({ status: 200, description: 'Pickup OTP (or null when not yet available)' })
+  async getPickupOtp(
+    @CurrentUser() user: RequestUser,
+    @Param('orderId') orderId: string,
+  ) {
+    const data = await this.orderService.getMerchantPickupOtp(user.id, orderId);
+    return { success: true, data };
+  }
+
   @Patch(':orderId/confirm')
   @Permissions('orders:update_status')
   @HttpCode(HttpStatus.OK)

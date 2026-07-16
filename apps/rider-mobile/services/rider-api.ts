@@ -191,6 +191,42 @@ async function patchOrderAction(
 
 export { RequestLockError };
 
+/**
+ * Verify the merchant handover OTP and pick up. The raw OTP is entered by the
+ * rider (read out by the merchant) and posted to the server; the server owns
+ * the code and the attempt counter. Wrapped in a request lock so double-taps or
+ * reconnect retries collapse to a single logical action.
+ */
+export async function verifyPickup(orderId: string, otp: string): Promise<RiderOrderDetail> {
+  return withRequestLock(orderId, 'verify-pickup', async () => {
+    await riderFetch<ApiResponse<unknown>>(`/api/rider/orders/${orderId}/verify-pickup`, {
+      method: 'POST',
+      body: JSON.stringify({ otp }),
+    });
+    log('ORDER_STATE_CHANGE', 'Pickup verified', { orderId });
+    return getRiderOrder(orderId);
+  });
+}
+
+/**
+ * Verify the customer OTP and complete. For COD orders codCollected must be
+ * true; the amount itself is never sent — the server uses order.totalAmount.
+ */
+export async function verifyDelivery(
+  orderId: string,
+  otp: string,
+  codCollected: boolean,
+): Promise<RiderOrderDetail> {
+  return withRequestLock(orderId, 'verify-delivery', async () => {
+    await riderFetch<ApiResponse<unknown>>(`/api/rider/orders/${orderId}/verify-delivery`, {
+      method: 'POST',
+      body: JSON.stringify({ otp, codCollected }),
+    });
+    log('ORDER_STATE_CHANGE', 'Delivery verified', { orderId });
+    return getRiderOrder(orderId);
+  });
+}
+
 export const acceptOrder = (id: string) => patchOrderAction(id, 'accept');
 export const rejectOrder = (id: string, reason?: string) =>
   patchOrderAction(id, 'reject', reason ? { reason } : undefined);
