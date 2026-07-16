@@ -39,7 +39,7 @@ export function AdminClaimsPageContent() {
     void load();
   };
 
-  const pickupAction = async (claimId: string, verb: 'reassign' | 'received') => {
+  const pickupAction = async (claimId: string, verb: 'reassign' | 'received' | 'cancel') => {
     await fetch(`/api/admin/claims/${claimId}/return-pickup/${verb}`, { method: 'POST' });
     void load();
   };
@@ -105,6 +105,9 @@ export function AdminClaimsPageContent() {
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => pickupAction(c.id, 'received')}>
                           Mark received
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => pickupAction(c.id, 'cancel')}>
+                          Cancel pickup
                         </Button>
                       </>
                     )}

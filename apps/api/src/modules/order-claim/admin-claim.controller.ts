@@ -23,6 +23,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { RequestUser } from '../../common/types/index';
+import { ClaimActorType } from '@prisma/client';
 import { OrderClaimService } from './order-claim.service';
 import { ReturnPickupService } from './return-pickup.service';
 import { ListMerchantClaimsDto, PatchAdminClaimDto } from './dto/order-claim.dto';
@@ -74,6 +75,15 @@ export class AdminClaimController {
   @Permissions('orders:write')
   async markReceived(@CurrentUser() user: RequestUser, @Param('claimId') claimId: string) {
     await this.returnPickups.adminMarkReceived(claimId, user.id);
+    return { success: true };
+  }
+
+  /** Cancel a scheduled return pickup — the claim reverts to APPROVED. */
+  @Post(':claimId/return-pickup/cancel')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('orders:write')
+  async cancelPickup(@CurrentUser() user: RequestUser, @Param('claimId') claimId: string) {
+    await this.returnPickups.cancel(claimId, user.id, ClaimActorType.ADMIN);
     return { success: true };
   }
 }

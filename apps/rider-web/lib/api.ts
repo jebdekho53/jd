@@ -324,5 +324,5 @@ export interface ReturnPickup {
 
 export const getReturnPickups = () => jfetch<ReturnPickup[]>('/api/rider/return-pickups');
 
-export const returnPickupAction = (id: string, action: 'accept' | 'picked-up' | 'completed') =>
+export const returnPickupAction = (id: string, action: 'accept' | 'picked-up' | 'completed' | 'decline') =>
   jfetch<ReturnPickup>(`/api/rider/return-pickups/${id}/${action}`, { method: 'POST' });

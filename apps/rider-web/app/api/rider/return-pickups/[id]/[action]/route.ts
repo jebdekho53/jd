@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { proxyPost } from '@/lib/auth/session';
 
-const ALLOWED = new Set(['accept', 'picked-up', 'completed']);
+const ALLOWED = new Set(['accept', 'picked-up', 'completed', 'decline']);
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string; action: string }> }) {
   const { id, action } = await ctx.params;

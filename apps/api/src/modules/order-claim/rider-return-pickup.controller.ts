@@ -54,4 +54,12 @@ export class RiderReturnPickupController {
     const data = await this.pickups.riderTransition(id, await this.riderProfileId(user.id), 'completed');
     return { success: true, data };
   }
+
+  @Post(':id/decline')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Can't do this pickup — release it back to the pool" })
+  async decline(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    await this.pickups.riderDecline(id, await this.riderProfileId(user.id));
+    return { success: true };
+  }
 }
