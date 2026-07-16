@@ -37,6 +37,7 @@ import {
 } from './rider-assignment.util';
 import { generateHandoverOtp } from '../rider/delivery-otp.util';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 
 export const RIDER_ASSIGNMENT_EVENTS = {
   ASSIGNED: 'order.assigned',
@@ -58,6 +59,7 @@ export class RiderAssignmentService {
     private readonly cache: RiderAssignmentCacheService,
     private readonly events: EventEmitter2,
     private readonly buyerPush: BuyerPushNotificationService,
+    private readonly emailNotifications: EmailNotificationService,
     config: ConfigService,
   ) {
     this.autoAcceptSeconds = envInt(config, 'RIDER_AUTO_ACCEPT_SECONDS', ASSIGNMENT_OFFER_SECONDS);
@@ -886,6 +888,7 @@ export class RiderAssignmentService {
 
     await this.cache.invalidateAssignmentCaches(input.orderId);
     if (!input.isReassignment) {
+      void this.emailNotifications.sendBuyerDeliveryAssigned(input.orderId).catch(() => {});
       void this.buyerPush.notifyRiderAssigned(input.orderId).catch(() => {});
     }
     this.emitWs(input.event, {

@@ -30,9 +30,14 @@ export class FranchiseApplicationService {
     private readonly prisma: PrismaService,
     private readonly territory: TerritoryService,
     private readonly passwords: PasswordService,
-    private readonly emailNotifications: EmailNotificationService = {
-      sendFranchiseWelcomeEmail: async () => undefined,
-    } as unknown as EmailNotificationService,
+    // Optional so unit tests that construct this service directly keep working;
+    // present in production DI. The default is a no-op stub for EVERY email
+    // method (submit/approve/reject notifications) so direct-construction tests
+    // never trip over a missing send* — production always injects the real one.
+    private readonly emailNotifications: EmailNotificationService = new Proxy(
+      {},
+      { get: () => async () => undefined },
+    ) as unknown as EmailNotificationService,
     // Optional so unit tests that construct this service directly keep working;
     // present in production DI. Used only to attach the shareable partner card.
     private readonly franchise?: FranchiseService,
@@ -112,6 +117,15 @@ export class FranchiseApplicationService {
         notes: dto.notes?.trim() || null,
         status: ExpansionLeadStatus.NEW,
       },
+    });
+
+    if (lead.email) {
+      void this.emailNotifications?.sendFranchiseApplicationReceived(lead.email, lead.name, lead.city).catch((err) => {
+        this.logger.error({ err, leadId: lead.id }, 'Franchise application email failed');
+      });
+    }
+    void this.emailNotifications?.sendAdminFranchiseApplication(lead.name, lead.city, lead.email).catch((err) => {
+      this.logger.error({ err, leadId: lead.id }, 'Admin franchise application email failed');
     });
 
     return { id: lead.id, status: lead.status, duplicate: false };
@@ -343,7 +357,7 @@ export class FranchiseApplicationService {
       throw new BadRequestException('Cannot reject a lead that is already converted');
     }
 
-    return this.prisma.expansionLead.update({
+    const rejected = await this.prisma.expansionLead.update({
       where: { id: leadId },
       data: {
         status: ExpansionLeadStatus.REJECTED,
@@ -352,6 +366,12 @@ export class FranchiseApplicationService {
         reviewedBy: adminId,
       },
     });
+    if (rejected.email) {
+      void this.emailNotifications?.sendFranchiseRejected(rejected.email, rejected.name, dto.reason).catch((err) => {
+        this.logger.error({ err, leadId }, 'Franchise rejection email failed');
+      });
+    }
+    return rejected;
   }
 
   /**

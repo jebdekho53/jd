@@ -37,6 +37,7 @@ const mockEmailNotifications = {
   sendWelcomeEmail: jest.fn(),
   sendBuyerWelcomeEmail: jest.fn(),
   sendPasswordResetEmail: jest.fn(),
+  sendLoginSecurityAlert: jest.fn(),
 };
 
 const mockOtpService = {

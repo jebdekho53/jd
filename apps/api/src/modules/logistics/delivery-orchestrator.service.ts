@@ -30,6 +30,7 @@ import { isDispatchPaymentCleared } from '../order/merchant-order-visibility.uti
 import { OrderDeliveredHandlerService } from '../order/order-delivered-handler.service';
 import { isDispatchEligibleOrderStatus } from './utils/dispatch-eligibility.util';
 import { parseShadowfaxAwbPool } from './providers/shadowfax/shadowfax-awb-pool.util';
+import { EmailNotificationService } from '../email/email-notification.service';
 
 const PROVIDER_NAMES: Record<DeliveryProviderType, string> = {
   [DeliveryProviderType.SHADOWFAX]: 'Shadowfax',
@@ -112,6 +113,7 @@ export class DeliveryOrchestratorService {
     private readonly orderCache: OrderCacheService,
     private readonly events: EventEmitter2,
     private readonly orderDelivered: OrderDeliveredHandlerService,
+    private readonly emailNotifications: EmailNotificationService,
     private readonly config: ConfigService,
   ) {}
 
@@ -256,6 +258,7 @@ export class DeliveryOrchestratorService {
         } as Prisma.InputJsonValue,
       );
       this.events.emit(LOGISTICS_EVENTS.SHIPMENT_CREATED, { orderId, shipmentId: shipment.id, providerType });
+      void this.emailNotifications.sendBuyerDeliveryAssigned(orderId).catch(() => {});
 
       void this.orderCache.invalidateAll(orderId);
 
@@ -268,6 +271,13 @@ export class DeliveryOrchestratorService {
     } catch (err) {
       const retryable = err instanceof LogisticsProviderError && err.retryable;
       this.logger.error({ orderId, providerType, attempt, err }, 'Shipment creation failed');
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { orderNumber: true },
+      }).catch(() => null);
+      if (order?.orderNumber) {
+        void this.emailNotifications.sendAdminDeliveryFailedOrDelayed(order.orderNumber).catch(() => {});
+      }
 
       await this.prisma.providerShipment.upsert({
         where: { orderId },

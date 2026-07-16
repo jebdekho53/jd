@@ -75,6 +75,8 @@ const mockEmailNotifications = {
   sendOrderConfirmation: jest.fn().mockResolvedValue(undefined),
   sendBuyerPaymentSuccess: jest.fn().mockResolvedValue(undefined),
   sendBuyerPaymentFailed: jest.fn().mockResolvedValue(undefined),
+  sendMerchantNewOrder: jest.fn().mockResolvedValue(undefined),
+  sendAdminRepeatedPaymentFailure: jest.fn().mockResolvedValue(undefined),
 };
 
 const buildCheckout = (overrides = {}) => ({

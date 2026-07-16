@@ -31,7 +31,10 @@ export const checkoutServiceMocks = {
   smartFulfillment: stub({ allocateOrder: jest.fn().mockResolvedValue(undefined) }),
   corporateWallet: stub({ debitForPurchase: jest.fn() }),
   corporateApproval: stub({ markApproved: jest.fn() }),
-  emailNotifications: stub({ sendOrderConfirmation: jest.fn().mockResolvedValue(undefined) }),
+  emailNotifications: stub({
+    sendOrderConfirmation: jest.fn().mockResolvedValue(undefined),
+    sendMerchantNewOrder: jest.fn().mockResolvedValue(undefined),
+  }),
   buyerPush: stub({ notifyOrderPlaced: jest.fn().mockResolvedValue(undefined) }),
   deliveryDispatch: stub({ dispatchAfterOrderPlaced: jest.fn().mockResolvedValue(null) }),
 };
@@ -56,7 +59,13 @@ export const orderServiceMocks = {
   }),
   emailNotifications: stub({
     sendOrderConfirmation: jest.fn().mockResolvedValue(undefined),
+    sendMerchantNewOrder: jest.fn().mockResolvedValue(undefined),
     sendRefundProcessed: jest.fn().mockResolvedValue(undefined),
+    sendBuyerOrderCancelled: jest.fn().mockResolvedValue(undefined),
+    sendMerchantOrderCancelled: jest.fn().mockResolvedValue(undefined),
+    sendBuyerMerchantAccepted: jest.fn().mockResolvedValue(undefined),
+    sendBuyerMerchantRejectedOrCancelled: jest.fn().mockResolvedValue(undefined),
+    sendAdminDeliveryFailedOrDelayed: jest.fn().mockResolvedValue(undefined),
   }),
   buyerPush: stub({
     notifyOrderAccepted: jest.fn().mockResolvedValue(undefined),
@@ -91,6 +100,8 @@ export const deliveryServiceMocks = {
   emailNotifications: stub({
     sendDeliveryConfirmation: jest.fn().mockResolvedValue(undefined),
     sendOrderDelivered: jest.fn().mockResolvedValue(undefined),
+    sendBuyerPickedUpOrOutForDelivery: jest.fn().mockResolvedValue(undefined),
+    sendAdminDeliveryFailedOrDelayed: jest.fn().mockResolvedValue(undefined),
   }),
   buyerPush: stub({
     notifyDelivered: jest.fn().mockResolvedValue(undefined),

@@ -453,6 +453,9 @@ export class PaymentService {
     void this.emailNotifications.sendBuyerPaymentSuccess(payment.order.id).catch((err) => {
       this.logger.error({ err, orderId: payment.order.id }, 'Payment success email failed (webhook)');
     });
+    void this.emailNotifications.sendMerchantNewOrder(payment.order.id).catch((err) => {
+      this.logger.error({ err, orderId: payment.order.id }, 'Merchant new order email failed (webhook)');
+    });
     this.scheduleRiderDispatch(payment.order.id);
   }
 
@@ -508,6 +511,7 @@ export class PaymentService {
     void this.emailNotifications.sendBuyerPaymentFailed(payment.order.id).catch((err) => {
       this.logger.error({ err, orderId: payment.order.id }, 'Payment failed email failed (webhook)');
     });
+    void this.emailNotifications.sendAdminRepeatedPaymentFailure(razorpayOrderId).catch(() => {});
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -714,6 +718,9 @@ export class PaymentService {
 
     void this.emailNotifications.sendOrderConfirmation(order.id).catch((err) => {
       this.logger.error({ err, orderId: order.id }, 'Order confirmation email failed');
+    });
+    void this.emailNotifications.sendMerchantNewOrder(order.id).catch((err) => {
+      this.logger.error({ err, orderId: order.id }, 'Merchant new order email failed');
     });
     void this.buyerPush.notifyOrderPlaced(order.id).catch(() => {});
 

@@ -16,6 +16,9 @@ describe('EmailNotificationService', () => {
         buyerProfile: { user: { email: 'buyer@example.com' } },
       }),
     },
+    user: { findUnique: jest.fn() },
+    supportTicket: { findUnique: jest.fn() },
+    franchiseSettlement: { findFirst: jest.fn() },
   };
   const config = {
     get: jest.fn((key: string, fallback?: string) => (key === 'ADMIN_EMAIL' ? 'ops@jebdekho.com' : fallback)),
@@ -140,6 +143,56 @@ describe('EmailNotificationService', () => {
     prisma.emailLog.findFirst.mockResolvedValueOnce({ id: 'existing-log' });
 
     await service.sendBuyerPaymentSuccess('internal-order-id');
+
+    expect(email.send).not.toHaveBeenCalled();
+  });
+
+  it('sends franchise approval with the generated referral link', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({ email: 'franchise@example.com' });
+
+    await service.sendFranchiseApproved('user-fr-1', 'FR-GHA-01');
+
+    expect(email.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'franchise@example.com',
+        subject: 'Your JebDekho franchise account is approved',
+        templateCode: EMAIL_TEMPLATE.FRANCHISE_APPROVED,
+        metadata: { userId: 'user-fr-1', referralCode: 'FR-GHA-01' },
+      }),
+    );
+    expect(email.send.mock.calls[0][0].html).toContain('FR-GHA-01');
+  });
+
+  it('sends support reply email to the requester only when email exists', async () => {
+    prisma.supportTicket.findUnique.mockResolvedValueOnce({
+      id: 'ticket-1',
+      ticketNumber: 'JD-TKT-1',
+      requester: { email: 'buyer@example.com' },
+    });
+
+    await service.sendSupportTicketReply('ticket-1', 'We are checking this now.');
+
+    expect(email.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'buyer@example.com',
+        subject: 'Support replied - JD-TKT-1',
+        templateCode: EMAIL_TEMPLATE.SUPPORT_TICKET_REPLY,
+      }),
+    );
+  });
+
+  it('does not send franchise settlement email when partner has no email', async () => {
+    prisma.franchiseSettlement.findFirst.mockResolvedValueOnce({
+      id: 'set-1',
+      periodStart: new Date('2026-07-01'),
+      periodEnd: new Date('2026-07-31'),
+      commissionBase: 120,
+      franchiseShare: 12,
+      status: 'PAID',
+      franchise: { user: { email: null } },
+    });
+
+    await service.sendFranchiseSettlementPaid('fr-1', 'set-1');
 
     expect(email.send).not.toHaveBeenCalled();
   });

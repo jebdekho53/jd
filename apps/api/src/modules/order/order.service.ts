@@ -40,6 +40,7 @@ import { ReservationService } from '../checkout/reservation.service';
 import { OrderRefundService } from '../payment/order-refund.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 import { ListOrdersDto, ListMerchantOrdersDto, ListAdminOrdersDto } from './dto/list-orders.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import {
@@ -278,6 +279,7 @@ export class OrderService implements OnModuleInit {
     private readonly deliveryDispatch: DeliveryDispatchService,
     private readonly reservation: ReservationService,
     private readonly orderRefunds: OrderRefundService,
+    private readonly emailNotifications: EmailNotificationService,
     private readonly buyerPush: BuyerPushNotificationService,
     private readonly deliveryTracking: DeliveryTrackingService,
   ) {}
@@ -557,6 +559,12 @@ export class OrderService implements OnModuleInit {
     }
 
     void this.cache.invalidateAll(orderId);
+    void this.emailNotifications.sendBuyerOrderCancelled(order.id, dto.reason).catch((err) => {
+      this.logger.error({ err, orderId: order.id }, 'Buyer cancellation email failed');
+    });
+    void this.emailNotifications.sendMerchantOrderCancelled(order.id).catch((err) => {
+      this.logger.error({ err, orderId: order.id }, 'Merchant cancellation notice failed');
+    });
 
     this.logger.log({ userId, orderId, orderNumber: order.orderNumber }, 'Order cancelled by buyer');
     return { orderId, status: newStatus };
@@ -970,6 +978,9 @@ export class OrderService implements OnModuleInit {
       // merchant needs time to prepare/pack; the pickup is dispatched only when
       // they mark the order READY_FOR_PICKUP (below). Dispatching here caused
       // riders to arrive immediately on acceptance, before the order was packed.
+      void this.emailNotifications.sendBuyerMerchantAccepted(orderId).catch((err) => {
+        this.logger.error({ err, orderId }, 'Merchant accepted email failed');
+      });
       void this.buyerPush.notifyOrderAccepted(orderId).catch(() => {});
     }
 
@@ -1013,9 +1024,11 @@ export class OrderService implements OnModuleInit {
           );
         } else {
           this.logger.warn({ orderId }, 'Dispatch found no provider/rider — order stays READY_FOR_PICKUP');
+          void this.emailNotifications.sendAdminDeliveryFailedOrDelayed(order.orderNumber).catch(() => {});
         }
       }).catch((err) => {
         this.logger.error({ orderId, err }, 'Dispatch failed after READY_FOR_PICKUP');
+        void this.emailNotifications.sendAdminDeliveryFailedOrDelayed(order.orderNumber).catch(() => {});
       });
     }
 
@@ -1061,6 +1074,10 @@ export class OrderService implements OnModuleInit {
     }
 
     void this.cache.invalidateAll(orderId);
+    void this.emailNotifications.sendBuyerMerchantRejectedOrCancelled(order.id, dto.reason).catch((err) => {
+      this.logger.error({ err, orderId: order.id }, 'Merchant cancellation buyer email failed');
+    });
+    void this.emailNotifications.sendAdminDeliveryFailedOrDelayed(order.orderNumber).catch(() => {});
     this.logger.log({ userId, orderId, orderNumber: order.orderNumber }, 'Order cancelled by merchant');
 
     return { orderId, status: newStatus };

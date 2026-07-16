@@ -16,6 +16,7 @@ import { computeFranchiseShare } from './expansion.util';
 import { computeFranchiseTax } from './franchise-tax.util';
 import { BUYER_STATUS_GROUPS } from '../order/order-status-groups';
 import { DistributedLockService } from '../../redis/distributed-lock.service';
+import { EmailNotificationService } from '../email/email-notification.service';
 
 @Injectable()
 export class FranchiseSettlementService {
@@ -25,6 +26,7 @@ export class FranchiseSettlementService {
     private readonly prisma: PrismaService,
     private readonly ledger: LedgerService,
     private readonly lock?: DistributedLockService,
+    private readonly emailNotifications?: EmailNotificationService,
   ) {}
 
   async createSettlement(franchiseId: string, periodStart: Date, periodEnd: Date) {
@@ -146,6 +148,15 @@ export class FranchiseSettlementService {
       },
     });
 
+    void this.emailNotifications?.sendFranchiseSettlementCreated(franchiseId, settlement.id).catch((err) => {
+      this.logger.error({ err, franchiseId, settlementId: settlement.id }, 'Franchise settlement email failed');
+    });
+    void this.emailNotifications?.sendAdminFranchiseSettlement(
+      fp.businessName,
+      settlement.id,
+      `₹${franchiseShare.toFixed(2)}`,
+    ).catch(() => {});
+
     return settlement;
   }
 
@@ -180,10 +191,14 @@ export class FranchiseSettlementService {
   }
 
   async markPaid(id: string) {
-    return this.prisma.franchiseSettlement.update({
+    const settlement = await this.prisma.franchiseSettlement.update({
       where: { id },
       data: { status: FranchiseSettlementStatus.PAID, paidAt: new Date() },
     });
+    void this.emailNotifications?.sendFranchiseSettlementPaid(settlement.franchiseId, settlement.id).catch((err) => {
+      this.logger.error({ err, franchiseId: settlement.franchiseId, settlementId: settlement.id }, 'Franchise settlement paid email failed');
+    });
+    return settlement;
   }
 
   async listSettlements(franchiseId: string) {

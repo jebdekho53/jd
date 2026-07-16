@@ -438,7 +438,7 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
-    return this.completeAuthentication(user.id, {
+    const result = await this.completeAuthentication(user.id, {
       isNewUser: false,
       deviceId: dto.deviceId,
       deviceName: dto.deviceName,
@@ -448,6 +448,10 @@ export class AuthService {
       metadata: { email, loginMethod: 'email' },
       rememberMe: dto.rememberMe,
     });
+    void this.emailNotifications.sendLoginSecurityAlert(email, ipAddress ?? 'Unknown').catch((err) => {
+      this.logger.error({ err, userId: user.id }, 'Login security email failed');
+    });
+    return result;
   }
 
   // ---------------------------------------------------------------------------

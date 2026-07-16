@@ -196,6 +196,7 @@ export class SupportTicketService {
         ticketId,
         ticketNumber: ticket.ticketNumber,
       });
+      void this.emailNotifications.sendSupportTicketReply(ticketId, body).catch(() => {});
     }
 
     return message;
@@ -254,6 +255,7 @@ export class SupportTicketService {
       resourceId: ticketId,
       metadata: { refundApproved } as Prisma.InputJsonValue,
     });
+    void this.emailNotifications.sendSupportTicketResolved(ticketId, summary).catch(() => {});
 
     return { ticketId, status: SupportTicketStatus.RESOLVED };
   }
