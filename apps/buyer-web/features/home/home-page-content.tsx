@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchUi } from '@/store/search-ui-store';
 import { useSearchParams } from 'next/navigation';
@@ -424,7 +424,7 @@ function ProductRail({
   pincode,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   categoryId?: string;
   categorySlug?: string;
   sort: 'distance' | 'price_low_high' | 'price_high_low' | 'rating' | 'fastest_delivery';
@@ -471,6 +471,36 @@ function ProductRail({
   );
 }
 
+/** Renders children only once scrolled near the viewport — keeps the home from
+ *  firing every category's product query on first paint (Blinkit/Zepto pattern). */
+function InViewLazy({ children, minHeight = 220 }: { children: ReactNode; minHeight?: number }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    if (shown || !ref.current) return;
+    const el = ref.current;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setShown(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: '400px 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [shown]);
+
+  return <div ref={ref} style={shown ? undefined : { minHeight }}>{shown ? children : null}</div>;
+}
+
+/**
+ * Zepto-style dense product browsing: one horizontal rail per subcategory
+ * (Staples, Snacks, Dairy, Household, Personal Care…), driven by the live
+ * taxonomy. Empty categories hide themselves; rails lazy-load on scroll.
+ */
 function ProductShelves({
   categories,
   vertical,
@@ -484,68 +514,36 @@ function ProductShelves({
   lng: number;
   pincode?: string;
 }) {
-  const flat = useMemo(() => flattenCategories(categories), [categories]);
-  const verticalCategory = vertical === 'grocery' ? undefined : flat[0];
-  const essentials = verticalCategory ?? findCategory(flat, ['grocery', 'staples', 'daily']);
-  const fresh = vertical === 'grocery' ? findCategory(flat, ['fruit', 'vegetable', 'fresh']) : undefined;
-  const dairy = vertical === 'grocery' ? findCategory(flat, ['dairy', 'bakery', 'milk']) : undefined;
-  const snacks = vertical === 'grocery' ? findCategory(flat, ['snack', 'beverage', 'drink']) : undefined;
+  const shelves = useMemo(() => {
+    // Prefer L2 subcategories as rails (that's the granularity shoppers browse);
+    // fall back to the root categories if the tree is shallow.
+    const subs = categories.flatMap((root) => root.children ?? []);
+    const source = subs.length >= 4 ? subs : categories;
+    // De-dupe by id and cap so the page stays snappy.
+    const seen = new Set<string>();
+    return source.filter((c) => (seen.has(c.id) ? false : (seen.add(c.id), true))).slice(0, 18);
+  }, [categories]);
 
-  const shelves = [
-    essentials && {
-      key: 'essentials',
-      title: vertical === 'grocery' ? 'Daily essentials' : `${essentials.name} near you`,
-      subtitle: vertical === 'grocery' ? 'Compare prices from local grocery shelves' : 'Only matching products from this vertical',
-      category: essentials,
-      sort: 'distance' as const,
-    },
-    fresh && {
-      key: 'fresh',
-      title: 'Fresh picks nearby',
-      subtitle: 'Fruits, vegetables and morning basket items',
-      category: fresh,
-      sort: 'fastest_delivery' as const,
-    },
-    dairy && {
-      key: 'dairy',
-      title: 'Breakfast basket',
-      subtitle: 'Dairy, bakery and quick morning needs',
-      category: dairy,
-      sort: 'distance' as const,
-    },
-    snacks && {
-      key: 'snacks',
-      title: 'Snacks & beverages',
-      subtitle: 'Quick add-ons from nearby stores',
-      category: snacks,
-      sort: 'rating' as const,
-    },
-  ].filter(Boolean) as Array<{
-    key: string;
-    title: string;
-    subtitle: string;
-    category: CategoryItem;
-    sort: 'distance' | 'price_low_high' | 'price_high_low' | 'rating' | 'fastest_delivery';
-  }>;
+  const sorts = ['distance', 'fastest_delivery', 'rating', 'price_low_high'] as const;
 
   if (shelves.length === 0) return null;
 
   return (
-    <>
-      {shelves.map((shelf) => (
-        <ProductRail
-          key={shelf.key}
-          title={shelf.title}
-          subtitle={shelf.subtitle}
-          categoryId={shelf.category.id}
-          categorySlug={shelf.category.slug}
-          sort={shelf.sort}
-          lat={lat}
-          lng={lng}
-          pincode={pincode}
-        />
+    <div className="space-y-6 md:space-y-8">
+      {shelves.map((cat, i) => (
+        <InViewLazy key={cat.id}>
+          <ProductRail
+            title={cat.name}
+            categoryId={cat.id}
+            categorySlug={cat.slug}
+            sort={sorts[i % sorts.length]}
+            lat={lat}
+            lng={lng}
+            pincode={pincode}
+          />
+        </InViewLazy>
       ))}
-    </>
+    </div>
   );
 }
 
