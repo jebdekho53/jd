@@ -13,6 +13,7 @@ interface ClaimRow {
   requestedAmount: number;
   orderNumber?: string;
   createdAt: string;
+  returnPickup?: { status: string } | null;
 }
 
 export function MerchantClaimsPageContent() {
@@ -39,11 +40,11 @@ export function MerchantClaimsPageContent() {
     void load();
   }, [status, currentStore?.id]);
 
-  const act = async (claimId: string, action: string) => {
+  const act = async (claimId: string, action: string, extra?: Record<string, unknown>) => {
     await fetch(`/api/merchant/claims/${claimId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, ...extra }),
     });
     void load();
   };
@@ -82,6 +83,7 @@ export function MerchantClaimsPageContent() {
                 <th className="px-4 py-3">Order</th>
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Pickup</th>
                 <th className="px-4 py-3">Amount</th>
                 <th className="px-4 py-3">Actions</th>
               </tr>
@@ -93,6 +95,9 @@ export function MerchantClaimsPageContent() {
                   <td className="px-4 py-3">{c.orderNumber ?? '—'}</td>
                   <td className="px-4 py-3">{c.claimType}</td>
                   <td className="px-4 py-3">{c.status}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">
+                    {c.returnPickup ? c.returnPickup.status.replace(/_/g, ' ') : '—'}
+                  </td>
                   <td className="px-4 py-3">₹{c.requestedAmount.toFixed(2)}</td>
                   <td className="px-4 py-3">
                     {c.status === 'PENDING' && (
@@ -100,6 +105,11 @@ export function MerchantClaimsPageContent() {
                         <Button size="sm" onClick={() => act(c.id, 'APPROVE_REFUND')}>
                           Approve refund
                         </Button>
+                        {c.claimType === 'RETURN' && (
+                          <Button size="sm" onClick={() => act(c.id, 'APPROVE', { returnPickupEnabled: true })}>
+                            Approve + pickup
+                          </Button>
+                        )}
                         <Button size="sm" variant="secondary" onClick={() => act(c.id, 'APPROVE_REPLACEMENT')}>
                           Approve replacement
                         </Button>

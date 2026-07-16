@@ -75,6 +75,19 @@ const MERCHANT_CANCELLABLE = new Set<OrderStatus>([
   OrderStatus.PACKING,
 ]);
 
+// Admin can cancel later than a merchant — up to a rider being assigned, but not
+// once the item is in transit (picked up / out for delivery) or terminal.
+const ADMIN_CANCELLABLE = new Set<OrderStatus>([
+  OrderStatus.CREATED,
+  OrderStatus.PAYMENT_PENDING,
+  OrderStatus.PAID,
+  OrderStatus.MERCHANT_ACCEPTED,
+  OrderStatus.PREPARING,
+  OrderStatus.PACKING,
+  OrderStatus.READY_FOR_PICKUP,
+  OrderStatus.RIDER_ASSIGNED,
+]);
+
 // Terminal statuses — no further transitions allowed
 const TERMINAL = new Set<OrderStatus>([
   OrderStatus.DELIVERED,
@@ -993,6 +1006,46 @@ export class OrderService implements OnModuleInit {
 
     void this.cache.invalidateAll(orderId);
     this.logger.log({ userId, orderId, orderNumber: order.orderNumber }, 'Order cancelled by merchant');
+
+    return { orderId, status: newStatus };
+  }
+
+  async cancelByAdmin(userId: string, orderId: string, dto: CancelOrderDto, ipAddress?: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true, paymentMethod: true, paymentStatus: true, orderNumber: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (!ADMIN_CANCELLABLE.has(order.status)) {
+      throw new BadRequestException(
+        `Order cannot be cancelled in status: ${order.status}. ` +
+        `Admin cancellation is not allowed once the order is out for delivery or complete.`,
+      );
+    }
+
+    const newStatus = OrderStatus.CANCELLED_BY_ADMIN;
+    await this.statusHistory.transition({
+      orderId: order.id,
+      toStatus: newStatus,
+      actorType: OrderActorType.ADMIN,
+      actorId: userId,
+      note: dto.reason,
+    });
+    await this.reservation.releaseOrderReservations(order.id, userId);
+
+    if (order.paymentStatus === PaymentStatus.PAID) {
+      await this.orderRefunds.initiateRefund({
+        orderId: order.id,
+        actorId: userId,
+        initiatorType: OrderRefundInitiator.ADMIN,
+        reason: dto.reason,
+        ipAddress,
+      });
+    }
+
+    void this.cache.invalidateAll(orderId);
+    this.logger.log({ userId, orderId, orderNumber: order.orderNumber }, 'Order cancelled by admin');
 
     return { orderId, status: newStatus };
   }

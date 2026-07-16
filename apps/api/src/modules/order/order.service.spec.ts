@@ -207,6 +207,36 @@ describe('OrderService', () => {
     });
   });
 
+  describe('cancelByAdmin', () => {
+    beforeEach(() => {
+      mockStatusHistory.transition.mockResolvedValue(true);
+      mockReservation.releaseOrderReservations.mockResolvedValue(undefined);
+      mockCache.invalidateAll.mockResolvedValue(undefined);
+    });
+
+    it('cancels a later-stage order (RIDER_ASSIGNED) admins alone can reach', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue(buildOrder(OrderStatus.RIDER_ASSIGNED));
+
+      const result = await service.cancelByAdmin(USER_ID, ORDER_ID, { reason: 'ops' });
+
+      expect(result.status).toBe(OrderStatus.CANCELLED_BY_ADMIN);
+      expect(mockStatusHistory.transition).toHaveBeenCalled();
+      expect(mockReservation.releaseOrderReservations).toHaveBeenCalledWith(ORDER_ID, USER_ID);
+    });
+
+    it('rejects cancellation once the item is in transit (OUT_FOR_DELIVERY)', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue(buildOrder(OrderStatus.OUT_FOR_DELIVERY));
+
+      await expect(service.cancelByAdmin(USER_ID, ORDER_ID, {})).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException for unknown order', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue(null);
+
+      await expect(service.cancelByAdmin(USER_ID, ORDER_ID, {})).rejects.toThrow(NotFoundException);
+    });
+  });
+
   // ── Merchant order list ───────────────────────────────────────────────────
 
   describe('listMerchantOrders', () => {
