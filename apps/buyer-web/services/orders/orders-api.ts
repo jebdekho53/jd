@@ -24,6 +24,20 @@ export async function getOrderDetail(orderId: string): Promise<OrderDetail> {
   return res.data;
 }
 
+export interface DeliveryOtpResult {
+  deliveryOtp: string | null;
+  verified: boolean;
+  deliveryStatus: string;
+}
+
+/** Fetch the delivery OTP the buyer reads out to the rider (scoped to this buyer's order). */
+export async function getDeliveryOtp(orderId: string): Promise<DeliveryOtpResult> {
+  const res = await buyerFetch<ApiResponse<DeliveryOtpResult>>(
+    `/api/buyer/orders/${orderId}/delivery-otp`,
+  );
+  return res.data;
+}
+
 export async function cancelOrder(
   orderId: string,
   reason?: string,

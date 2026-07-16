@@ -1,6 +1,15 @@
-# Rider BFF
+# Rider Web — BFF + Captain PWA
 
-Mobile API gateway for `@jebdekho/rider-mobile`.
+This app serves **two** roles:
+
+1. **BFF / API gateway** for `@jebdekho/rider-mobile` — `/api/rider/*` routes proxy
+   to the NestJS API (`/rider/*`), including the delivery-handover OTP verify routes
+   (`/api/rider/orders/[id]/verify-pickup`, `.../verify-delivery`).
+2. **Captain PWA** — an authenticated rider web UI (`features/rider/rider-home.tsx`)
+   with the active-delivery flow, pickup/delivery OTP entry, KYC, shifts, earnings,
+   COD and support.
+
+Canonical rider/delivery status: [../../docs/RIDER_DELIVERY_STATUS.md](../../docs/RIDER_DELIVERY_STATUS.md).
 
 - Dev: `pnpm --filter @jebdekho/rider-web dev` (port **3004**)
 - Home: http://localhost:3004 — BFF status & route reference

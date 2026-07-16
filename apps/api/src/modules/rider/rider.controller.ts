@@ -31,6 +31,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { UpdateRiderLocationDto } from './dto/update-rider-location.dto';
 import { UpdateRiderStatusDto } from './dto/update-rider-status.dto';
 import { FailDeliveryDto } from './dto/fail-delivery.dto';
+import { VerifyDeliveryDto, VerifyPickupDto } from './dto/verify-handover.dto';
 import { RiderCaptainService } from './rider-captain.service';
 import { MarkNotificationReadDto, SaveRiderDocumentDto, ShiftLocationDto } from './dto/rider-captain.dto';
 
@@ -208,6 +209,53 @@ export class RiderController {
     @Ip() ip: string,
   ) {
     const data = await this.deliveryService.pickedUp(user.id, orderId, ip);
+    return { success: true, data };
+  }
+
+  @Post('orders/:orderId/verify-pickup')
+  @Permissions('deliveries:update')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'orderId' })
+  @ApiOperation({
+    summary: 'Verify merchant handover OTP and pick up (ARRIVED_AT_STORE → PICKED_UP)',
+    description: 'Rider enters the code the merchant reads out. One-time use, brute-force limited.',
+  })
+  @ApiResponse({ status: 200, description: 'Pickup verified' })
+  @ApiResponse({ status: 400, description: 'Incorrect / expired code or wrong status' })
+  async verifyPickup(
+    @CurrentUser() user: RequestUser,
+    @Param('orderId') orderId: string,
+    @Body() dto: VerifyPickupDto,
+    @Ip() ip: string,
+  ) {
+    const data = await this.deliveryService.verifyPickup(user.id, orderId, dto.otp, ip);
+    return { success: true, data };
+  }
+
+  @Post('orders/:orderId/verify-delivery')
+  @Permissions('deliveries:update')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'orderId' })
+  @ApiOperation({
+    summary: 'Verify customer OTP + COD and complete (ARRIVED_AT_CUSTOMER → DELIVERED)',
+    description:
+      'Rider enters the code the customer reads out. For COD orders, codCollected must be true; the collectible amount is server-authoritative.',
+  })
+  @ApiResponse({ status: 200, description: 'Delivery verified and completed' })
+  @ApiResponse({ status: 400, description: 'Incorrect code, unacknowledged COD, or wrong status' })
+  async verifyDelivery(
+    @CurrentUser() user: RequestUser,
+    @Param('orderId') orderId: string,
+    @Body() dto: VerifyDeliveryDto,
+    @Ip() ip: string,
+  ) {
+    const data = await this.deliveryService.verifyDelivery(
+      user.id,
+      orderId,
+      dto.otp,
+      dto.codCollected ?? false,
+      ip,
+    );
     return { success: true, data };
   }
 

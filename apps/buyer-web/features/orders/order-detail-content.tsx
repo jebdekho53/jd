@@ -8,6 +8,7 @@ import { PageShell } from '@/components/layout/site-shell';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
 import { OrderStatusBadge } from '@/features/orders/components/order-status-badge';
 import { RiderDeliveryPanel } from '@/features/orders/components/rider-delivery-panel';
+import { DeliveryOtpCard } from '@/features/orders/components/delivery-otp-card';
 import { DeliveryProgressTracker } from '@/features/tracking/delivery-progress-tracker';
 import { useDeliveryTracking } from '@/features/tracking/use-delivery-tracking';
 import { OrderTimeline } from '@jebdekho/order-timeline';
@@ -240,6 +241,7 @@ export function OrderDetailContent({ orderId }: OrderDetailContentProps) {
                       <DeliveryProgressTracker stage={tracking.progressStage} />
                     </div>
                   )}
+                  <DeliveryOtpCard orderId={order.id} orderStatus={order.status} />
                   <RiderDeliveryPanel orderStatus={order.status} delivery={order.delivery} />
                 </>
               )}

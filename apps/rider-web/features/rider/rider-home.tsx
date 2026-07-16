@@ -25,6 +25,8 @@ import {
   replySupportTicket,
   setStatus,
   submitCod,
+  verifyPickupAction,
+  verifyDeliveryAction,
   type KycStatus,
   type RiderMe,
   type RiderOrder,
@@ -397,13 +399,39 @@ function OrderDetail({
   onFail: (orderId: string, reason: string) => void;
   onSupport: (orderId: string) => void;
 }) {
+  const qc = useQueryClient();
   const detail = useQuery({ queryKey: ['rider', 'order', orderId], queryFn: () => getOrder(orderId) });
   const order = detail.data;
+
+  const refreshOrder = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['rider', 'order', orderId] }),
+      qc.invalidateQueries({ queryKey: ['rider', 'orders'] }),
+      qc.invalidateQueries({ queryKey: ['rider', 'me'] }),
+      qc.invalidateQueries({ queryKey: ['rider', 'finance'] }),
+    ]);
+  };
+
+  const verifyPickupMut = useMutation({
+    mutationFn: (otp: string) => verifyPickupAction(orderId, otp),
+    onSuccess: refreshOrder,
+  });
+  const verifyDeliveryMut = useMutation({
+    mutationFn: ({ otp, codCollected }: { otp: string; codCollected: boolean }) =>
+      verifyDeliveryAction(orderId, otp, codCollected),
+    onSuccess: refreshOrder,
+  });
 
   if (detail.isLoading) return <EmptyState title="Loading order" body="Opening the delivery details." />;
   if (!order) return <EmptyState title="Order unavailable" body="This delivery could not be loaded." />;
 
   const action = nextAction(order.deliveryStatus);
+  const showPickupOtp =
+    order.deliveryStatus === 'ARRIVED_AT_STORE' && order.pickupOtpRequired && !order.pickupVerified;
+  const showDeliveryOtp =
+    order.deliveryStatus === 'ARRIVED_AT_CUSTOMER' &&
+    order.deliveryOtpRequired &&
+    !order.deliveryVerified;
   const dropoff = ['PICKED_UP', 'IN_TRANSIT', 'ARRIVED_AT_CUSTOMER'].includes(order.deliveryStatus);
   const navTarget = dropoff ? { lat: order.customerLat, lng: order.customerLng } : { lat: order.storeLat, lng: order.storeLng };
   const isNew = ['PENDING', 'ASSIGNED', 'OFFERED'].includes(order.deliveryStatus);
@@ -465,11 +493,98 @@ function OrderDetail({
           </button>
         )}
       </div>
-      {action && (
-        <button onClick={() => onAction(order.orderId, action.verb)} disabled={busy} className="h-12 w-full rounded-lg bg-emerald-600 text-sm font-semibold text-white disabled:opacity-50">
-          {action.label}
-        </button>
+      {showPickupOtp ? (
+        <HandoverOtpForm
+          kind="pickup"
+          busy={verifyPickupMut.isPending}
+          error={verifyPickupMut.error instanceof Error ? verifyPickupMut.error.message : null}
+          onSubmit={(otp) => verifyPickupMut.mutate(otp)}
+        />
+      ) : showDeliveryOtp ? (
+        <HandoverOtpForm
+          kind="delivery"
+          codDue={Boolean(order.codDue)}
+          codAmount={order.codAmount ?? null}
+          busy={verifyDeliveryMut.isPending}
+          error={verifyDeliveryMut.error instanceof Error ? verifyDeliveryMut.error.message : null}
+          onSubmit={(otp, codCollected) => verifyDeliveryMut.mutate({ otp, codCollected })}
+        />
+      ) : (
+        action && (
+          <button onClick={() => onAction(order.orderId, action.verb)} disabled={busy} className="h-12 w-full rounded-lg bg-emerald-600 text-sm font-semibold text-white disabled:opacity-50">
+            {action.label}
+          </button>
+        )
       )}
+    </div>
+  );
+}
+
+function HandoverOtpForm({
+  kind,
+  codDue = false,
+  codAmount = null,
+  busy,
+  error,
+  onSubmit,
+}: {
+  kind: 'pickup' | 'delivery';
+  codDue?: boolean;
+  codAmount?: string | null;
+  busy: boolean;
+  error: string | null;
+  onSubmit: (otp: string, codCollected: boolean) => void;
+}) {
+  const [otp, setOtp] = useState('');
+  const [cash, setCash] = useState(false);
+  const otpValid = otp.length >= 4 && otp.length <= 6;
+  const codBlocking = kind === 'delivery' && codDue && !cash;
+  const canSubmit = otpValid && !codBlocking && !busy;
+  const title = kind === 'pickup' ? 'Verify pickup' : 'Verify delivery';
+  const hint =
+    kind === 'pickup'
+      ? 'Enter the code the store shows you to confirm handover.'
+      : 'Enter the code the customer reads out to complete delivery.';
+
+  return (
+    <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+      <div>
+        <p className="text-sm font-semibold text-slate-900">{title}</p>
+        <p className="text-xs text-slate-500">{hint}</p>
+      </div>
+      {kind === 'delivery' && codDue && (
+        <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+          <p className="text-sm font-bold text-amber-800">
+            ⚠ Collect ₹{codAmount ?? '—'} cash
+          </p>
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-800">
+            <input
+              type="checkbox"
+              checked={cash}
+              onChange={(e) => setCash(e.target.checked)}
+              className="h-5 w-5"
+            />
+            I have collected the cash
+          </label>
+        </div>
+      )}
+      <input
+        value={otp}
+        onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        placeholder="Enter code"
+        aria-label={`${title} code`}
+        className="h-14 w-full rounded-lg border-2 border-slate-300 text-center text-2xl font-bold tracking-[0.4em] text-slate-900"
+      />
+      {error && <p role="alert" className="text-sm font-semibold text-red-600">{error}</p>}
+      <button
+        onClick={() => canSubmit && onSubmit(otp, cash)}
+        disabled={!canSubmit}
+        className="h-12 w-full rounded-lg bg-emerald-600 text-sm font-semibold text-white disabled:opacity-50"
+      >
+        {kind === 'pickup' ? 'Confirm pickup' : 'Complete delivery'}
+      </button>
     </div>
   );
 }

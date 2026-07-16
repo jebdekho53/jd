@@ -2344,6 +2344,16 @@ model Delivery {
   deliveredAt         DateTime?      @map("delivered_at")
   deliveryProofUrl    String?        @map("delivery_proof_url")
   riderEarning        Decimal?       @map("rider_earning") @db.Decimal(10, 2)
+  // Handover verification. pickupOtp is shown to the merchant, deliveryOtp to the
+  // buyer; the rider must enter the code the counterparty reads out. Never exposed
+  // to rider or public serializers. attempts columns enforce brute-force limits;
+  // *VerifiedAt columns enforce one-time use.
+  pickupOtp           String?        @map("pickup_otp")
+  pickupVerifiedAt    DateTime?      @map("pickup_verified_at")
+  pickupOtpAttempts   Int            @default(0) @map("pickup_otp_attempts")
+  deliveryOtp         String?        @map("delivery_otp")
+  deliveryVerifiedAt  DateTime?      @map("delivery_verified_at")
+  deliveryOtpAttempts Int            @default(0) @map("delivery_otp_attempts")
   createdAt           DateTime       @default(now()) @map("created_at")
   updatedAt           DateTime       @updatedAt @map("updated_at")
 
