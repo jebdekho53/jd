@@ -1,8 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsOptional, Matches, ValidateIf } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, Matches, ValidateIf } from 'class-validator';
 import { INDIAN_PHONE_REGEX } from '../../../common/constants';
 
+export type ResetPortal = 'buyer' | 'merchant' | 'franchise' | 'admin';
+
 export class ForgotPasswordDto {
+  /** Which portal the request came from — the reset link must land back there. */
+  @ApiProperty({ required: false, enum: ['buyer', 'merchant', 'franchise', 'admin'], default: 'buyer' })
+  @IsOptional()
+  @IsIn(['buyer', 'merchant', 'franchise', 'admin'])
+  portal?: ResetPortal;
+
   @ApiProperty({ required: false, example: 'rahul@example.com' })
   @ValidateIf((o: ForgotPasswordDto) => !o.phone)
   @IsEmail()

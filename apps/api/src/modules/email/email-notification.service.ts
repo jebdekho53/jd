@@ -112,14 +112,30 @@ export class EmailNotificationService {
     });
   }
 
-  async sendPasswordResetEmail(to: string, token: string, expiresMinutes: number): Promise<void> {
-    const resetUrl = `${this.buyerSiteUrl.replace(/\/$/, '')}/forgot-password?token=${token}`;
+  /**
+   * @param portal which app the user is resetting from — the link must land on
+   * THEIR portal, not always the buyer site (a merchant resetting from
+   * merchant.jebdekho.com must not be sent to jebdekho.com).
+   */
+  async sendPasswordResetEmail(
+    to: string,
+    token: string,
+    expiresMinutes: number,
+    portal: 'buyer' | 'merchant' | 'franchise' | 'admin' = 'buyer',
+  ): Promise<void> {
+    const base = {
+      buyer: this.buyerSiteUrl,
+      merchant: this.merchantSiteUrl,
+      franchise: this.franchiseSiteUrl,
+      admin: this.adminSiteUrl,
+    }[portal] ?? this.buyerSiteUrl;
+    const resetUrl = `${base.replace(/\/$/, '')}/forgot-password?token=${token}`;
     const tpl = this.templates.passwordReset(resetUrl, expiresMinutes);
     await this.safeSend({
       to,
       ...tpl,
       templateCode: EMAIL_TEMPLATE.PASSWORD_RESET,
-      metadata: { expiresMinutes },
+      metadata: { expiresMinutes , portal },
     });
   }
 
