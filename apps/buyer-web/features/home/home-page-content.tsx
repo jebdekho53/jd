@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { SearchOverlay } from '@/features/search/search-overlay';
 import { useSearchParams } from 'next/navigation';
 import {
   ArrowRight,
@@ -201,10 +202,12 @@ function MarketplaceHero({
   categories,
   hasLocation,
   locationLabel,
+  onSearchOpen,
 }: {
   categories: CategoryItem[];
   hasLocation: boolean;
   locationLabel?: string;
+  onSearchOpen: () => void;
 }) {
   const chips = categories.slice(0, 6);
 
@@ -237,16 +240,17 @@ function MarketplaceHero({
           </div>
         </div>
 
-        <Link
-          href="/search"
-          className="mt-5 flex min-h-12 items-center gap-3 rounded-2xl bg-white px-4 text-sm font-semibold text-jd-text-primary shadow-card transition hover:bg-white/95"
+        <button
+          type="button"
+          onClick={onSearchOpen}
+          className="mt-5 flex min-h-12 w-full items-center gap-3 rounded-2xl bg-white px-4 text-sm font-semibold text-jd-text-primary shadow-card transition hover:bg-white/95"
         >
           <Search className="h-5 w-5 shrink-0 text-primary" aria-hidden />
-          <span className="min-w-0 flex-1 text-left">Search milk, atta, snacks, fruits...</span>
+          <span className="min-w-0 flex-1 text-left text-slate-400">Search milk, atta, snacks, fruits...</span>
           <span className="hidden rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary sm:inline">
             Compare
           </span>
-        </Link>
+        </button>
 
         {chips.length > 0 && (
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1 scrollbar-none" aria-label="Quick category shortcuts">
@@ -590,11 +594,13 @@ export function HomePageContent() {
   );
   const hasLocation = isReady && lat != null && lng != null;
   const isFoodVertical = selectedVertical === 'food';
+  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <div className="space-y-5 animate-fade-in md:space-y-8">
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
       <VerticalNav className="-mx-4 px-4 md:-mx-1 md:px-1" />
-      <MarketplaceHero categories={visibleCategories} hasLocation={hasLocation} locationLabel={label} />
+      <MarketplaceHero categories={visibleCategories} hasLocation={hasLocation} locationLabel={label} onSearchOpen={() => setSearchOpen(true)} />
       {!isFoodVertical && <VerticalEntryCards />}
 
       {/* Quick categories — top priority on mobile */}
@@ -673,13 +679,14 @@ export function HomePageContent() {
         <p className="mt-1 text-sm text-white/90">
           Search any product to instantly see which local store offers the best price.
         </p>
-        <Link
-          href="/search"
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
           className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-primary transition hover:bg-white/90 btn-press"
         >
           Search products
           <ArrowRight className="h-4 w-4" aria-hidden />
-        </Link>
+        </button>
       </section>
     </div>
   );
