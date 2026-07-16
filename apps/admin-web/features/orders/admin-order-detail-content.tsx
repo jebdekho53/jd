@@ -1,17 +1,42 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, XCircle } from 'lucide-react';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { OrderTimeline } from '@jebdekho/order-timeline';
 import { useAdminOrderDetailQuery } from '@/hooks/use-order-detail';
+import { cancelOrderAsAdmin } from '@/services/admin-api';
 
 function formatStatus(status: string): string {
   return status.replace(/_/g, ' ');
 }
 
+// Mirrors the API's ADMIN_CANCELLABLE window (not once out for delivery / done).
+const ADMIN_CANCELLABLE = new Set([
+  'CREATED', 'PAYMENT_PENDING', 'PAID', 'MERCHANT_ACCEPTED',
+  'PREPARING', 'PACKING', 'READY_FOR_PICKUP', 'RIDER_ASSIGNED',
+]);
+
 export function AdminOrderDetailContent({ orderId }: { orderId: string }) {
   const { data: order, isLoading, isError, refetch } = useAdminOrderDetailQuery(orderId);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const handleCancel = async () => {
+    const reason = window.prompt('Reason for cancelling this order? (optional)') ?? undefined;
+    if (!window.confirm('Cancel this order? A paid order will be refunded automatically.')) return;
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      await cancelOrderAsAdmin(orderId, reason || undefined);
+      await refetch();
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'Could not cancel order');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -36,12 +61,24 @@ export function AdminOrderDetailContent({ orderId }: { orderId: string }) {
 
   return (
     <DashboardShell title={`Order ${order.orderNumber}`}>
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <Link href="/orders" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
           Back to orders
         </Link>
+        {ADMIN_CANCELLABLE.has(order.status) && (
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={cancelling}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+          >
+            <XCircle className="h-4 w-4" />
+            {cancelling ? 'Cancelling…' : 'Cancel order'}
+          </button>
+        )}
       </div>
+      {cancelError && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{cancelError}</p>}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-lg border bg-card p-4 space-y-3">

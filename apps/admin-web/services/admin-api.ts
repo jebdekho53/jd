@@ -460,6 +460,14 @@ export async function assignRider(orderId: string, riderProfileId: string): Prom
   return res.data;
 }
 
+export async function cancelOrderAsAdmin(orderId: string, reason?: string): Promise<{ orderId: string; status: string }> {
+  const res = await adminFetch<ApiResponse<{ orderId: string; status: string }>>(
+    `/api/admin/orders/${orderId}/cancel`,
+    { method: 'PATCH', body: JSON.stringify(reason ? { reason } : {}) },
+  );
+  return res.data;
+}
+
 export async function autoAssignRider(orderId: string): Promise<AssignRiderResult | null> {
   const res = await adminFetch<ApiResponse<AssignRiderResult | null>>(
     `/api/admin/orders/${orderId}/auto-assign`,
