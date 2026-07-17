@@ -2,18 +2,25 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import {
   FranchiseDocumentStatus,
   FranchiseDocumentType,
+  LegalDocumentCode,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { FranchiseNotificationService } from './franchise-notification.service';
+import { LegalService } from '../legal/legal.service';
+import { currentVersion } from '../legal/legal-documents.registry';
 import {
   AcceptFranchiseAgreementDto,
   RejectFranchiseDocumentDto,
   UploadFranchiseDocumentDto,
 } from './dto/franchise.dto';
 
-/** The current franchise agreement. Bump when the terms change. */
-export const FRANCHISE_AGREEMENT_VERSION = 'v1';
+/**
+ * The current franchise agreement version, taken from the legal registry so the
+ * words a partner reads and the version stamped on their KYC can never drift.
+ */
+export const FRANCHISE_AGREEMENT_VERSION =
+  currentVersion(LegalDocumentCode.FRANCHISE_AGREEMENT) ?? 'v1';
 
 /**
  * Documents a partner must have VERIFIED before we send them money.
@@ -32,6 +39,7 @@ export class FranchiseKycService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: FranchiseNotificationService,
+    private readonly legal: LegalService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -82,10 +90,15 @@ export class FranchiseKycService {
    * Record acceptance of the franchise agreement. First-touch: an already-accepted
    * agreement is not re-stamped, so the original acceptance date survives.
    */
-  async acceptAgreement(franchiseId: string, dto: AcceptFranchiseAgreementDto, ip?: string) {
+  async acceptAgreement(
+    franchiseId: string,
+    dto: AcceptFranchiseAgreementDto,
+    ip?: string,
+    userAgent?: string,
+  ) {
     const fp = await this.prisma.franchisePartner.findUnique({
       where: { id: franchiseId },
-      select: { agreementAcceptedAt: true },
+      select: { agreementAcceptedAt: true, userId: true },
     });
     if (!fp) throw new NotFoundException('Franchise not found');
     if (!dto.accepted) throw new BadRequestException('Agreement must be accepted');
@@ -100,6 +113,16 @@ export class FranchiseKycService {
         },
       });
     }
+
+    // Also record it as ordinary legal evidence, so every party's acceptances —
+    // buyer, merchant, franchise, rider — are provable from one place. The KYC
+    // columns above stay as the gate onboardingCompleted already reads.
+    await this.legal.accept(
+      fp.userId,
+      LegalDocumentCode.FRANCHISE_AGREEMENT,
+      FRANCHISE_AGREEMENT_VERSION,
+      { ip, userAgent },
+    );
 
     return this.getKycStatus(franchiseId);
   }

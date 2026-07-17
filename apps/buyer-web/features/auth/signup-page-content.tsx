@@ -14,6 +14,10 @@ import { AuthSwitchLink } from '@/features/auth/components/auth-switch-link';
 import { SocialLogin } from '@/features/auth/components/social-login';
 import { OtpInput } from '@/features/auth/components/otp-input';
 import { PhoneInput } from '@/features/auth/components/phone-input';
+import {
+  TermsAcceptance,
+  recordTermsAcceptance,
+} from '@/features/auth/components/terms-acceptance';
 import { applyAuthSession } from '@/features/auth/auth-provider';
 import { mergeGuestCartIntoServer } from '@/lib/merge-guest-cart';
 import {
@@ -66,6 +70,8 @@ export function SignupPageContent() {
   const [referralCode, setReferralCode] = useState<string | undefined>();
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsError, setTermsError] = useState<string | null>(null);
   const [resendSeconds, setResendSeconds] = useState(0);
 
   const requestOtp = useRequestOtpMutation();
@@ -89,6 +95,11 @@ export function SignupPageContent() {
   }, [resendSeconds]);
 
   const onMobileDetailsSubmit = mobileForm.handleSubmit(async (values) => {
+    if (!acceptedTerms) {
+      setTermsError('Please accept the Terms of Service to continue');
+      return;
+    }
+    setTermsError(null);
     const e164 = normalizeIndianPhone(values.phone);
     setPhone(e164);
     setName(values.name.trim());
@@ -120,6 +131,7 @@ export function SignupPageContent() {
         referralCode,
       });
       applyAuthSession(result.user, result.isNewUser);
+      await recordTermsAcceptance();
       await mergeGuestCartIntoServer(queryClient);
       toast('Account created successfully', 'success');
       router.replace('/onboarding');
@@ -131,6 +143,11 @@ export function SignupPageContent() {
   };
 
   const onEmailSubmit = emailForm.handleSubmit(async (values) => {
+    if (!acceptedTerms) {
+      setTermsError('Please accept the Terms of Service to continue');
+      return;
+    }
+    setTermsError(null);
     try {
       const result = await emailSignup.mutateAsync({
         name: values.name.trim(),
@@ -139,6 +156,7 @@ export function SignupPageContent() {
         referralCode: values.referralCode?.trim() || undefined,
       });
       applyAuthSession(result.user, result.isNewUser);
+      await recordTermsAcceptance();
       await mergeGuestCartIntoServer(queryClient);
       toast('Account created successfully', 'success');
       router.replace('/onboarding');
@@ -200,6 +218,14 @@ export function SignupPageContent() {
             label="Referral Code (optional)"
             placeholder="Enter referral code"
             {...mobileForm.register('referralCode')}
+          />
+          <TermsAcceptance
+            checked={acceptedTerms}
+            onChange={(v) => {
+              setAcceptedTerms(v);
+              if (v) setTermsError(null);
+            }}
+            error={termsError}
           />
           <Button type="submit" fullWidth loading={requestOtp.isPending}>
             Send OTP
@@ -296,6 +322,14 @@ export function SignupPageContent() {
             label="Referral Code (optional)"
             placeholder="Enter referral code"
             {...emailForm.register('referralCode')}
+          />
+          <TermsAcceptance
+            checked={acceptedTerms}
+            onChange={(v) => {
+              setAcceptedTerms(v);
+              if (v) setTermsError(null);
+            }}
+            error={termsError}
           />
           <Button type="submit" fullWidth loading={emailSignup.isPending}>
             Create Account

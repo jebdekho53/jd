@@ -161,8 +161,17 @@ function KycInner() {
             ) : (
               <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
                 <p className="text-sm text-slate-300">
-                  I have read and accept the JebDekho franchise partner agreement, including
-                  the exclusive-territory and commission terms.
+                  I have read and accept the{' '}
+                  <a
+                    href="/agreement"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-emerald-300 underline"
+                  >
+                    Franchise Partner Agreement
+                  </a>
+                  , including the exclusive-territory, revenue-share and termination terms. The
+                  agreement is with UrbanMove Services Private Limited, which operates JebDekho.
                 </p>
                 <button
                   onClick={() => acceptAgreement.mutate()}

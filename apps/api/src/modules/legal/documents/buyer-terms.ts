@@ -185,10 +185,12 @@ export const BUYER_TERMS: LegalDocument = {
     {
       heading: '14. Complaints and grievance redressal',
       body: [
-        `Please contact ${E.contact.support} first — most issues are resolved there quickly.`,
-        `If you are not satisfied, you may escalate to our Grievance Officer, appointed under the ` +
-          `Consumer Protection (E-Commerce) Rules, 2020 and the Information Technology (Intermediary ` +
-          `Guidelines and Digital Media Ethics Code) Rules, 2021:`,
+        `Please raise the issue from your order in the app, or write to ${E.contact.support} — most ` +
+          `issues are resolved there quickly.`,
+        `If you are not satisfied with the outcome, you may escalate to our Grievance Officer, ` +
+          `appointed under the Consumer Protection (E-Commerce) Rules, 2020 and the Information ` +
+          `Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021. Mark your ` +
+          `email "Grievance Officer — escalation" so it is routed to them:`,
         `${E.grievanceOfficer.name}, Grievance Officer, ${E.legalName}, ${registeredOfficeLine()}. ` +
           `Email: ${E.grievanceOfficer.email}. Phone: ${E.grievanceOfficer.phone}.`,
         `We acknowledge every complaint within 48 hours and ordinarily resolve it within 30 days.`,

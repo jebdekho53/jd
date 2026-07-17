@@ -26,7 +26,8 @@ export const LEGAL_ENTITY = {
   gstin: '09AADCU9117A1ZH' as string,
   /** Registered office as filed with the RoC. */
   registeredOffice: {
-    line1: 'C/o Rajesh Kumar Seth, Gung Gali, Mariahu, Mariahun Bazar' as string,
+    line1: 'C/o Rajesh Kumar Seth, Gung Gali, Mariahun Bazar' as string,
+    /** Mariahu is the tehsil, Jaunpur the district — both are part of the address. */
     city: 'Mariahu, Jaunpur' as string,
     state: 'Uttar Pradesh' as string,
     pincode: '222161' as string,
@@ -38,9 +39,9 @@ export const LEGAL_ENTITY = {
    * must be published, and complaints acknowledged within 48 hours.
    */
   grievanceOfficer: {
-    name: PENDING as string,
-    email: PENDING as string,
-    phone: PENDING as string,
+    name: 'Rahul Seth' as string,
+    email: 'support@jebdekho.com' as string,
+    phone: '+91 83760 27897' as string,
   },
   /**
    * Courts with exclusive jurisdiction — the registered office's seat.
