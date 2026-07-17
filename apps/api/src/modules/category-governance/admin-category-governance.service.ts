@@ -39,17 +39,23 @@ export class AdminCategoryGovernanceService {
 
   // ── Global category catalog ───────────────────────────────────────────────
 
+  /**
+   * The whole global taxonomy as a tree of unlimited depth (currently L1→L4).
+   *
+   * Fetched flat and assembled in memory rather than with nested `include`s: an
+   * include has to hard-code one level per depth, which is what previously
+   * stopped L3/L4 from ever reaching admin. The taxonomy is a few hundred rows,
+   * so one query and an O(n) pass is cheaper than the nesting was.
+   *
+   * Unlike the buyer tree this keeps inactive categories — admin has to see a
+   * disabled category to re-enable it.
+   */
   async listGlobalCategories() {
-    return this.prisma.category.findMany({
-      where: { storeId: null, scope: CategoryScope.GLOBAL, deletedAt: null, parentId: null },
-      include: {
-        children: {
-          where: { deletedAt: null },
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
+    const rows = await this.prisma.category.findMany({
+      where: { storeId: null, scope: CategoryScope.GLOBAL, deletedAt: null },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
+    return buildCategoryForest(rows);
   }
 
   async getGlobalCategory(categoryId: string) {
@@ -207,25 +213,38 @@ export class AdminCategoryGovernanceService {
         scope: CategoryScope.GLOBAL,
         deletedAt: null,
       },
-      include: { children: { where: { deletedAt: null }, select: { id: true } } },
     });
     if (!category) throw new NotFoundException('Global category not found');
 
+    // Every descendant, not just direct children: the taxonomy is 4 levels deep,
+    // so stopping at one level would leave grandchildren alive with a deleted
+    // parent — orphans that then surface as bogus roots in the catalog tree.
+    const descendants = await this.prisma.$queryRaw<Array<{ id: string }>>`
+      WITH RECURSIVE subtree AS (
+        SELECT id FROM categories WHERE parent_id = ${categoryId}::uuid AND deleted_at IS NULL
+        UNION ALL
+        SELECT c.id FROM categories c
+        JOIN subtree s ON c.parent_id = s.id
+        WHERE c.deleted_at IS NULL
+      )
+      SELECT id FROM subtree
+    `;
+
     const now = new Date();
-    const idsToDelete = [categoryId, ...category.children.map((c) => c.id)];
+    const descendantIds = descendants.map((d) => d.id);
 
     await this.prisma.category.updateMany({
-      where: { id: { in: idsToDelete } },
+      where: { id: { in: [categoryId, ...descendantIds] } },
       data: { deletedAt: now, isActive: false },
     });
 
     await this.emitCatalogEvent('CATEGORY_DELETED', adminUserId, categoryId, {
       name: category.name,
-      cascadedChildIds: category.children.map((c) => c.id),
+      cascadedChildIds: descendantIds,
     });
     await this.invalidateBuyerCategoryCache();
 
-    return { id: categoryId, deletedAt: now, cascadedCount: category.children.length };
+    return { id: categoryId, deletedAt: now, cascadedCount: descendantIds.length };
   }
 
   // ── Store category request queue ──────────────────────────────────────────
@@ -764,4 +783,26 @@ export class AdminCategoryGovernanceService {
       .trim()
       .slice(0, 60);
   }
+}
+
+type CategoryRow = Awaited<ReturnType<PrismaService['category']['findMany']>>[number];
+type CategoryTreeRow = CategoryRow & { children: CategoryTreeRow[] };
+
+/**
+ * Assemble flat category rows into a forest of arbitrary depth, preserving the
+ * incoming sort order at every level. A row whose parent is absent is surfaced
+ * as a root rather than dropped — a category must never silently vanish from
+ * admin just because its parent row is missing.
+ */
+function buildCategoryForest(rows: CategoryRow[]): CategoryTreeRow[] {
+  const byId = new Map<string, CategoryTreeRow>(rows.map((row) => [row.id, { ...row, children: [] }]));
+  const roots: CategoryTreeRow[] = [];
+
+  for (const node of byId.values()) {
+    const parent = node.parentId ? byId.get(node.parentId) : undefined;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  }
+
+  return roots;
 }

@@ -37,6 +37,7 @@ const mockPrisma = {
   store: { findFirst: jest.fn() },
   product: { groupBy: jest.fn() },
   $transaction: jest.fn(),
+  $queryRaw: jest.fn(),
 };
 
 const mockMerchant = {
@@ -81,6 +82,67 @@ describe('Category Governance', () => {
     mockEvents.emit.mockResolvedValue('e-1');
     mockBlocklist.assertUserNotBlacklisted.mockResolvedValue(undefined);
     mockBlocklist.assertMerchantProfileNotBlacklisted.mockResolvedValue(undefined);
+  });
+
+  describe('global catalog tree', () => {
+    // L1 Food → L2 Biryani → L3 Hyderabadi → L4 Dum. Flat rows in, tree out:
+    // the taxonomy is 4 levels deep and admin has to reach every one of them.
+    const flatRows = [
+      { id: 'l1', name: 'Food', parentId: null, sortOrder: 0, isActive: true },
+      { id: 'l2', name: 'Biryani', parentId: 'l1', sortOrder: 0, isActive: true },
+      { id: 'l3', name: 'Hyderabadi', parentId: 'l2', sortOrder: 0, isActive: true },
+      { id: 'l4', name: 'Dum', parentId: 'l3', sortOrder: 0, isActive: true },
+      { id: 'l1-b', name: 'Grocery', parentId: null, sortOrder: 1, isActive: false },
+    ];
+
+    it('nests all four levels under their roots', async () => {
+      mockPrisma.category.findMany.mockResolvedValue(flatRows);
+
+      const tree = await adminService.listGlobalCategories();
+
+      expect(tree).toHaveLength(2);
+      const food = tree.find((c) => c.id === 'l1')!;
+      expect(food.children.map((c) => c.id)).toEqual(['l2']);
+      expect(food.children[0].children.map((c) => c.id)).toEqual(['l3']);
+      expect(food.children[0].children[0].children.map((c) => c.id)).toEqual(['l4']);
+      expect(food.children[0].children[0].children[0].children).toEqual([]);
+    });
+
+    it('keeps inactive categories so admin can re-enable them', async () => {
+      mockPrisma.category.findMany.mockResolvedValue(flatRows);
+
+      const tree = await adminService.listGlobalCategories();
+
+      expect(tree.map((c) => c.id)).toContain('l1-b');
+      // The query itself must not filter on isActive.
+      expect(mockPrisma.category.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.not.objectContaining({ isActive: expect.anything() }) }),
+      );
+    });
+
+    it('surfaces a row whose parent is missing rather than dropping it', async () => {
+      mockPrisma.category.findMany.mockResolvedValue([
+        { id: 'orphan', name: 'Stray', parentId: 'gone', sortOrder: 0, isActive: true },
+      ]);
+
+      const tree = await adminService.listGlobalCategories();
+
+      expect(tree.map((c) => c.id)).toEqual(['orphan']);
+    });
+
+    it('soft-deletes the whole subtree, not just direct children', async () => {
+      mockPrisma.category.findFirst.mockResolvedValue({ id: 'l1', name: 'Food' });
+      // Recursive CTE returns every descendant, L2 through L4.
+      mockPrisma.$queryRaw.mockResolvedValue([{ id: 'l2' }, { id: 'l3' }, { id: 'l4' }]);
+      mockPrisma.category.updateMany.mockResolvedValue({ count: 4 });
+
+      const res = await adminService.softDeleteGlobalCategory('l1', 'admin-1');
+
+      expect(mockPrisma.category.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: { in: ['l1', 'l2', 'l3', 'l4'] } } }),
+      );
+      expect(res.cascadedCount).toBe(3);
+    });
   });
 
   it('blocks product category when not approved', async () => {
@@ -201,11 +263,8 @@ describe('Category Governance', () => {
   });
 
   it('admin can soft-delete category and cascade children', async () => {
-    mockPrisma.category.findFirst.mockResolvedValue({
-      id: 'cat-1',
-      name: 'Grocery',
-      children: [{ id: 'sub-1' }],
-    });
+    mockPrisma.category.findFirst.mockResolvedValue({ id: 'cat-1', name: 'Grocery' });
+    mockPrisma.$queryRaw.mockResolvedValue([{ id: 'sub-1' }]);
     mockPrisma.category.updateMany.mockResolvedValue({ count: 2 });
 
     const result = await adminService.softDeleteGlobalCategory('cat-1', 'admin-1');

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   createGlobalCategory,
   deleteGlobalCategory,
@@ -29,6 +29,15 @@ export function CatalogManagementContent() {
   const [isActive, setIsActive] = useState(true);
   const [catalogKind, setCatalogKind] = useState<'PRODUCT' | 'MENU'>('PRODUCT');
   const [imageError, setImageError] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
 
   const { data: categories = [], isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'catalog'],
@@ -89,6 +98,15 @@ export function CatalogManagementContent() {
   function closeForm() {
     setFormMode(null);
     setImageError(null);
+  }
+
+  function handleDelete(category: GlobalCategory) {
+    const descendants = countDescendants(category);
+    const warning =
+      descendants > 0
+        ? `Delete "${category.name}" and all ${descendants} categories under it?`
+        : `Delete "${category.name}"?`;
+    if (window.confirm(warning)) deleteMutation.mutate(category.id);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -209,11 +227,7 @@ export function CatalogManagementContent() {
                   size="sm"
                   variant="outline"
                   className="text-red-600 hover:text-red-700"
-                  onClick={() => {
-                    if (window.confirm(`Delete "${parent.name}" and its subcategories?`)) {
-                      deleteMutation.mutate(parent.id);
-                    }
-                  }}
+                  onClick={() => handleDelete(parent)}
                   disabled={deleteMutation.isPending}
                 >
                   <Trash2 className="mr-1 h-3.5 w-3.5" />
@@ -225,40 +239,18 @@ export function CatalogManagementContent() {
             {parent.children.length > 0 && (
               <ul className="divide-y divide-slate-100">
                 {parent.children.map((child) => (
-                  <li key={child.id} className="flex flex-wrap items-center gap-4 px-4 py-3 pl-8">
-                    <CategoryThumb imageUrl={child.imageUrl} name={child.name} size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-slate-800">{child.name}</span>
-                      <Badge tone={child.isActive ? 'success' : 'warning'}>
-                        {child.isActive ? 'Active' : 'Disabled'}
-                      </Badge>
-                      {!child.imageUrl && (
-                        <Badge tone="danger">Missing image</Badge>
-                      )}
-                        <span className="text-xs text-slate-400">Sort {child.sortOrder}</span>
-                      </div>
-                      <p className="text-xs text-slate-500">{child.slug}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(child, parent)}>
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-red-600"
-                        onClick={() => {
-                          if (window.confirm(`Delete sub category "${child.name}"?`)) {
-                            deleteMutation.mutate(child.id);
-                          }
-                        }}
-                        disabled={deleteMutation.isPending}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </li>
+                  <CategoryNode
+                    key={child.id}
+                    node={child}
+                    parent={parent}
+                    depth={2}
+                    expandedIds={expandedIds}
+                    onToggle={toggleExpanded}
+                    onAddChild={openCreateChild}
+                    onEdit={openEdit}
+                    onDelete={handleDelete}
+                    deleting={deleteMutation.isPending}
+                  />
                 ))}
               </ul>
             )}
@@ -365,5 +357,125 @@ function CategoryThumb({
     >
       {name.charAt(0)}
     </div>
+  );
+}
+
+/** Deepest level the taxonomy is designed for (L1 → L4). */
+const MAX_DEPTH = 4;
+
+function countDescendants(category: GlobalCategory): number {
+  return category.children.reduce((total, child) => total + 1 + countDescendants(child), 0);
+}
+
+/**
+ * One category row at any depth below L1, with its subtree collapsed by default —
+ * the taxonomy runs to ~530 categories, so expanding everything at once is
+ * unreadable. L1 is rendered by the page itself as a section header.
+ */
+function CategoryNode({
+  node,
+  parent,
+  depth,
+  expandedIds,
+  onToggle,
+  onAddChild,
+  onEdit,
+  onDelete,
+  deleting,
+}: {
+  node: GlobalCategory;
+  parent: GlobalCategory;
+  depth: number;
+  expandedIds: Set<string>;
+  onToggle: (id: string) => void;
+  onAddChild: (parent: GlobalCategory) => void;
+  onEdit: (category: GlobalCategory, parent?: GlobalCategory) => void;
+  onDelete: (category: GlobalCategory) => void;
+  deleting: boolean;
+}) {
+  const hasChildren = node.children.length > 0;
+  const isExpanded = expandedIds.has(node.id);
+
+  return (
+    <li>
+      <div
+        className="flex flex-wrap items-center gap-3 px-4 py-3"
+        style={{ paddingLeft: `${depth * 1.5}rem` }}
+      >
+        {hasChildren ? (
+          <button
+            type="button"
+            onClick={() => onToggle(node.id)}
+            aria-expanded={isExpanded}
+            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${node.name}`}
+            className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+          >
+            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
+        ) : (
+          <span className="w-5" aria-hidden />
+        )}
+
+        <CategoryThumb imageUrl={node.imageUrl} name={node.name} size="sm" />
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-slate-800">{node.name}</span>
+            <Badge tone="neutral">L{depth}</Badge>
+            <Badge tone={node.isActive ? 'success' : 'warning'}>
+              {node.isActive ? 'Active' : 'Disabled'}
+            </Badge>
+            {!node.imageUrl && <Badge tone="danger">Missing image</Badge>}
+            {hasChildren && (
+              <span className="text-xs text-slate-400">
+                {node.children.length} sub
+              </span>
+            )}
+            <span className="text-xs text-slate-400">Sort {node.sortOrder}</span>
+          </div>
+          <p className="text-xs text-slate-500">{node.slug}</p>
+        </div>
+
+        <div className="flex gap-2">
+          {depth < MAX_DEPTH && (
+            <Button size="sm" variant="ghost" onClick={() => onAddChild(node)}>
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Sub
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => onEdit(node, parent)}>
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-red-600"
+            onClick={() => onDelete(node)}
+            disabled={deleting}
+          >
+            Delete
+          </Button>
+        </div>
+      </div>
+
+      {hasChildren && isExpanded && (
+        <ul className="divide-y divide-slate-100 border-t border-slate-100 bg-slate-50/50">
+          {node.children.map((child) => (
+            <CategoryNode
+              key={child.id}
+              node={child}
+              parent={node}
+              depth={depth + 1}
+              expandedIds={expandedIds}
+              onToggle={onToggle}
+              onAddChild={onAddChild}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              deleting={deleting}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }
