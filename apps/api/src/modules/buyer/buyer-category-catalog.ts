@@ -8,22 +8,27 @@ export type CategoryGrantScope = {
   subcategoryIds: string[];
 };
 
-/** Active global taxonomy rows — same visibility rules as admin catalog. */
-export const ACTIVE_GLOBAL_CATEGORY_WHERE: Prisma.CategoryWhereInput = {
-  parentId: null,
+/** Buyer-visible global taxonomy rows at any level. */
+const ACTIVE_GLOBAL_CATEGORY_SCOPE: Prisma.CategoryWhereInput = {
   isActive: true,
   deletedAt: null,
   storeId: null,
   scope: CategoryScope.GLOBAL,
 };
 
-/** Taxonomy is a single-parent tree capped at 3 levels (root → sub → leaf). */
+/** Active global root rows — same visibility rules as admin catalog. */
+export const ACTIVE_GLOBAL_CATEGORY_WHERE: Prisma.CategoryWhereInput = {
+  ...ACTIVE_GLOBAL_CATEGORY_SCOPE,
+  parentId: null,
+};
+
+/** Taxonomy is a single-parent tree; it currently runs L1 → L4. */
 const CATEGORY_TREE_ORDER: Prisma.CategoryOrderByWithRelationInput[] = [
   { sortOrder: 'asc' },
   { name: 'asc' },
 ];
 
-const grandchildSelect = {
+const categoryNodeSelect = {
   id: true,
   name: true,
   slug: true,
@@ -32,26 +37,10 @@ const grandchildSelect = {
   sortOrder: true,
 } as const;
 
-const categoryInclude = {
-  children: {
-    where: { isActive: true, deletedAt: null },
-    select: {
-      ...grandchildSelect,
-      // Third level (leaf) — required so level-2 category pages can render their children.
-      children: {
-        where: { isActive: true, deletedAt: null },
-        select: grandchildSelect,
-        orderBy: CATEGORY_TREE_ORDER,
-      },
-    },
-    orderBy: CATEGORY_TREE_ORDER,
-  },
-} satisfies Prisma.CategoryInclude;
-
 /**
  * Structural row shape accepted by {@link mapRows}. Grandchildren are optional so the
- * same mapper serves both the full 3-level global tree and the 2-level store-visible
- * tree (which derives children from in-stock products and has no third level).
+ * same mapper serves both the global tree and the 2-level store-visible tree (which
+ * derives children from in-stock products and has no third level).
  */
 type CategoryNodeRow = {
   id: string;
@@ -145,16 +134,44 @@ function mapRows(rows: CategoryRow[]): CategoryItem[] {
   }));
 }
 
-/** Load the full admin-managed global category tree for buyer navigation/filters. */
+/**
+ * Load the full admin-managed global category tree for buyer navigation/filters.
+ *
+ * Fetched flat and nested in memory: a Prisma `include` hard-codes one level per
+ * depth, which silently truncated the tree at L3 and hid every L4 category from
+ * buyers. Assembling it here keeps the depth open-ended.
+ */
 export async function fetchActiveGlobalCategories(
   prisma: PrismaService,
 ): Promise<CategoryItem[]> {
   const rows = await prisma.category.findMany({
-    where: ACTIVE_GLOBAL_CATEGORY_WHERE,
-    include: categoryInclude,
+    where: ACTIVE_GLOBAL_CATEGORY_SCOPE,
+    select: categoryNodeSelect,
     orderBy: CATEGORY_TREE_ORDER,
   });
-  return mapRows(rows);
+  return buildCategoryForest(rows);
+}
+
+/**
+ * Nest flat rows into a forest, preserving the query's ordering at every level.
+ *
+ * A row whose parent is missing from the set is dropped along with its subtree:
+ * the parent was filtered out for being inactive or deleted, so its descendants
+ * must stay hidden from buyers too — never reappear as a root.
+ */
+function buildCategoryForest(rows: CategoryNodeRow[]): CategoryItem[] {
+  const byId = new Map<string, CategoryItem>(rows.map((row) => [row.id, { ...row, children: [] }]));
+  const roots: CategoryItem[] = [];
+
+  for (const node of byId.values()) {
+    if (!node.parentId) {
+      roots.push(node);
+      continue;
+    }
+    byId.get(node.parentId)?.children.push(node);
+  }
+
+  return roots;
 }
 
 /**

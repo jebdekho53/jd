@@ -69,53 +69,46 @@ describe('buyer-category-catalog', () => {
       return { prisma, findMany };
     }
 
-    it('returns a full 3-level tree (root → sub → leaf) with grandchildren populated', async () => {
+    it('nests the full tree, including level 4', async () => {
       const { prisma } = makeTreePrisma([
-        {
-          id: 'health',
-          name: 'Health & Nutrition',
-          slug: 'health-nutrition',
-          imageUrl: null,
-          parentId: null,
-          sortOrder: 3,
-          children: [
-            {
-              id: 'protein',
-              name: 'Protein & Gym Supplements',
-              slug: 'protein-gym-supplements',
-              imageUrl: null,
-              parentId: 'health',
-              sortOrder: 1,
-              children: [
-                { id: 'whey', name: 'Whey Protein', slug: 'whey-protein', imageUrl: null, parentId: 'protein', sortOrder: 1 },
-                { id: 'mass', name: 'Mass Gainer', slug: 'mass-gainer', imageUrl: null, parentId: 'protein', sortOrder: 2 },
-              ],
-            },
-          ],
-        },
+        { id: 'health', name: 'Health & Nutrition', slug: 'health-nutrition', imageUrl: null, parentId: null, sortOrder: 3 },
+        { id: 'protein', name: 'Protein & Gym Supplements', slug: 'protein-gym-supplements', imageUrl: null, parentId: 'health', sortOrder: 1 },
+        { id: 'whey', name: 'Whey Protein', slug: 'whey-protein', imageUrl: null, parentId: 'protein', sortOrder: 1 },
+        { id: 'isolate', name: 'Whey Isolate', slug: 'whey-isolate', imageUrl: null, parentId: 'whey', sortOrder: 1 },
+        { id: 'mass', name: 'Mass Gainer', slug: 'mass-gainer', imageUrl: null, parentId: 'protein', sortOrder: 2 },
       ]);
 
       const result = await fetchActiveGlobalCategories(prisma);
+
       expect(result).toHaveLength(1);
       const sub = result[0].children[0];
       expect(sub.slug).toBe('protein-gym-supplements');
-      // The core fix: level-2 categories now carry their level-3 children.
       expect(sub.children.map((c) => c.slug)).toEqual(['whey-protein', 'mass-gainer']);
+      // The level-4 leaf that a nested `include` used to truncate away.
+      expect(sub.children[0].children.map((c) => c.slug)).toEqual(['whey-isolate']);
+      expect(sub.children[0].children[0].children).toEqual([]);
     });
 
-    it('requests children ordered by sortOrder then name and does not cap the result', async () => {
+    it('hides a subtree whose parent is not buyer-visible', async () => {
+      // The inactive/deleted parent is filtered out by the query, so its child
+      // arrives parentless — it must not resurface as a top-level category.
+      const { prisma } = makeTreePrisma([
+        { id: 'root', name: 'Food', slug: 'food', imageUrl: null, parentId: null, sortOrder: 0 },
+        { id: 'orphan', name: 'Stray', slug: 'stray', imageUrl: null, parentId: 'disabled-parent', sortOrder: 0 },
+        { id: 'orphan-child', name: 'Stray Leaf', slug: 'stray-leaf', imageUrl: null, parentId: 'orphan', sortOrder: 0 },
+      ]);
+
+      const result = await fetchActiveGlobalCategories(prisma);
+
+      expect(result.map((c) => c.slug)).toEqual(['food']);
+    });
+
+    it('orders every level by sortOrder then name and does not cap the result', async () => {
       const { prisma, findMany } = makeTreePrisma([]);
       await fetchActiveGlobalCategories(prisma);
-      const arg = findMany.mock.calls[0][0] as unknown as {
-        orderBy: unknown;
-        include: { children: { orderBy: unknown; select: { children: { orderBy: unknown } } } };
-        take?: number;
-      };
-      const expectedOrder = [{ sortOrder: 'asc' }, { name: 'asc' }];
-      expect(arg.orderBy).toEqual(expectedOrder);
-      expect(arg.include.children.orderBy).toEqual(expectedOrder);
-      expect(arg.include.children.select.children.orderBy).toEqual(expectedOrder);
-      // No arbitrary `.take` limit on children — every active child must be returned.
+      const arg = findMany.mock.calls[0][0] as unknown as { orderBy: unknown; take?: number };
+      // One flat ordered query — ordering carries into every level of the forest.
+      expect(arg.orderBy).toEqual([{ sortOrder: 'asc' }, { name: 'asc' }]);
       expect(arg.take).toBeUndefined();
     });
   });
