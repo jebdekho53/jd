@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { LegalModule } from '../legal/legal.module';
 import { FinanceModule } from '../finance/finance.module';
 import { MerchantDashboardModule } from '../merchant-dashboard/merchant-dashboard.module';
 import { PaymentModule } from '../payment/payment.module';
@@ -25,7 +26,7 @@ import { MerchantFranchiseExpansionController } from './merchant-franchise-expan
 @Module({
   // PaymentModule gives us RazorpayService (Route linked accounts + transfers) —
   // the same rail merchants are already paid on.
-  imports: [FinanceModule, MerchantDashboardModule, PaymentModule, EmailModule, MarketingModule],
+  imports: [LegalModule, FinanceModule, MerchantDashboardModule, PaymentModule, EmailModule, MarketingModule],
   controllers: [
     AdminExpansionController,
     AdminFranchiseAnalyticsController,

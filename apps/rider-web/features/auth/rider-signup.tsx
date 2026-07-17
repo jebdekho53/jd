@@ -2,6 +2,10 @@
 
 import { useState } from 'react';
 import { logout, registerRider, type VehicleType } from '@/lib/api';
+import {
+  RiderAgreementAcceptance,
+  recordRiderAgreementAcceptance,
+} from '@/features/auth/rider-agreement-acceptance';
 
 const VEHICLES: { value: VehicleType; label: string }[] = [
   { value: 'MOTORCYCLE', label: '🏍️ Motorcycle' },
@@ -26,11 +30,16 @@ export function RiderSignup({
   const [licenseNumber, setLicenseNumber] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [acceptedAgreement, setAcceptedAgreement] = useState(false);
 
   const submit = async () => {
     setError(null);
     if (name.trim().length < 2) {
       setError('Enter your full name');
+      return;
+    }
+    if (!acceptedAgreement) {
+      setError('Please accept the Delivery Partner Agreement to continue');
       return;
     }
     setBusy(true);
@@ -41,6 +50,7 @@ export function RiderSignup({
         vehicleNumber: vehicleNumber.trim() || undefined,
         licenseNumber: licenseNumber.trim() || undefined,
       });
+      await recordRiderAgreementAcceptance();
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not submit. Try again.');
@@ -114,6 +124,15 @@ export function RiderSignup({
               </div>
             </>
           )}
+
+          <RiderAgreementAcceptance
+            checked={acceptedAgreement}
+            onChange={(v) => {
+              setAcceptedAgreement(v);
+              if (v) setError(null);
+            }}
+            disabled={busy}
+          />
 
           <button
             onClick={submit}

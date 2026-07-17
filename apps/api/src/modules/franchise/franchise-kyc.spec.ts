@@ -61,7 +61,10 @@ function harness(partner: Record<string, unknown>) {
     documentReviewed: jest.fn(),
     onboardingComplete: jest.fn(),
   } as never;
-  return { svc: new FranchiseKycService(prisma, notifications), update, notifications };
+  // Acceptance evidence is written through LegalService; stub it so these tests
+  // stay about the KYC gate.
+  const legal = { accept: jest.fn().mockResolvedValue(undefined) } as never;
+  return { svc: new FranchiseKycService(prisma, notifications, legal), update, notifications, legal };
 }
 
 describe('assertPayoutAllowed — the payout gate', () => {

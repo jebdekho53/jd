@@ -6,6 +6,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button, Input, PasswordInput } from '@/design-system/primitives';
+import {
+  MerchantAgreementAcceptance,
+  recordMerchantAgreementAcceptance,
+} from '@/features/auth/components/merchant-agreement-acceptance';
 import { useToast } from '@/design-system/primitives';
 import { useEmailLoginMutation, useEmailSignupMutation } from '@/hooks/use-auth';
 import { ApiError } from '@/services/api/merchant-client';
@@ -55,6 +59,8 @@ export function MerchantEmailAuth({
   const emailSignup = useEmailSignupMutation();
   const pending = emailLogin.isPending || emailSignup.isPending;
   const [rememberMe, setRememberMe] = useState(false);
+  const [acceptedAgreement, setAcceptedAgreement] = useState(false);
+  const [agreementError, setAgreementError] = useState<string | null>(null);
 
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -88,12 +94,18 @@ export function MerchantEmailAuth({
   });
 
   const onSignupSubmit = signupForm.handleSubmit(async ({ name, email, password }) => {
+    if (!acceptedAgreement) {
+      setAgreementError('Please accept the Merchant Partner Agreement to continue');
+      return;
+    }
+    setAgreementError(null);
     try {
       const result = await emailSignup.mutateAsync({
         name: name.trim(),
         email: email.trim(),
         password,
       });
+      await recordMerchantAgreementAcceptance();
       await onSuccess(result);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -187,6 +199,14 @@ export function MerchantEmailAuth({
             placeholder="Re-enter password"
             error={signupForm.formState.errors.confirmPassword?.message}
             {...signupForm.register('confirmPassword')}
+          />
+          <MerchantAgreementAcceptance
+            checked={acceptedAgreement}
+            onChange={(v) => {
+              setAcceptedAgreement(v);
+              if (v) setAgreementError(null);
+            }}
+            error={agreementError}
           />
           <Button type="submit" fullWidth loading={pending}>
             {submitLabel ?? 'Create account'}
