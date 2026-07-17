@@ -645,6 +645,7 @@ model User {
   adminSessions           AdminSession[]
   adminLoginAudits        AdminLoginAudit[]
   notifications           Notification[]
+  legalAcceptances        LegalAcceptance[]
   reviews                 Review[]
   productReviews          ProductReview[]
   auditLogs               AuditLog[]
@@ -1010,7 +1011,7 @@ model RiderProfile {
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
 
-  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   deliveries         Delivery[]
   assignments        DeliveryAssignment[]
   locations          RiderLocation[]
@@ -1034,21 +1035,21 @@ model RiderProfile {
 }
 
 model RiderDocument {
-  id             String              @id @default(cuid())
-  riderProfileId String              @map("rider_profile_id")
-  documentType   RiderDocumentType   @map("document_type")
-  fileUrl        String              @map("file_url")
-  status         RiderDocumentStatus @default(SUBMITTED)
-  rejectionReason String?            @map("rejection_reason") @db.Text
-  reviewedBy     String?             @map("reviewed_by")
-  reviewedAt     DateTime?           @map("reviewed_at")
-  createdAt      DateTime            @default(now()) @map("created_at")
-  updatedAt      DateTime            @updatedAt @map("updated_at")
+  id              String              @id @default(cuid())
+  riderProfileId  String              @map("rider_profile_id")
+  documentType    RiderDocumentType   @map("document_type")
+  fileUrl         String              @map("file_url")
+  status          RiderDocumentStatus @default(SUBMITTED)
+  rejectionReason String?             @map("rejection_reason") @db.Text
+  reviewedBy      String?             @map("reviewed_by")
+  reviewedAt      DateTime?           @map("reviewed_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
 
   riderProfile RiderProfile @relation(fields: [riderProfileId], references: [id], onDelete: Cascade)
 
-  @@index([riderProfileId, status])
   @@unique([riderProfileId, documentType])
+  @@index([riderProfileId, status])
   @@map("rider_documents")
 }
 
@@ -1075,17 +1076,17 @@ model RiderShift {
 }
 
 model RiderIncentive {
-  id             String                @id @default(cuid())
-  code           String                @unique
-  title          String
-  description    String?               @db.Text
-  targetDeliveries Int                 @default(0) @map("target_deliveries")
-  rewardAmount   Decimal               @default(0) @map("reward_amount") @db.Decimal(12, 2)
-  startsAt       DateTime              @map("starts_at")
-  endsAt         DateTime              @map("ends_at")
-  status         RiderIncentiveStatus  @default(ACTIVE)
-  createdAt      DateTime              @default(now()) @map("created_at")
-  updatedAt      DateTime              @updatedAt @map("updated_at")
+  id               String               @id @default(cuid())
+  code             String               @unique
+  title            String
+  description      String?              @db.Text
+  targetDeliveries Int                  @default(0) @map("target_deliveries")
+  rewardAmount     Decimal              @default(0) @map("reward_amount") @db.Decimal(12, 2)
+  startsAt         DateTime             @map("starts_at")
+  endsAt           DateTime             @map("ends_at")
+  status           RiderIncentiveStatus @default(ACTIVE)
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
 
   progress RiderIncentiveProgress[]
 
@@ -1094,14 +1095,14 @@ model RiderIncentive {
 }
 
 model RiderIncentiveProgress {
-  id             String   @id @default(cuid())
-  riderProfileId String   @map("rider_profile_id")
-  incentiveId    String   @map("incentive_id")
-  deliveries     Int      @default(0)
-  completed      Boolean  @default(false)
+  id             String    @id @default(cuid())
+  riderProfileId String    @map("rider_profile_id")
+  incentiveId    String    @map("incentive_id")
+  deliveries     Int       @default(0)
+  completed      Boolean   @default(false)
   completedAt    DateTime? @map("completed_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   riderProfile RiderProfile   @relation(fields: [riderProfileId], references: [id], onDelete: Cascade)
   incentive    RiderIncentive @relation(fields: [incentiveId], references: [id], onDelete: Cascade)
@@ -5806,30 +5807,30 @@ model CityLaunchPlan {
 /// A franchise application from the public funnel. Approving one creates the
 /// User + FRANCHISE role + FranchisePartner + FranchiseTerritory.
 model ExpansionLead {
-  id                 String              @id @default(cuid())
-  name               String
-  phone              String
-  email              String?
-  city               String
-  state              String
+  id                   String              @id @default(cuid())
+  name                 String
+  phone                String
+  email                String?
+  city                 String
+  state                String
   /// Territory the applicant is asking for. Fed to TerritoryService.assignTerritory()
   /// on approval, so exclusivity conflict detection runs on the real request.
-  pincodes           String[]
-  investmentCapacity Decimal?            @map("investment_capacity") @db.Decimal(12, 2)
-  status             ExpansionLeadStatus @default(NEW)
-  notes              String?             @db.Text
+  pincodes             String[]
+  investmentCapacity   Decimal?            @map("investment_capacity") @db.Decimal(12, 2)
+  status               ExpansionLeadStatus @default(NEW)
+  notes                String?             @db.Text
   /// Argon2 hash of the password the applicant chose on the public form. Never
   /// plaintext. Only ever copied onto a BRAND-NEW user at approval — never onto an
   /// existing account, or applying with someone else's phone would hijack it.
-  passwordHash       String?             @map("password_hash")
-  reviewedAt         DateTime?           @map("reviewed_at")
-  reviewedBy         String?             @map("reviewed_by")
-  rejectionReason    String?             @map("rejection_reason") @db.Text
+  passwordHash         String?             @map("password_hash")
+  reviewedAt           DateTime?           @map("reviewed_at")
+  reviewedBy           String?             @map("reviewed_by")
+  rejectionReason      String?             @map("rejection_reason") @db.Text
   /// Which partner this lead became. Without it the lead -> partner link is
   /// unrecoverable after the fact.
-  convertedFranchiseId String?           @unique @map("converted_franchise_id")
-  createdAt          DateTime            @default(now()) @map("created_at")
-  updatedAt          DateTime            @updatedAt @map("updated_at")
+  convertedFranchiseId String?             @unique @map("converted_franchise_id")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
 
   convertedFranchise FranchisePartner? @relation(fields: [convertedFranchiseId], references: [id], onDelete: SetNull)
 
@@ -8275,4 +8276,36 @@ model ClaimReplacement {
   claim OrderClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
 
   @@map("claim_replacements")
+}
+
+/// Which legal document a party accepted. One code per portal-facing agreement.
+enum LegalDocumentCode {
+  BUYER_TERMS
+  MERCHANT_AGREEMENT
+  FRANCHISE_AGREEMENT
+  RIDER_AGREEMENT
+  PRIVACY_POLICY
+}
+
+/// Immutable evidence that a user accepted a specific version of a document.
+///
+/// Append-only by design: a row is never updated or deleted, so a re-accepted
+/// document leaves the earlier acceptance intact and the full history is
+/// provable. Legal evidence — treat writes as facts, not state.
+model LegalAcceptance {
+  id         String            @id @default(cuid())
+  userId     String            @map("user_id")
+  code       LegalDocumentCode
+  /// Version string of the document as served at acceptance time (e.g. "v1").
+  version    String
+  /// Captured for evidentiary value under the IT Act — who, when, from where.
+  ipAddress  String?           @map("ip_address")
+  userAgent  String?           @map("user_agent") @db.Text
+  acceptedAt DateTime          @default(now()) @map("accepted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, code])
+  @@index([code, version])
+  @@map("legal_acceptances")
 }

@@ -57,6 +57,7 @@ import { MerchantGrowthModule } from './modules/merchant-growth/merchant-growth.
 import { FulfillmentNetworkModule } from './modules/fulfillment-network/fulfillment-network.module';
 import { ProcurementModule } from './modules/procurement/procurement.module';
 import { FranchiseModule } from './modules/franchise/franchise.module';
+import { LegalModule } from './modules/legal/legal.module';
 import { AICommerceModule } from './modules/ai-commerce/ai-commerce.module';
 import { AiCatalogModule } from './modules/ai-catalog/ai-catalog.module';
 import { FleetOsModule } from './modules/fleet-os/fleet-os.module';
@@ -172,6 +173,7 @@ import { RequestIdInterceptor } from './common/interceptors/request-id.intercept
     FulfillmentNetworkModule,
     ProcurementModule,
     FranchiseModule,
+    LegalModule,
     AICommerceModule,
     // AI Product Cataloging v2 — dormant until the `feature.enabled` flag is on.
     // Registers queues (producer side), services, controllers and WS gateway;
