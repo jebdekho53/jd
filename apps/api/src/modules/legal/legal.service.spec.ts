@@ -4,7 +4,13 @@ import { LegalDocumentCode } from '@prisma/client';
 import { LegalService } from './legal.service';
 import { PrismaService } from '../../database/prisma.service';
 import { LEGAL_DOCUMENTS, REQUIRED_DOCUMENTS } from './legal-documents.registry';
-import { LEGAL_ENTITY, PENDING, pendingLegalFields } from './legal-entity';
+import {
+  CIN_PATTERN,
+  GSTIN_PATTERN,
+  LEGAL_ENTITY,
+  PENDING,
+  pendingLegalFields,
+} from './legal-entity';
 
 const mockPrisma = {
   legalAcceptance: {
@@ -73,18 +79,61 @@ describe('LegalService', () => {
     });
   });
 
-  describe('statutory-detail guard', () => {
-    it('reports every unfilled field', () => {
-      // Fails loudly until the company supplies its real details.
-      expect(pendingLegalFields()).toEqual(
-        expect.arrayContaining(['cin', 'gstin', 'grievanceOfficer.name', 'jurisdictionCity']),
-      );
+  describe('statutory identifiers', () => {
+    it('holds a well-formed CIN and GSTIN', () => {
+      expect(LEGAL_ENTITY.cin).toMatch(CIN_PATTERN);
+      expect(LEGAL_ENTITY.gstin).toMatch(GSTIN_PATTERN);
     });
 
-    it('refuses to serve a document while details are placeholders', () => {
-      expect(() => service.getDocument(LegalDocumentCode.BUYER_TERMS)).toThrow(
-        /Legal entity details are incomplete/,
-      );
+    it('keeps the CIN and GSTIN state consistent with the registered office', () => {
+      // A mismatch here means one of the three was mistyped — they must agree.
+      expect(LEGAL_ENTITY.cin.slice(6, 8)).toBe('UP');
+      expect(LEGAL_ENTITY.gstin.slice(0, 2)).toBe('09'); // 09 = Uttar Pradesh
+      expect(LEGAL_ENTITY.registeredOffice.state).toBe('Uttar Pradesh');
+    });
+
+    it('carries a valid GSTIN checksum', () => {
+      const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const body = LEGAL_ENTITY.gstin.slice(0, 14);
+      let total = 0;
+      for (let i = 0; i < body.length; i += 1) {
+        const value = chars.indexOf(body[i]) * (i % 2 ? 2 : 1);
+        total += Math.floor(value / 36) + (value % 36);
+      }
+      expect(chars[(36 - (total % 36)) % 36]).toBe(LEGAL_ENTITY.gstin[14]);
+    });
+
+    it('sues and is sued where its registered office is', () => {
+      expect(LEGAL_ENTITY.jurisdictionCity).toContain('Jaunpur');
+    });
+  });
+
+  describe('statutory-detail guard', () => {
+    function withPlaceholder<T>(field: 'cin' | 'jurisdictionCity', run: () => T): T {
+      const entity = LEGAL_ENTITY as unknown as Record<string, unknown>;
+      const original = entity[field];
+      entity[field] = PENDING;
+      try {
+        return run();
+      } finally {
+        entity[field] = original;
+      }
+    }
+
+    it('reports an unfilled field', () => {
+      withPlaceholder('cin', () => {
+        expect(pendingLegalFields()).toContain('cin');
+      });
+    });
+
+    it('refuses to serve a document while any detail is a placeholder', () => {
+      // A document quoting a fake CIN is a false statutory disclosure — failing
+      // loudly beats publishing it.
+      withPlaceholder('cin', () => {
+        expect(() => service.getDocument(LegalDocumentCode.BUYER_TERMS)).toThrow(
+          /Legal entity details are incomplete/,
+        );
+      });
     });
   });
 
