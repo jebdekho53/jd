@@ -21,15 +21,15 @@ export const LEGAL_ENTITY = {
   /** Brand/trade name the platform operates under. */
   tradeName: 'JebDekho',
   /** Corporate Identity Number — Companies Act 2013 s.12(3)(c). */
-  cin: PENDING as string,
-  /** GST identification number. */
-  gstin: PENDING as string,
+  cin: 'U49224UP2025PTC229800' as string,
+  /** GST identification number. Stored uppercase — the GSTIN is a canonical identifier. */
+  gstin: '09AADCU9117A1ZH' as string,
   /** Registered office as filed with the RoC. */
   registeredOffice: {
-    line1: PENDING as string,
-    city: PENDING as string,
-    state: PENDING as string,
-    pincode: PENDING as string,
+    line1: 'C/o Rajesh Kumar Seth, Gung Gali, Mariahu, Mariahun Bazar' as string,
+    city: 'Mariahu, Jaunpur' as string,
+    state: 'Uttar Pradesh' as string,
+    pincode: '222161' as string,
     country: 'India',
   },
   /**
@@ -42,8 +42,11 @@ export const LEGAL_ENTITY = {
     email: PENDING as string,
     phone: PENDING as string,
   },
-  /** Courts with exclusive jurisdiction — the registered office's city. */
-  jurisdictionCity: PENDING as string,
+  /**
+   * Courts with exclusive jurisdiction — the registered office's seat.
+   * Mariahu is a tehsil of Jaunpur district, so the district courts are at Jaunpur.
+   */
+  jurisdictionCity: 'Jaunpur, Uttar Pradesh' as string,
   contact: {
     support: 'support@jebdekho.com',
     merchant: 'merchant@jebdekho.com',
@@ -67,6 +70,11 @@ export function partyIntroduction(): string {
     `operating the "${LEGAL_ENTITY.tradeName}" platform`
   );
 }
+
+/** CIN: U/L + 5-digit industry code + 2-letter state + 4-digit year + type + 6-digit number. */
+export const CIN_PATTERN = /^[UL]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$/;
+/** GSTIN: 2-digit state code + 10-char PAN + entity code + 'Z' + checksum. */
+export const GSTIN_PATTERN = /^\d{2}[A-Z]{5}\d{4}[A-Z]\d[Z][0-9A-Z]$/;
 
 /** Every field that is still a placeholder, as dotted paths. */
 export function pendingLegalFields(): string[] {
