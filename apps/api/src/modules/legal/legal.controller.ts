@@ -1,7 +1,19 @@
-import { Body, Controller, Get, Headers, Ip, Param, ParseEnumPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Ip,
+  Param,
+  ParseEnumPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { LegalDocumentCode } from '@prisma/client';
 import { Public } from '../../common/decorators/public.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types';
 import { LegalService } from './legal.service';
@@ -24,6 +36,7 @@ export class LegalController {
     return { success: true, data: this.legal.getDocument(code) };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('pending')
   @ApiOperation({
     summary: 'Documents the signed-in user must accept for a portal',
@@ -35,6 +48,7 @@ export class LegalController {
     return { success: true, data: await this.legal.pendingFor(user.id, valid) };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('accept')
   @ApiOperation({ summary: 'Record acceptance of a legal document version' })
   async accept(
@@ -47,6 +61,7 @@ export class LegalController {
     return { success: true, data };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('acceptances')
   @ApiOperation({ summary: 'The signed-in user\'s own acceptance history' })
   async history(@CurrentUser() user: RequestUser) {
