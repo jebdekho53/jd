@@ -20,10 +20,12 @@ const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 
 const schema = z.object({
   businessName: z.string().min(2, 'Required').max(100),
+  // Optional: a seller under the ₹20 lakh threshold selling only within their own
+  // state does not have to register. Blank is a valid answer, a wrong format is not.
   gstNumber: z
     .string()
-    .transform((v) => v.toUpperCase())
-    .refine((v) => GST_REGEX.test(v), 'Invalid 15-character GSTIN'),
+    .transform((v) => v.toUpperCase().trim())
+    .refine((v) => v === '' || GST_REGEX.test(v), 'Invalid 15-character GSTIN'),
   panNumber: z
     .string()
     .transform((v) => v.toUpperCase())
@@ -102,7 +104,7 @@ export function CreateStoreModal({ open, onClose }: Props) {
     try {
       await upsertProfile({
         businessName: data.businessName,
-        gstNumber: data.gstNumber,
+        gstNumber: data.gstNumber || undefined,
         panNumber: data.panNumber,
       });
 
@@ -177,8 +179,9 @@ export function CreateStoreModal({ open, onClose }: Props) {
           />
           <div className="grid grid-cols-2 gap-3">
             <Input
-              label="GSTIN *"
+              label="GSTIN (optional)"
               placeholder="07AAGCR2206E1ZN"
+              hint="Leave blank if you are not registered — under ₹20 lakh turnover you don't need it"
               error={errors.gstNumber?.message}
               {...register('gstNumber')}
               className="uppercase"

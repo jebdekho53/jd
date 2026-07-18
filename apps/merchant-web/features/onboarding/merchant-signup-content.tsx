@@ -1419,7 +1419,10 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
 
             {!booting && step === 6 && (
               <div className="space-y-4">
-                <StepHeader title="GST & PAN" subtitle="Tax identity and documents" />
+                <StepHeader
+                  title="GST & PAN"
+                  subtitle="PAN is required. GST only if you are registered — under ₹20 lakh turnover you can sell without it."
+                />
                 <div className="flex gap-2">
                   <Input
                     label="GSTIN (optional)"

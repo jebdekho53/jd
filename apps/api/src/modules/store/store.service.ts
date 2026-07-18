@@ -772,7 +772,11 @@ export class StoreService {
     if (!store.bannerUrl?.trim()) errors.push('Store banner image is required');
 
     if (!profile?.businessName?.trim()) errors.push('Business name is required on merchant profile');
-    if (!profile?.gstNumber?.trim()) errors.push('GSTIN is required for billing and tax compliance');
+    // GSTIN is deliberately NOT required. A seller under the s.22 threshold making
+    // only intra-state supplies may sell through an e-commerce operator without
+    // registering (Notification 34/2023), and this platform is hyperlocal — a store
+    // only delivers inside its own radius. PAN stays mandatory: it is required for
+    // that exemption route and for TDS/TCS reporting either way.
     if (!profile?.panNumber?.trim()) errors.push('PAN is required for billing and tax compliance');
 
     if (errors.length > 0) {

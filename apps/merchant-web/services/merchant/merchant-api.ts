@@ -13,7 +13,8 @@ export interface MerchantProfile {
 
 export interface UpsertMerchantProfilePayload {
   businessName: string;
-  gstNumber: string;
+  /** Omitted when the merchant is not GST-registered — that is a valid state. */
+  gstNumber?: string;
   panNumber: string;
 }
 
