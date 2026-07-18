@@ -4,6 +4,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { normalizeDeliveryRadiusKm } from '../../common/utils/geospatial.util';
 import { fetchStoreVisibleCategories, fetchStoresForCategory } from './buyer-category-catalog';
 import { BuyerCacheService, BUYER_CACHE_KEYS } from './buyer-cache.service';
+import { DeliveryEtaService } from './delivery-eta.service';
 import { DiscoverStoresDto } from './dto/discover-stores.dto';
 import {
   canDeliverToBuyer,
@@ -86,7 +87,44 @@ export class BuyerStoreService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: BuyerCacheService,
+    private readonly deliveryEta: DeliveryEtaService,
   ) {}
+
+  /**
+   * Door-to-door delivery ETA from a store to a buyer coordinate, resolved at
+   * checkout. Looks up the store's own location/prep time, then defers the
+   * distance maths (Google routing with a road-adjusted fallback) to
+   * {@link DeliveryEtaService}. Returns null ETA for an unknown/hidden store or
+   * a destination beyond the store's delivery radius.
+   */
+  async getDeliveryEta(storeId: string, buyerLat: number, buyerLng: number) {
+    const store = await this.prisma.store.findFirst({
+      where: { id: storeId, deletedAt: null },
+      select: {
+        id: true,
+        latitude: true,
+        longitude: true,
+        avgPrepTimeMins: true,
+        deliveryRadiusKm: true,
+      },
+    });
+    if (!store) return { etaMinutes: null, distanceKm: null, source: 'unavailable' as const };
+
+    const result = await this.deliveryEta.estimate({
+      storeId: store.id,
+      storeLat: store.latitude,
+      storeLng: store.longitude,
+      buyerLat,
+      buyerLng,
+      avgPrepTimeMins: store.avgPrepTimeMins ?? 15,
+    });
+
+    const radiusKm = normalizeDeliveryRadiusKm(store.deliveryRadiusKm);
+    if (result.distanceKm != null && radiusKm != null && result.distanceKm > radiusKm) {
+      return { etaMinutes: null, distanceKm: result.distanceKm, source: 'unavailable' as const };
+    }
+    return result;
+  }
 
   // ── Discover stores near a coordinate ──────────────────────────────────────
 

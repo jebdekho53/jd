@@ -236,6 +236,25 @@ export class BuyerController {
     return { success: true, data };
   }
 
+  @Get('delivery-eta')
+  @ApiOperation({
+    summary: 'Door-to-door delivery ETA from a store to a buyer coordinate',
+    description: 'Used at checkout. Resolves road distance + traffic via the routing provider, with a road-adjusted fallback.',
+  })
+  async deliveryEta(
+    @Query('storeId') storeId: string,
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+  ) {
+    const buyerLat = Number(lat);
+    const buyerLng = Number(lng);
+    if (!storeId || !Number.isFinite(buyerLat) || !Number.isFinite(buyerLng)) {
+      return { success: true, data: { etaMinutes: null, distanceKm: null, source: 'unavailable' } };
+    }
+    const data = await this.storeService.getDeliveryEta(storeId, buyerLat, buyerLng);
+    return { success: true, data };
+  }
+
   @Patch('profile')
   @Roles('BUYER')
   @UseGuards(JwtAuthGuard, RolesGuard, StepUpGuard)

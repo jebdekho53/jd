@@ -4,6 +4,19 @@ export const DEFAULT_RIDER_SPEED_KMH = 25;
 export const MAX_DELIVERY_DISTANCE_KM = 100;
 export const MAX_REASONABLE_ETA_MINS = 180;
 
+/**
+ * Real road distance is longer than the straight-line (haversine) distance —
+ * roughly 1.4x in dense Indian cities. Applying this keeps a pre-order ETA from
+ * under-promising (a straight-line estimate reads shorter than the actual ride,
+ * and a late delivery is worse than an honest one).
+ */
+export const ROAD_DISTANCE_FACTOR = 1.4;
+
+/** Straight-line km adjusted to an approximate road distance. */
+export function roadDistanceKm(straightLineKm: number): number {
+  return Math.round(straightLineKm * ROAD_DISTANCE_FACTOR * 100) / 100;
+}
+
 const POST_ASSIGNMENT_STATUSES = new Set([
   'RIDER_ASSIGNED',
   'PICKED_UP',

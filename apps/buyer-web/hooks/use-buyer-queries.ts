@@ -12,6 +12,7 @@ import {
   searchProducts,
   searchProductsGrouped,
   unifiedSearch,
+  getDeliveryEta,
 } from '@/services/buyer/buyer-api';
 import type {
   DiscoverStoresParams,
@@ -130,5 +131,15 @@ export function useTrendingSearches(period: '24h' | '7d' | '30d' = '7d', lat?: n
     queryKey: buyerKeys.searchTrending(period, lat, lng),
     queryFn: () => fetchTrendingSearches(period, lat, lng),
     staleTime: 60_000,
+  });
+}
+
+export function useDeliveryEta(storeId?: string, lat?: number | null, lng?: number | null) {
+  const enabled = Boolean(storeId && typeof lat === 'number' && typeof lng === 'number');
+  return useQuery({
+    queryKey: ['buyer', 'delivery-eta', storeId, lat, lng],
+    queryFn: () => getDeliveryEta(storeId!, lat as number, lng as number),
+    enabled,
+    staleTime: 5 * 60 * 1000,
   });
 }

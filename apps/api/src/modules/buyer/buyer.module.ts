@@ -9,6 +9,7 @@ import { BuyerController } from './buyer.controller';
 import { BuyerProductReviewController } from './buyer-product-review.controller';
 import { ProductReviewService } from './product-review.service';
 import { BuyerVisibilityService } from './buyer-visibility.service';
+import { DeliveryEtaService } from './delivery-eta.service';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { BuyerVisibilityService } from './buyer-visibility.service';
     BuyerCacheService,
     BuyerVisibilityService,
     ProductReviewService,
+    DeliveryEtaService,
   ],
   exports: [
     BuyerStoreService,

@@ -274,3 +274,20 @@ export async function searchProductsGrouped(
   });
   return { groups: res.data, total: res.meta?.total ?? res.data.length };
 }
+
+export interface DeliveryEtaResult {
+  etaMinutes: number | null;
+  distanceKm: number | null;
+  source: 'google' | 'estimate' | 'unavailable';
+}
+
+/** Door-to-door ETA from a store to a coordinate. Used on the checkout summary. */
+export async function getDeliveryEta(
+  storeId: string,
+  lat: number,
+  lng: number,
+): Promise<DeliveryEtaResult> {
+  const query = { storeId, lat: String(lat), lng: String(lng) };
+  const res = await apiGetClient<ApiResponse<DeliveryEtaResult>>('/buyer/delivery-eta', query);
+  return res.data;
+}

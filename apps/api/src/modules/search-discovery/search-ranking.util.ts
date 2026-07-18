@@ -10,6 +10,13 @@
  *    5% active offer
  */
 
+import {
+  DEFAULT_RIDER_SPEED_KMH,
+  minutesAtSpeedKm,
+  roadDistanceKm,
+} from '../../common/utils/delivery-eta.util';
+import { trafficSpeedFactor } from '../../common/utils/geospatial.util';
+
 export interface RankingSignals {
   relevance: number;
   distanceKm: number | null;
@@ -108,7 +115,20 @@ export function textRelevanceScore(
   return score;
 }
 
+/**
+ * Pre-order (browse/PDP) ETA = prep time + travel time.
+ *
+ * Travel uses road-adjusted distance and a time-of-day traffic factor rather
+ * than a flat straight-line/20 km/h guess, so the number a buyer sees before
+ * ordering is realistic (and errs on the honest side). This is the cheap
+ * estimate used while browsing; checkout resolves a precise ETA via the routing
+ * provider.
+ */
 export function estimateDeliveryEtaMins(distanceKm: number, avgPrepTimeMins: number): number {
-  const travelMins = Math.round((distanceKm / 20) * 60);
+  const travelMins = minutesAtSpeedKm(
+    roadDistanceKm(distanceKm),
+    DEFAULT_RIDER_SPEED_KMH,
+    trafficSpeedFactor(),
+  );
   return Math.max(10, avgPrepTimeMins + travelMins);
 }
