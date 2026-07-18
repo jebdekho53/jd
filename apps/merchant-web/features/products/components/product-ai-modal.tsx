@@ -19,6 +19,8 @@ import {
 } from '@/services/products/product-creation-api';
 import { AiWalletRechargeModal } from './ai-wallet-recharge-modal';
 import { HsnPicker, type HsnOption } from './hsn-picker';
+import { CategoryCascadeSelect, findCategoryPath } from './category-cascade-select';
+import { PRODUCT_UNITS, normalizeUnit } from '@/features/products/product-units';
 
 const AI_UNAVAILABLE_MSG =
   'AI product add is temporarily unavailable. Manual and CSV upload are still free.';
@@ -86,8 +88,10 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
   const [allowCustomerChangedMind, setAllowCustomerChangedMind] = useState(false);
   const [returnPolicyText, setReturnPolicyText] = useState('');
   const [replacementPolicyText, setReplacementPolicyText] = useState('');
-  const [parentCategoryId, setParentCategoryId] = useState('');
-  const [subCategoryId, setSubCategoryId] = useState('');
+  // The DEEPEST category the merchant picked. The cascade picker walks the tree to
+  // whatever depth it has, so this can be an L3/L4 node — the form used to hold only
+  // parent+sub, which made anything below level 2 unreachable.
+  const [categoryId, setCategoryId] = useState('');
   const [hsn, setHsn] = useState<HsnOption | null>(null);
   const [hsnError, setHsnError] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<AiGeneratedImage[]>([]);
@@ -127,13 +131,12 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
     mutationFn: (publish: boolean) => {
       if (!analysis) throw new Error('No analysis');
       if (!hsn) throw new Error('HSN code is required for every product');
-      const categoryId = subCategoryId || parentCategoryId || undefined;
       return confirmAiProduct(storeId, analysis.id, {
         name,
         brand: brand || undefined,
         sku: sku || undefined,
         description: description || undefined,
-        categoryId,
+        categoryId: categoryId || undefined,
         basePrice: Number(basePrice),
         mrp: mrp ? Number(mrp) : undefined,
         unit,
@@ -236,7 +239,9 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
     setDescription(stringField(data, 'description'));
     setBasePrice(numberField(data, 'basePrice') || numberField(data, 'price'));
     setMrp(numberField(data, 'mrp'));
-    setUnit(stringField(data, 'unit') || 'piece');
+    // Snap the OCR-extracted unit to a canonical option so the dropdown always
+    // shows a valid selection (e.g. "grams" → "g", unknown → "piece").
+    setUnit(normalizeUnit(stringField(data, 'unit')));
     setQuantity(numberField(data, 'quantity') || numberField(data, 'openingStock') || '10');
     setLowStockThreshold(numberField(data, 'lowStockThreshold') || numberField(data, 'lowStockAlert') || '5');
     setTaxCategory((stringField(data, 'taxCategory') as typeof taxCategory) || 'GOODS');
@@ -258,22 +263,11 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
     setAllowCustomerChangedMind(Boolean(fieldValue(data, 'allowCustomerChangedMind') ?? false));
     setReturnPolicyText(stringField(data, 'returnPolicyText'));
     setReplacementPolicyText(stringField(data, 'replacementPolicyText'));
+    // The AI can match a category at ANY depth. The old restore only looked two
+    // levels down, so an L3/L4 match silently left the picker empty.
     const matched = data.categoryMatch?.matchedCategoryId;
-    if (matched && categories) {
-      for (const parent of categories) {
-        if (parent.id === matched) {
-          setParentCategoryId(parent.id);
-          setSubCategoryId('');
-          return;
-        }
-        for (const child of parent.children ?? []) {
-          if (child.id === matched) {
-            setParentCategoryId(parent.id);
-            setSubCategoryId(child.id);
-            return;
-          }
-        }
-      }
+    if (matched && categories && findCategoryPath(categories, matched).length > 0) {
+      setCategoryId(matched);
     }
   };
 
@@ -293,7 +287,6 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
     }
   }, [open]);
 
-  const subcategories = categories?.find((c) => c.id === parentCategoryId)?.children ?? [];
   const categoryWarning = analysis?.categoryMatch?.warning;
   const lowConfidence = analysis?.lowConfidence;
   const supplementBlocked = analysis?.supplementBlocked;
@@ -504,31 +497,21 @@ export function ProductAiModal({ storeId, open, onClose, onReceipt }: Props) {
                   <Input label="MRP (₹)" type="number" value={mrp} onChange={(e) => setMrp(e.target.value)} hint={fieldHint(analysis.fields?.mrp)} />
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  <Input label="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} hint={fieldHint(analysis.fields?.unit)} />
+                  <Select label="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} hint={fieldHint(analysis.fields?.unit)}>
+                    {PRODUCT_UNITS.map((u) => (
+                      <option key={u.value} value={u.value}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </Select>
                   <Input label="Stock" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} hint={fieldHint(analysis.fields?.quantity)} />
                   <Input label="Low stock" type="number" value={lowStockThreshold} onChange={(e) => setLowStockThreshold(e.target.value)} hint={fieldHint(analysis.fields?.lowStockThreshold)} />
                 </div>
-                <Select
-                  label="Category"
-                  value={parentCategoryId}
-                  onChange={(e) => {
-                    setParentCategoryId(e.target.value);
-                    setSubCategoryId('');
-                  }}
-                >
-                  <option value="">Select category</option>
-                  {categories?.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </Select>
-                {subcategories.length > 0 && (
-                  <Select label="Subcategory" value={subCategoryId} onChange={(e) => setSubCategoryId(e.target.value)}>
-                    <option value="">Select subcategory</option>
-                    {subcategories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </Select>
-                )}
+                <CategoryCascadeSelect
+                  categories={categories ?? []}
+                  value={categoryId}
+                  onChange={setCategoryId}
+                />
                 <div className="grid grid-cols-2 gap-2">
                   <Select label="Tax category" value={taxCategory} onChange={(e) => setTaxCategory(e.target.value as typeof taxCategory)} hint={fieldHint(analysis.fields?.taxCategory)}>
                     <option value="GOODS">Goods</option>

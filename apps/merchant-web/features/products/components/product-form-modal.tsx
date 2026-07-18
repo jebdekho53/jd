@@ -14,11 +14,13 @@ import type { Product } from '@/types/product';
 import {
   getProductVisibilityGaps,
   isBrokenProductImageUrl,
-  resolveFormCategory,
+  resolveCategoryFromPath,
   requiresFssaiForCategory,
   pickStoreFssaiLicense,
 } from '../product-visibility.util';
 import { ProductVisibilityNotice } from './product-visibility-notice';
+import { PRODUCT_UNITS, normalizeUnit } from '@/features/products/product-units';
+import { CategoryCascadeSelect, findCategoryPath } from './category-cascade-select';
 import {
   DEFAULT_RETURN_POLICY,
   ProductReturnPolicySection,
@@ -32,9 +34,9 @@ const schema = z.object({
   modelNumber: z.string().max(120).optional(),
   warrantyMonths: z.coerce.number().min(0).max(120).optional(),
   sku: z.string().regex(/^[A-Za-z0-9_-]{2,50}$/).optional().or(z.literal('')),
-  parentCategoryId: z.string().optional(),
-  subCategoryId: z.string().optional(),
-  leafCategoryId: z.string().optional(),
+  // The DEEPEST category chosen. The cascade picker walks the tree to any depth,
+  // so this may be an L3/L4 node — the old parent/sub/leaf trio capped it at 3.
+  categoryId: z.string().optional(),
   basePrice: z.coerce.number().min(0),
   mrp: z.coerce.number().min(0).optional(),
   unit: z.string().optional(),
@@ -53,9 +55,9 @@ const schema = z.object({
 }).refine((d) => !d.mrp || d.basePrice <= d.mrp, {
   message: 'Price must be ≤ MRP',
   path: ['basePrice'],
-}).refine((d) => Boolean(d.parentCategoryId?.trim()), {
+}).refine((d) => Boolean(d.categoryId?.trim()), {
   message: 'Category is required for buyers to find this product',
-  path: ['parentCategoryId'],
+  path: ['categoryId'],
 }).refine((d) => !isBrokenProductImageUrl(d.imageUrl), {
   message: 'Upload a new image — local or HTTP URLs are not visible to buyers',
   path: ['imageUrl'],
@@ -68,33 +70,6 @@ interface Props {
   open: boolean;
   onClose: () => void;
   editProduct?: Product | null;
-}
-
-type CatNode = { id: string; children?: CatNode[] };
-
-function resolveCategoryFields(
-  categoryId: string | null | undefined,
-  categories: CatNode[],
-): { parentCategoryId: string; subCategoryId: string; leafCategoryId: string } {
-  const empty = { parentCategoryId: '', subCategoryId: '', leafCategoryId: '' };
-  if (!categoryId) return empty;
-
-  const asParent = categories.find((c) => c.id === categoryId);
-  if (asParent) return { ...empty, parentCategoryId: categoryId };
-
-  for (const parent of categories) {
-    for (const child of parent.children ?? []) {
-      if (child.id === categoryId) {
-        return { parentCategoryId: parent.id, subCategoryId: child.id, leafCategoryId: '' };
-      }
-      const leaf = child.children?.find((l) => l.id === categoryId);
-      if (leaf) {
-        return { parentCategoryId: parent.id, subCategoryId: child.id, leafCategoryId: leaf.id };
-      }
-    }
-  }
-
-  return empty;
 }
 
 export function ProductFormModal({ storeId, open, onClose, editProduct }: Props) {
@@ -126,29 +101,16 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
     resolver: zodResolver(schema),
   });
 
-  const parentCategoryId = useWatch({ control, name: 'parentCategoryId' }) ?? '';
-  const subCategoryId = useWatch({ control, name: 'subCategoryId' }) ?? '';
-  const leafCategoryId = useWatch({ control, name: 'leafCategoryId' }) ?? '';
+  const categoryId = useWatch({ control, name: 'categoryId' }) ?? '';
 
   const approvedParents = categories ?? [];
 
-  const approvedSubcategories = useMemo(() => {
-    if (!parentCategoryId) return [];
-    return approvedParents.find((c) => c.id === parentCategoryId)?.children ?? [];
-  }, [approvedParents, parentCategoryId]);
-
-  const approvedLeaves = useMemo(() => {
-    if (!subCategoryId) return [];
-    return (
-      (approvedSubcategories.find((c) => c.id === subCategoryId) as { children?: { id: string; name: string }[] } | undefined)
-        ?.children ?? []
-    );
-  }, [approvedSubcategories, subCategoryId]);
-
-  const selectedCategory = useMemo(
-    () => resolveFormCategory(parentCategoryId, subCategoryId, approvedParents),
-    [parentCategoryId, subCategoryId, approvedParents],
+  const categoryPath = useMemo(
+    () => findCategoryPath(approvedParents, categoryId),
+    [approvedParents, categoryId],
   );
+
+  const selectedCategory = useMemo(() => resolveCategoryFromPath(categoryPath), [categoryPath]);
 
   const needsFssai = requiresFssaiForCategory(selectedCategory);
 
@@ -169,28 +131,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
   const imageBroken = Boolean(imageUrl && isBrokenProductImageUrl(imageUrl));
 
   useEffect(() => {
-    if (!parentCategoryId) {
-      setValue('subCategoryId', '');
-      setValue('leafCategoryId', '');
-      return;
-    }
-    if (subCategoryId && !approvedSubcategories.some((c) => c.id === subCategoryId)) {
-      setValue('subCategoryId', '');
-    }
-  }, [parentCategoryId, subCategoryId, approvedSubcategories, setValue]);
-
-  useEffect(() => {
-    if (leafCategoryId && !approvedLeaves.some((c) => c.id === leafCategoryId)) {
-      setValue('leafCategoryId', '');
-    }
-  }, [subCategoryId, leafCategoryId, approvedLeaves, setValue]);
-
-  useEffect(() => {
     if (editProduct) {
-      const { parentCategoryId: parentId, subCategoryId: subId, leafCategoryId: leafId } = resolveCategoryFields(
-        editProduct.categoryId,
-        categories ?? [],
-      );
       setSpecs(Array.isArray(editProduct.specifications) ? editProduct.specifications : []);
       // Load size/colour variants (non-default ones with a size or colour).
       setSizeVariants(
@@ -212,12 +153,10 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         modelNumber: editProduct.modelNumber ?? '',
         warrantyMonths: editProduct.warrantyMonths ?? undefined,
         sku: editProduct.sku ?? '',
-        parentCategoryId: parentId,
-        subCategoryId: subId,
-        leafCategoryId: leafId,
+        categoryId: editProduct.categoryId ?? '',
         basePrice: editProduct.basePrice,
         mrp: editProduct.mrp ?? undefined,
-        unit: editProduct.unit ?? '',
+        unit: normalizeUnit(editProduct.unit),
         quantity: editProduct.variants[0]?.inventory?.availableQty ?? 0,
         lowStockThreshold: editProduct.variants[0]?.inventory?.lowStockThreshold ?? undefined,
         imageUrl: editProduct.imageUrls[0] ?? '',
@@ -284,7 +223,7 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   const onSubmit = async (data: FormData) => {
-    const categoryId = data.leafCategoryId || data.subCategoryId || data.parentCategoryId || undefined;
+    const categoryId = data.categoryId || undefined;
     setHsnError(null);
     setFssaiError(null);
 
@@ -302,22 +241,15 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
       }
     }
 
-    if (data.subCategoryId && data.parentCategoryId) {
-      const validChild = approvedSubcategories.some((c) => c.id === data.subCategoryId);
-      if (!validChild) {
-        toast('Selected sub category is not approved for this store.', 'error');
-        return;
-      }
-    } else if (data.parentCategoryId) {
-      const validParent = approvedParents.some((c) => c.id === data.parentCategoryId);
-      if (!validParent) {
-        toast('Selected category is not approved for this store.', 'error');
-        return;
-      }
+    // The picker only offers approved nodes, but a stale value (e.g. an edited
+    // product whose category was later un-approved) must still be caught.
+    if (categoryId && categoryPath.length === 0) {
+      toast('Selected category is not approved for this store.', 'error');
+      return;
     }
 
     try {
-      const { parentCategoryId: _p, subCategoryId: _s, leafCategoryId: _l, imageUrl, taxInclusive, fssaiLicense, ...rest } = data;
+      const { categoryId: _c, imageUrl, taxInclusive, fssaiLicense, ...rest } = data;
       const resolvedFssai =
         needsFssai ? (fssaiLicense?.trim() || storeDefaultFssai) : fssaiLicense?.trim() || undefined;
       const cleanSpecs = specs
@@ -496,42 +428,13 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
           </div>
         </details>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Select label="Category *" error={errors.parentCategoryId?.message} {...register('parentCategoryId')}>
-            <option value="">Select category</option>
-            {approvedParents.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </Select>
-          <Select
-            label="Sub category"
-            {...register('subCategoryId')}
-            disabled={!parentCategoryId || approvedSubcategories.length === 0}
-          >
-            <option value="">
-              {!parentCategoryId
-                ? 'Select category first'
-                : approvedSubcategories.length === 0
-                  ? 'No sub categories'
-                  : 'Optional — none'}
-            </option>
-            {approvedSubcategories.map((ch) => (
-              <option key={ch.id} value={ch.id}>{ch.name}</option>
-            ))}
-          </Select>
-        </div>
-
-        {approvedLeaves.length > 0 && (
-          <Select
-            label="Exact subcategory"
-            {...register('leafCategoryId')}
-          >
-            <option value="">Optional — the whole sub category</option>
-            {approvedLeaves.map((leaf) => (
-              <option key={leaf.id} value={leaf.id}>{leaf.name}</option>
-            ))}
-          </Select>
-        )}
+        <CategoryCascadeSelect
+          required
+          categories={approvedParents}
+          value={categoryId}
+          error={errors.categoryId?.message}
+          onChange={(id) => setValue('categoryId', id, { shouldValidate: true })}
+        />
         {approvedParents.length === 0 && (
           <p className="text-xs text-amber-700">
             No approved categories. Request access from{' '}
@@ -541,7 +444,13 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <Input label="Price (₹) *" type="number" step="0.01" error={errors.basePrice?.message} {...register('basePrice')} />
           <Input label="MRP (₹)" type="number" step="0.01" {...register('mrp')} />
-          <Input label="Unit" placeholder="kg / piece" {...register('unit')} />
+          <Select label="Unit" {...register('unit')}>
+            {PRODUCT_UNITS.map((u) => (
+              <option key={u.value} value={u.value}>
+                {u.label}
+              </option>
+            ))}
+          </Select>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Input label="Opening stock" type="number" {...register('quantity')} />

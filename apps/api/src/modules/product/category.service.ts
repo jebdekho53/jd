@@ -52,7 +52,8 @@ export class CategoryService {
   }
 
   /**
-   * Build the 3-level tree the merchant can assign products to. Approval is
+   * Build the full-depth tree the merchant can assign products to (4 levels
+   * today, but nothing here caps it). Approval is
    * "by branch": if a store is approved for a category, all of its descendants
    * (sub-subcategories / product types) become usable, and every ancestor is
    * shown so the full path renders in the product form.

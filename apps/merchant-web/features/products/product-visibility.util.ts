@@ -48,27 +48,25 @@ export function isBrokenProductImageUrl(url: string | undefined | null): boolean
 
 export type ProductVisibilityGap = 'image' | 'category' | 'hsn' | 'fssai';
 
-export function resolveFormCategory(
-  parentCategoryId: string,
-  subCategoryId: string,
-  categories: Array<{
-    id: string;
-    name: string;
-    slug: string;
-    children?: Array<{ id: string; name: string; slug: string }>;
-  }>,
+/**
+ * Which node of a chosen category path decides FSSAI/HSN.
+ *
+ * Deepest-first, and the first node that says anything wins: a leaf named
+ * "Protein supplements" must exclude itself even though its "Grocery" root would
+ * have matched, while a leaf like "Namkeen" — which matches neither list — has to
+ * fall back to "Snacks" above it rather than silently dropping the requirement.
+ */
+export function resolveCategoryFromPath(
+  path: Array<{ name: string; slug: string }>,
 ): CategoryRef | null {
-  if (subCategoryId) {
-    for (const parent of categories) {
-      const child = parent.children?.find((c) => c.id === subCategoryId);
-      if (child) return { slug: child.slug, name: child.name };
+  for (let i = path.length - 1; i >= 0; i--) {
+    const ref = { slug: path[i].slug, name: path[i].name };
+    const text = categoryText(ref);
+    if (FSSAI_EXCLUDE_RE.test(text) || FSSAI_CATEGORY_RE.test(text) || HSN_CATEGORY_RE.test(text)) {
+      return ref;
     }
   }
-  if (parentCategoryId) {
-    const parent = categories.find((c) => c.id === parentCategoryId);
-    if (parent) return { slug: parent.slug, name: parent.name };
-  }
-  return null;
+  return path.length > 0 ? { slug: path[path.length - 1].slug, name: path[path.length - 1].name } : null;
 }
 
 export function requiresHsnForCategory(
