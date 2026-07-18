@@ -24,8 +24,10 @@ import {
   Matches,
   IsInt,
   IsNotEmpty,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PRODUCT_UNIT_VALUES } from '../product-units';
 import {
   ClaimApprovalModeEnum,
   ClaimProofRequirementEnum,
@@ -179,10 +181,9 @@ export class CreateProductDto {
   @Min(0)
   mrp?: number;
 
-  @ApiProperty({ required: false, example: 'piece', description: 'Unit (piece, kg, litre, pack…)' })
+  @ApiProperty({ required: false, example: 'piece', enum: PRODUCT_UNIT_VALUES, description: 'Selling unit — one of the canonical product units' })
   @IsOptional()
-  @IsString()
-  @Length(1, 30)
+  @IsIn(PRODUCT_UNIT_VALUES, { message: 'Choose a valid unit' })
   unit?: string;
 
   @ApiProperty({ required: false, example: 500, description: 'Weight in grams' })
