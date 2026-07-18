@@ -35,7 +35,13 @@ function friendlyApiMessage(status: number, message: string, path: string) {
     if (lower.includes('phone') || lower.includes('mobile')) {
       return 'This phone number is already linked to another account.';
     }
-    if (lower.includes('store') || lower.includes('slug') || lower.includes('name')) {
+    // Only claim a store clash on store routes. This used to fire on any 409
+    // mentioning "name", so a duplicate *product* was reported as a duplicate
+    // store — which sent merchants renaming the wrong thing.
+    if (path.includes('/products')) {
+      return message || 'A product with this name or SKU already exists in this store.';
+    }
+    if (lower.includes('store') || lower.includes('slug')) {
       return 'A store with this name already exists. Try adding locality or owner name.';
     }
     if (lower.includes('gst')) return 'This GST number is already linked to another merchant.';

@@ -911,11 +911,15 @@ export class ProductService {
     let counter = 1;
 
     while (true) {
+      // Deliberately NOT filtered by deletedAt: the DB constraint is
+      // @@unique([storeId, slug]) over every row, so a soft-deleted product still
+      // owns its slug. Skipping deleted rows here handed back a slug the insert
+      // then rejected with P2002 — which is why re-adding a product the merchant
+      // had deleted was permanently blocked.
       const existing = await this.prisma.product.findFirst({
         where: {
           storeId,
           slug,
-          deletedAt: null,
           ...(excludeProductId && { id: { not: excludeProductId } }),
         },
       });
