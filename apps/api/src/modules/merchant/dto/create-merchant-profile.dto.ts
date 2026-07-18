@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, Length, Matches } from 'class-validator';
 
 const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
@@ -18,4 +18,14 @@ export class CreateMerchantProfileDto {
   @ApiProperty({ example: 'AAGCR2206E', description: 'PAN — required for billing & compliance' })
   @Matches(PAN_REGEX, { message: 'Invalid PAN number format' })
   panNumber: string;
+
+  /**
+   * The merchant declaring they are not GST-registered. A null gstNumber alone
+   * cannot say whether they answered "no GST" or simply have not filled it in,
+   * which is why the onboarding checklist used to nag them forever.
+   */
+  @ApiPropertyOptional({ description: 'True when the merchant is not GST-registered (under the s.22 threshold)' })
+  @IsOptional()
+  @IsBoolean()
+  gstExempt?: boolean;
 }

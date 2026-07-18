@@ -106,6 +106,7 @@ export function CreateStoreModal({ open, onClose }: Props) {
         businessName: data.businessName,
         gstNumber: data.gstNumber || undefined,
         panNumber: data.panNumber,
+        gstExempt: !data.gstNumber,
       });
 
       const store = await createStore({

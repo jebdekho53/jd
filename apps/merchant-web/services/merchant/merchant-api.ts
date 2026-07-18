@@ -16,6 +16,8 @@ export interface UpsertMerchantProfilePayload {
   /** Omitted when the merchant is not GST-registered — that is a valid state. */
   gstNumber?: string;
   panNumber: string;
+  /** The merchant declaring they are not registered, rather than leaving it blank. */
+  gstExempt?: boolean;
 }
 
 export async function getMerchantProfile(): Promise<MerchantProfile> {

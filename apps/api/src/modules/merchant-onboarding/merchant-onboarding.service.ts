@@ -958,7 +958,14 @@ export class MerchantOnboardingService {
         label: 'Configure Delivery Radius',
         done: store.deliveryRadiusKm > 0,
       },
-      { key: 'gst', label: 'Configure GST', done: Boolean(profile?.gstNumber) },
+      {
+        key: 'gst',
+        label: 'Configure GST',
+        // Declaring "not registered" completes this step. Requiring a GSTIN kept
+        // merchants under the ₹20 lakh threshold — who are not required to
+        // register — permanently short of 100%.
+        done: Boolean(profile?.gstNumber) || Boolean(profile?.gstExemptDeclaredAt),
+      },
       { key: 'hours', label: 'Configure Store Hours', done: true },
       { key: 'campaign', label: 'Create First Campaign', done: false },
     ];

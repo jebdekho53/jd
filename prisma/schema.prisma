@@ -814,6 +814,10 @@ model MerchantProfile {
   userId                  String    @unique @map("user_id")
   businessName            String    @map("business_name")
   gstNumber               String?   @map("gst_number")
+  /// Set when the merchant declares they are NOT GST-registered (under the s.22
+  /// threshold). Distinguishes "answered: no GST" from "not filled in yet" —
+  /// null gstNumber alone cannot tell those apart.
+  gstExemptDeclaredAt     DateTime? @map("gst_exempt_declared_at")
   panNumber               String?   @map("pan_number")
   /// Razorpay Route Linked Account id (acc_xxx) — destination for automated
   /// commission-net payout transfers. Null until the merchant is linked.

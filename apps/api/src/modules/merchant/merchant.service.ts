@@ -121,6 +121,7 @@ export class MerchantService {
           businessName: dto.businessName,
           gstNumber: dto.gstNumber,
           panNumber: dto.panNumber,
+          gstExemptDeclaredAt: dto.gstExempt ? new Date() : null,
           kycStatus: KycStatus.PENDING,
         },
       });
@@ -206,6 +207,10 @@ export class MerchantService {
         ...(dto.businessName !== undefined && { businessName: dto.businessName }),
         ...(dto.gstNumber !== undefined && { gstNumber: dto.gstNumber }),
         ...(dto.panNumber !== undefined && { panNumber: dto.panNumber }),
+        // The two answers are mutually exclusive: supplying a GSTIN withdraws the
+        // exemption declaration, and declaring exemption clears the GSTIN.
+        ...(dto.gstExempt === true && { gstExemptDeclaredAt: new Date(), gstNumber: null }),
+        ...(dto.gstNumber ? { gstExemptDeclaredAt: null } : {}),
       },
     });
 
