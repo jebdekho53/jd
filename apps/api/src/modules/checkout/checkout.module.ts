@@ -16,9 +16,11 @@ import { CorporateModule } from '../corporate/corporate.module';
 import { LocationDirectoryModule } from '../location-directory/location-directory.module';
 import { PushModule } from '../push/push.module';
 import { LogisticsModule } from '../logistics/logistics.module';
+import { LegalModule } from '../legal/legal.module';
 
 @Module({
   imports: [
+    LegalModule,
     CartModule,
     InventoryModule,
     PromotionModule,

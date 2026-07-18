@@ -27,9 +27,11 @@ import { BuyerModule } from '../buyer/buyer.module';
 import { CategoryGovernanceModule } from '../category-governance/category-governance.module';
 import { StoreVerticalModule } from '../store-vertical/store-vertical.module';
 import { FinanceModule } from '../finance/finance.module';
+import { LegalModule } from '../legal/legal.module';
 
 @Module({
   imports: [
+    LegalModule,
     GeospatialModule,
     LogisticsModule,
     OrderTimelineModule,

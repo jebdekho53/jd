@@ -17,7 +17,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, LegalDocumentCode } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
@@ -25,6 +25,8 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { RequestUser } from '../../common/types/index';
+import { LegalAcceptanceGuard } from '../legal/legal-acceptance.guard';
+import { RequireLegalAcceptance } from '../legal/require-legal-acceptance.decorator';
 import { OrderService } from './order.service';
 import { ListMerchantOrdersDto } from './dto/list-orders.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
@@ -32,7 +34,7 @@ import { MarkOrderIssueDto } from './dto/mark-issue.dto';
 
 @ApiTags('merchant / orders')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, LegalAcceptanceGuard)
 @Roles('MERCHANT')
 @Controller('merchant/orders')
 export class MerchantOrderController {
@@ -84,6 +86,7 @@ export class MerchantOrderController {
 
   @Patch(':orderId/confirm')
   @Permissions('orders:update_status')
+  @RequireLegalAcceptance(LegalDocumentCode.MERCHANT_AGREEMENT)
   @HttpCode(HttpStatus.OK)
   @ApiParam({ name: 'orderId' })
   @ApiOperation({

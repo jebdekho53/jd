@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { BRAND_ICONS } from '@/lib/brand';
 import { Providers } from './providers';
+import { LegalReacceptGate } from '@/features/legal/legal-reaccept-gate';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -23,7 +24,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="bg-slate-100 text-slate-900 antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          <LegalReacceptGate portal="rider" agreementHref="/agreement">
+            {children}
+          </LegalReacceptGate>
+        </Providers>
       </body>
     </html>
   );

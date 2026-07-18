@@ -24,6 +24,9 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { RequestUser } from '../../common/types/index';
+import { LegalDocumentCode } from '@prisma/client';
+import { LegalAcceptanceGuard } from '../legal/legal-acceptance.guard';
+import { RequireLegalAcceptance } from '../legal/require-legal-acceptance.decorator';
 import { DeliveryService } from './delivery.service';
 import { RiderLocationService } from './rider-location.service';
 import { RiderAssignmentService } from '../rider-assignment/rider-assignment.service';
@@ -37,7 +40,7 @@ import { MarkNotificationReadDto, SaveRiderDocumentDto, ShiftLocationDto } from 
 
 @ApiTags('rider')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, LegalAcceptanceGuard)
 @Roles('RIDER')
 @Controller('rider')
 export class RiderController {
@@ -156,6 +159,7 @@ export class RiderController {
 
   @Patch('orders/:orderId/accept')
   @Permissions('deliveries:update')
+  @RequireLegalAcceptance(LegalDocumentCode.RIDER_AGREEMENT)
   @HttpCode(HttpStatus.OK)
   @ApiParam({ name: 'orderId' })
   @ApiOperation({ summary: 'Accept delivery (ASSIGNED → ACCEPTED)' })

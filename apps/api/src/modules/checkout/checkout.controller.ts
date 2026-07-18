@@ -17,6 +17,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { LegalDocumentCode } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { StepUpGuard } from '../../common/guards/step-up.guard';
@@ -24,12 +25,14 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequireStepUp } from '../../common/decorators/require-step-up.decorator';
 import { RequestUser } from '../../common/types';
+import { LegalAcceptanceGuard } from '../legal/legal-acceptance.guard';
+import { RequireLegalAcceptance } from '../legal/require-legal-acceptance.decorator';
 import { CheckoutService } from './checkout.service';
 import { InitiateCheckoutDto } from './dto/initiate-checkout.dto';
 
 @ApiTags('checkout')
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard, StepUpGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, StepUpGuard, LegalAcceptanceGuard)
 @Roles('BUYER')
 @Controller('buyer/checkout')
 export class CheckoutController {
@@ -37,6 +40,7 @@ export class CheckoutController {
 
   @Post()
   @RequireStepUp()
+  @RequireLegalAcceptance(LegalDocumentCode.BUYER_TERMS)
   @HttpCode(HttpStatus.CREATED)
   @ApiHeader({
     name: 'Idempotency-Key',
@@ -63,6 +67,7 @@ export class CheckoutController {
 
   @Post('cod')
   @RequireStepUp()
+  @RequireLegalAcceptance(LegalDocumentCode.BUYER_TERMS)
   @HttpCode(HttpStatus.CREATED)
   @ApiHeader({
     name: 'Idempotency-Key',

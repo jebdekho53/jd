@@ -142,10 +142,18 @@ export class FranchiseKycService {
     );
     const missing = REQUIRED_DOCUMENT_TYPES.filter((t) => !verified.has(t));
 
+    // Version-aware: accepting an older version no longer counts once the
+    // agreement is bumped, so a partner must re-accept the current terms before
+    // any further payout.
+    const agreementCurrent =
+      Boolean(fp.agreementAcceptedAt) && fp.agreementVersion === FRANCHISE_AGREEMENT_VERSION;
+
     return {
       agreementAccepted: Boolean(fp.agreementAcceptedAt),
       agreementVersion: fp.agreementVersion,
       agreementCurrentVersion: FRANCHISE_AGREEMENT_VERSION,
+      /** True only when the CURRENT agreement version is accepted. */
+      agreementCurrent,
       bankVerified: Boolean(fp.bankAccount?.verified),
       panVerified: verified.has(FranchiseDocumentType.PAN_CARD),
       requiredDocuments: REQUIRED_DOCUMENT_TYPES,
@@ -154,7 +162,7 @@ export class FranchiseKycService {
       onboardingCompleted: fp.onboardingCompleted,
       /** Until this is true, no payout can be sent. */
       payoutReady:
-        Boolean(fp.agreementAcceptedAt) &&
+        agreementCurrent &&
         Boolean(fp.bankAccount?.verified) &&
         verified.has(FranchiseDocumentType.PAN_CARD),
     };
@@ -255,7 +263,13 @@ export class FranchiseKycService {
     const status = await this.getKycStatus(franchiseId);
 
     const blockers: string[] = [];
-    if (!status.agreementAccepted) blockers.push('the franchise agreement has not been accepted');
+    if (!status.agreementCurrent) {
+      blockers.push(
+        status.agreementAccepted
+          ? 'the current franchise agreement has not been accepted'
+          : 'the franchise agreement has not been accepted',
+      );
+    }
     if (!status.panVerified) blockers.push('the PAN card is not verified');
     if (!status.bankVerified) blockers.push('the bank account is not verified');
 
