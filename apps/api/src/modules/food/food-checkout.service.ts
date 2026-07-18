@@ -327,6 +327,7 @@ export class FoodCheckoutService {
         deliveryFee: snapshot.totals.deliveryFee,
         taxAmount: snapshot.totals.tax,
         totalAmount: snapshot.totalAmount,
+        tipAmount: snapshot.tipAmount,
         paymentMethod: PaymentMethod.RAZORPAY,
       })
       .catch((err) => this.logger.warn(`Food financial freeze failed: ${(err as Error).message}`));
@@ -425,6 +426,7 @@ export class FoodCheckoutService {
         deliveryFee: cart.totals.deliveryFee,
         taxAmount: cart.totals.tax,
         totalAmount,
+        tipAmount,
         paymentMethod: PaymentMethod.COD,
       })
       .catch((err) => this.logger.warn(`Food financial freeze failed: ${(err as Error).message}`));

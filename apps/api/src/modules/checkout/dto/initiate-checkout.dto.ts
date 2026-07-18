@@ -8,6 +8,7 @@ import {
   IsString,
   Length,
   Min,
+  Max,
   ValidateNested,
 } from 'class-validator';
 import { PayerContactDto } from './payer-contact.dto';
@@ -82,6 +83,13 @@ export class InitiateCheckoutDto {
   @IsOptional()
   @Type(() => Number)
   rewardPointsToRedeem?: number;
+
+  @ApiProperty({ required: false, example: 20, description: 'Optional tip for the delivery rider (paid to the rider in full)' })
+  @IsOptional()
+  @Type(() => Number)
+  @Min(0)
+  @Max(1000)
+  tipAmount?: number;
 
   @ApiProperty({ required: false })
   @IsOptional()

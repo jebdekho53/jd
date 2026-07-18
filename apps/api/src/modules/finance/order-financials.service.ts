@@ -26,6 +26,9 @@ export interface FreezeOrderInput {
    *  ledger so it always matches what is collected, regardless of inclusive/exclusive
    *  GST or catalog savings baked into the discount. */
   totalAmount?: number;
+  /** Buyer's tip for the rider. Paid out to the rider in full — never subject to
+   *  platform commission or GST (both are computed on subtotal, not this). */
+  tipAmount?: number;
   paymentMethod: PaymentMethod;
 }
 
@@ -71,7 +74,11 @@ export class OrderFinancialsService {
     // the rider from that pool. Self-delivery contributes neither (merchant delivers).
     const deliveryCollected = roundMoney(deliveryFee + merchantDeliveryContribution);
     const platformEarnings = roundMoney(commissionAmount + deliveryCollected);
-    const riderPayout = this.estimateRiderPayout(deliveryCollected);
+    // The rider earns the delivery-fee-based payout PLUS the buyer's full tip.
+    // The tip is pass-through — it is not in deliveryCollected, so it never
+    // inflates platform earnings, commission, or GST.
+    const tipAmount = roundMoney(input.tipAmount ?? 0);
+    const riderPayout = roundMoney(this.estimateRiderPayout(deliveryCollected) + tipAmount);
 
     const offerSubsidy = input.offerSubsidy ?? input.discountAmount * 0.5;
     const merchantContribution = input.merchantContribution ?? offerSubsidy * 0.6;

@@ -136,6 +136,7 @@ export class CheckoutService {
       appliedCouponCode: cart.appliedCouponCode,
       corporatePurchaseRequestId: dto.corporatePurchaseRequestId,
       payerContact: dto.payerContact,
+      tipAmount: dto.tipAmount ?? 0,
     });
 
     const address = dto.deliveryAddress;
@@ -148,7 +149,7 @@ export class CheckoutService {
           storeId: cart.storeId,
           status: CheckoutStatus.INITIATED,
           cartSnapshot: cartSnap,
-          totalAmount: cart.totals.grandTotal,
+          totalAmount: cart.totals.grandTotal + (dto.tipAmount ?? 0),
           deliveryAddress: {
             line1: address.line1,
             line2: address.line2,
@@ -199,6 +200,7 @@ export class CheckoutService {
         rewardPointsToRedeem: dto.rewardPointsToRedeem,
         referralCode: dto.referralCode,
         deviceFingerprint: dto.deviceFingerprint,
+        tipAmount: dto.tipAmount,
       },
     );
 
@@ -361,6 +363,7 @@ export class CheckoutService {
         referralCode: dto.referralCode,
         deviceFingerprint: dto.deviceFingerprint,
         corporatePurchaseRequestId: dto.corporatePurchaseRequestId,
+        tipAmount: dto.tipAmount,
       },
     );
 
@@ -485,6 +488,7 @@ export class CheckoutService {
       checkout.deliveryAddress as any,
       checkout.buyerNote ?? undefined,
       paymentMethod,
+      { tipAmount: typeof snap?.tipAmount === 'number' ? snap.tipAmount : 0 },
     );
 
     await this.reservation.linkReservationsToOrder(checkoutId, order.id);
@@ -533,8 +537,12 @@ export class CheckoutService {
       referralCode?: string;
       deviceFingerprint?: string;
       corporatePurchaseRequestId?: string;
+      /** Buyer's tip for the rider. Added on top of the order total (paid via the
+       *  same method) and paid out to the rider in full — see OrderFinancials. */
+      tipAmount?: number;
     },
   ) {
+    const tipAmount = Math.max(0, Math.round((walletOpts?.tipAmount ?? 0) * 100) / 100);
     // Guard the delivery coordinates before persisting. Silently falling back to
     // 0,0 would drop the pin in the Gulf of Guinea and break rider routing/ETA,
     // so reject an order that reached here without a valid location instead.
@@ -589,7 +597,9 @@ export class CheckoutService {
     const pmBase = paymentMethodInput === PaymentMethod.COD ? 'COD' : 'RAZORPAY';
     const paymentPlan = await this.walletCheckout.computeCheckoutPayment({
       buyerProfileId,
-      grandTotal: totals.grandTotal,
+      // Tip rides on top of the order total — the buyer pays it via the same
+      // method, so it must be inside the amount the payment plan collects.
+      grandTotal: totals.grandTotal + tipAmount,
       walletAmountToUse: walletOpts?.walletAmountToUse,
       rewardPointsToRedeem: walletOpts?.rewardPointsToRedeem,
       paymentMethod: pmBase,
@@ -640,6 +650,7 @@ export class CheckoutService {
           deliveryMode: deliveryPricing.deliveryMode,
           merchantDeliveryContribution: deliveryPricing.merchantDeliveryContribution,
           taxAmount: totals.tax ?? 0,
+          tipAmount,
           totalAmount: paymentPlan.amountDue,
           walletAmountUsed: paymentPlan.walletAmountUsed,
           rewardPointsUsed: paymentPlan.rewardPointsUsed,
@@ -729,7 +740,8 @@ export class CheckoutService {
           deliveryFee: totals.deliveryFee ?? 0,
           merchantDeliveryContribution: deliveryPricing.merchantDeliveryContribution,
           taxAmount: totals.tax ?? 0,
-          totalAmount: totals.grandTotal,
+          totalAmount: totals.grandTotal + tipAmount,
+          tipAmount,
           paymentMethod: order.paymentMethod,
         })
         .catch((err) => this.logger.warn(`Financial freeze failed: ${(err as Error).message}`));
