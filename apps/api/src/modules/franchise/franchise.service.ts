@@ -34,7 +34,7 @@ export class FranchiseService {
   async getProfile(franchiseId: string) {
     const fp = await this.prisma.franchisePartner.findUnique({
       where: { id: franchiseId },
-      select: { businessName: true, address: true, photoUrl: true, city: { select: { name: true } } },
+      select: { businessName: true, address: true, photoUrl: true, gstin: true, city: { select: { name: true } } },
     });
     if (!fp) throw new NotFoundException('Franchise not found');
     const cfg = getConfig(this.config);
@@ -43,15 +43,23 @@ export class FranchiseService {
       city: fp.city?.name ?? null,
       address: fp.address,
       photoUrl: resolvePublicAssetUrl(cfg.storage, fp.photoUrl),
+      gstin: fp.gstin,
+      /** No GSTIN means not registered — they charge no GST and we add none. */
+      gstRegistered: Boolean(fp.gstin),
     };
   }
 
-  async saveProfile(franchiseId: string, data: { address?: string; photoUrl?: string }) {
+  async saveProfile(franchiseId: string, data: { address?: string; photoUrl?: string; gstin?: string }) {
     await this.prisma.franchisePartner.update({
       where: { id: franchiseId },
       data: {
         ...(data.address !== undefined ? { address: data.address.trim() || null } : {}),
         ...(data.photoUrl !== undefined ? { photoUrl: data.photoUrl.trim() || null } : {}),
+        // Blank clears it: that is the partner declaring they are not registered,
+        // which is what makes computeFranchiseTax charge them 0% GST.
+        ...(data.gstin !== undefined
+          ? { gstin: data.gstin.trim().toUpperCase() || null }
+          : {}),
       },
     });
     return this.getProfile(franchiseId);

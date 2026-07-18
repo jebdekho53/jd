@@ -142,6 +142,16 @@ export function ApplyForm() {
         onChange={set('notes')}
       />
 
+      {/* Said up front because applicants without a GSTIN assume they are not
+          eligible and never submit. Registration is optional below the s.22
+          threshold, and we pay unregistered partners without GST. */}
+      <p className="rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-400">
+        No GST number? You can still apply. Registration is only required above
+        ₹20 lakh turnover (₹10 lakh in special-category states) — we pay
+        unregistered partners without GST. You can add a GSTIN later from the
+        partner portal if you register.
+      </p>
+
       {error && <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
 
       <button

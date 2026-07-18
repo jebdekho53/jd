@@ -144,6 +144,9 @@ export class FranchiseKycService {
 
     return {
       agreementAccepted: Boolean(fp.agreementAcceptedAt),
+      /** Optional by law below the s.22 threshold — never a payout blocker. */
+      gstin: fp.gstin,
+      gstRegistered: Boolean(fp.gstin),
       agreementVersion: fp.agreementVersion,
       agreementCurrentVersion: FRANCHISE_AGREEMENT_VERSION,
       bankVerified: Boolean(fp.bankAccount?.verified),

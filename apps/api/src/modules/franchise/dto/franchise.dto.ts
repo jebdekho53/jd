@@ -288,4 +288,20 @@ export class SaveFranchiseProfileDto {
   @IsString()
   @Length(0, 500)
   photoUrl?: string;
+
+  /**
+   * GSTIN, or an empty string to declare "not GST-registered".
+   *
+   * Registration is optional by design: a partner under the s.22 threshold
+   * (₹20 lakh turnover, ₹10 lakh in special-category states) is not required to
+   * register, and must not charge GST. An empty value is a real answer here, not
+   * a missing one — it drives 0% GST on their payout.
+   */
+  @ApiProperty({ required: false, example: '09AAACH7409R1ZZ' })
+  @IsOptional()
+  @IsString()
+  @Matches(/^$|^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, {
+    message: 'Enter a valid 15-character GSTIN, or leave it blank if you are not registered',
+  })
+  gstin?: string;
 }

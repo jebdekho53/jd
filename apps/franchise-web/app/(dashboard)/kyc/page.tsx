@@ -24,6 +24,8 @@ interface Doc {
 
 interface KycStatus {
   agreementAccepted: boolean;
+  gstin?: string | null;
+  gstRegistered: boolean;
   bankVerified: boolean;
   panVerified: boolean;
   requiredDocuments: DocumentType[];
@@ -97,6 +99,20 @@ function KycInner() {
       setUploading(null);
       await queryClient.invalidateQueries({ queryKey: ['franchise', 'kyc'] });
     },
+  });
+
+  const saveGstin = useMutation({
+    mutationFn: async (gstin: string) => {
+      const res = await fetch('/api/franchise/profile', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ gstin }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? 'Could not save your GST details');
+      return json.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['franchise', 'kyc'] }),
   });
 
   const acceptAgreement = useMutation({
@@ -190,9 +206,25 @@ function KycInner() {
           </section>
 
           <section>
+            <h2 className="mb-1 text-sm font-semibold text-slate-200">GST</h2>
+            <p className="mb-3 text-xs text-slate-500">
+              Optional. If your turnover is under ₹20 lakh you are not required to
+              register, and we simply pay you without GST — it does not hold up
+              anything.
+            </p>
+            <GstSection
+              gstin={kyc.gstin ?? null}
+              saving={saveGstin.isPending}
+              error={saveGstin.isError ? (saveGstin.error as Error).message : null}
+              onSave={(value) => saveGstin.mutate(value)}
+            />
+          </section>
+
+          <section>
             <h2 className="mb-1 text-sm font-semibold text-slate-200">Documents</h2>
             <p className="mb-3 text-xs text-slate-500">
-              PDF or photo, up to 8 MB. PAN and cancelled cheque are required.
+              PDF or photo, up to 8 MB. PAN and cancelled cheque are required. The
+              GST certificate is only for registered partners.
             </p>
 
             {error && (
@@ -214,6 +246,72 @@ function KycInner() {
           </section>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * GST is a declaration, not a document gate. "Not registered" is a real answer —
+ * it is what makes us pay the partner without adding GST — so it gets its own
+ * choice rather than being an empty box the partner assumes is incomplete.
+ */
+function GstSection({
+  gstin,
+  saving,
+  error,
+  onSave,
+}: {
+  gstin: string | null;
+  saving: boolean;
+  error: string | null;
+  onSave: (gstin: string) => void;
+}) {
+  const [registered, setRegistered] = useState(Boolean(gstin));
+  const [value, setValue] = useState(gstin ?? '');
+
+  return (
+    <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900 p-4">
+      <div className="flex flex-wrap gap-4 text-sm text-slate-300">
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            checked={!registered}
+            onChange={() => setRegistered(false)}
+          />
+          I don&apos;t have GST (turnover under ₹20 lakh)
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="radio" checked={registered} onChange={() => setRegistered(true)} />
+          I am GST-registered
+        </label>
+      </div>
+
+      {registered && (
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value.toUpperCase())}
+          placeholder="15-character GSTIN"
+          maxLength={15}
+          className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none"
+        />
+      )}
+
+      {error && <p className="text-xs text-red-300">{error}</p>}
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => onSave(registered ? value.trim() : '')}
+          disabled={saving || (registered && value.trim().length !== 15)}
+          className="rounded-lg bg-emerald-400 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-300 disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        {gstin && !saving && (
+          <span className="flex items-center gap-1 text-xs text-emerald-300">
+            <CheckCircle2 className="h-3.5 w-3.5" /> {gstin}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
