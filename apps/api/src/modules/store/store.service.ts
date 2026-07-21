@@ -766,7 +766,15 @@ export class StoreService {
     if (!store.latitude || !store.longitude) errors.push('Store location (lat/lng) is required');
     if (!store.phone?.trim()) errors.push('Store phone is required');
     if (!store.email?.trim()) errors.push('Store email is required for billing');
-    if (!store.storeZones?.length) errors.push('At least one delivery zone must be assigned');
+    // Delivery coverage in this hyperlocal model is the store's own delivery
+    // radius (set during onboarding, defaults to 5 km); linked zones/service
+    // areas are optional extras. Requiring a legacy StoreZone here blocked every
+    // wizard-onboarded merchant, none of whom get a StoreZone created.
+    const hasCoverage =
+      (store.deliveryRadiusKm ?? 0) > 0 ||
+      (store.storeZones?.length ?? 0) > 0 ||
+      (store.storeServiceAreas?.length ?? 0) > 0;
+    if (!hasCoverage) errors.push('Delivery coverage must be set (delivery radius, zone, or service area)');
     if (!store.hours?.length) errors.push('Store hours must be configured');
     if (!store.logoUrl?.trim()) errors.push('Store logo (1:1) is required');
     if (!store.bannerUrl?.trim()) errors.push('Store banner image is required');
