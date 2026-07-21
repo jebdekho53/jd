@@ -122,6 +122,10 @@ export class VerticalService {
 
   async syncApplicationBusinessTypes(applicationId: string, types: VerticalBusinessType[]) {
     if (types.length === 0) return [];
+    // Replace semantics — see MerchantOnboardingService.syncApplicationBusinessTypes:
+    // an add-only sync left deselected verticals (e.g. GROCERY) on the application
+    // forever. Admin-approved rows stay untouched.
+    const wanted = new Set(types);
     await this.prisma.$transaction(async (tx) => {
       const existing = await tx.merchantApplicationBusinessType.findMany({
         where: { applicationId },
@@ -133,6 +137,15 @@ export class VerticalService {
             data: { applicationId, businessType: type },
           });
         }
+      }
+      const stale = existing.filter(
+        (row) =>
+          !wanted.has(row.businessType) && row.status !== StoreBusinessTypeStatus.APPROVED,
+      );
+      if (stale.length) {
+        await tx.merchantApplicationBusinessType.deleteMany({
+          where: { id: { in: stale.map((row) => row.id) } },
+        });
       }
     });
     return this.prisma.merchantApplicationBusinessType.findMany({

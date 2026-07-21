@@ -237,7 +237,10 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
     ownerName: '',
     ownerEmail: '',
     businessName: '',
-    businessTypes: ['GROCERY'] as string[],
+    // No pre-selected vertical: a bakery/restaurant merchant who never notices a
+    // ticked GROCERY box ends up as a mixed store, which resolves to the PRODUCT
+    // catalog and hides the menu builder. The merchant must pick explicitly.
+    businessTypes: [] as string[],
     gstNumber: '',
     gstValid: null as boolean | null,
     panNumber: '',
@@ -348,7 +351,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
         ? app.businessTypes
         : app.businessType
           ? [app.businessType]
-          : ['GROCERY'];
+          : [];
     setForm((f) => ({
       ...f,
       ownerName: app.ownerName ?? f.ownerName,
@@ -1146,10 +1149,14 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                             checked={checked}
                             onChange={() =>
                               setForm((f) => {
+                                // Unticking the last box must actually clear it —
+                                // re-selecting it made a wrongly picked type
+                                // (e.g. GROCERY) impossible to remove. The
+                                // "at least one" rule is enforced on Next.
                                 const next = checked
                                   ? f.businessTypes.filter((c) => c !== t)
                                   : [...f.businessTypes, t];
-                                return { ...f, businessTypes: next.length ? next : [t] };
+                                return { ...f, businessTypes: next };
                               })
                             }
                           />

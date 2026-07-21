@@ -9,6 +9,7 @@ import { MenuService } from './menu.service';
 import { FoodOrderService } from './food-order.service';
 import { RestaurantDiscoveryService } from './restaurant-discovery.service';
 import { MenuOcrService } from './menu-ocr.service';
+import { MenuAiService } from './menu-ai.service';
 import { BuyerRestaurantController } from './buyer-restaurant.controller';
 import {
   MerchantRestaurantController,
@@ -60,6 +61,7 @@ import { FinanceModule } from '../finance/finance.module';
     FoodOrderService,
     RestaurantDiscoveryService,
     MenuOcrService,
+    MenuAiService,
   ],
   exports: [
     StoreVerticalModule,

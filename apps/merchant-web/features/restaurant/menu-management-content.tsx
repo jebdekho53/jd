@@ -2,18 +2,21 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button, Card, CardBody, Input, Select, Spinner, Textarea, useToast } from '@/design-system/primitives';
 import { ImageUploadField } from '@/features/media/components/image-upload-field';
 import {
+  analyzeDishPhoto,
+  confirmAiMenuItem,
   createAddonGroup,
   createCombo,
   createMenuCategory,
   createMenuItem,
   fetchMerchantMenu,
   linkAddonToItem,
+  type DishAiDraft,
   type MenuCategory,
 } from '@/services/restaurant/menu-api';
 import { useApprovedMenuCategoriesQuery } from '@/hooks/use-categories-governance';
@@ -35,6 +38,11 @@ export function MenuManagementContent({ storeId }: { storeId: string }) {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>('Categories');
   const { isProductStore, isLoading: catalogLoading } = useStoreCatalogKind(storeId);
+  // A mixed store (bakery + packaged grocery) resolves to the PRODUCT catalog, so
+  // isProductStore alone would slam the door on an approved Bakery menu category.
+  // Approved MENU categories are the real authorisation to use the menu builder.
+  const { data: approvedMenuCategories = [] } = useApprovedMenuCategoriesQuery(storeId);
+  const hasMenuAccess = approvedMenuCategories.length > 0;
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['merchant', 'menu', storeId],
@@ -53,6 +61,18 @@ export function MenuManagementContent({ storeId }: { storeId: string }) {
   const itemMutation = useMutation({
     mutationFn: createMenuItem.bind(null, storeId),
     onSuccess: () => { toast('Menu item created', 'success'); invalidate(); },
+    onError: (e: Error) => toast(e.message, 'error'),
+  });
+
+  // AI-assisted item: the draft comes from a free photo analysis, the wallet is
+  // only charged when the item is actually created (same deal as AI products).
+  const aiItemMutation = useMutation({
+    mutationFn: ({ jobId, body }: { jobId: string; body: Parameters<typeof createMenuItem>[1] }) =>
+      confirmAiMenuItem(storeId, jobId, body),
+    onSuccess: (data) => {
+      toast(`Menu item created. ₹${(data.amountPaise / 100).toFixed(2)} charged`, 'success');
+      invalidate();
+    },
     onError: (e: Error) => toast(e.message, 'error'),
   });
 
@@ -88,7 +108,7 @@ export function MenuManagementContent({ storeId }: { storeId: string }) {
     );
   }
 
-  if (isProductStore) {
+  if (isProductStore && !hasMenuAccess) {
     return (
       <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
         <h2 className="text-lg font-semibold text-slate-900">Products, not menu</h2>
@@ -129,6 +149,20 @@ export function MenuManagementContent({ storeId }: { storeId: string }) {
         </div>
       </div>
 
+      {data && data.fssaiOnFile === false && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <p className="font-medium">FSSAI licence missing — dishes stay hidden from customers.</p>
+          <p className="mt-1">
+            You can build the full menu now, but nothing goes live until your FSSAI certificate is
+            on file. Upload it under{' '}
+            <Link href={`/stores/${storeId}`} className="font-medium underline">
+              Store settings
+            </Link>
+            {' '}and every held dish is published automatically.
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button
@@ -160,9 +194,11 @@ export function MenuManagementContent({ storeId }: { storeId: string }) {
           )}
           {tab === 'Items' && (
             <ItemsPanel
+              storeId={storeId}
               categories={categories}
-              loading={itemMutation.isPending}
+              loading={itemMutation.isPending || aiItemMutation.isPending}
               onCreate={(body) => itemMutation.mutate(body)}
+              onAiCreate={(jobId, body) => aiItemMutation.mutate({ jobId, body })}
             />
           )}
           {tab === 'Addon Groups' && (
@@ -326,13 +362,17 @@ function CategoriesPanel({
 }
 
 function ItemsPanel({
+  storeId,
   categories,
   loading,
   onCreate,
+  onAiCreate,
 }: {
+  storeId: string;
   categories: MenuCategory[];
   loading: boolean;
   onCreate: (body: Parameters<typeof createMenuItem>[1]) => void;
+  onAiCreate: (jobId: string, body: Parameters<typeof createMenuItem>[1]) => void;
 }) {
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? '');
   const [name, setName] = useState('');
@@ -347,8 +387,30 @@ function ItemsPanel({
   const [sizeName, setSizeName] = useState('');
   const [sizePrice, setSizePrice] = useState('');
   const [sizes, setSizes] = useState<Array<{ name: string; price: number; isDefault: boolean }>>([]);
+  const [aiDraft, setAiDraft] = useState<DishAiDraft | null>(null);
+  const { toast } = useToast();
 
   const hasSizes = sizes.length > 0;
+
+  const analyzeMutation = useMutation({
+    mutationFn: () => analyzeDishPhoto(storeId, imageUrl),
+    onSuccess: (draft) => {
+      setAiDraft(draft);
+      const f = draft.fields;
+      if (f.name) setName(f.name);
+      if (f.description) setDescription(f.description);
+      if (f.servingSize) setServingSize(f.servingSize);
+      if (f.dietType) setDietType(f.dietType);
+      if (f.spiceLevel) setSpiceLevel(f.spiceLevel);
+      if (f.prepTimeMins) setPrepTimeMins(String(f.prepTimeMins));
+      if (f.suggestedPrice) setBasePrice(String(f.suggestedPrice));
+      if (f.sizes.length) {
+        setSizes(f.sizes.map((s, i) => ({ name: s.name, price: s.price, isDefault: i === 0 })));
+      }
+      toast('AI filled the dish details — review and edit before saving', 'success');
+    },
+    onError: (e: Error) => toast(e.message, 'error'),
+  });
 
   const reset = () => {
     setName('');
@@ -360,6 +422,7 @@ function ItemsPanel({
     setSizes([]);
     setSizeName('');
     setSizePrice('');
+    setAiDraft(null);
   };
 
   const addSize = () => {
@@ -416,10 +479,40 @@ function ItemsPanel({
           <ImageUploadField
             label="Dish photo"
             value={imageUrl || null}
-            onChange={setImageUrl}
+            onChange={(url) => {
+              setImageUrl(url);
+              setAiDraft(null);
+            }}
             purpose="product"
             hint="Shown to customers on the menu"
           />
+          <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
+            <p className="text-sm font-medium text-slate-800">Add with AI</p>
+            <p className="mt-1 text-xs text-slate-600">
+              Upload the dish photo above, then let AI write the name, description, diet, prep time
+              and a price suggestion. The analysis is free — you are charged only when the item is
+              created, and you can edit everything first.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              disabled={!imageUrl}
+              loading={analyzeMutation.isPending}
+              onClick={() => analyzeMutation.mutate()}
+            >
+              <Sparkles className="h-4 w-4" />
+              {aiDraft ? 'Re-run AI on this photo' : 'Fill details with AI'}
+            </Button>
+            {aiDraft && (
+              <p className="mt-2 text-xs text-slate-600">
+                AI draft ready · confidence {(aiDraft.fields.confidence * 100).toFixed(0)}% · ₹
+                {aiDraft.priceRupee.toFixed(2)} charged when you create this item. AI can be wrong —
+                check the price and diet type.
+              </p>
+            )}
+          </div>
           {!hasSizes && (
             <div className="grid gap-4 sm:grid-cols-2">
               <Input
@@ -512,7 +605,7 @@ function ItemsPanel({
             disabled={!canSubmit}
             onClick={() => {
               const price = resolvedBasePrice();
-              onCreate({
+              const body = {
                 categoryId,
                 name: name.trim(),
                 basePrice: price,
@@ -530,11 +623,14 @@ function ItemsPanel({
                       isDefault: s.isDefault,
                     }))
                   : undefined,
-              });
+              };
+              if (aiDraft) onAiCreate(aiDraft.jobId, body);
+              else onCreate(body);
               reset();
             }}
           >
-            <Plus className="h-4 w-4" /> Create item
+            <Plus className="h-4 w-4" />
+            {aiDraft ? `Create item with AI — ₹${aiDraft.priceRupee.toFixed(2)}` : 'Create item'}
           </Button>
         </CardBody>
       </Card>

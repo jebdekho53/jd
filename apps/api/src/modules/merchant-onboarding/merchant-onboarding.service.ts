@@ -16,6 +16,7 @@ import {
   MerchantOnboardingStepKey,
   Prisma,
   RejectionType,
+  StoreBusinessTypeStatus,
   StoreDocumentType,
   StoreStatus,
   SupportActorType,
@@ -1385,6 +1386,11 @@ export class MerchantOnboardingService {
 
     if (verticals.length === 0) return;
 
+    // This is a REPLACE, not an append. The old add-only sync meant a merchant who
+    // unticked a vertical (typically the pre-ticked GROCERY) kept it forever, which
+    // turned bakeries/restaurants into "mixed" stores stuck on the PRODUCT catalog.
+    // Admin-approved rows are never dropped — only the merchant's own pending picks.
+    const wanted = new Set(verticals);
     await this.prisma.$transaction(async (tx) => {
       const existing = await tx.merchantApplicationBusinessType.findMany({
         where: { applicationId },
@@ -1396,6 +1402,15 @@ export class MerchantOnboardingService {
             data: { applicationId, businessType: type },
           });
         }
+      }
+      const stale = existing.filter(
+        (row) =>
+          !wanted.has(row.businessType) && row.status !== StoreBusinessTypeStatus.APPROVED,
+      );
+      if (stale.length) {
+        await tx.merchantApplicationBusinessType.deleteMany({
+          where: { id: { in: stale.map((row) => row.id) } },
+        });
       }
     });
   }

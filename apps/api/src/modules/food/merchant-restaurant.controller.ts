@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Ip, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FoodKitchenStatus, OrderStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -11,6 +11,7 @@ import { RequestUser } from '../../common/types';
 import { FoodOrderService } from './food-order.service';
 import { MenuService } from './menu.service';
 import { MenuOcrService } from './menu-ocr.service';
+import { MenuAiService } from './menu-ai.service';
 import { CreateMenuCategoryDto } from './dto/create-menu-category.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { CreateAddonGroupDto } from './dto/create-addon-group.dto';
@@ -27,6 +28,7 @@ export class MerchantRestaurantController {
     private readonly menu: MenuService,
     private readonly foodOrder: FoodOrderService,
     private readonly menuOcr: MenuOcrService,
+    private readonly menuAi: MenuAiService,
     private readonly merchantService: MerchantService,
   ) {}
 
@@ -166,6 +168,39 @@ export class MerchantRestaurantController {
     @Param('jobId') jobId: string,
   ) {
     const data = await this.menuOcr.publishDraftMenu(await this.profileId(user.id), storeId, jobId);
+    return { success: true, data };
+  }
+
+  @Post('menu/ai/dish')
+  @Permissions('products:write')
+  @ApiOperation({ summary: 'Analyse a dish photo and prefill a menu item draft (free)' })
+  async analyzeDish(
+    @CurrentUser() user: RequestUser,
+    @Param('storeId') storeId: string,
+    @Body('imageUrl') imageUrl: string,
+  ) {
+    const data = await this.menuAi.analyzeDishPhoto(await this.profileId(user.id), storeId, imageUrl);
+    return { success: true, data };
+  }
+
+  @Post('menu/ai/dish/:jobId/confirm')
+  @Permissions('products:write')
+  @ApiOperation({ summary: 'Create the menu item from an AI draft (charged per item)' })
+  async confirmDish(
+    @CurrentUser() user: RequestUser,
+    @Param('storeId') storeId: string,
+    @Param('jobId') jobId: string,
+    @Body() dto: CreateMenuItemDto,
+    @Ip() ip: string,
+  ) {
+    const data = await this.menuAi.createItemFromAnalysis(
+      await this.profileId(user.id),
+      storeId,
+      jobId,
+      dto,
+      user.id,
+      ip,
+    );
     return { success: true, data };
   }
 }

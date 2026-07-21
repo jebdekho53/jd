@@ -333,6 +333,144 @@ export class MerchantAiWalletService {
     }
   }
 
+  /**
+   * Charge for an AI-assisted menu item, keyed by the menu AI job. Mirrors
+   * debitForProductCreation, but menu jobs live in menu_ocr_jobs so the
+   * analysisId FK column stays null.
+   */
+  async debitForMenuItemCreation(
+    merchantProfileId: string,
+    storeId: string,
+    jobId: string,
+    userId: string,
+    ip?: string,
+  ): Promise<{ charged: boolean; amountPaise: number; transactionId: string }> {
+    const amountPaise = this.getProductCostPaise();
+    const idempotencyKey = `${merchantProfileId}:${storeId}:${jobId}:AI_MENU_ITEM_CREATE`;
+
+    const existing = await this.prisma.merchantAiWalletTransaction.findUnique({
+      where: { idempotencyKey },
+    });
+    if (existing?.status === MerchantAiWalletTransactionStatus.SUCCESS) {
+      return { charged: false, amountPaise: existing.amountPaise, transactionId: existing.id };
+    }
+
+    const walletTx = await this.prisma.$transaction(async (tx) => {
+      const wallet = await tx.merchantAiWallet.upsert({
+        where: { merchantProfileId },
+        create: { merchantProfileId },
+        update: {},
+      });
+
+      if (wallet.balancePaise < amountPaise) {
+        throw new HttpException(
+          { message: INSUFFICIENT_AI_WALLET_MESSAGE, code: 'INSUFFICIENT_AI_WALLET' },
+          HttpStatus.PAYMENT_REQUIRED,
+        );
+      }
+
+      const updatedWallet = await tx.merchantAiWallet.update({
+        where: { merchantProfileId },
+        data: {
+          balancePaise: { decrement: amountPaise },
+          totalSpentPaise: { increment: amountPaise },
+        },
+      });
+
+      return tx.merchantAiWalletTransaction.create({
+        data: {
+          merchantProfileId,
+          storeId,
+          type: MerchantAiWalletTransactionType.DEBIT,
+          amountPaise,
+          balanceBeforePaise: wallet.balancePaise,
+          balanceAfterPaise: updatedWallet.balancePaise,
+          status: MerchantAiWalletTransactionStatus.SUCCESS,
+          reason: 'AI menu item creation confirmed',
+          idempotencyKey,
+        },
+      });
+    });
+
+    await this.audit.log({
+      actorId: userId,
+      action: 'AI_WALLET_DEBIT_MENU_ITEM',
+      resourceType: 'merchant_ai_wallet_transaction',
+      resourceId: walletTx.id,
+      ipAddress: ip,
+      metadata: { jobId, storeId, amountPaise } as Prisma.InputJsonValue,
+    });
+
+    return { charged: true, amountPaise, transactionId: walletTx.id };
+  }
+
+  /** Refund a menu-item charge when the item could not be created. */
+  async refundMenuItemCreation(
+    merchantProfileId: string,
+    storeId: string,
+    jobId: string,
+    reason: string,
+    userId?: string,
+    ip?: string,
+  ): Promise<void> {
+    const debitKey = `${merchantProfileId}:${storeId}:${jobId}:AI_MENU_ITEM_CREATE`;
+    const debit = await this.prisma.merchantAiWalletTransaction.findUnique({
+      where: { idempotencyKey: debitKey },
+    });
+    if (!debit || debit.status !== MerchantAiWalletTransactionStatus.SUCCESS) return;
+
+    const refundKey = this.buildRefundIdempotencyKey(debitKey);
+    const already = await this.prisma.merchantAiWalletTransaction.findUnique({
+      where: { idempotencyKey: refundKey },
+    });
+    if (already) return;
+
+    const refundTx = await this.prisma.$transaction(async (tx) => {
+      const wallet = await tx.merchantAiWallet.findUnique({ where: { merchantProfileId } });
+      if (!wallet) return null;
+
+      const updatedWallet = await tx.merchantAiWallet.update({
+        where: { merchantProfileId },
+        data: {
+          balancePaise: { increment: debit.amountPaise },
+          totalRefundedPaise: { increment: debit.amountPaise },
+          totalSpentPaise: { decrement: debit.amountPaise },
+        },
+      });
+
+      const created = await tx.merchantAiWalletTransaction.create({
+        data: {
+          merchantProfileId,
+          storeId,
+          type: MerchantAiWalletTransactionType.REFUND,
+          amountPaise: debit.amountPaise,
+          balanceBeforePaise: wallet.balancePaise,
+          balanceAfterPaise: updatedWallet.balancePaise,
+          status: MerchantAiWalletTransactionStatus.REFUNDED,
+          reason,
+          idempotencyKey: refundKey,
+        },
+      });
+
+      await tx.merchantAiWalletTransaction.update({
+        where: { id: debit.id },
+        data: { status: MerchantAiWalletTransactionStatus.REFUNDED },
+      });
+
+      return created;
+    });
+    if (!refundTx) return;
+
+    await this.audit.log({
+      actorId: userId ?? 'system',
+      action: 'AI_WALLET_REFUND_MENU_ITEM',
+      resourceType: 'merchant_ai_wallet_transaction',
+      resourceId: refundTx.id,
+      ipAddress: ip,
+      metadata: { jobId, storeId, reason } as Prisma.InputJsonValue,
+    });
+  }
+
   /** Idempotency key for the single image-generation fee per analysis. */
   private imageGenIdempotencyKey(merchantProfileId: string, storeId: string, analysisId: string): string {
     return `${merchantProfileId}:${storeId}:${analysisId}:AI_IMAGE_GEN`;

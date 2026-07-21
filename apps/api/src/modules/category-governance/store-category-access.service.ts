@@ -141,26 +141,13 @@ export class StoreCategoryAccessService {
     parentCategoryId: string,
     subcategoryId: string,
   ): Promise<void> {
-    const storeApproval = await this.prisma.storeCategory.findUnique({
-      where: {
-        storeId_categoryId_subcategoryId: {
-          storeId,
-          categoryId: parentCategoryId,
-          subcategoryId,
-        },
-      },
-    });
-    if (storeApproval) return;
-
-    const approvedRequest = await this.prisma.storeCategoryRequest.findFirst({
-      where: {
-        storeId,
-        categoryId: parentCategoryId,
-        subcategoryId,
-        status: StoreCategoryRequestStatus.APPROVED,
-      },
-    });
-    if (approvedRequest) return;
+    // Approval is by-branch, exactly as for products and as listApprovedCategoryTree
+    // already reports it: a store approved for "Bakery" may use Cakes, Pastry, etc.
+    // The old exact parent+child pair lookup rejected every child of an approved
+    // root, so a merchant could see menu subcategories they could never create.
+    const chain = await this.categoryAncestorChain(subcategoryId);
+    if (!chain.includes(parentCategoryId)) chain.push(parentCategoryId);
+    if (await this.isAnyCategoryApproved(storeId, merchantProfileId, chain)) return;
 
     const legacy = await this.prisma.merchantCategory.findFirst({
       where: {

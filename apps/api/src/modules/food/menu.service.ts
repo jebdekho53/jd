@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  CategoryCatalogKind,
   DietType,
   MenuItemAvailability,
   StoreBusinessTypeStatus,
@@ -41,6 +42,11 @@ export class MenuService {
     return store;
   }
 
+  /** Public gate for callers outside this service (e.g. menu AI). */
+  async assertMenuAccess(storeId: string): Promise<void> {
+    return this.assertFoodBusinessTypeApproved(storeId);
+  }
+
   private async assertFoodBusinessTypeApproved(storeId: string): Promise<void> {
     await this.verticalService.ensureStoreBusinessTypesFromApplication(storeId);
 
@@ -73,6 +79,16 @@ export class MenuService {
       return;
     }
 
+    // FOOD_VERTICALS only covers RESTAURANT / CLOUD_KITCHEN / CAFE, but the MENU
+    // catalog also holds Bakery, Cakes and Sweets. An approved MENU category IS an
+    // admin decision that this store may run a menu, so honour it — otherwise an
+    // approved bakery is handed a menu builder it can never write to.
+    const approvedMenuTree = await this.categoryAccess.listApprovedCategoryTree(
+      storeId,
+      CategoryCatalogKind.MENU,
+    );
+    if (approvedMenuTree.length > 0) return;
+
     throw new ForbiddenException(
       'Restaurant business type must be approved before managing menu categories',
     );
@@ -87,13 +103,31 @@ export class MenuService {
     await this.buyerCache.invalidateStoreCache(store.slug);
   }
 
-  private async assertStoreFssai(storeId: string): Promise<void> {
-    const hasFssai = await storeHasFssaiOnFile(this.prisma, storeId);
-    if (!hasFssai) {
-      throw new BadRequestException(
-        'FSSAI license is required before adding menu items. Upload your FSSAI certificate in Store settings or add the license number on a product.',
-      );
-    }
+  /**
+   * A missing FSSAI license no longer blocks the merchant from building their
+   * menu — it holds the dish back from the storefront instead. Items created
+   * without a license are stored HIDDEN and released automatically once the
+   * license is on file (see releaseFssaiHeldItems), so a bakery can prepare its
+   * catalog while the certificate is being uploaded, but nothing food-related
+   * ever reaches a buyer uncertified.
+   */
+  private async assertStoreFssai(storeId: string): Promise<boolean> {
+    return storeHasFssaiOnFile(this.prisma, storeId);
+  }
+
+  /** Publish dishes that were held back only because the FSSAI license was missing. */
+  private async releaseFssaiHeldItems(storeId: string): Promise<void> {
+    const held = await this.prisma.restaurantMenuItem.count({
+      where: { storeId, availability: MenuItemAvailability.HIDDEN },
+    });
+    if (held === 0) return;
+    if (!(await storeHasFssaiOnFile(this.prisma, storeId))) return;
+
+    await this.prisma.restaurantMenuItem.updateMany({
+      where: { storeId, availability: MenuItemAvailability.HIDDEN },
+      data: { availability: MenuItemAvailability.AVAILABLE },
+    });
+    void this.invalidateBuyerMenuCache(storeId);
   }
 
   async getBuyerMenu(storeSlug: string) {
@@ -160,6 +194,8 @@ export class MenuService {
 
   async getMerchantMenu(merchantProfileId: string, storeId: string) {
     await this.assertStoreOwnership(merchantProfileId, storeId);
+    await this.releaseFssaiHeldItems(storeId);
+    const fssaiOnFile = await storeHasFssaiOnFile(this.prisma, storeId);
     const [categories, addonGroups, combos] = await Promise.all([
       this.prisma.restaurantMenuCategory.findMany({
         where: { storeId },
@@ -193,7 +229,7 @@ export class MenuService {
         },
       }),
     ]);
-    return { categories, addonGroups, combos };
+    return { categories, addonGroups, combos, fssaiOnFile };
   }
 
   async createCategory(merchantProfileId: string, storeId: string, dto: CreateMenuCategoryDto) {
@@ -243,7 +279,7 @@ export class MenuService {
   async createMenuItem(merchantProfileId: string, storeId: string, dto: CreateMenuItemDto) {
     await this.assertStoreOwnership(merchantProfileId, storeId);
     await this.assertFoodBusinessTypeApproved(storeId);
-    await this.assertStoreFssai(storeId);
+    const fssaiOnFile = await this.assertStoreFssai(storeId);
 
     const category = await this.prisma.restaurantMenuCategory.findFirst({
       where: { id: dto.categoryId, storeId },
@@ -274,6 +310,9 @@ export class MenuService {
         prepTimeMins: dto.prepTimeMins ?? 15,
         servingSize: dto.servingSize,
         cuisineName: dto.cuisineName,
+        availability: fssaiOnFile
+          ? MenuItemAvailability.AVAILABLE
+          : MenuItemAvailability.HIDDEN,
         allowsSpecialInstructions: dto.allowsSpecialInstructions ?? true,
         sortOrder: dto.sortOrder ?? 0,
         variants: dto.variants?.length
@@ -292,7 +331,7 @@ export class MenuService {
 
     await this.upsertSearchIndex(item.id);
     void this.invalidateBuyerMenuCache(storeId);
-    return item;
+    return { ...item, fssaiHold: !fssaiOnFile };
   }
 
   async createAddonGroup(merchantProfileId: string, storeId: string, dto: CreateAddonGroupDto) {

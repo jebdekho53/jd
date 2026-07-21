@@ -60,6 +60,8 @@ export interface MerchantMenu {
   categories: MenuCategory[];
   addonGroups: AddonGroup[];
   combos: MenuCombo[];
+  /** False when no FSSAI licence is on file — new dishes stay hidden from buyers. */
+  fssaiOnFile?: boolean;
 }
 
 export interface KitchenOrder {
@@ -139,6 +141,45 @@ export async function createMenuItem(
 ): Promise<MenuItem> {
   const res = await merchantFetch<{ data: MenuItem }>(
     `/api/merchant/stores/${storeId}/menu/items`,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+  return unwrap(res);
+}
+
+export interface DishAiDraft {
+  jobId: string;
+  imageUrl: string;
+  priceRupee: number;
+  fields: {
+    name: string;
+    description: string;
+    dietType: string;
+    spiceLevel: string;
+    prepTimeMins: number | null;
+    servingSize: string;
+    suggestedPrice: number | null;
+    sizes: Array<{ name: string; price: number }>;
+    confidence: number;
+  };
+}
+
+/** Free AI pass over a dish photo — returns a draft the merchant reviews. */
+export async function analyzeDishPhoto(storeId: string, imageUrl: string): Promise<DishAiDraft> {
+  const res = await merchantFetch<{ data: DishAiDraft }>(
+    `/api/merchant/stores/${storeId}/menu/ai/dish`,
+    { method: 'POST', body: JSON.stringify({ imageUrl }) },
+  );
+  return unwrap(res);
+}
+
+/** Creates the menu item from an AI draft. Charged per item, like AI products. */
+export async function confirmAiMenuItem(
+  storeId: string,
+  jobId: string,
+  body: Parameters<typeof createMenuItem>[1],
+): Promise<{ item: MenuItem; amountPaise: number; charged: boolean }> {
+  const res = await merchantFetch<{ data: { item: MenuItem; amountPaise: number; charged: boolean } }>(
+    `/api/merchant/stores/${storeId}/menu/ai/dish/${jobId}/confirm`,
     { method: 'POST', body: JSON.stringify(body) },
   );
   return unwrap(res);
