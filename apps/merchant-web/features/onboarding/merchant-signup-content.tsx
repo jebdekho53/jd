@@ -81,6 +81,31 @@ const STEP_KEYS = [
 ] as const;
 
 const RESOLVE_DEBOUNCE_MS = 400;
+
+// Maps the raw field tokens the backend reports in "Application incomplete: …"
+// to the wizard render step that owns each field, so a failed submit can jump
+// the merchant straight to the step that needs fixing.
+const FIELD_TO_STEP: Record<string, number> = {
+  ownerName: 1,
+  ownerEmail: 1,
+  ownerPhone: 1,
+  businessName: 1,
+  businessType: 1,
+  businessTypes: 1,
+  storeName: 2,
+  storeLogoUrl: 2,
+  storeBannerUrl: 2,
+  storeAddress: 3,
+  landmark: 3,
+  cityId: 3,
+  pincode: 3,
+  latitude: 3,
+  longitude: 3,
+  panNumber: 6,
+  gstNumber: 6,
+  documents: 6,
+  bankAccount: 7,
+};
 const EDITABLE_APPLICATION_STATUSES = new Set(['DRAFT', 'REJECTED']);
 
 type MerchantSignupContentProps = {
@@ -877,6 +902,38 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       toast('Application submitted! We will review it shortly.', 'success');
       setShowStatus(true);
     } catch (e) {
+      // If submission failed because fields are missing, jump the merchant to the
+      // earliest step that needs fixing and highlight the field there — instead
+      // of leaving them stuck on the review screen with a raw error.
+      const raw = e instanceof Error ? e.message : '';
+      const match = /incomplete:\s*(.+)$/i.exec(raw);
+      if (match) {
+        const tokens = match[1]
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean);
+        let targetStep = Number.POSITIVE_INFINITY;
+        let firstToken = '';
+        for (const t of tokens) {
+          const s = FIELD_TO_STEP[t];
+          if (s != null && s < targetStep) {
+            targetStep = s;
+            firstToken = t;
+          }
+        }
+        if (Number.isFinite(targetStep)) {
+          const feKey = fieldForBackendMessage(readableBackendMessage(firstToken));
+          if (feKey) {
+            setFieldErrors((prev) => ({ ...prev, [feKey]: 'This field is required to submit.' }));
+          }
+          setStep(targetStep);
+          toast(
+            `Please complete: ${tokens.map((t) => readableBackendMessage(t)).join(', ')}`,
+            'error',
+          );
+          return;
+        }
+      }
       handleStepError(e);
     } finally {
       setSaving(false);
