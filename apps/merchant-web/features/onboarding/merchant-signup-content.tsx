@@ -89,6 +89,7 @@ type MerchantSignupContentProps = {
 
 type FieldErrors = Partial<Record<
   | 'contactPhone'
+  | 'ownerEmail'
   | 'ownerName'
   | 'businessName'
   | 'storeName'
@@ -110,6 +111,8 @@ type FieldErrors = Partial<Record<
   string
 >>;
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function readableBackendMessage(message: string) {
   return message
     .replace(/\bgstNumber\b/g, 'GST number')
@@ -130,8 +133,8 @@ function fieldForBackendMessage(message: string): keyof FieldErrors | null {
   if (lower.includes('ifsc')) return 'ifsc';
   if (lower.includes('account holder')) return 'accountHolderName';
   if (lower.includes('account number') || lower.includes('bank account')) return 'accountNumber';
+  if (lower.includes('email')) return 'ownerEmail';
   if (lower.includes('phone') || lower.includes('mobile')) return 'contactPhone';
-  if (lower.includes('email')) return 'contactPhone';
   if (lower.includes('storename') || lower.includes('store name')) return 'storeName';
   if (lower.includes('pincode')) return 'pincode';
   if (lower.includes('address')) return 'storeAddress';
@@ -207,6 +210,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
 
   const [form, setForm] = useState({
     ownerName: '',
+    ownerEmail: '',
     businessName: '',
     businessTypes: ['GROCERY'] as string[],
     gstNumber: '',
@@ -323,6 +327,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
     setForm((f) => ({
       ...f,
       ownerName: app.ownerName ?? f.ownerName,
+      ownerEmail: app.ownerEmail ?? f.ownerEmail,
       businessName: app.businessName ?? f.businessName,
       businessTypes: types,
       preferredCategories: types,
@@ -498,10 +503,18 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       toast('Enter a valid 10-digit mobile number', 'error');
       return;
     }
+    // A merchant who signed up by phone has no verified email, but the
+    // application still requires one for review/notifications — collect it here.
+    const emailForSave = (verifiedEmail || form.ownerEmail).trim().toLowerCase();
+    if (!verifiedEmail && !EMAIL_RE.test(emailForSave)) {
+      setFieldErrors((prev) => ({ ...prev, ownerEmail: 'Enter a valid email address.' }));
+      toast('Enter a valid email address', 'error');
+      return;
+    }
     try {
       await saveStep('VERIFY', {
         ownerName: form.ownerName.trim(),
-        ownerEmail: verifiedEmail || undefined,
+        ownerEmail: emailForSave || undefined,
         ownerPhone: phoneForSave,
       });
       await saveStep('BUSINESS', {
@@ -1004,6 +1017,21 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                     </p>
                   )}
                 </div>
+                {!verifiedEmail && (
+                  <Input
+                    label="Store contact email *"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={form.ownerEmail}
+                    onChange={(e) => {
+                      setFieldErrors((prev) => ({ ...prev, ownerEmail: undefined }));
+                      setForm({ ...form, ownerEmail: e.target.value });
+                    }}
+                    placeholder="Used for order & payout notifications"
+                    error={fieldErrors.ownerEmail}
+                  />
+                )}
                 {needsPhone && (
                   <div className="grid gap-2 sm:grid-cols-[auto_1fr]">
                     <span className="flex h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-600">
@@ -1530,6 +1558,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                 <StepHeader title="Review & submit" subtitle="Confirm before sending for approval" />
                 <dl className="divide-y divide-slate-100 rounded-xl border border-slate-200 text-sm">
                   <ReviewRow label="Owner" value={form.ownerName} />
+                  <ReviewRow label="Email" value={verifiedEmail || form.ownerEmail || '—'} />
                   <ReviewRow label="Business" value={form.businessName} />
                   <ReviewRow label="Business types" value={form.businessTypes.map((t) => t.replace(/_/g, ' ')).join(', ')} />
                   <ReviewRow label="Store" value={form.storeName} />
