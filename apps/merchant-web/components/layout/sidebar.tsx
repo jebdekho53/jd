@@ -11,6 +11,7 @@ import { useStoreStore } from '@/store/store-store';
 import { useLogoutMutation } from '@/hooks/use-auth';
 import { useStoresQuery } from '@/hooks/use-stores';
 import { useStoreCatalogKind } from '@/hooks/use-store-catalog-kind';
+import { useApprovedMenuCategoriesQuery } from '@/hooks/use-categories-governance';
 import { CommandPalette } from './command-palette';
 import { baseNav, restaurantNav } from './nav-items';
 
@@ -23,15 +24,22 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
 
   const stores = storeData?.data ?? [];
   const { isMenuStore, isLoading: catalogLoading } = useStoreCatalogKind(currentStore?.id);
+  // A store that sells both products and food (e.g. a bakery also stocking
+  // packaged grocery) resolves to the PRODUCT catalog, so isMenuStore is false.
+  // Any approved MENU category means the merchant needs the menu builder, so
+  // surface the restaurant nav whenever menu access exists — alongside Products.
+  const { data: approvedMenuCategories = [] } = useApprovedMenuCategoriesQuery(currentStore?.id);
+  const hasMenuAccess = isMenuStore || approvedMenuCategories.length > 0;
 
   const filteredBaseNav = baseNav.filter((item) => {
+    // Hide product-only nav only for pure menu stores; a mixed store keeps both.
     if (isMenuStore && (item.href === '/products' || item.href === '/inventory')) {
       return false;
     }
     return true;
   });
 
-  const showRestaurantNav = Boolean(currentStore && isMenuStore && !catalogLoading);
+  const showRestaurantNav = Boolean(currentStore && hasMenuAccess && !catalogLoading);
 
   const nav = currentStore
     ? [
