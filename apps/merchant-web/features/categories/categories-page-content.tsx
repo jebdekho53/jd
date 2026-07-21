@@ -59,9 +59,18 @@ export function CategoriesPageContent() {
   const storeId = currentStore?.id;
   const [tab, setTab] = useState<StoreCategoryRequestStatus>('APPROVED');
   const [modalOpen, setModalOpen] = useState(false);
+  // Which catalog the merchant is browsing. undefined = auto-resolve from the
+  // store's business types; the toggle lets a store that sells both (e.g. a
+  // bakery selling packaged grocery too) reach the Menu tree — Bakery, Cakes &
+  // Pastries live in the MENU catalog, not PRODUCT.
+  const [catalogKind, setCatalogKind] = useState<'PRODUCT' | 'MENU' | undefined>(undefined);
   const { data: requests, isLoading } = useCategoryRequestsQuery(storeId);
-  const { data: catalog } = useCategoryCatalogQuery(storeId);
+  const { data: catalog } = useCategoryCatalogQuery(storeId, catalogKind);
   const { isMenuStore } = useStoreCatalogKind(storeId);
+  // Reflect the catalog actually being shown (selected override, else resolved).
+  const activeKind: 'PRODUCT' | 'MENU' =
+    catalogKind ?? (catalog?.[0]?.catalogKind === 'MENU' || isMenuStore ? 'MENU' : 'PRODUCT');
+  const isMenu = activeKind === 'MENU';
   const requestMutation = useRequestCategoryMutation(storeId);
 
   const filtered = (requests ?? []).filter((r) => r.status === tab);
@@ -94,7 +103,7 @@ export function CategoriesPageContent() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Store Categories</h1>
           <p className="text-sm text-slate-500">
-            {isMenuStore ? (
+            {isMenu ? (
               <>
                 Request approval for <strong>{currentStore?.name}</strong> to sell in platform menu categories.
                 Only approved subcategories can be used when building your restaurant menu.
@@ -108,9 +117,31 @@ export function CategoriesPageContent() {
           </p>
         </div>
         <Button onClick={() => setModalOpen(true)}>
-          <Plus className="h-4 w-4" /> {isMenuStore ? 'Request menu category' : 'Request category'}
+          <Plus className="h-4 w-4" /> {isMenu ? 'Request menu category' : 'Request category'}
         </Button>
       </div>
+
+      <div className="mb-4 inline-flex rounded-lg border border-slate-200 p-0.5 text-sm">
+        {([
+          { value: 'PRODUCT' as const, label: 'Products' },
+          { value: 'MENU' as const, label: 'Menu / Food' },
+        ]).map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => setCatalogKind(opt.value)}
+            className={`rounded-md px-3 py-1.5 font-medium ${
+              activeKind === opt.value ? 'bg-brand-600 text-white' : 'text-slate-600'
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <p className="mb-4 -mt-2 text-xs text-slate-500">
+        Selling cakes, bakery, sweets or restaurant items? Switch to <strong>Menu / Food</strong> to
+        find those categories.
+      </p>
 
       <div className="mb-4 flex flex-wrap gap-2">
         {TABS.map((t) => (
@@ -144,8 +175,8 @@ export function CategoriesPageContent() {
 
       {tab === 'APPROVED' && (requests ?? []).filter((r) => r.status === 'APPROVED').length === 0 && (
         <p className="mt-4 text-sm text-amber-700">
-          You need at least one approved category before {isMenuStore ? 'adding menu items' : 'creating products'}.{' '}
-          {isMenuStore && storeId ? (
+          You need at least one approved category before {isMenu ? 'adding menu items' : 'creating products'}.{' '}
+          {isMenu && storeId ? (
             <Link href={`/stores/${storeId}/menu`} className="underline">Go to Menu</Link>
           ) : (
             <Link href="/products" className="underline">Go to Products</Link>
@@ -155,7 +186,7 @@ export function CategoriesPageContent() {
 
       {!isLoading && (catalog ?? []).length === 0 && (
         <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          {isMenuStore
+          {isMenu
             ? 'Menu categories (Food, Cafe, Bakery…) are not available yet. Ask platform admin to seed the menu catalog, then refresh this page.'
             : 'No product categories are available to request. Contact platform support.'}
         </p>

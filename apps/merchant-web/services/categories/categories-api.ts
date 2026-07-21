@@ -10,9 +10,12 @@ function storeQuery(storeId: string, extra?: Record<string, string>) {
   return `?${q.toString()}`;
 }
 
-export async function getCategoryCatalog(storeId: string): Promise<CatalogCategory[]> {
+export async function getCategoryCatalog(
+  storeId: string,
+  catalogKind?: 'PRODUCT' | 'MENU',
+): Promise<CatalogCategory[]> {
   const res = await merchantFetch<ApiResponse<CatalogCategory[]>>(
-    `/api/merchant/categories/catalog${storeQuery(storeId)}`,
+    `/api/merchant/categories/catalog${storeQuery(storeId, catalogKind ? { catalogKind } : undefined)}`,
   );
   return res.data;
 }

@@ -146,18 +146,22 @@ export class StoreCategoryRequestService {
     await this.blocklist.assertUserNotBlacklisted(userId);
     await this.blocklist.assertMerchantProfileNotBlacklisted(profile.id);
 
-    const expectedKind = await resolveStoreCatalogKind(this.prisma, storeId);
-
     // The merchant picks ONE node at any depth (L1…L4). Validate it and derive
     // its root ancestor — access is stored as (root, selectedNode) and, being
     // by-branch, grants the whole subtree beneath the selected node.
+    //
+    // We deliberately do NOT constrain to the store's resolved catalog kind: a
+    // store may legitimately sell both products and menu items (e.g. a bakery
+    // selling packaged grocery + fresh cakes), and the browse UI lets the
+    // merchant switch catalogs. Any valid GLOBAL active category is requestable;
+    // approval of a MENU category simply enables menu items, a PRODUCT category
+    // enables products.
     const selectedId = dto.subcategoryId;
     const selected = await this.prisma.category.findFirst({
       where: {
         id: selectedId,
         storeId: null,
         scope: CategoryScope.GLOBAL,
-        catalogKind: expectedKind,
         isActive: true,
         deletedAt: null,
       },

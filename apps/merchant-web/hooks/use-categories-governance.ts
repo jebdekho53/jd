@@ -18,11 +18,14 @@ function merchantStoreCategoryKey(
   return ['merchant', userId ?? 'anonymous', storeId ?? 'no-store', ...parts] as const;
 }
 
-export function useCategoryCatalogQuery(storeId: string | undefined) {
+export function useCategoryCatalogQuery(
+  storeId: string | undefined,
+  catalogKind?: 'PRODUCT' | 'MENU',
+) {
   const { data: user } = useSessionQuery();
   return useQuery({
-    queryKey: merchantStoreCategoryKey(user?.id, storeId, 'category-catalog'),
-    queryFn: () => getCategoryCatalog(storeId!),
+    queryKey: merchantStoreCategoryKey(user?.id, storeId, 'category-catalog', catalogKind ?? 'auto'),
+    queryFn: () => getCategoryCatalog(storeId!, catalogKind),
     enabled: Boolean(user?.id) && Boolean(storeId),
   });
 }
