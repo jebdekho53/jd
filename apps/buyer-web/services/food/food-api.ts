@@ -4,7 +4,11 @@ import type {
   AddFoodCartItemPayload,
   Cuisine,
   FoodCart,
+  FoodCheckoutInitiateResult,
   FoodCodCheckoutResult,
+  FoodPaymentResult,
+  FoodRazorpayOrderResult,
+  FoodVerifyPaymentPayload,
   HomeVertical,
   InitiateFoodCheckoutPayload,
   ListRestaurantsParams,
@@ -109,5 +113,40 @@ export async function initiateFoodCodCheckout(payload: InitiateFoodCheckoutPaylo
     body: JSON.stringify(payload),
     headers: { 'Idempotency-Key': crypto.randomUUID() },
   });
+  return res.data;
+}
+
+/** Online (RAZORPAY) food checkout — returns a checkoutId, no order yet. */
+export async function initiateFoodCheckout(payload: InitiateFoodCheckoutPayload): Promise<FoodCheckoutInitiateResult> {
+  const res = await buyerFetch<ApiResponse<FoodCheckoutInitiateResult>>('/api/buyer/food-checkout', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: { 'Idempotency-Key': crypto.randomUUID() },
+  });
+  return res.data;
+}
+
+export async function createFoodRazorpayOrder(checkoutId: string): Promise<FoodRazorpayOrderResult> {
+  const res = await buyerFetch<ApiResponse<FoodRazorpayOrderResult>>(
+    `/api/buyer/food-checkout/razorpay/create-order/${checkoutId}`,
+    { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } },
+  );
+  return res.data;
+}
+
+export async function verifyFoodPayment(payload: FoodVerifyPaymentPayload): Promise<FoodPaymentResult> {
+  const res = await buyerFetch<ApiResponse<FoodPaymentResult>>('/api/buyer/food-checkout/razorpay/verify', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: { 'Idempotency-Key': crypto.randomUUID() },
+  });
+  return res.data;
+}
+
+export async function syncFoodPayment(checkoutId: string): Promise<FoodPaymentResult> {
+  const res = await buyerFetch<ApiResponse<FoodPaymentResult>>(
+    `/api/buyer/food-checkout/razorpay/sync/${checkoutId}`,
+    { method: 'POST', headers: { 'Idempotency-Key': crypto.randomUUID() } },
+  );
   return res.data;
 }

@@ -159,6 +159,8 @@ export interface FoodCart {
     minOrderAmount: number;
     deliveryFee: number;
     packagingFee: number;
+    /** 'SELF' stores have no rider — COD is not offered for them (no cash-collection agent). */
+    deliveryMode?: 'PLATFORM' | 'SELF';
   };
   items: FoodCartItem[];
   totals: FoodCartTotals;
@@ -182,7 +184,7 @@ export interface InitiateFoodCheckoutPayload {
   deliveryAddress: Record<string, unknown>;
   deliveryLat: number;
   deliveryLng: number;
-  paymentMethod: 'COD';
+  paymentMethod: 'COD' | 'RAZORPAY';
   tipAmount?: number;
   couponDiscount?: number;
   scheduledDeliveryAt?: string;
@@ -194,6 +196,37 @@ export interface FoodCodCheckoutResult {
   orderId: string;
   orderNumber: string;
   status: string;
+}
+
+/** Returned when initiating an ONLINE food checkout — no order exists yet. */
+export interface FoodCheckoutInitiateResult {
+  checkoutId: string;
+  totalAmount: number;
+  expiresAt: string;
+}
+
+export interface FoodRazorpayOrderResult {
+  foodCheckoutId: string;
+  razorpayOrderId: string;
+  keyId: string;
+  amount: number;
+  currency: string;
+  orderNumber?: string;
+  buyerName?: string;
+  buyerEmail?: string;
+  buyerPhone?: string;
+}
+
+export interface FoodVerifyPaymentPayload {
+  foodCheckoutId: string;
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+}
+
+export interface FoodPaymentResult {
+  orderId: string;
+  orderNumber: string;
 }
 
 export interface ListRestaurantsParams {

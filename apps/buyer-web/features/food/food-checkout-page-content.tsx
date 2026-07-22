@@ -6,48 +6,52 @@ import { CheckCircle, UtensilsCrossed } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
 import { AddressForm } from '@/features/checkout/components/address-form';
+import { PaymentMethodSelector } from '@/features/checkout/components/payment-method-selector';
+import { PayerContactForm } from '@/features/checkout/components/payer-contact-form';
+import { FoodRazorpayButton } from '@/features/food/components/food-razorpay-button';
 import { ActionBar, Button, Spinner, useToast } from '@/design-system/primitives';
 import { useFoodCartQuery } from '@/hooks/use-food-cart';
-import { initiateFoodCodCheckout } from '@/services/food/food-api';
+import {
+  useInitiateFoodCodCheckoutMutation,
+  useInitiateFoodCheckoutMutation,
+} from '@/hooks/use-food-checkout';
+import { useProfileQuery } from '@/features/profile/hooks/use-profile';
 import { useCheckoutStore } from '@/store/checkout-store';
 import { getDefaultSavedDeliveryAddress } from '@/lib/saved-delivery-address';
 import { formatCurrency } from '@/lib/utils';
 import { SessionError } from '@/services/auth/auth-api';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { foodCartKeys } from '@/hooks/use-food-cart';
-import { orderKeys } from '@/hooks/use-orders';
-import type { DeliveryAddress } from '@/types/checkout';
+import type { DeliveryAddress, PayerContact, PaymentMethod } from '@/types/checkout';
 
-function deliveryToFoodPayload(addr: DeliveryAddress) {
+function deliveryToFoodPayload(addr: DeliveryAddress, paymentMethod: PaymentMethod) {
   return {
     deliveryAddress: addr as unknown as Record<string, unknown>,
     deliveryLat: addr.lat,
     deliveryLng: addr.lng,
-    paymentMethod: 'COD' as const,
+    paymentMethod,
   };
 }
 
 export function FoodCheckoutPageContent() {
   const router = useRouter();
   const { toast } = useToast();
-  const qc = useQueryClient();
   const { data: cart, isLoading } = useFoodCartQuery();
+  const { data: profile } = useProfileQuery();
   const { step, deliveryAddress, setStep, setDeliveryAddress, reset } = useCheckoutStore();
   const [checkoutReady, setCheckoutReady] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState<{ orderId: string; orderNumber: string } | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
+  const [payerContact, setPayerContact] = useState<PayerContact | null>(null);
+  const [checkoutId, setCheckoutId] = useState<string | null>(null);
+  const [autoOpenPay, setAutoOpenPay] = useState(false);
 
-  const placeOrder = useMutation({
-    mutationFn: () => {
-      if (!deliveryAddress) throw new Error('Delivery address required');
-      return initiateFoodCodCheckout(deliveryToFoodPayload(deliveryAddress));
-    },
-    onSuccess: (result) => {
-      qc.setQueryData(foodCartKeys.current(), null);
-      qc.invalidateQueries({ queryKey: orderKeys.all });
-      setOrderPlaced({ orderId: result.orderId, orderNumber: result.orderNumber });
-      reset();
-    },
-  });
+  const isSelfDelivery = cart?.store?.deliveryMode === 'SELF';
+
+  const placeCodOrder = useInitiateFoodCodCheckoutMutation();
+  const initiateOnline = useInitiateFoodCheckoutMutation();
+
+  useEffect(() => {
+    if (isSelfDelivery && paymentMethod === 'COD') setPaymentMethod('RAZORPAY');
+  }, [isSelfDelivery, paymentMethod]);
 
   useEffect(() => {
     const applySavedAddress = () => {
@@ -78,11 +82,29 @@ export function FoodCheckoutPageContent() {
     }
   }, [isLoading, cart, router, orderPlaced]);
 
+  const handleRazorpaySuccess = (orderId: string, orderNumber: string) => {
+    setOrderPlaced({ orderId, orderNumber });
+    reset();
+  };
+
   const handlePlaceOrder = async () => {
     if (!deliveryAddress || !cart) return;
     try {
-      await placeOrder.mutateAsync();
-      toast('Order placed successfully', 'success');
+      if (paymentMethod === 'COD') {
+        const result = await placeCodOrder.mutateAsync(deliveryToFoodPayload(deliveryAddress, 'COD'));
+        setOrderPlaced({ orderId: result.orderId, orderNumber: result.orderNumber });
+        toast('Order placed successfully', 'success');
+        reset();
+        return;
+      }
+
+      if (!payerContact?.name?.trim() || !payerContact?.email?.trim() || !payerContact?.phone?.trim()) {
+        toast('Enter your name, email, and mobile for payment', 'error');
+        return;
+      }
+      const checkout = await initiateOnline.mutateAsync(deliveryToFoodPayload(deliveryAddress, 'RAZORPAY'));
+      setCheckoutId(checkout.checkoutId);
+      setAutoOpenPay(true);
     } catch (err) {
       const message = err instanceof SessionError ? err.message : 'Checkout failed';
       toast(message, 'error');
@@ -99,7 +121,10 @@ export function FoodCheckoutPageContent() {
           <h1 className="text-xl font-bold">Order placed!</h1>
           <p className="text-sm text-jd-text-muted">
             Order <span className="font-semibold text-jd-text-primary">{orderPlaced.orderNumber}</span>{' '}
-            is confirmed. Pay cash on delivery when your food arrives.
+            is confirmed.{' '}
+            {paymentMethod === 'COD'
+              ? 'Pay cash on delivery when your order arrives.'
+              : 'Payment received.'}
           </p>
           <div className="flex flex-wrap justify-center gap-3 pt-2">
             <Button variant="primary" onClick={() => router.push(`/orders/${orderPlaced.orderId}`)}>
@@ -123,6 +148,8 @@ export function FoodCheckoutPageContent() {
       </PageShell>
     );
   }
+
+  const placing = placeCodOrder.isPending || initiateOnline.isPending;
 
   return (
     <AuthGuard redirectTo="/login">
@@ -168,10 +195,32 @@ export function FoodCheckoutPageContent() {
               </div>
 
               <div className="rounded-2xl border border-border bg-card p-4">
-                <h2 className="text-sm font-semibold">Payment</h2>
-                <p className="mt-2 text-sm text-jd-text-secondary">
-                  Cash on delivery (COD) — pay when your order arrives.
+                <h2 className="mb-3 text-sm font-semibold">Payment</h2>
+                <PaymentMethodSelector
+                  value={paymentMethod}
+                  codDisabled={isSelfDelivery}
+                  onChange={(method) => {
+                    setPaymentMethod(method);
+                    setCheckoutId(null);
+                    setAutoOpenPay(false);
+                  }}
+                />
+                <p className="mt-2 text-xs text-jd-text-muted">
+                  {isSelfDelivery
+                    ? 'This store delivers itself — online payment only.'
+                    : 'Choose how you want to pay.'}
                 </p>
+                {paymentMethod === 'RAZORPAY' && (
+                  <div className="mt-4">
+                    <PayerContactForm
+                      value={payerContact}
+                      onChange={setPayerContact}
+                      defaultName={profile?.displayName}
+                      defaultEmail={profile?.email}
+                      defaultPhone={profile?.phone}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="rounded-2xl border border-border bg-card p-4">
@@ -197,14 +246,31 @@ export function FoodCheckoutPageContent() {
               </div>
 
               <ActionBar mobileOnly={false} className="lg:static lg:border-0 lg:bg-transparent lg:p-0">
-                <Button
-                  variant="primary"
-                  className="w-full"
-                  onClick={handlePlaceOrder}
-                  disabled={placeOrder.isPending}
-                >
-                  {placeOrder.isPending ? 'Placing order…' : `Place order · ${formatCurrency(cart.totals.grandTotal)}`}
-                </Button>
+                {paymentMethod === 'RAZORPAY' && checkoutId ? (
+                  <FoodRazorpayButton
+                    checkoutId={checkoutId}
+                    storeName={cart.store.name}
+                    buyerName={payerContact?.name}
+                    buyerEmail={payerContact?.email}
+                    buyerPhone={payerContact?.phone}
+                    autoOpen={autoOpenPay}
+                    onAutoOpenComplete={() => setAutoOpenPay(false)}
+                    onSuccess={handleRazorpaySuccess}
+                  />
+                ) : (
+                  <Button
+                    variant="primary"
+                    className="w-full"
+                    onClick={handlePlaceOrder}
+                    disabled={placing}
+                  >
+                    {placing
+                      ? 'Placing order…'
+                      : paymentMethod === 'COD'
+                        ? `Place order · ${formatCurrency(cart.totals.grandTotal)}`
+                        : `Continue to pay · ${formatCurrency(cart.totals.grandTotal)}`}
+                  </Button>
+                )}
               </ActionBar>
             </div>
           )}

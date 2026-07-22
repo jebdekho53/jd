@@ -30,6 +30,7 @@ export class FoodCartService {
             slug: true,
             minOrderAmount: true,
             deliveryFee: true,
+            deliveryMode: true,
             restaurantProfile: { select: { packagingFee: true, minOrderAmount: true } },
           },
         },
@@ -249,6 +250,7 @@ export class FoodCartService {
       slug: string;
       minOrderAmount: Prisma.Decimal;
       deliveryFee: Prisma.Decimal;
+      deliveryMode: string;
       restaurantProfile: { packagingFee: Prisma.Decimal; minOrderAmount: Prisma.Decimal | null } | null;
     };
     items: {

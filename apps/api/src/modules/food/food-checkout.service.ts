@@ -147,6 +147,19 @@ export class FoodCheckoutService {
     const expiresAt = new Date(Date.now() + CHECKOUT_TTL_MINUTES * 60 * 1000);
 
     if (dto.paymentMethod === PaymentMethod.COD) {
+      // Self-delivery stores have no rider to act as the cash-collection
+      // intermediary that normally hands the platform its commission share —
+      // see checkout.service.ts's initiateCodCheckout for the same guard on
+      // the marketplace (grocery) path.
+      const store = await this.prisma.store.findUnique({
+        where: { id: cart.storeId },
+        select: { deliveryMode: true },
+      });
+      if (store?.deliveryMode === 'SELF') {
+        throw new BadRequestException(
+          'Cash on delivery is not available for this store — please pay online.',
+        );
+      }
       return this.createFoodOrderFromCart({
         buyerProfileId: buyerProfile.id,
         userId,
@@ -229,6 +242,14 @@ export class FoodCheckoutService {
       throw new BadRequestException('Food checkout cart snapshot is invalid');
     }
 
+    // Stamped onto the order so DeliveryDispatchService correctly skips rider/3PL
+    // dispatch for self-delivery stores — without this every food order defaulted
+    // to PLATFORM regardless of the store's actual setting.
+    const checkoutStore = await this.prisma.store.findUnique({
+      where: { id: snapshot.storeId },
+      select: { deliveryMode: true },
+    });
+
     const order = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.foodCheckout.updateMany({
         where: { id: checkout.id, status: FOOD_CHECKOUT_PENDING },
@@ -249,6 +270,7 @@ export class FoodCheckoutService {
           buyerProfileId: opts.buyerProfileId,
           storeId: snapshot.storeId,
           status: OrderStatus.PAID,
+          deliveryMode: checkoutStore?.deliveryMode ?? undefined,
           paymentMethod: PaymentMethod.RAZORPAY,
           paymentStatus: PaymentStatus.PAID,
           orderVertical: OrderVertical.FOOD,
