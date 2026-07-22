@@ -73,7 +73,12 @@ export function CategoriesPageContent() {
   const isMenu = activeKind === 'MENU';
   const requestMutation = useRequestCategoryMutation(storeId);
 
-  const filtered = (requests ?? []).filter((r) => r.status === tab);
+  // A store selling both products and food (e.g. a bakery also stocking packaged
+  // grocery) has requests in BOTH catalogs — without this, switching to Menu / Food
+  // still showed the Grocery/Electronics requests made under Products.
+  const filtered = (requests ?? []).filter(
+    (r) => r.status === tab && (r.subcategory.catalogKind ?? r.category.catalogKind) === activeKind,
+  );
 
   const handleRequest = async (
     categoryId: string,
@@ -173,7 +178,7 @@ export function CategoriesPageContent() {
         </div>
       )}
 
-      {tab === 'APPROVED' && (requests ?? []).filter((r) => r.status === 'APPROVED').length === 0 && (
+      {tab === 'APPROVED' && filtered.length === 0 && (
         <p className="mt-4 text-sm text-amber-700">
           You need at least one approved category before {isMenu ? 'adding menu items' : 'creating products'}.{' '}
           {isMenu && storeId ? (

@@ -117,8 +117,10 @@ export class StoreCategoryRequestService {
     return this.prisma.storeCategoryRequest.findMany({
       where: { storeId },
       include: {
-        category: { select: { id: true, name: true, slug: true } },
-        subcategory: { select: { id: true, name: true, slug: true } },
+        // catalogKind lets the merchant-web Products/Menu toggle actually filter
+        // this list — without it every request showed under both tabs.
+        category: { select: { id: true, name: true, slug: true, catalogKind: true } },
+        subcategory: { select: { id: true, name: true, slug: true, catalogKind: true } },
         store: { select: { id: true, name: true, slug: true } },
         documents: { orderBy: { uploadedAt: 'desc' } },
       },

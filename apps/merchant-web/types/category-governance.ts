@@ -43,8 +43,8 @@ export interface StoreCategoryRequest {
   reason: string | null;
   adminNote: string | null;
   createdAt: string;
-  category: { id: string; name: string; slug: string };
-  subcategory: { id: string; name: string; slug: string };
+  category: { id: string; name: string; slug: string; catalogKind?: CategoryCatalogKind };
+  subcategory: { id: string; name: string; slug: string; catalogKind?: CategoryCatalogKind };
   store?: { id: string; name: string; slug: string };
 }
 
