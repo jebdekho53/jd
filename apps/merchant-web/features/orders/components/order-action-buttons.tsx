@@ -1,13 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle, ChefHat, Package, PackageCheck, AlertTriangle, XCircle } from 'lucide-react';
+import { CheckCircle, ChefHat, Package, PackageCheck, Truck, Home, AlertTriangle, XCircle } from 'lucide-react';
 import { Button, Modal, Textarea } from '@/design-system/primitives';
 import {
   useConfirmOrderMutation,
   useMarkPreparingMutation,
   useMarkPackingMutation,
   useMarkReadyMutation,
+  useMarkOutForDeliveryMutation,
+  useMarkDeliveredMutation,
   useMarkIssueMutation,
   useCancelOrderMutation,
 } from '@/hooks/use-orders';
@@ -17,9 +19,11 @@ import type { OrderStatus } from '@/types/order';
 interface Props {
   orderId: string;
   status: OrderStatus;
+  /** 'SELF' stores get no rider/3PL — the merchant reports their own hand-off. */
+  deliveryMode?: 'PLATFORM' | 'SELF';
 }
 
-export function OrderActionButtons({ orderId, status }: Props) {
+export function OrderActionButtons({ orderId, status, deliveryMode }: Props) {
   const { toast } = useToast();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
@@ -30,8 +34,11 @@ export function OrderActionButtons({ orderId, status }: Props) {
   const preparingMutation = useMarkPreparingMutation(orderId);
   const packingMutation = useMarkPackingMutation(orderId);
   const readyMutation = useMarkReadyMutation(orderId);
+  const outForDeliveryMutation = useMarkOutForDeliveryMutation(orderId);
+  const deliveredMutation = useMarkDeliveredMutation(orderId);
   const issueMutation = useMarkIssueMutation(orderId);
   const cancelMutation = useCancelOrderMutation(orderId);
+  const isSelfDelivery = deliveryMode === 'SELF';
 
   const act = async (mutate: (id: string) => Promise<unknown>, label: string) => {
     try {
@@ -104,6 +111,25 @@ export function OrderActionButtons({ orderId, status }: Props) {
           loading={readyMutation.isPending}
         >
           <PackageCheck className="h-4 w-4" /> Ready For Pickup
+        </Button>
+      )}
+      {status === 'READY_FOR_PICKUP' && isSelfDelivery && (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => act((id) => outForDeliveryMutation.mutateAsync(id), 'out for delivery')}
+          loading={outForDeliveryMutation.isPending}
+        >
+          <Truck className="h-4 w-4" /> Out For Delivery
+        </Button>
+      )}
+      {status === 'OUT_FOR_DELIVERY' && isSelfDelivery && (
+        <Button
+          size="sm"
+          onClick={() => act((id) => deliveredMutation.mutateAsync(id), 'delivered')}
+          loading={deliveredMutation.isPending}
+        >
+          <Home className="h-4 w-4" /> Mark Delivered
         </Button>
       )}
       {canFlagIssue && (

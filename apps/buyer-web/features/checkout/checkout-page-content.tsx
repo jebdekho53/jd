@@ -235,7 +235,8 @@ export function CheckoutPageContent() {
     (!deliveryAddress ||
       !isDeliveryAddressComplete(deliveryAddress) ||
       deliverabilityLoading ||
-      !isDeliverable);
+      !isDeliverable ||
+      cart?.delivery?.mode === 'SELF');
 
   const checkoutRequirements =
     step === 'payment'
@@ -368,6 +369,7 @@ export function CheckoutPageContent() {
                     <div className="mt-4">
                       <PaymentMethodSelector
                         value={paymentMethod}
+                        codDisabled={cart?.delivery?.mode === 'SELF'}
                         onChange={(method) => {
                           setPaymentMethod(method);
                           setCheckoutId(null);
@@ -375,7 +377,9 @@ export function CheckoutPageContent() {
                         }}
                       />
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Choose how you want to pay. COD requires a deliverable address.
+                        {cart?.delivery?.mode === 'SELF'
+                          ? 'This store delivers itself — online payment only.'
+                          : 'Choose how you want to pay. COD requires a deliverable address.'}
                       </p>
                     </div>
 

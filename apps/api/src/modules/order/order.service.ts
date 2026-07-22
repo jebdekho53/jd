@@ -24,7 +24,7 @@ import { DomainEventsService } from '../domain-events/domain-events.service';
 import { OrderCacheService } from './order-cache.service';
 import { OrderStatusHistoryService } from './order-status-history.service';
 import { buildMerchantListWhere } from './merchant-order-visibility.util';
-import { merchantForwardMap } from './merchant-forward.util';
+import { merchantForwardMap, SELF_DELIVERY_MERCHANT_FORWARD } from './merchant-forward.util';
 import { BUYER_STATUS_GROUPS } from './order-status-groups';
 import {
   PIPELINE_COLUMN_STATUSES,
@@ -41,6 +41,7 @@ import { OrderRefundService } from '../payment/order-refund.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
 import { EmailNotificationService } from '../email/email-notification.service';
+import { OrderDeliveredHandlerService } from './order-delivered-handler.service';
 import { ListOrdersDto, ListMerchantOrdersDto, ListAdminOrdersDto } from './dto/list-orders.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import {
@@ -132,6 +133,7 @@ const ORDER_DETAIL_SELECT = {
   id: true,
   orderNumber: true,
   status: true,
+  deliveryMode: true,
   paymentMethod: true,
   paymentStatus: true,
   subtotal: true,
@@ -282,6 +284,7 @@ export class OrderService implements OnModuleInit {
     private readonly emailNotifications: EmailNotificationService,
     private readonly buyerPush: BuyerPushNotificationService,
     private readonly deliveryTracking: DeliveryTrackingService,
+    private readonly orderDelivered: OrderDeliveredHandlerService,
   ) {}
 
   // ── Buyer: list orders ────────────────────────────────────────────────────
@@ -904,7 +907,7 @@ export class OrderService implements OnModuleInit {
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, status: true, orderNumber: true, storeId: true, orderVertical: true },
+      select: { id: true, status: true, orderNumber: true, storeId: true, orderVertical: true, deliveryMode: true },
     });
     if (!order) throw new NotFoundException('Order not found');
 
@@ -913,7 +916,10 @@ export class OrderService implements OnModuleInit {
     }
 
     const forwardMap = merchantForwardMap(order.orderVertical);
-    const expectedNext = forwardMap[order.status];
+    let expectedNext = forwardMap[order.status];
+    if (!expectedNext && order.deliveryMode === 'SELF') {
+      expectedNext = SELF_DELIVERY_MERCHANT_FORWARD[order.status];
+    }
     if (!expectedNext || expectedNext !== targetStatus) {
       throw new BadRequestException(
         `Invalid transition: ${order.status} → ${targetStatus}. ` +
@@ -944,6 +950,8 @@ export class OrderService implements OnModuleInit {
       [OrderStatus.PREPARING]: 'ORDER_PREPARING',
       [OrderStatus.PACKING]: 'ORDER_PACKING',
       [OrderStatus.READY_FOR_PICKUP]: 'ORDER_READY',
+      [OrderStatus.OUT_FOR_DELIVERY]: 'ORDER_OUT_FOR_DELIVERY_SELF',
+      [OrderStatus.DELIVERED]: 'ORDER_DELIVERED_SELF',
     } as any;
 
     const domainEventTypes: Partial<Record<OrderStatus, DomainEventType>> = {
@@ -951,6 +959,7 @@ export class OrderService implements OnModuleInit {
       [OrderStatus.PREPARING]: DomainEventType.ORDER_PREPARING,
       [OrderStatus.PACKING]: DomainEventType.ORDER_PREPARING,
       [OrderStatus.READY_FOR_PICKUP]: DomainEventType.ORDER_READY_FOR_PICKUP,
+      [OrderStatus.OUT_FOR_DELIVERY]: DomainEventType.ORDER_OUT_FOR_DELIVERY,
     };
 
     await this.audit.log({
@@ -989,6 +998,7 @@ export class OrderService implements OnModuleInit {
       OrderStatus.PREPARING,
       OrderStatus.PACKING,
       OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.OUT_FOR_DELIVERY,
     ]);
     if (prepStatuses.has(targetStatus)) {
       this.deliveryTracking.emitOrderStatus({
@@ -1004,32 +1014,55 @@ export class OrderService implements OnModuleInit {
 
     if (targetStatus === OrderStatus.READY_FOR_PICKUP) {
       void this.buyerPush.notifyReadyForPickup(orderId).catch(() => {});
-      void this.deliveryDispatch.dispatchAfterReadyForPickup(orderId).then((result) => {
-        if (result?.mode === 'own_fleet') {
-          void this.cache.invalidateAll(orderId);
-          this.logger.log(
-            { orderId, riderProfileId: result.riderProfileId, deliveryId: result.deliveryId },
-            'Auto-assigned rider after READY_FOR_PICKUP',
-          );
-        } else if (result?.mode === 'provider') {
-          void this.cache.invalidateAll(orderId);
-          this.logger.log(
-            {
-              orderId,
-              deliveryId: result.deliveryId,
-              shipmentId: result.shipmentId,
-              trackingNumber: result.trackingNumber,
-            },
-            'Provider shipment created after READY_FOR_PICKUP',
-          );
-        } else {
-          this.logger.warn({ orderId }, 'Dispatch found no provider/rider — order stays READY_FOR_PICKUP');
+      // Self-delivery stores intentionally get no rider/3PL shipment (see
+      // DeliveryDispatchService.dispatchAfterReadyForPickup) — a null result there
+      // is the expected outcome, not a failure, so it must not trigger the admin
+      // "delivery failed or delayed" alert below.
+      if (order.deliveryMode !== 'SELF') {
+        void this.deliveryDispatch.dispatchAfterReadyForPickup(orderId).then((result) => {
+          if (result?.mode === 'own_fleet') {
+            void this.cache.invalidateAll(orderId);
+            this.logger.log(
+              { orderId, riderProfileId: result.riderProfileId, deliveryId: result.deliveryId },
+              'Auto-assigned rider after READY_FOR_PICKUP',
+            );
+          } else if (result?.mode === 'provider') {
+            void this.cache.invalidateAll(orderId);
+            this.logger.log(
+              {
+                orderId,
+                deliveryId: result.deliveryId,
+                shipmentId: result.shipmentId,
+                trackingNumber: result.trackingNumber,
+              },
+              'Provider shipment created after READY_FOR_PICKUP',
+            );
+          } else {
+            this.logger.warn({ orderId }, 'Dispatch found no provider/rider — order stays READY_FOR_PICKUP');
+            void this.emailNotifications.sendAdminDeliveryFailedOrDelayed(order.orderNumber).catch(() => {});
+          }
+        }).catch((err) => {
+          this.logger.error({ orderId, err }, 'Dispatch failed after READY_FOR_PICKUP');
           void this.emailNotifications.sendAdminDeliveryFailedOrDelayed(order.orderNumber).catch(() => {});
-        }
-      }).catch((err) => {
-        this.logger.error({ orderId, err }, 'Dispatch failed after READY_FOR_PICKUP');
-        void this.emailNotifications.sendAdminDeliveryFailedOrDelayed(order.orderNumber).catch(() => {});
-      });
+        });
+      }
+    }
+
+    if (targetStatus === OrderStatus.OUT_FOR_DELIVERY) {
+      void this.emailNotifications.sendBuyerPickedUpOrOutForDelivery(orderId).catch(() => {});
+      void this.buyerPush.notifyOutForDelivery(orderId).catch(() => {});
+    }
+
+    if (targetStatus === OrderStatus.DELIVERED) {
+      // Self-delivery has no rider/3PL to mark this — the merchant is confirming
+      // hand-off directly. handleDelivered is the same idempotent completion path
+      // rider and 3PL deliveries use (settlement, COD reconciliation, inventory,
+      // rewards, invoice) and is safe with riderProfileId/deliveryId left null.
+      void this.orderDelivered
+        .handleDelivered({ orderId, actorId: userId, riderProfileId: null, deliveryId: null })
+        .catch((err) => {
+          this.logger.error({ orderId, err }, 'Self-delivery order-delivered handler failed');
+        });
     }
 
     return { orderId, status: targetStatus };
@@ -1339,6 +1372,7 @@ function serializeDetail(order: any) {
     id: order.id,
     orderNumber: order.orderNumber,
     status: order.status,
+    deliveryMode: order.deliveryMode,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
     subtotal: Number(order.subtotal),

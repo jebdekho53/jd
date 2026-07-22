@@ -120,6 +120,8 @@ export interface OrderDetail {
   id: string;
   orderNumber: string;
   status: OrderStatus;
+  /** 'SELF' stores have no rider/3PL assigned — the merchant reports their own hand-off. */
+  deliveryMode?: 'PLATFORM' | 'SELF';
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   subtotal: number;

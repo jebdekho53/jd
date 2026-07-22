@@ -9,13 +9,14 @@ import { ComplianceModule } from '../compliance/compliance.module';
 import { PushModule } from '../push/push.module';
 import { PaymentModule } from '../payment/payment.module';
 import { DeliveryTrackingModule } from '../delivery-tracking/delivery-tracking.module';
+import { OrderFulfillmentModule } from './order-fulfillment.module';
 import { OrderService } from './order.service';
 import { BuyerOrderController } from './buyer-order.controller';
 import { MerchantOrderController } from './merchant-order.controller';
 import { AdminOrderController } from './admin-order.controller';
 
 @Module({
-  imports: [RiderAssignmentModule, LogisticsModule, CheckoutModule, InventoryModule, WalletLoyaltyModule, FinanceModule, ComplianceModule, PushModule, PaymentModule, DeliveryTrackingModule],
+  imports: [RiderAssignmentModule, LogisticsModule, CheckoutModule, InventoryModule, WalletLoyaltyModule, FinanceModule, ComplianceModule, PushModule, PaymentModule, DeliveryTrackingModule, OrderFulfillmentModule],
   controllers: [BuyerOrderController, MerchantOrderController, AdminOrderController],
   providers: [OrderService],
   exports: [OrderService],

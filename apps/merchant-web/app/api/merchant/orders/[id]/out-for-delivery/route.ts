@@ -1,0 +1,7 @@
+import { NextRequest } from 'next/server';
+import { proxyPatch } from '@/lib/auth/bff-proxy';
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return proxyPatch(req, `/merchant/orders/${id}/out-for-delivery`);
+}

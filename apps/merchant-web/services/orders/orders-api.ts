@@ -58,5 +58,9 @@ export const confirmOrder = (id: string) => patchOrderStatus(id, 'confirm');
 export const markPreparing = (id: string) => patchOrderStatus(id, 'preparing');
 export const markPacking = (id: string) => patchOrderStatus(id, 'packing');
 export const markReady = (id: string) => patchOrderStatus(id, 'ready');
+/** Self-delivery stores only — no rider/3PL is assigned for these orders. */
+export const markOutForDelivery = (id: string) => patchOrderStatus(id, 'out-for-delivery');
+/** Self-delivery stores only — runs the same completion path as a rider/3PL delivery. */
+export const markDelivered = (id: string) => patchOrderStatus(id, 'delivered');
 export const markIssue = (id: string, note?: string) => patchOrderStatus(id, 'issue', note);
 export const cancelOrder = (id: string, reason?: string) => patchOrderStatus(id, 'cancel', reason);

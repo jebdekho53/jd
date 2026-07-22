@@ -285,6 +285,18 @@ export class CheckoutService {
       throw new BadRequestException(codCheck.reason ?? 'COD not available');
     }
 
+    // Self-delivery stores have no rider/3PL to act as the cash-collection
+    // intermediary — normally the rider hands the platform its commission share
+    // out of the cash collected. Without that, a self-delivering merchant would
+    // simply keep 100% of COD cash and the platform's commission is never
+    // recovered. Prepaid/online orders don't have this gap: the platform holds
+    // the money first and only ever pays out the merchant's net share.
+    if (cart.delivery?.mode === 'SELF') {
+      throw new BadRequestException(
+        'Cash on delivery is not available for this store — please pay online.',
+      );
+    }
+
     if (dto.corporatePurchaseRequestId) {
       await this.validateCorporatePurchaseRequest(userId, dto.corporatePurchaseRequestId, cart.totals.grandTotal);
     }

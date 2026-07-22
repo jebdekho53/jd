@@ -153,6 +153,50 @@ export class MerchantOrderController {
     return { success: true, data };
   }
 
+  @Patch(':orderId/out-for-delivery')
+  @Permissions('orders:update_status')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'orderId' })
+  @ApiOperation({
+    summary: 'Self-delivery only: mark out for delivery (READY_FOR_PICKUP → OUT_FOR_DELIVERY)',
+    description:
+      'Only valid for stores with deliveryMode SELF — no rider/3PL is assigned for these orders, so the merchant reports their own hand-off.',
+  })
+  @ApiResponse({ status: 200, description: 'Order now OUT_FOR_DELIVERY' })
+  @ApiResponse({ status: 400, description: 'Invalid transition (e.g. store is not on self-delivery)' })
+  async markOutForDelivery(
+    @CurrentUser() user: RequestUser,
+    @Param('orderId') orderId: string,
+    @Ip() ip: string,
+  ) {
+    const data = await this.orderService.advanceMerchantOrder(
+      user.id, orderId, OrderStatus.OUT_FOR_DELIVERY, undefined, ip,
+    );
+    return { success: true, data };
+  }
+
+  @Patch(':orderId/delivered')
+  @Permissions('orders:update_status')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'orderId' })
+  @ApiOperation({
+    summary: 'Self-delivery only: mark delivered (OUT_FOR_DELIVERY → DELIVERED)',
+    description:
+      'Only valid for stores with deliveryMode SELF. Runs the same settlement/COD/inventory/rewards/invoice completion used for rider and 3PL deliveries.',
+  })
+  @ApiResponse({ status: 200, description: 'Order now DELIVERED' })
+  @ApiResponse({ status: 400, description: 'Invalid transition (e.g. store is not on self-delivery)' })
+  async markDelivered(
+    @CurrentUser() user: RequestUser,
+    @Param('orderId') orderId: string,
+    @Ip() ip: string,
+  ) {
+    const data = await this.orderService.advanceMerchantOrder(
+      user.id, orderId, OrderStatus.DELIVERED, undefined, ip,
+    );
+    return { success: true, data };
+  }
+
   @Patch(':orderId/cancel')
   @Permissions('orders:update_status')
   @HttpCode(HttpStatus.OK)

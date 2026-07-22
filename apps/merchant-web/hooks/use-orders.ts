@@ -8,6 +8,8 @@ import {
   markPreparing,
   markPacking,
   markReady,
+  markOutForDelivery,
+  markDelivered,
   markIssue,
   cancelOrder,
 } from '@/services/orders/orders-api';
@@ -47,6 +49,8 @@ export const useConfirmOrderMutation = (orderId?: string) => useOrderActionMutat
 export const useMarkPreparingMutation = (orderId?: string) => useOrderActionMutation(markPreparing, orderId);
 export const useMarkPackingMutation = (orderId?: string) => useOrderActionMutation(markPacking, orderId);
 export const useMarkReadyMutation = (orderId?: string) => useOrderActionMutation(markReady, orderId);
+export const useMarkOutForDeliveryMutation = (orderId?: string) => useOrderActionMutation(markOutForDelivery, orderId);
+export const useMarkDeliveredMutation = (orderId?: string) => useOrderActionMutation(markDelivered, orderId);
 
 export function useMarkIssueMutation(orderId?: string) {
   const qc = useQueryClient();
