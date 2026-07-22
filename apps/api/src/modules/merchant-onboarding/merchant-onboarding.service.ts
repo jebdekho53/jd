@@ -1434,6 +1434,9 @@ export class MerchantOnboardingService {
       HEALTH_NUTRITION: VerticalBusinessType.SUPPLEMENTS,
       FLOWERS: VerticalBusinessType.FLOWERS,
       LOCAL_STORE: VerticalBusinessType.LOCAL_STORE,
+      PHARMACY: VerticalBusinessType.PHARMACY,
+      FASHION: VerticalBusinessType.FASHION,
+      STATIONERY: VerticalBusinessType.STATIONERY,
       OTHER: VerticalBusinessType.LOCAL_STORE,
     };
     return map[type] ?? null;
