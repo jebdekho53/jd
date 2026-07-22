@@ -1045,7 +1045,21 @@ export class MerchantOnboardingService {
     if (!app) throw new NotFoundException('Application not found');
     if (!app.storeId) throw new BadRequestException('Application has no linked store');
 
-    await this.adminStoreService.approveStore(adminId, app.storeId, ip);
+    // The same store can be approved from the separate Store Approval queue
+    // (AdminStoreController) before its application is actioned here. When that
+    // happens, calling approveStore() again always 400s ("cannot be approved from
+    // status: APPROVED"), permanently stranding the application at SUBMITTED and
+    // its KYC at unverified — this endpoint becomes a dead end forever. Only run
+    // store-level approval if the store still needs it; the application-level
+    // bookkeeping below (KYC, role, welcome email, franchise attribution) must
+    // still happen so the application actually closes out.
+    const store = await this.prisma.store.findUnique({
+      where: { id: app.storeId },
+      select: { status: true },
+    });
+    if (store?.status !== StoreStatus.APPROVED) {
+      await this.adminStoreService.approveStore(adminId, app.storeId, ip);
+    }
 
     const updated = await this.prisma.merchantApplication.update({
       where: { id },

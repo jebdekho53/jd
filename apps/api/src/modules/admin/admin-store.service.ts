@@ -4,7 +4,17 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { DomainEventType, Prisma, RejectionType, StoreBusinessTypeStatus, StoreDocumentType, StoreStatus } from '@prisma/client';
+import {
+  DomainEventType,
+  KycStatus,
+  MerchantApplicationStatus,
+  MerchantKycStatus,
+  Prisma,
+  RejectionType,
+  StoreBusinessTypeStatus,
+  StoreDocumentType,
+  StoreStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
@@ -206,6 +216,14 @@ export class AdminStoreService {
     // was never written and the partner who recruited the merchant went unpaid.
     // Idempotent and non-throwing — it cannot break a valid approval.
     await this.franchiseStoreLink.attributeStoreFromApplication(storeId, adminUserId);
+
+    // Same class of bug, different record: the linked merchant_application (and its
+    // KYC row) is left stranded at SUBMITTED forever — approveApplication() is the
+    // only other path that closes it out, and it 400s once the store is already
+    // APPROVED. That permanently blocks the application from ever being approved
+    // and leaves the merchant's KYC stuck as unverified. Idempotent — no-ops if the
+    // application is already APPROVED or doesn't exist.
+    await this.closeOutLinkedApplication(storeId, adminUserId, now);
 
     await this.verticalService.ensureStoreBusinessTypesFromApplication(storeId);
     await this.prisma.storeBusinessType.updateMany({
@@ -790,6 +808,37 @@ export class AdminStoreService {
     }
 
     return store;
+  }
+
+  /** See approveStore's call site: closes out the application/KYC left behind when a
+   *  store is approved from this queue instead of the Merchant Applications queue. */
+  private async closeOutLinkedApplication(
+    storeId: string,
+    adminUserId: string,
+    now: Date,
+  ): Promise<void> {
+    const app = await this.prisma.merchantApplication.findFirst({
+      where: { storeId, status: { not: MerchantApplicationStatus.APPROVED } },
+      select: { id: true, merchantProfileId: true },
+    });
+    if (!app) return;
+
+    await this.prisma.merchantApplication.update({
+      where: { id: app.id },
+      data: { status: MerchantApplicationStatus.APPROVED, reviewedAt: now, reviewedBy: adminUserId },
+    });
+
+    await this.prisma.merchantKyc.updateMany({
+      where: { applicationId: app.id, status: { not: MerchantKycStatus.VERIFIED } },
+      data: { status: MerchantKycStatus.VERIFIED, verifiedAt: now, verifiedBy: adminUserId },
+    });
+
+    if (app.merchantProfileId) {
+      await this.prisma.merchantProfile.update({
+        where: { id: app.merchantProfileId },
+        data: { kycStatus: KycStatus.APPROVED },
+      });
+    }
   }
 
   private async findStoreOrThrow(storeId: string) {
