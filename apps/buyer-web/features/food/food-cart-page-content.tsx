@@ -188,7 +188,10 @@ export function FoodCartPageContent() {
                   )}
                 </div>
 
-                <ActionBar className="lg:static lg:border-0 lg:bg-transparent lg:p-0">
+                <ActionBar
+                  mobileOnly={false}
+                  className="lg:static lg:border-0 lg:bg-transparent lg:p-0"
+                >
                   <ButtonLink
                     href="/food/checkout"
                     variant="primary"

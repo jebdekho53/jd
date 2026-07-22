@@ -127,7 +127,7 @@ export function FoodCheckoutPageContent() {
   return (
     <AuthGuard redirectTo="/login">
       <PageShell hideFloatingCart hideMobileNav>
-        <div className="mx-auto max-w-2xl space-y-6 pb-28">
+        <div className="mx-auto max-w-2xl space-y-6 pb-28 lg:pb-0">
           <div>
             <h1 className="flex items-center gap-2 text-xl font-bold md:text-2xl">
               <UtensilsCrossed className="h-6 w-6 text-primary" aria-hidden />
@@ -196,7 +196,7 @@ export function FoodCheckoutPageContent() {
                 </dl>
               </div>
 
-              <ActionBar>
+              <ActionBar mobileOnly={false} className="lg:static lg:border-0 lg:bg-transparent lg:p-0">
                 <Button
                   variant="primary"
                   className="w-full"
