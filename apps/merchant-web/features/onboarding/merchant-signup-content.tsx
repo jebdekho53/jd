@@ -360,7 +360,10 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       businessTypes: types,
       preferredCategories: types,
       gstNumber: app.gstNumber ?? f.gstNumber,
-      gstValid: app.gstVerified ?? f.gstValid,
+      // gstVerified defaults to false (not null) in the DB, so trusting it blindly
+      // shows "GST could not be verified" on every load even when the merchant
+      // never entered a GSTIN. Only reflect it once a GST number actually exists.
+      gstValid: app.gstNumber ? (app.gstVerified ?? false) : f.gstValid,
       panNumber: app.panNumber ?? f.panNumber,
       storeName: app.storeName ?? f.storeName,
       storeAddress: pickup?.addressLine1 ?? app.storeAddress ?? f.storeAddress,

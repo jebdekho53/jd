@@ -23,7 +23,7 @@ import { AdminAdjustAiWalletDto } from '../product/dto/merchant-ai-wallet.dto';
 @ApiTags(Tags.ADMIN)
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@Roles('ADMIN', 'SUPER_ADMIN')
 @Controller('admin/merchant-ai-wallets')
 export class AdminMerchantAiWalletController {
   constructor(private readonly wallet: MerchantAiWalletService) {}

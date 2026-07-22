@@ -42,7 +42,7 @@ export class MerchantTrackingController {
 @ApiTags('admin / tracking')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@Roles('ADMIN', 'SUPER_ADMIN')
 @Controller('admin')
 export class AdminTrackingController {
   constructor(private readonly tracking: DeliveryTrackingService) {}

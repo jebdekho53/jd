@@ -94,7 +94,7 @@ export class BuyerGeospatialController {
 @ApiTags('admin / geo')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@Roles('ADMIN', 'SUPER_ADMIN')
 @Controller('admin/geo')
 export class AdminGeospatialController {
   constructor(private readonly geo: GeospatialService) {}

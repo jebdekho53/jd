@@ -31,7 +31,7 @@ import { ListMerchantClaimsDto, PatchAdminClaimDto } from './dto/order-claim.dto
 @ApiTags('admin / claims')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-@Roles('ADMIN')
+@Roles('ADMIN', 'SUPER_ADMIN')
 @Controller('admin/claims')
 export class AdminClaimController {
   constructor(

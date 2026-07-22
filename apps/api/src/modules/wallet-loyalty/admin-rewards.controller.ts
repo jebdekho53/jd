@@ -31,7 +31,7 @@ import {
 @ApiTags('admin / rewards')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@Roles('ADMIN', 'SUPER_ADMIN')
 @Controller('admin/rewards')
 export class AdminRewardsController {
   constructor(

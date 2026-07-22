@@ -11,7 +11,7 @@ import { UpdateStoreRadiusDto } from './dto/geospatial.dto';
 @ApiTags('admin / stores / geo')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@Roles('ADMIN', 'SUPER_ADMIN')
 @Controller('admin/stores')
 export class AdminStoreGeoController {
   constructor(private readonly geo: GeospatialService) {}
