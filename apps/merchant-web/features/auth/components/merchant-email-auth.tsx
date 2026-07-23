@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { isPhoneOtpEnabled } from '@jebdekho/web-config';
 import { Button, Input, PasswordInput } from '@/design-system/primitives';
 import {
   MerchantAgreementAcceptance,
@@ -127,9 +128,18 @@ export function MerchantEmailAuth({
   return (
     <div className="space-y-4">
       <h2 className="text-center text-sm font-semibold text-slate-700">{title}</h2>
-      <p className="text-center text-xs text-slate-500">
-        Mobile OTP coming soon. Please use email to continue.
-      </p>
+      {/* Only advertise the OTP gap while phone OTP is actually off. Showing this
+          unconditionally told merchants OTP login did not exist even when it did,
+          stranding phone-registered merchants who have no email/password. */}
+      {!isPhoneOtpEnabled() ? (
+        <p className="text-center text-xs text-slate-500">
+          Mobile OTP coming soon. Please use email to continue.
+        </p>
+      ) : (
+        <p className="text-center text-xs text-slate-500">
+          Registered with your mobile number? Use the <strong>Mobile OTP</strong> tab above.
+        </p>
+      )}
 
       {mode === 'login' ? (
         <form onSubmit={onLoginSubmit} className="space-y-4">

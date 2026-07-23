@@ -71,12 +71,15 @@ export function LoginPageContent() {
       title="Merchant Login"
       subtitle="Sign in with your email and password"
       footer={
-        <p className="text-slate-600">
-          New to JebDekho?{' '}
-          <Link href="/signup" className="font-semibold text-brand-600 hover:underline">
-            Start selling
+        <div className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-center">
+          <p className="text-sm text-slate-700">Don&apos;t have a merchant account yet?</p>
+          <Link
+            href="/signup"
+            className="mt-2 inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+          >
+            Create account — Start selling
           </Link>
-        </p>
+        </div>
       }
     >
       {activeUser && (
