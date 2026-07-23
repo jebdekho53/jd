@@ -1015,6 +1015,7 @@ model RiderProfile {
   ratingAvg       Float       @default(0) @map("rating_avg")
   ratingCount     Int         @default(0) @map("rating_count")
   totalDeliveries Int         @default(0) @map("total_deliveries")
+  referralCode    String?     @unique @map("referral_code")
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
 
@@ -1034,6 +1035,8 @@ model RiderProfile {
   fleetAlerts        FleetAlert[]
   bankAccount        RiderBankAccount?
   returnPickups      ReturnPickup[]
+  referralsMade      RiderReferral[]         @relation("RiderReferrer")
+  referredBy         RiderReferral?          @relation("RiderReferred")
 
   @@index([status])
   @@index([kycStatus])
@@ -2888,6 +2891,27 @@ model Referral {
   @@index([referrerWalletId])
   @@index([status])
   @@map("referrals")
+}
+
+/// Rider-refers-rider program — parallel to Referral (buyer side) but riders
+/// have no in-app wallet, so the reward is credited via the next weekly
+/// RiderPayout's `incentives` line instead of a wallet credit.
+model RiderReferral {
+  id                      String         @id @default(cuid())
+  referrerRiderProfileId  String         @map("referrer_rider_profile_id")
+  referredRiderProfileId  String         @unique @map("referred_rider_profile_id")
+  status                  ReferralStatus @default(PENDING)
+  rewardAmount            Decimal?       @map("reward_amount") @db.Decimal(10, 2)
+  paidOut                 Boolean        @default(false) @map("paid_out")
+  completedAt             DateTime?      @map("completed_at")
+  createdAt               DateTime       @default(now()) @map("created_at")
+
+  referrer RiderProfile @relation("RiderReferrer", fields: [referrerRiderProfileId], references: [id], onDelete: Cascade)
+  referred RiderProfile @relation("RiderReferred", fields: [referredRiderProfileId], references: [id], onDelete: Cascade)
+
+  @@index([referrerRiderProfileId])
+  @@index([status])
+  @@map("rider_referrals")
 }
 
 model RewardProgramConfig {
@@ -7802,6 +7826,9 @@ model RestaurantMenuItem {
   servingSize               String?              @map("serving_size")
   cuisineName               String?              @map("cuisine_name")
   availability              MenuItemAvailability @default(AVAILABLE)
+  /** True only when HIDDEN because the FSSAI licence is missing — lets the
+   *  auto-release sweep tell that apart from a merchant's deliberate sold-out. */
+  fssaiHeld                 Boolean              @default(false) @map("fssai_held")
   allowsSpecialInstructions Boolean              @default(true) @map("allows_special_instructions")
   isCombo                   Boolean              @default(false) @map("is_combo")
   sortOrder                 Int                  @default(0) @map("sort_order")

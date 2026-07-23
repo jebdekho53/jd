@@ -128,6 +128,8 @@ export class SearchDiscoveryService {
           mrp: row.mrp,
           variantId: row.variantId,
           category: row.category,
+          isVeg: row.isVeg,
+          totalSold: row.totalSold,
           store: {
             id: row.store.id,
             name: row.store.name,
@@ -146,11 +148,23 @@ export class SearchDiscoveryService {
           sortRating: row.store.ratingAvg,
           sortDistance: distanceKm ?? 999,
         };
-      });
+      })
+      .filter((row) => dto.maxDeliveryMins == null || row.sortEta <= dto.maxDeliveryMins);
 
       const sortedProducts = this.sortProducts(scoredProducts, sort);
       const totalProducts = sortedProducts.length;
-      let products = sortedProducts.slice((page - 1) * limit, page * limit);
+
+      // Real "Bestseller" signal from cumulative sold quantity, not a cosmetic
+      // label — top quartile within this result set, with a floor so a niche
+      // result set of slow movers doesn't get badges it hasn't earned.
+      const soldCounts = scoredProducts.map((p) => p.totalSold).filter((n) => n > 0).sort((a, b) => a - b);
+      const bestsellerThreshold =
+        soldCounts.length >= 4 ? soldCounts[Math.floor(soldCounts.length * 0.75)] : Infinity;
+
+      let products = sortedProducts.slice((page - 1) * limit, page * limit).map((p) => ({
+        ...p,
+        isBestseller: p.totalSold >= 10 && p.totalSold >= bestsellerThreshold,
+      }));
 
       if (hasQuery && dto.q && page === 1) {
         const sponsored = await this.adServing.getSponsoredProductsForSearch(dto.q, 3);
@@ -596,6 +610,7 @@ export class SearchDiscoveryService {
           (s, v) => s + Math.max(0, v.inventory?.availableQty ?? 0),
           0,
         );
+        const totalSold = p.variants.reduce((s, v) => s + Math.max(0, v.inventory?.soldQty ?? 0), 0);
         const prices = p.variants.map((v) => Number(v.price));
         const minPrice = prices.length ? Math.min(...prices) : Number(p.basePrice);
         const defaultVariant = p.variants.find((v) => v.isDefault) ?? p.variants[0];
@@ -617,12 +632,19 @@ export class SearchDiscoveryService {
           defaultVariantQty,
           minPrice,
           mrp: defaultVariant.mrp ? Number(defaultVariant.mrp) : p.mrp ? Number(p.mrp) : null,
+          isVeg: p.isVeg,
+          totalSold,
         };
       })
       .filter((p): p is NonNullable<typeof p> => p !== null)
       .filter((p) => {
         if (dto.minPrice != null && p.minPrice < dto.minPrice) return false;
         if (dto.maxPrice != null && p.minPrice > dto.maxPrice) return false;
+        if (dto.isVeg && !p.isVeg) return false;
+        if (dto.brand && p.brand?.toLowerCase() !== dto.brand.toLowerCase()) return false;
+        // No product has its own rating aggregate — store rating is the
+        // established proxy here (same convention as the "rating" sort below).
+        if (dto.minRating != null && (p.store.ratingAvg ?? 0) < dto.minRating) return false;
         if (dto.lat != null && dto.lng != null) {
           return this.isStoreEligibleForSearch(dto, p.store);
         }

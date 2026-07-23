@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Check, SlidersHorizontal, Store, Tag } from 'lucide-react';
+import Image from 'next/image';
+import { Check, SlidersHorizontal, Star, Store, Tag, UtensilsCrossed } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
 import { SmartSearchSection } from '@/components/discovery/smart-search-section';
 import { CategoryExplorer } from '@/components/discovery/category-explorer';
@@ -59,7 +60,7 @@ function toProductCard(p: UnifiedSearchProduct) {
     basePrice: p.basePrice,
     mrp: p.mrp,
     unit: 'piece',
-    isVeg: null,
+    isVeg: p.isVeg ?? null,
     tags: [],
     category: p.category,
     variants: p.variantId
@@ -113,6 +114,12 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
   const [tab, setTab] = useState<(typeof TABS)[number]['value']>('all');
   const [sort, setSort] = useState<string>(forcedDeals ? 'price_low_high' : 'relevance');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [minPrice, setMinPrice] = useState<string>('');
+  const [maxPrice, setMaxPrice] = useState<string>('');
+  const [minRating, setMinRating] = useState<number | null>(null);
+  const [vegOnly, setVegOnly] = useState(false);
+  const [maxDeliveryMins, setMaxDeliveryMins] = useState<number | null>(null);
+  const [brand, setBrand] = useState<string | null>(null);
   const { add: addHistory } = useSearchHistory();
 
   const qFromUrl = searchParams.get('q') ?? collection?.q ?? '';
@@ -126,6 +133,9 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
   const flatCategories = useMemo(() => flattenCategories(categories), [categories]);
   const activeCategoryName = flatCategories.find((c) => c.id === categoryId)?.name;
 
+  const debouncedMinPrice = useDebounce(minPrice, 400);
+  const debouncedMaxPrice = useDebounce(maxPrice, 400);
+
   const searchParams_ = useMemo(
     () => ({
       q: debouncedQuery.trim() || undefined,
@@ -134,12 +144,33 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
       lat: lat ?? undefined,
       lng: lng ?? undefined,
       pincode: pincode ?? undefined,
+      minPrice: debouncedMinPrice.trim() ? Number(debouncedMinPrice) : undefined,
+      maxPrice: debouncedMaxPrice.trim() ? Number(debouncedMaxPrice) : undefined,
+      minRating: minRating ?? undefined,
+      isVeg: vegOnly || undefined,
+      maxDeliveryMins: maxDeliveryMins ?? undefined,
+      brand: brand ?? undefined,
       sort,
       tab,
       page: 1,
       limit: 24,
     }),
-    [debouncedQuery, categoryId, storeIdParam, lat, lng, pincode, sort, tab],
+    [
+      debouncedQuery,
+      categoryId,
+      storeIdParam,
+      lat,
+      lng,
+      pincode,
+      debouncedMinPrice,
+      debouncedMaxPrice,
+      minRating,
+      vegOnly,
+      maxDeliveryMins,
+      brand,
+      sort,
+      tab,
+    ],
   );
 
   const canSearch = debouncedQuery.trim().length >= 2 || Boolean(categoryId);
@@ -162,7 +193,14 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
   }, [data?.products, forcedDeals]);
 
   const sortActive = sort !== (forcedDeals ? 'price_low_high' : 'relevance');
-  const filterCount = (categoryId ? 1 : 0) + (sortActive ? 1 : 0);
+  const filterCount =
+    (categoryId ? 1 : 0) +
+    (sortActive ? 1 : 0) +
+    (minPrice.trim() || maxPrice.trim() ? 1 : 0) +
+    (minRating ? 1 : 0) +
+    (vegOnly ? 1 : 0) +
+    (maxDeliveryMins ? 1 : 0) +
+    (brand ? 1 : 0);
 
   const heading = forcedDeals ? 'Deals & offers' : collection ? collection.title : 'Search & Discover';
   const subheading = forcedDeals
@@ -273,6 +311,8 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
                           product={toProductCard(product)}
                           showStore
                           trackView
+                          rating={product.store.ratingAvg}
+                          bestseller={product.isBestseller}
                           sponsored={product.sponsored}
                           onSponsoredClick={
                             product.sponsored && product.campaignId
@@ -316,6 +356,59 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
                   </section>
                 )}
 
+                {(tab === 'all' || tab === 'products') && data.restaurants.length > 0 && (
+                  <section>
+                    <SectionHeader title="Restaurants" subtitle={`${data.restaurants.length} results`} />
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {data.restaurants.map((r) => (
+                        <Link
+                          key={r.id}
+                          href={`/restaurant/${r.slug}`}
+                          className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 transition hover:border-primary"
+                        >
+                          {r.logoUrl ? (
+                            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border">
+                              <Image src={r.logoUrl} alt="" fill className="object-cover" sizes="48px" />
+                            </div>
+                          ) : (
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                              <UtensilsCrossed className="h-5 w-5" aria-hidden />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold">{r.name}</p>
+                            <span className="inline-flex items-center gap-1 text-xs text-jd-text-muted">
+                              <Star className="h-3 w-3 fill-accent text-accent" aria-hidden />
+                              {r.ratingAvg.toFixed(1)}
+                            </span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {(tab === 'all' || tab === 'products') && data.menuItems.length > 0 && (
+                  <section>
+                    <SectionHeader title="Dishes" subtitle={`${data.menuItems.length} results`} />
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                      {data.menuItems.map((item) =>
+                        item.store ? (
+                          <Link
+                            key={item.id}
+                            href={`/restaurant/${item.store.slug}`}
+                            className="rounded-2xl border border-border bg-card p-3 transition hover:border-primary"
+                          >
+                            <p className="truncate text-sm font-semibold">{item.name}</p>
+                            <p className="mt-1 text-sm font-bold text-primary">₹{item.basePrice}</p>
+                            <p className="mt-1 truncate text-xs text-jd-text-muted">{item.store.name}</p>
+                          </Link>
+                        ) : null,
+                      )}
+                    </div>
+                  </section>
+                )}
+
                 {(tab === 'all' || tab === 'categories') && data.categories.length > 0 && (
                   <section>
                     <SectionHeader title="Categories" />
@@ -354,7 +447,9 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
 
                 {products.length === 0 &&
                   data.stores.length === 0 &&
-                  data.categories.length === 0 && (
+                  data.categories.length === 0 &&
+                  data.restaurants.length === 0 &&
+                  data.menuItems.length === 0 && (
                     <EmptyState
                       variant="search"
                       title="No results found"
@@ -380,6 +475,12 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
               onClick={() => {
                 setCategoryId(null);
                 setSort(forcedDeals ? 'price_low_high' : 'relevance');
+                setMinPrice('');
+                setMaxPrice('');
+                setMinRating(null);
+                setVegOnly(false);
+                setMaxDeliveryMins(null);
+                setBrand(null);
               }}
               className="h-11 flex-1 rounded-xl border border-border text-sm font-semibold text-foreground transition hover:bg-muted"
             >
@@ -437,6 +538,96 @@ export function SearchPageContent({ forcedDeals = false }: SearchPageContentProp
                     onClick={() => setCategoryId(categoryId === c.id ? null : c.id)}
                   >
                     {c.name}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-jd-text-muted">
+              Price range
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                placeholder="Min ₹"
+                value={minPrice}
+                onChange={(e) => setMinPrice(e.target.value)}
+                className="h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              />
+              <span className="text-jd-text-muted">–</span>
+              <input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                placeholder="Max ₹"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                className="h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-jd-text-muted">
+              Rating
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {[4, 3, 2].map((r) => (
+                <Chip
+                  key={r}
+                  active={minRating === r}
+                  leadingIcon={<Star className="h-3.5 w-3.5 fill-accent text-accent" aria-hidden />}
+                  onClick={() => setMinRating(minRating === r ? null : r)}
+                >
+                  {r}+ &amp; above
+                </Chip>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-jd-text-muted">
+              Delivery time
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {[15, 30, 45].map((m) => (
+                <Chip
+                  key={m}
+                  active={maxDeliveryMins === m}
+                  onClick={() => setMaxDeliveryMins(maxDeliveryMins === m ? null : m)}
+                >
+                  Under {m} min
+                </Chip>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-jd-text-muted">
+              Dietary
+            </p>
+            <Chip active={vegOnly} onClick={() => setVegOnly(!vegOnly)}>
+              🟢 Veg only
+            </Chip>
+          </div>
+
+          {(data?.brands.length ?? 0) > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-jd-text-muted">
+                Brand
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {data?.brands.map((b) => (
+                  <Chip
+                    key={b.name}
+                    active={brand === b.name}
+                    onClick={() => setBrand(brand === b.name ? null : b.name)}
+                  >
+                    {b.name}
                   </Chip>
                 ))}
               </div>

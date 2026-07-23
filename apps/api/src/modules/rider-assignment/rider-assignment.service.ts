@@ -37,6 +37,7 @@ import {
 } from './rider-assignment.util';
 import { generateHandoverOtp } from '../rider/delivery-otp.util';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
+import { RiderPushNotificationService } from '../push/rider-push-notification.service';
 import { EmailNotificationService } from '../email/email-notification.service';
 
 export const RIDER_ASSIGNMENT_EVENTS = {
@@ -59,6 +60,7 @@ export class RiderAssignmentService {
     private readonly cache: RiderAssignmentCacheService,
     private readonly events: EventEmitter2,
     private readonly buyerPush: BuyerPushNotificationService,
+    private readonly riderPush: RiderPushNotificationService,
     private readonly emailNotifications: EmailNotificationService,
     config: ConfigService,
   ) {
@@ -429,12 +431,7 @@ export class RiderAssignmentService {
       assignedToday,
       avgAssignmentMs,
     ] = await Promise.all([
-      this.prisma.order.count({
-        where: {
-          status: OrderStatus.READY_FOR_PICKUP,
-          OR: [{ delivery: { is: null } }, { delivery: { status: DeliveryStatus.CANCELLED } }],
-        },
-      }),
+      this.prisma.order.count({ where: unassignedOrderWhere() }),
       this.prisma.riderProfile.count({
         where: { status: RiderStatus.ONLINE, user: { status: UserStatus.ACTIVE } },
       }),
@@ -467,25 +464,21 @@ export class RiderAssignmentService {
     };
   }
 
-  /** Process expired offers and auto-accept when configured. */
+  /** Process expired offers — the rider never responded, so free them and
+   *  re-offer the order to the next best rider rather than binding them to a
+   *  delivery they never agreed to. */
   async processPendingOffers(): Promise<void> {
     const now = new Date();
     const pending = await this.prisma.deliveryAssignment.findMany({
       where: { status: AssignmentStatus.OFFERED, expiresAt: { lte: now } },
       include: {
         delivery: { include: { order: { select: { id: true } } } },
-        riderProfile: { select: { userId: true } },
       },
       take: 50,
     });
 
     for (const offer of pending) {
-      await this.autoAcceptOffer(
-        offer.id,
-        offer.delivery.id,
-        offer.delivery.orderId,
-        offer.riderProfile.userId,
-      );
+      await this.expireOffer(offer.id, offer.delivery.id, offer.riderProfileId, offer.delivery.orderId);
     }
   }
 
@@ -533,27 +526,6 @@ export class RiderAssignmentService {
   listAvailableRidersForStore = this.getAvailableRiders;
   countAvailableRidersForStore = async (storeId: string) =>
     (await this.getAvailableRiders(storeId)).length;
-
-  private async autoAcceptOffer(
-    assignmentId: string,
-    deliveryId: string,
-    orderId: string,
-    riderUserId: string,
-  ) {
-    await this.prisma.deliveryAssignment.update({
-      where: { id: assignmentId },
-      data: { status: AssignmentStatus.ACCEPTED, respondedAt: new Date() },
-    });
-    await this.prisma.delivery.update({
-      where: { id: deliveryId },
-      data: { status: DeliveryStatus.ACCEPTED },
-    });
-    await this.prisma.riderProfile.updateMany({
-      where: { userId: riderUserId },
-      data: { status: RiderStatus.ON_DELIVERY },
-    });
-    await this.cache.invalidateAssignmentCaches(orderId);
-  }
 
   private async expireOffer(
     assignmentId: string,
@@ -684,6 +656,11 @@ export class RiderAssignmentService {
       },
     });
     if (!order) throw new NotFoundException(`Order not found: ${orderId}`);
+    if (order.deliveryMode === 'SELF') {
+      throw new BadRequestException(
+        'This store delivers its own orders — no platform rider can be assigned',
+      );
+    }
     if (order.status !== OrderStatus.READY_FOR_PICKUP) {
       throw new BadRequestException(
         `Order must be READY_FOR_PICKUP. Current: ${order.status}`,
@@ -891,6 +868,15 @@ export class RiderAssignmentService {
       void this.emailNotifications.sendBuyerDeliveryAssigned(input.orderId).catch(() => {});
       void this.buyerPush.notifyRiderAssigned(input.orderId).catch(() => {});
     }
+    // The offer expires on a timer, so this must not be awaited into the
+    // assignment path — a slow push endpoint would eat into the rider's window.
+    void this.riderPush
+      .notifyDeliveryOffered(input.riderProfileId, {
+        orderId: input.orderId,
+        isReassignment: input.isReassignment,
+        expiresInSeconds: this.autoAcceptSeconds,
+      })
+      .catch(() => {});
     this.emitWs(input.event, {
       orderId: input.orderId,
       deliveryId: input.deliveryId,

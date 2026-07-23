@@ -12,10 +12,14 @@ const ACTIVE_DELIVERY_STATUSES: DeliveryStatus[] = [
   DeliveryStatus.ARRIVED_AT_CUSTOMER,
 ];
 
-/** Orders waiting for rider assignment — single source of truth for admin/fleet/assignment. */
+/** Orders waiting for rider assignment — single source of truth for admin/fleet/assignment.
+ *  SELF-delivery stores never get a platform rider — the merchant IS the courier
+ *  (see order.service.ts's SELF_DELIVERY_MERCHANT_FORWARD) — so their orders must
+ *  never inflate this queue or be eligible for assign/reassign. */
 export function unassignedOrderWhere(): Prisma.OrderWhereInput {
   return {
     status: OrderStatus.READY_FOR_PICKUP,
+    store: { deliveryMode: { not: 'SELF' } },
     OR: [{ delivery: { is: null } }, { delivery: { status: DeliveryStatus.CANCELLED } }],
   };
 }

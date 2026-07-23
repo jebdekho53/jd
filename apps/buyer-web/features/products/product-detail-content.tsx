@@ -12,6 +12,8 @@ import { AddToCartButton } from '@/features/cart/components/add-to-cart-button';
 import { useProductById, useProductSearch, useStore } from '@/hooks/use-buyer-queries';
 import { useRecentlyViewed } from '@/hooks/use-recently-viewed';
 import { trackReach } from '@/lib/analytics/track';
+import { trackMarketingEvent } from '@/services/crm/crm-api';
+import { useAuthStore } from '@/store/auth-store';
 import { useProductStockRealtime } from '@/features/products/use-product-stock-realtime';
 import { useWishlist } from '@/hooks/use-wishlist';
 import { buildCompareGroups } from '@/lib/compare-products';
@@ -92,12 +94,17 @@ export function ProductDetailContent({ productId }: { productId: string }) {
   const product = offers[0];
   const { data: storeDetail } = useStore(product?.store.slug ?? '');
 
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
   useEffect(() => {
     if (product) {
       trackView(product, { name: product.store.name, slug: product.store.slug });
       trackReach('VIEW_PRODUCT', { productId: product.id, storeId: product.store.id }, product.id);
+      if (isAuthenticated) {
+        void trackMarketingEvent('VIEW_PRODUCT', { productId: product.id, storeId: product.store.id });
+      }
     }
-  }, [product, trackView]);
+  }, [product, trackView, isAuthenticated]);
 
   useEffect(() => {
     if (product && !selectedVariantId) {

@@ -10,6 +10,8 @@ node_modules/
 # Serwist (generated at build time)
 apps/buyer-web/public/sw.js
 apps/buyer-web/public/swe-worker-*.js
+apps/rider-web/public/sw.js
+apps/rider-web/public/swe-worker-*.js
 
 .next/
 out/
@@ -66,3 +68,9 @@ Book1.xlsx
 
 # build-chunk recovery dir (see deploy/scripts) — never commit
 .next-static/
+
+# runtime-uploaded user content — not source, would bloat the repo
+uploads/
+
+# local deploy-script rollback state
+.deploy-prev-sha

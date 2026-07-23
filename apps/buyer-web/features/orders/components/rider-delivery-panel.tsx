@@ -1,6 +1,7 @@
 'use client';
 
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Navigation, Phone } from 'lucide-react';
+import { useCountdownMins } from '@/hooks/use-countdown-mins';
 import type { OrderDetail, OrderStatus } from '@/types/orders';
 
 const POST_ASSIGNMENT_STATUSES = new Set<OrderStatus>([
@@ -24,6 +25,12 @@ const DELIVERY_STATUS_LABELS: Record<string, string> = {
   CANCELLED: 'Cancelled',
 };
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
+}
+
 function formatVehicle(vehicleType?: string | null) {
   if (!vehicleType) return null;
   return vehicleType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -46,16 +53,21 @@ interface RiderDeliveryPanelProps {
 
 export function RiderDeliveryPanel({ orderStatus, delivery }: RiderDeliveryPanelProps) {
   const rider = delivery.rider;
+  const countdownMins = useCountdownMins(delivery.estimatedArrivalAt);
   if (!rider) return null;
 
   const showTrackingSection = POST_ASSIGNMENT_STATUSES.has(orderStatus);
   const vehicle = formatVehicle(rider.vehicleType);
   const statusLabel = riderStatusLabel(orderStatus, delivery.status);
 
+  // Prefer the live client-side countdown (ticks between polls); fall back to
+  // the last server-reported estimate if we don't have an arrival timestamp.
+  const liveMins = countdownMins ?? (delivery.etaAvailable ? delivery.estimatedMins : null);
+
   let etaLabel: string | null = null;
   if (showTrackingSection) {
-    if (delivery.etaAvailable && delivery.estimatedMins != null) {
-      etaLabel = `ETA ~${delivery.estimatedMins} min`;
+    if (liveMins != null) {
+      etaLabel = `ETA ~${liveMins} min`;
     } else if (!delivery.liveTrackingAvailable && delivery.waitingForPickup) {
       etaLabel = 'Waiting for rider location';
     } else if (orderStatus === 'RIDER_ASSIGNED' && delivery.waitingForPickup) {
@@ -68,19 +80,33 @@ export function RiderDeliveryPanel({ orderStatus, delivery }: RiderDeliveryPanel
   return (
     <div className="rounded-2xl border bg-card p-5 shadow-sm">
       <h2 className="mb-4 text-sm font-semibold">Your delivery rider</h2>
-      <div className="space-y-3 text-sm">
-        <div>
-          <p className="text-xs text-muted-foreground">Rider</p>
-          <p className="font-medium">{rider.name}</p>
+
+      <div className="mb-4 flex items-center gap-3">
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+          {initials(rider.name)}
         </div>
-
-        {vehicle && (
-          <div>
-            <p className="text-xs text-muted-foreground">Vehicle</p>
-            <p>{vehicle}</p>
-          </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{rider.name}</p>
+          {vehicle && <p className="text-xs text-muted-foreground">{vehicle}</p>}
+        </div>
+        {showTrackingSection && liveMins != null && (
+          <span className="flex shrink-0 items-baseline gap-1 rounded-lg bg-primary px-2.5 py-1.5">
+            <span className="text-base font-extrabold leading-none text-white">{liveMins}</span>
+            <span className="text-[10px] font-bold uppercase leading-none text-white/90">min</span>
+          </span>
         )}
+        {rider.phone && (
+          <a
+            href={`tel:${rider.phone}`}
+            aria-label={`Call ${rider.name}`}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-600 text-white shadow-sm transition hover:bg-brand-700"
+          >
+            <Phone className="h-4 w-4" aria-hidden />
+          </a>
+        )}
+      </div>
 
+      <div className="space-y-3 text-sm">
         {showTrackingSection && (
           <>
             <div>
@@ -97,7 +123,7 @@ export function RiderDeliveryPanel({ orderStatus, delivery }: RiderDeliveryPanel
             {etaLabel && (
               <div>
                 <p className="text-xs text-muted-foreground">ETA</p>
-                <p className={delivery.etaAvailable ? 'font-medium text-brand-700' : 'text-muted-foreground'}>
+                <p className={liveMins != null ? 'font-medium text-brand-700' : 'text-muted-foreground'}>
                   {etaLabel}
                 </p>
               </div>

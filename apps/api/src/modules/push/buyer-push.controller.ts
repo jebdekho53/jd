@@ -6,7 +6,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequestUser } from '../../common/types';
 import { ApiTags as Tags } from '../../common/constants';
-import { BuyerPushSubscriptionService } from './buyer-push-subscription.service';
+import { PushSubscriptionService } from './push-subscription.service';
 import { PushSubscribeDto, PushUnsubscribeDto } from './dto/push-subscribe.dto';
 
 @ApiTags(Tags.BUYERS)
@@ -15,7 +15,7 @@ import { PushSubscribeDto, PushUnsubscribeDto } from './dto/push-subscribe.dto';
 @Roles('BUYER')
 @Controller('buyer/notifications/push')
 export class BuyerPushController {
-  constructor(private readonly subscriptions: BuyerPushSubscriptionService) {}
+  constructor(private readonly subscriptions: PushSubscriptionService) {}
 
   @Get('status')
   async status(@CurrentUser() user: RequestUser) {

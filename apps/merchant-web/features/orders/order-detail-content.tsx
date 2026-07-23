@@ -49,7 +49,12 @@ export function OrderDetailContent({ orderId }: { orderId: string }) {
             </div>
           )}
         </div>
-        <OrderActionButtons orderId={order.id} status={order.status} deliveryMode={order.deliveryMode} />
+        <OrderActionButtons
+          orderId={order.id}
+          status={order.status}
+          deliveryMode={order.deliveryMode}
+          orderVertical={order.orderVertical}
+        />
       </div>
 
       {ops?.awaitingRider && (

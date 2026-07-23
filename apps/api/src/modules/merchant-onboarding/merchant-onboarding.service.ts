@@ -28,6 +28,7 @@ import { MerchantService } from '../merchant/merchant.service';
 import { StoreService } from '../store/store.service';
 import { AdminStoreService } from '../admin/admin-store.service';
 import { isValidGstin, normalizeGstin } from '../compliance/gst-validation.util';
+import { isRevocableRejection } from '../../common/constants/rejection.constants';
 import { MarketingEventService } from '../crm/marketing-event.service';
 import { RiskEngineService } from '../trust-safety/risk-engine.service';
 import { SupportTicketService } from '../support/support-ticket.service';
@@ -759,6 +760,28 @@ export class MerchantOnboardingService {
     }
 
     let storeId = app.storeId;
+    // A merchant is explicitly allowed to edit and resubmit a REJECTED
+    // application (requireDraftApplication permits it) — but submitForReview
+    // only accepts stores in DRAFT, and nothing ever moved a REJECTED store
+    // back there. Without this, every resubmission 400'd forever, since the
+    // store the app is linked to just stayed REJECTED.
+    if (storeId && app.store?.status === StoreStatus.REJECTED) {
+      if (!isRevocableRejection(app.store.rejectionType)) {
+        throw new BadRequestException(
+          'This application cannot be resubmitted — contact support.',
+        );
+      }
+      await this.prisma.store.update({
+        where: { id: storeId },
+        data: {
+          status: StoreStatus.DRAFT,
+          rejectionReason: null,
+          rejectionType: null,
+          reviewedAt: null,
+          reviewedBy: null,
+        },
+      });
+    }
     if (!storeId) {
       const pickupAddress = this.getPickupAddress(app.pickupAddress);
       const line2 = [
@@ -840,6 +863,7 @@ export class MerchantOnboardingService {
         submittedAt: new Date(),
         riskScore: risk.riskScore,
         riskFlags: risk.riskFlags,
+        rejectionReason: null,
       },
       include: this.applicationInclude(),
     });
@@ -1227,7 +1251,7 @@ export class MerchantOnboardingService {
       bankAccount: true,
       steps: { orderBy: { stepKey: 'asc' as const } },
       businessTypes: true,
-      store: { select: { id: true, name: true, status: true } },
+      store: { select: { id: true, name: true, status: true, rejectionType: true } },
       merchantProfile: {
         select: { id: true, businessName: true, kycStatus: true, isBlacklisted: true },
       },

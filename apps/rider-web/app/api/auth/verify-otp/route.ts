@@ -23,22 +23,14 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(body),
     });
     const { accessToken, refreshToken, expiresIn, user, isNewUser } = data.data;
-    const isMobile = req.headers.get('x-client') === 'rider-mobile';
 
+    // Tokens are never handed to the client — they live in httpOnly cookies and
+    // every call goes back out through this BFF.
     const response = NextResponse.json({
       success: true,
-      data: {
-        user,
-        profile: null,
-        isNewUser,
-        expiresIn,
-        ...(isMobile ? { accessToken, refreshToken } : {}),
-      },
+      data: { user, profile: null, isNewUser, expiresIn },
     });
-
-    if (!isMobile) {
-      await setAuthCookies(response, { accessToken, refreshToken, expiresIn });
-    }
+    await setAuthCookies(response, { accessToken, refreshToken, expiresIn });
 
     return response;
   } catch (err) {

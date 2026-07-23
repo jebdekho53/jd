@@ -45,6 +45,7 @@ import { EmailNotificationService } from '../email/email-notification.service';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 import { LocationDirectoryService } from '../location-directory/location-directory.service';
 import { DeliveryDispatchService } from '../logistics/delivery-dispatch.service';
+import { MarketingEventService } from '../crm/marketing-event.service';
 
 const CHECKOUT_TTL_MINUTES = 15;
 
@@ -81,6 +82,7 @@ export class CheckoutService {
     private readonly buyerPush: BuyerPushNotificationService,
     private readonly deliveryDispatch: DeliveryDispatchService,
     private readonly config: ConfigService,
+    private readonly marketingEvents: MarketingEventService,
   ) {}
 
   // ── Initiate checkout (Razorpay / online payment) ──────────────────────────
@@ -195,6 +197,7 @@ export class CheckoutService {
       address,
       dto.buyerNote,
       PaymentMethod.RAZORPAY,
+      userId,
       {
         walletAmountToUse: dto.walletAmountToUse,
         rewardPointsToRedeem: dto.rewardPointsToRedeem,
@@ -369,6 +372,7 @@ export class CheckoutService {
       address,
       dto.buyerNote,
       PaymentMethod.COD,
+      userId,
       {
         walletAmountToUse: dto.walletAmountToUse,
         rewardPointsToRedeem: dto.rewardPointsToRedeem,
@@ -500,6 +504,7 @@ export class CheckoutService {
       checkout.deliveryAddress as any,
       checkout.buyerNote ?? undefined,
       paymentMethod,
+      userId,
       { tipAmount: typeof snap?.tipAmount === 'number' ? snap.tipAmount : 0 },
     );
 
@@ -543,6 +548,7 @@ export class CheckoutService {
     address: any,
     buyerNote?: string,
     paymentMethodInput: PaymentMethod = PaymentMethod.RAZORPAY,
+    userId?: string,
     walletOpts?: {
       walletAmountToUse?: number;
       rewardPointsToRedeem?: number;
@@ -803,6 +809,18 @@ export class CheckoutService {
         this.logger.warn(`Fulfillment allocation failed for ${order.id}: ${(err as Error).message}`),
       );
 
+      if (userId) {
+        for (const productId of new Set<string>((cart.items ?? []).map((i: any) => i.productId))) {
+          void this.marketingEvents.track({
+            userId,
+            eventType: 'ORDER_PLACED',
+            storeId: cart.storeId,
+            productId,
+            orderId: order.id,
+          });
+        }
+      }
+
       return order;
     });
   }
@@ -825,8 +843,12 @@ export class CheckoutService {
         isActive: true,
         deletedAt: null,
       },
+      include: { merchantProfile: { select: { isBlacklisted: true } } },
     });
     if (!store) throw new BadRequestException('Store is no longer accepting orders');
+    if (store.merchantProfile?.isBlacklisted) {
+      throw new BadRequestException('Store is no longer accepting orders');
+    }
 
     for (const item of cart.items) {
       const variant = await this.prisma.productVariant.findFirst({

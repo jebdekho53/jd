@@ -28,6 +28,7 @@ export interface MerchantOrderRow {
   amount: number;
   createdAt: string;
   status: string;
+  orderVertical?: 'GROCERY' | 'FOOD';
   rider: { id: string; name: string; phone: string; status: string } | null;
   deliveryStatus: string | null;
   etaMinutes: number | null;

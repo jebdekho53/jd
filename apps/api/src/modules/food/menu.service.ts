@@ -20,6 +20,7 @@ import { BuyerCacheService } from '../buyer/buyer-cache.service';
 import { isFoodVertical, slugifyMenu } from './vertical.constants';
 import { CreateMenuCategoryDto } from './dto/create-menu-category.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
+import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { CreateAddonGroupDto } from './dto/create-addon-group.dto';
 import { CreateComboDto } from './dto/create-combo.dto';
 import { mapPlatformSlugToMenuCategorySlug } from './utils/menu-category-slug.util';
@@ -115,17 +116,18 @@ export class MenuService {
     return storeHasFssaiOnFile(this.prisma, storeId);
   }
 
-  /** Publish dishes that were held back only because the FSSAI license was missing. */
+  /** Publish dishes that were held back only because the FSSAI license was missing.
+   *  Scoped to fssaiHeld=true so it never touches a merchant's deliberate sold-out. */
   private async releaseFssaiHeldItems(storeId: string): Promise<void> {
     const held = await this.prisma.restaurantMenuItem.count({
-      where: { storeId, availability: MenuItemAvailability.HIDDEN },
+      where: { storeId, availability: MenuItemAvailability.HIDDEN, fssaiHeld: true },
     });
     if (held === 0) return;
     if (!(await storeHasFssaiOnFile(this.prisma, storeId))) return;
 
     await this.prisma.restaurantMenuItem.updateMany({
-      where: { storeId, availability: MenuItemAvailability.HIDDEN },
-      data: { availability: MenuItemAvailability.AVAILABLE },
+      where: { storeId, availability: MenuItemAvailability.HIDDEN, fssaiHeld: true },
+      data: { availability: MenuItemAvailability.AVAILABLE, fssaiHeld: false },
     });
     void this.invalidateBuyerMenuCache(storeId);
   }
@@ -186,7 +188,7 @@ export class MenuService {
       where: { storeId },
       orderBy: { sortOrder: 'asc' },
       include: {
-        _count: { select: { items: true } },
+        _count: { select: { items: { where: { isActive: true } } } },
         platformCategory: { select: { id: true, name: true, slug: true, catalogKind: true } },
       },
     });
@@ -203,6 +205,7 @@ export class MenuService {
         include: {
           platformCategory: { select: { id: true, name: true, slug: true } },
           items: {
+            where: { isActive: true },
             orderBy: { sortOrder: 'asc' },
             include: {
               variants: { orderBy: { sortOrder: 'asc' } },
@@ -281,6 +284,10 @@ export class MenuService {
     await this.assertFoodBusinessTypeApproved(storeId);
     const fssaiOnFile = await this.assertStoreFssai(storeId);
 
+    if (dto.mrp !== undefined && dto.mrp < dto.basePrice) {
+      throw new BadRequestException('MRP cannot be lower than the price');
+    }
+
     const category = await this.prisma.restaurantMenuCategory.findFirst({
       where: { id: dto.categoryId, storeId },
     });
@@ -313,6 +320,7 @@ export class MenuService {
         availability: fssaiOnFile
           ? MenuItemAvailability.AVAILABLE
           : MenuItemAvailability.HIDDEN,
+        fssaiHeld: !fssaiOnFile,
         allowsSpecialInstructions: dto.allowsSpecialInstructions ?? true,
         sortOrder: dto.sortOrder ?? 0,
         variants: dto.variants?.length
@@ -332,6 +340,107 @@ export class MenuService {
     await this.upsertSearchIndex(item.id);
     void this.invalidateBuyerMenuCache(storeId);
     return { ...item, fssaiHold: !fssaiOnFile };
+  }
+
+  async updateMenuItem(
+    merchantProfileId: string,
+    storeId: string,
+    menuItemId: string,
+    dto: UpdateMenuItemDto,
+  ) {
+    await this.assertStoreOwnership(merchantProfileId, storeId);
+
+    const existing = await this.prisma.restaurantMenuItem.findFirst({
+      where: { id: menuItemId, storeId, isActive: true },
+    });
+    if (!existing) throw new NotFoundException('Menu item not found');
+
+    const nextBasePrice = dto.basePrice ?? Number(existing.basePrice);
+    const nextMrp = dto.mrp ?? (existing.mrp ? Number(existing.mrp) : undefined);
+    if (nextMrp !== undefined && nextMrp < nextBasePrice) {
+      throw new BadRequestException('MRP cannot be lower than the price');
+    }
+
+    if (dto.categoryId && dto.categoryId !== existing.categoryId) {
+      const category = await this.prisma.restaurantMenuCategory.findFirst({
+        where: { id: dto.categoryId, storeId },
+      });
+      if (!category) throw new NotFoundException('Menu category not found');
+    }
+
+    const item = await this.prisma.restaurantMenuItem.update({
+      where: { id: menuItemId },
+      data: {
+        ...(dto.categoryId && { categoryId: dto.categoryId }),
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.imageUrls !== undefined && { imageUrls: dto.imageUrls as Prisma.InputJsonValue }),
+        ...(dto.basePrice !== undefined && { basePrice: dto.basePrice }),
+        ...(dto.mrp !== undefined && { mrp: dto.mrp }),
+        ...(dto.dietType !== undefined && { dietType: dto.dietType }),
+        ...(dto.spiceLevel !== undefined && { spiceLevel: dto.spiceLevel }),
+        ...(dto.prepTimeMins !== undefined && { prepTimeMins: dto.prepTimeMins }),
+        ...(dto.servingSize !== undefined && { servingSize: dto.servingSize }),
+        ...(dto.cuisineName !== undefined && { cuisineName: dto.cuisineName }),
+        ...(dto.allowsSpecialInstructions !== undefined && {
+          allowsSpecialInstructions: dto.allowsSpecialInstructions,
+        }),
+        ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+        ...(dto.availability !== undefined && { availability: dto.availability, fssaiHeld: false }),
+      },
+      include: { variants: true },
+    });
+
+    await this.upsertSearchIndex(item.id);
+    void this.invalidateBuyerMenuCache(storeId);
+    return item;
+  }
+
+  /** Quick sold-out / back-in-stock toggle — doesn't require the full update payload. */
+  async setItemAvailability(
+    merchantProfileId: string,
+    storeId: string,
+    menuItemId: string,
+    availability: MenuItemAvailability,
+  ) {
+    await this.assertStoreOwnership(merchantProfileId, storeId);
+
+    const existing = await this.prisma.restaurantMenuItem.findFirst({
+      where: { id: menuItemId, storeId, isActive: true },
+    });
+    if (!existing) throw new NotFoundException('Menu item not found');
+
+    if (availability === MenuItemAvailability.AVAILABLE && !(await this.assertStoreFssai(storeId))) {
+      throw new BadRequestException(
+        'Cannot mark available — upload the FSSAI licence first, it will publish automatically',
+      );
+    }
+
+    const item = await this.prisma.restaurantMenuItem.update({
+      where: { id: menuItemId },
+      // A merchant-driven toggle is never an FSSAI hold — clearing it here stops
+      // the auto-release sweep from ever touching an item this method touched.
+      data: { availability, fssaiHeld: false },
+    });
+    void this.invalidateBuyerMenuCache(storeId);
+    return item;
+  }
+
+  /** Soft delete — keeps history for past orders intact, just hides it going forward. */
+  async deleteMenuItem(merchantProfileId: string, storeId: string, menuItemId: string) {
+    await this.assertStoreOwnership(merchantProfileId, storeId);
+
+    const existing = await this.prisma.restaurantMenuItem.findFirst({
+      where: { id: menuItemId, storeId, isActive: true },
+    });
+    if (!existing) throw new NotFoundException('Menu item not found');
+
+    await this.prisma.restaurantMenuItem.update({
+      where: { id: menuItemId },
+      data: { isActive: false, availability: MenuItemAvailability.HIDDEN, fssaiHeld: false },
+    });
+    void this.invalidateBuyerMenuCache(storeId);
+    return { id: menuItemId };
   }
 
   async createAddonGroup(merchantProfileId: string, storeId: string, dto: CreateAddonGroupDto) {

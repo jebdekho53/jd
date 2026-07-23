@@ -441,6 +441,7 @@ export class BuyerProductService {
       dto.storeId,
       page,
       limit,
+      dto.productIds,
     );
 
     return this.cache.wrap(cacheKey, async () => {
@@ -451,6 +452,7 @@ export class BuyerProductService {
         ...(dto.subcategoryId && { categoryId: dto.subcategoryId }),
         ...(!dto.subcategoryId && dto.categoryId && { categoryId: dto.categoryId }),
         ...(dto.q && buildProductTextSearchWhere(dto.q)),
+        ...(dto.productIds?.length && { id: { in: dto.productIds } }),
       };
 
       // Fetch a larger batch so JS ranking has enough candidates.

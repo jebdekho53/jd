@@ -156,9 +156,7 @@ export class SupportTicketService {
     isStaff = false,
   ) {
     const ticket = await this.getTicketForUser(ticketId, authorId, isStaff);
-    if (['CLOSED'].includes(ticket.status)) {
-      throw new BadRequestException('Ticket is closed');
-    }
+    const wasClosed = ticket.status === SupportTicketStatus.CLOSED;
 
     const message = await this.prisma.supportMessage.create({
       data: { ticketId, authorId, body, visibility },
@@ -174,7 +172,14 @@ export class SupportTicketService {
 
     void this.audit.log({
       actorId: authorId,
-      action: visibility === SupportMessageVisibility.INTERNAL ? 'SUPPORT_INTERNAL_NOTE' : 'SUPPORT_TICKET_REPLY',
+      // A message on a CLOSED ticket reopens it — without this, an issue that
+      // resurfaces after auto-close (7 days post-resolution) was a dead end:
+      // neither the customer nor an agent could add to it, only start a new ticket.
+      action: wasClosed
+        ? 'SUPPORT_TICKET_REOPENED'
+        : visibility === SupportMessageVisibility.INTERNAL
+          ? 'SUPPORT_INTERNAL_NOTE'
+          : 'SUPPORT_TICKET_REPLY',
       resourceType: 'support_ticket',
       resourceId: ticketId,
     });

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Ip, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Ip, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FoodKitchenStatus, OrderStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -14,6 +14,7 @@ import { MenuOcrService } from './menu-ocr.service';
 import { MenuAiService } from './menu-ai.service';
 import { CreateMenuCategoryDto } from './dto/create-menu-category.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
+import { UpdateMenuItemDto, SetMenuItemAvailabilityDto } from './dto/update-menu-item.dto';
 import { CreateAddonGroupDto } from './dto/create-addon-group.dto';
 import { CreateComboDto } from './dto/create-combo.dto';
 import { MerchantService } from '../merchant/merchant.service';
@@ -70,6 +71,47 @@ export class MerchantRestaurantController {
     @Body() dto: CreateMenuItemDto,
   ) {
     const data = await this.menu.createMenuItem(await this.profileId(user.id), storeId, dto);
+    return { success: true, data };
+  }
+
+  @Patch('menu/items/:menuItemId')
+  @Permissions('products:write')
+  async updateItem(
+    @CurrentUser() user: RequestUser,
+    @Param('storeId') storeId: string,
+    @Param('menuItemId') menuItemId: string,
+    @Body() dto: UpdateMenuItemDto,
+  ) {
+    const data = await this.menu.updateMenuItem(await this.profileId(user.id), storeId, menuItemId, dto);
+    return { success: true, data };
+  }
+
+  @Patch('menu/items/:menuItemId/availability')
+  @Permissions('products:write')
+  async setItemAvailability(
+    @CurrentUser() user: RequestUser,
+    @Param('storeId') storeId: string,
+    @Param('menuItemId') menuItemId: string,
+    @Body() dto: SetMenuItemAvailabilityDto,
+  ) {
+    const data = await this.menu.setItemAvailability(
+      await this.profileId(user.id),
+      storeId,
+      menuItemId,
+      dto.availability,
+    );
+    return { success: true, data };
+  }
+
+  @Delete('menu/items/:menuItemId')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('products:write')
+  async deleteItem(
+    @CurrentUser() user: RequestUser,
+    @Param('storeId') storeId: string,
+    @Param('menuItemId') menuItemId: string,
+  ) {
+    const data = await this.menu.deleteMenuItem(await this.profileId(user.id), storeId, menuItemId);
     return { success: true, data };
   }
 

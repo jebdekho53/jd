@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Length, Matches, Min } from 'class-validator';
+import { IsArray, IsDateString, IsEmail, IsEnum, IsInt, IsNumber, IsOptional, IsString, Length, Matches, Min } from 'class-validator';
 import { CodReconciliationStatus, SettlementCycle } from '@prisma/client';
 
 export class ListFinanceQueryDto {
@@ -18,6 +18,28 @@ export class ListFinanceQueryDto {
   @IsOptional()
   @IsEnum(CodReconciliationStatus)
   status?: CodReconciliationStatus;
+}
+
+export class RiderEarningsHistoryQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit?: number;
+
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
 }
 
 export class CodSubmitDto {
@@ -83,4 +105,11 @@ export class SaveRiderBankAccountDto {
   @IsString()
   @Length(0, 120)
   upiId?: string;
+
+  /** Riders sign up via phone OTP only and are never asked for an email —
+   *  but Razorpay Route requires one to create the linked payout account, so
+   *  we collect it here, at the one point a rider is about to need a payout. */
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 }

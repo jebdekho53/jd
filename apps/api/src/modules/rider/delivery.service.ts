@@ -29,6 +29,8 @@ import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.
 import { TRACKING_EVENTS } from '../delivery-tracking/delivery-tracking.events';
 import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 import { EmailNotificationService } from '../email/email-notification.service';
+import { RiskEngineService } from '../trust-safety/risk-engine.service';
+import { RiderReferralService } from '../finance/rider-referral.service';
 
 // ── State machine ────────────────────────────────────────────────────────────
 //
@@ -85,6 +87,8 @@ export class DeliveryService {
     private readonly tracking: DeliveryTrackingService,
     private readonly buyerPush: BuyerPushNotificationService,
     private readonly emailNotifications: EmailNotificationService,
+    private readonly riskEngine: RiskEngineService,
+    private readonly referrals: RiderReferralService,
   ) {}
 
   // ── Get delivery for a rider ───────────────────────────────────────────────
@@ -113,6 +117,12 @@ export class DeliveryService {
             store: { select: { id: true, name: true, latitude: true, longitude: true, phone: true } },
           },
         },
+        assignments: {
+          where: { status: AssignmentStatus.OFFERED },
+          orderBy: { offeredAt: 'desc' },
+          take: 1,
+          select: { expiresAt: true },
+        },
       },
     });
     return deliveries.map((d) => this.sanitizeForRider(d));
@@ -140,7 +150,12 @@ export class DeliveryService {
             items: { select: { productName: true, variantName: true, quantity: true } },
           },
         },
-        assignments: { orderBy: { offeredAt: 'desc' }, take: 1 },
+        assignments: {
+          where: { status: AssignmentStatus.OFFERED },
+          orderBy: { offeredAt: 'desc' },
+          take: 1,
+          select: { expiresAt: true },
+        },
       },
     });
 
@@ -159,6 +174,7 @@ export class DeliveryService {
       deliveryOtp?: string | null;
       pickupVerifiedAt?: Date | null;
       deliveryVerifiedAt?: Date | null;
+      assignments?: { expiresAt: Date }[];
       order?: {
         paymentMethod?: PaymentMethod;
         paymentStatus?: PaymentStatus;
@@ -169,6 +185,7 @@ export class DeliveryService {
     const {
       pickupOtp,
       deliveryOtp,
+      assignments,
       ...rest
     } = delivery as T & { pickupOtp?: string | null; deliveryOtp?: string | null };
 
@@ -186,12 +203,20 @@ export class DeliveryService {
       deliveryVerified: Boolean(delivery.deliveryVerifiedAt),
       codDue: Boolean(codDue),
       codAmount: codDue && order?.totalAmount ? order.totalAmount.toString() : null,
+      // Offer countdown — only present while an OFFERED assignment for this
+      // delivery hasn't yet been accepted/expired.
+      expiresAt: assignments?.[0]?.expiresAt ?? null,
     };
   }
 
   // ── Accept assignment ────────────────────────────────────────────────────
 
   async acceptDelivery(userId: string, orderId: string, ipAddress?: string) {
+    const suspension = await this.riskEngine.getActiveSuspension(userId);
+    if (suspension) {
+      throw new ForbiddenException(suspension.reason);
+    }
+
     const delivery = await this.requireRiderOwnershipByOrder(userId, orderId);
 
     if (delivery.status !== DeliveryStatus.ASSIGNED) {
@@ -519,13 +544,17 @@ export class DeliveryService {
       });
     }
     if (toStatus === DeliveryStatus.DELIVERED) {
-      await this.prisma.riderProfile.update({
+      const updated = await this.prisma.riderProfile.update({
         where: { id: riderProfileId },
         data: {
           status: RiderStatus.ONLINE,
           totalDeliveries: { increment: 1 },
         },
+        select: { totalDeliveries: true },
       });
+      void this.referrals
+        .completeIfFirstDelivery(riderProfileId, updated.totalDeliveries)
+        .catch((err) => this.logger.warn({ err, riderProfileId }, 'Referral completion check failed'));
     }
 
     if (toStatus === DeliveryStatus.ACCEPTED) {

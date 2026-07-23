@@ -32,20 +32,20 @@ export function RiderAgreementAcceptance({
           disabled={disabled}
           onChange={(e) => onChange(e.target.checked)}
           aria-invalid={Boolean(error)}
-          className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-600 bg-slate-900 text-cyan-400 focus:ring-cyan-400"
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-rider-border bg-rider-surface text-rider-accent focus:ring-rider-accent"
         />
-        <span className="text-xs leading-relaxed text-slate-400">
+        <span className="text-xs leading-relaxed text-rider-muted">
           I have read and accept the{' '}
-          <Link href="/agreement" target="_blank" className="font-medium text-cyan-300 hover:underline">
+          <Link href="/agreement" target="_blank" className="font-semibold text-rider-accent hover:underline">
             Delivery Partner Agreement
           </Link>
           . I understand I am an{' '}
-          <span className="font-medium text-slate-200">independent contractor, not an employee</span>
+          <span className="font-semibold text-rider-text">independent contractor, not an employee</span>
           , that I choose when to work, and that I may work for other platforms. The agreement is with
           UrbanMove Services Private Limited, which operates JebDekho.
         </span>
       </label>
-      {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-rider-danger">{error}</p>}
     </div>
   );
 }

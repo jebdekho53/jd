@@ -10,7 +10,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -60,6 +60,18 @@ export class FoodCartController {
   @Delete()
   async clearCart(@CurrentUser() user: RequestUser) {
     const data = await this.foodCart.clearCart(user.id);
+    return { success: true, data };
+  }
+
+  @Post('reorder/:orderId')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'orderId', description: 'Past food order to reorder from' })
+  @ApiOperation({
+    summary: 'Reorder — rebuild the food cart from a past order',
+    description: 'Replaces the current food cart with the order\'s items. Unavailable items are skipped.',
+  })
+  async reorder(@CurrentUser() user: RequestUser, @Param('orderId') orderId: string) {
+    const data = await this.foodCart.reorderFromOrder(user.id, orderId);
     return { success: true, data };
   }
 }

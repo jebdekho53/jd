@@ -26,6 +26,7 @@ export interface OrderListItem {
   id: string;
   orderNumber: string;
   status: OrderStatus;
+  orderVertical?: 'GROCERY' | 'FOOD';
   paymentMethod: PaymentMethod;
   totalAmount: number;
   createdAt: string;
@@ -56,6 +57,7 @@ export interface OrderDetail {
   id: string;
   orderNumber: string;
   status: OrderStatus;
+  orderVertical?: 'GROCERY' | 'FOOD';
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   subtotal: number;
@@ -80,6 +82,7 @@ export interface OrderDetail {
     id: string;
     status: string;
     estimatedMins: number | null;
+    estimatedArrivalAt?: string | null;
     etaAvailable?: boolean;
     liveTrackingAvailable?: boolean;
     waitingForPickup?: boolean;

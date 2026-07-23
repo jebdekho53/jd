@@ -52,7 +52,7 @@ export function StoreCardItem({ store, variant = 'default', productCount }: Stor
                     {store.ratingAvg.toFixed(1)}
                   </span>
                   <span>{formatDistance(store.distanceKm)}</span>
-                  <span className="inline-flex items-center gap-0.5">
+                  <span className="inline-flex items-center gap-0.5 rounded-md bg-primary/10 px-1.5 py-0.5 font-bold text-primary">
                     <Clock className="h-3 w-3" aria-hidden />
                     {store.avgPrepTimeMins} min
                   </span>
@@ -96,8 +96,9 @@ export function StoreCardItem({ store, variant = 'default', productCount }: Stor
               <Badge className="bg-primary text-white">Top vendor</Badge>
             )}
           </div>
-          <span className="absolute bottom-3 right-3 rounded-lg bg-card/95 px-2 py-1 text-[10px] font-semibold text-primary shadow-card">
-            {store.avgPrepTimeMins} min delivery
+          <span className="absolute bottom-3 right-3 flex items-baseline gap-1 rounded-lg bg-primary px-2.5 py-1.5 shadow-card">
+            <span className="text-base font-extrabold leading-none text-white">{store.avgPrepTimeMins}</span>
+            <span className="text-[10px] font-bold uppercase leading-none text-white/90">min</span>
           </span>
         </div>
 

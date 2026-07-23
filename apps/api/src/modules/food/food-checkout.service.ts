@@ -26,6 +26,7 @@ import { FoodCartService } from './food-cart.service';
 import { InitiateFoodCheckoutDto } from './dto/initiate-food-checkout.dto';
 import { GeospatialService } from '../geospatial/geospatial.service';
 import { OrderFinancialsService } from '../finance/order-financials.service';
+import { MarketingEventService } from '../crm/marketing-event.service';
 
 const CHECKOUT_TTL_MINUTES = 15;
 const FOOD_CHECKOUT_PENDING = 'PENDING';
@@ -78,6 +79,7 @@ export class FoodCheckoutService {
     private readonly geospatial: GeospatialService,
     @Inject(forwardRef(() => OrderFinancialsService))
     private readonly orderFinancials: OrderFinancialsService,
+    private readonly marketingEvents: MarketingEventService,
   ) {}
 
   async initiateCheckout(userId: string, dto: InitiateFoodCheckoutDto, idempotencyKey?: string) {
@@ -128,6 +130,7 @@ export class FoodCheckoutService {
       throw new BadRequestException(`Minimum order amount is ₹${minOrder}`);
     }
 
+    await this.assertStoreAcceptingOrders(cart.storeId);
     await this.validateCartAvailability(cart.items.map((i) => i.menuItemId));
 
     await this.geospatial.validateCheckoutLocation(
@@ -138,7 +141,9 @@ export class FoodCheckoutService {
     );
 
     const tipAmount = dto.tipAmount ?? 0;
-    const couponDiscount = dto.couponDiscount ?? 0;
+    // Food has no coupon-validation system yet (unlike grocery's PromotionPricingService,
+    // which computes the discount server-side) — never trust a client-supplied amount here.
+    const couponDiscount = 0;
     const totalAmount = cart.totals.grandTotal + tipAmount - couponDiscount;
 
     const buyerProfile = await this.prisma.buyerProfile.findUnique({ where: { userId } });
@@ -352,6 +357,7 @@ export class FoodCheckoutService {
         tipAmount: snapshot.tipAmount,
         paymentMethod: PaymentMethod.RAZORPAY,
       })
+      .then(() => this.orderFinancials.recordOnlinePaymentConfirmed(order.id))
       .catch((err) => this.logger.warn(`Food financial freeze failed: ${(err as Error).message}`));
 
     await this.audit.log({
@@ -364,6 +370,15 @@ export class FoodCheckoutService {
     void this.domainEvents.emit(DomainEventType.ORDER_CREATED, 'Order', order.id, {
       vertical: OrderVertical.FOOD,
       paymentMethod: PaymentMethod.RAZORPAY,
+    });
+
+    // Store-level affinity only — menu item IDs aren't Product rows, so they
+    // can't feed the grocery product recommendation rail without corrupting it.
+    void this.marketingEvents.track({
+      userId: opts.userId,
+      eventType: 'ORDER_PLACED',
+      storeId: snapshot.storeId,
+      orderId: order.id,
     });
 
     return { orderId: order.id, orderNumber: order.orderNumber };
@@ -465,6 +480,13 @@ export class FoodCheckoutService {
       paymentMethod: PaymentMethod.COD,
     });
 
+    void this.marketingEvents.track({
+      userId,
+      eventType: 'ORDER_PLACED',
+      storeId: cart.storeId,
+      orderId: order.id,
+    });
+
     return { orderId: order.id, orderNumber: order.orderNumber, status: order.status };
   }
 
@@ -497,6 +519,16 @@ export class FoodCheckoutService {
     });
     if (unavailable > 0) {
       throw new BadRequestException('One or more menu items are no longer available');
+    }
+  }
+
+  private async assertStoreAcceptingOrders(storeId: string): Promise<void> {
+    const store = await this.prisma.store.findFirst({
+      where: { id: storeId, status: 'APPROVED', isActive: true, deletedAt: null },
+      select: { merchantProfile: { select: { isBlacklisted: true } } },
+    });
+    if (!store || store.merchantProfile?.isBlacklisted) {
+      throw new BadRequestException('Store is no longer accepting orders');
     }
   }
 }

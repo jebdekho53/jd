@@ -34,6 +34,7 @@ export interface MenuItem {
   prepTimeMins?: number | null;
   servingSize?: string | null;
   categoryId: string;
+  availability: 'AVAILABLE' | 'HIDDEN';
   variants?: MenuItemVariant[];
 }
 
@@ -142,6 +143,49 @@ export async function createMenuItem(
   const res = await merchantFetch<{ data: MenuItem }>(
     `/api/merchant/stores/${storeId}/menu/items`,
     { method: 'POST', body: JSON.stringify(body) },
+  );
+  return unwrap(res);
+}
+
+export async function updateMenuItem(
+  storeId: string,
+  menuItemId: string,
+  body: Partial<{
+    categoryId: string;
+    name: string;
+    basePrice: number;
+    description?: string;
+    imageUrls?: string[];
+    mrp?: number;
+    servingSize?: string;
+    dietType?: string;
+    spiceLevel?: string;
+    prepTimeMins?: number;
+  }>,
+): Promise<MenuItem> {
+  const res = await merchantFetch<{ data: MenuItem }>(
+    `/api/merchant/stores/${storeId}/menu/items/${menuItemId}`,
+    { method: 'PATCH', body: JSON.stringify(body) },
+  );
+  return unwrap(res);
+}
+
+export async function setMenuItemAvailability(
+  storeId: string,
+  menuItemId: string,
+  availability: 'AVAILABLE' | 'HIDDEN',
+): Promise<MenuItem> {
+  const res = await merchantFetch<{ data: MenuItem }>(
+    `/api/merchant/stores/${storeId}/menu/items/${menuItemId}/availability`,
+    { method: 'PATCH', body: JSON.stringify({ availability }) },
+  );
+  return unwrap(res);
+}
+
+export async function deleteMenuItem(storeId: string, menuItemId: string): Promise<{ id: string }> {
+  const res = await merchantFetch<{ data: { id: string } }>(
+    `/api/merchant/stores/${storeId}/menu/items/${menuItemId}`,
+    { method: 'DELETE' },
   );
   return unwrap(res);
 }

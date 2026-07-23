@@ -37,12 +37,18 @@ export class ClaimReplacementService {
       where: { id: claimId },
       include: {
         items: { include: { orderItem: true } },
-        order: true,
+        order: { include: { store: { select: { deliveryMode: true } } } },
         replacement: true,
       },
     });
 
     if (!claim) throw new BadRequestException('Claim not found');
+    // SELF-delivery stores have no platform rider/3PL — the merchant delivers
+    // it themselves, exactly like the original order. Without this, a
+    // replacement silently defaulted to PLATFORM and dispatched a real 3PL
+    // shipment for a store the platform never arranges delivery for.
+    const isSelfDelivery = claim.order.store.deliveryMode === 'SELF';
+    const shouldDispatch = dispatchShipment && !isSelfDelivery;
 
     if (claim.replacement?.status === 'SHIPPED' && claim.replacement.shipmentId) {
       return {
@@ -56,7 +62,7 @@ export class ClaimReplacementService {
       (claim.replacement.status === REPLACEMENT_DISPATCH_FAILED ||
         claim.replacement.status === 'PENDING')
     ) {
-      const shipmentId = dispatchShipment
+      const shipmentId = shouldDispatch
         ? await this.dispatchReplacementShipment(
             claimId,
             claim.replacement.replacementOrderId,
@@ -105,6 +111,7 @@ export class ClaimReplacementService {
           deliveryLat: original.deliveryLat,
           deliveryLng: original.deliveryLng,
           orderVertical: original.orderVertical,
+          deliveryMode: original.store.deliveryMode,
           buyerNote: `REPLACEMENT_FOR_CLAIM:${claim.claimNumber}`,
           paidAt: new Date(),
         },
@@ -160,7 +167,7 @@ export class ClaimReplacementService {
     });
 
     let shipmentId: string | undefined;
-    if (dispatchShipment) {
+    if (shouldDispatch) {
       shipmentId = await this.dispatchReplacementShipment(
         claimId,
         replacementOrderId,

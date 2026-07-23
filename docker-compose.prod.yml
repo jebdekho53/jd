@@ -74,9 +74,6 @@ services:
     networks:
       - jebdekho-internal
 
-  # Rider app is React Native (EAS) — not served via Nginx; API only
-  # rider-mobile builds are distributed through App Store / Play Store
-
   admin-web:
     build:
       context: .

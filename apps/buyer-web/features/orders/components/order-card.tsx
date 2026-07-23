@@ -2,15 +2,29 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { ChevronRight, Package } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ChevronRight, Package, RotateCcw } from 'lucide-react';
 import { OrderStatusBadge } from '@/features/orders/components/order-status-badge';
+import { Button, useToast } from '@/design-system/primitives';
+import { useReorderMutation } from '@/hooks/use-cart';
+import { useFoodReorderMutation } from '@/hooks/use-food-cart';
+import { SessionError } from '@/services/auth/auth-api';
 import type { OrderListItem } from '@/types/orders';
 
 interface OrderCardProps {
   order: OrderListItem;
 }
 
+const REORDERABLE = new Set(['DELIVERED', 'COMPLETED']);
+
 export function OrderCard({ order }: OrderCardProps) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const reorder = useReorderMutation();
+  const foodReorder = useFoodReorderMutation();
+  const isFoodOrder = order.orderVertical === 'FOOD';
+  const activeReorder = isFoodOrder ? foodReorder : reorder;
+
   const itemSummary = order.items
     .map((i) => `${i.productName} × ${i.quantity}`)
     .join(', ');
@@ -28,6 +42,28 @@ export function OrderCard({ order }: OrderCardProps) {
   );
 
   const href = isActive ? `/orders/${order.id}/track` : `/orders/${order.id}`;
+  const canReorder = REORDERABLE.has(order.status);
+
+  const handleReorder = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const result = await activeReorder.mutateAsync(order.id);
+      if (result.added === 0) {
+        toast('None of these items are available right now', 'error');
+        return;
+      }
+      toast(
+        result.skipped > 0
+          ? `Added ${result.added} item(s) — ${result.skipped} unavailable and skipped`
+          : 'Added to your cart',
+        'success',
+      );
+      router.push(isFoodOrder ? '/food/cart' : '/cart');
+    } catch (err) {
+      toast(err instanceof SessionError ? err.message : 'Could not reorder', 'error');
+    }
+  };
 
   return (
     <Link
@@ -55,11 +91,24 @@ export function OrderCard({ order }: OrderCardProps) {
             <span aria-hidden>·</span>
             <span>{order.paymentMethod === 'COD' ? 'COD' : 'Paid online'}</span>
           </div>
-          {isActive && (
-            <p className="mt-2 text-xs font-semibold text-primary">
-              Track order →
-            </p>
-          )}
+          <div className="mt-2 flex items-center justify-between gap-2">
+            {isActive ? (
+              <p className="text-xs font-semibold text-primary">Track order →</p>
+            ) : (
+              <span />
+            )}
+            {canReorder && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReorder}
+                loading={activeReorder.isPending}
+                className="shrink-0"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Reorder
+              </Button>
+            )}
+          </div>
         </div>
         <ChevronRight className="mt-2 h-5 w-5 shrink-0 text-jd-text-muted" aria-hidden />
       </div>

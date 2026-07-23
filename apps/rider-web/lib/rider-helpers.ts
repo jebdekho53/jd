@@ -11,6 +11,11 @@ export function riderSupportTicketPath(ticketId?: string, suffix?: string) {
   return suffix ? `${base}/${suffix}` : base;
 }
 
+/** Turn-by-turn link to a coordinate, opened in whatever maps app the phone has. */
+export function mapsHref(lat: number, lng: number) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+}
+
 export function riderCodSubmitPayload(orderIds: string[], amountDeposited: number, notes?: string) {
   return { orderIds, amountDeposited, notes };
 }

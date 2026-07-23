@@ -103,6 +103,16 @@ export async function removeFoodCartItem(itemId: string): Promise<FoodCart | nul
   return res.data;
 }
 
+export async function reorderFoodFromOrder(
+  orderId: string,
+): Promise<{ cart: FoodCart | null; added: number; skipped: number }> {
+  const res = await buyerFetch<ApiResponse<{ cart: FoodCart | null; added: number; skipped: number }>>(
+    `/api/buyer/food-cart/reorder/${orderId}`,
+    { method: 'POST' },
+  );
+  return res.data;
+}
+
 export async function clearFoodCart(): Promise<void> {
   await buyerFetch<ApiResponse<FoodCart | null>>('/api/buyer/food-cart', { method: 'DELETE' });
 }

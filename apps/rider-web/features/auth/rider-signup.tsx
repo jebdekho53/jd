@@ -28,14 +28,20 @@ export function RiderSignup({
   const [vehicleType, setVehicleType] = useState<VehicleType>('MOTORCYCLE');
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [acceptedAgreement, setAcceptedAgreement] = useState(false);
+  const licenseRequired = vehicleType !== 'WALK' && vehicleType !== 'BICYCLE';
 
   const submit = async () => {
     setError(null);
     if (name.trim().length < 2) {
       setError('Enter your full name');
+      return;
+    }
+    if (licenseRequired && licenseNumber.trim().length === 0) {
+      setError('Driving licence number is required for this vehicle type');
       return;
     }
     if (!acceptedAgreement) {
@@ -49,6 +55,7 @@ export function RiderSignup({
         vehicleType,
         vehicleNumber: vehicleNumber.trim() || undefined,
         licenseNumber: licenseNumber.trim() || undefined,
+        referralCode: referralCode.trim() || undefined,
       });
       await recordRiderAgreementAcceptance();
       onDone();
@@ -60,38 +67,38 @@ export function RiderSignup({
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-10 text-white">
+    <main className="min-h-screen bg-rider-bg px-6 py-10 text-rider-text">
       <div className="mx-auto w-full max-w-sm">
-        <p className="text-sm font-semibold uppercase tracking-wide text-cyan-300">JebDekho</p>
-        <h1 className="mt-1 text-3xl font-bold">Become a rider</h1>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="text-sm font-bold uppercase tracking-wide text-rider-accent">JebDekho</p>
+        <h1 className="mt-1 text-3xl font-black">Become a rider</h1>
+        <p className="mt-2 text-sm text-rider-muted">
           Signed in as +91 {phone.replace(/\D/g, '').slice(-10)}. Fill in your details — our team
           verifies your KYC before you can start delivering.
         </p>
 
         <div className="mt-8 space-y-4">
           <div>
-            <label className="mb-1 block text-sm text-slate-300">Full name</label>
+            <label className="mb-1 block text-sm text-rider-muted">Full name</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="As per your ID"
-              className="h-12 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 outline-none"
+              className="h-12 w-full rounded-xl border border-rider-border bg-rider-surface px-3 text-rider-text outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-slate-300">Vehicle</label>
+            <label className="mb-1 block text-sm text-rider-muted">Vehicle</label>
             <div className="grid grid-cols-2 gap-2">
               {VEHICLES.map((v) => (
                 <button
                   key={v.value}
                   type="button"
                   onClick={() => setVehicleType(v.value)}
-                  className={`h-11 rounded-xl border text-sm font-medium ${
+                  className={`h-11 rounded-xl border text-sm font-semibold ${
                     vehicleType === v.value
-                      ? 'border-cyan-400 bg-cyan-400/10 text-cyan-200'
-                      : 'border-slate-700 bg-slate-900 text-slate-300'
+                      ? 'border-rider-accent bg-rider-accent/10 text-rider-accent'
+                      : 'border-rider-border bg-rider-surface text-rider-muted'
                   }`}
                 >
                   {v.label}
@@ -103,27 +110,40 @@ export function RiderSignup({
           {vehicleType !== 'WALK' && vehicleType !== 'BICYCLE' && (
             <>
               <div>
-                <label className="mb-1 block text-sm text-slate-300">Vehicle number</label>
+                <label className="mb-1 block text-sm text-rider-muted">Vehicle number</label>
                 <input
                   value={vehicleNumber}
                   onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
                   placeholder="UP14 AB 1234"
-                  className="h-12 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 uppercase outline-none"
+                  className="h-12 w-full rounded-xl border border-rider-border bg-rider-surface px-3 uppercase text-rider-text outline-none"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-slate-300">
-                  Driving licence <span className="text-slate-500">(optional)</span>
+                <label className="mb-1 block text-sm text-rider-muted">
+                  Driving licence <span className="text-rider-danger">*</span>
                 </label>
                 <input
                   value={licenseNumber}
                   onChange={(e) => setLicenseNumber(e.target.value.toUpperCase())}
                   placeholder="DL-1420110012345"
-                  className="h-12 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 uppercase outline-none"
+                  required
+                  className="h-12 w-full rounded-xl border border-rider-border bg-rider-surface px-3 uppercase text-rider-text outline-none"
                 />
               </div>
             </>
           )}
+
+          <div>
+            <label className="mb-1 block text-sm text-rider-muted">
+              Referral code <span className="text-rider-muted">(optional)</span>
+            </label>
+            <input
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+              placeholder="Got a code from another rider?"
+              className="h-12 w-full rounded-xl border border-rider-border bg-rider-surface px-3 uppercase text-rider-text outline-none"
+            />
+          </div>
 
           <RiderAgreementAcceptance
             checked={acceptedAgreement}
@@ -137,19 +157,19 @@ export function RiderSignup({
           <button
             onClick={submit}
             disabled={busy}
-            className="h-12 w-full rounded-xl bg-cyan-400 font-semibold text-slate-950 disabled:opacity-60"
+            className="h-14 w-full rounded-xl bg-rider-accent font-bold text-rider-accent-foreground disabled:opacity-60"
           >
             {busy ? 'Submitting…' : 'Submit application'}
           </button>
 
-          {error && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
+          {error && <p className="rounded-xl bg-rider-danger/10 p-3 text-sm text-rider-danger">{error}</p>}
 
           <button
             onClick={async () => {
               await logout().catch(() => {});
               onSignOut();
             }}
-            className="w-full pt-2 text-sm text-slate-500"
+            className="w-full pt-2 text-sm text-rider-muted"
           >
             Sign out
           </button>

@@ -213,11 +213,16 @@ export interface SearchProductsParams {
   categoryId?: string;
   subcategoryId?: string;
   storeId?: string;
+  productIds?: string[];
   lat?: number;
   lng?: number;
   pincode?: string;
   minPrice?: number;
   maxPrice?: number;
+  minRating?: number;
+  isVeg?: boolean;
+  maxDeliveryMins?: number;
+  brand?: string;
   sort?: string;
   page?: number;
   limit?: number;
@@ -244,6 +249,8 @@ export interface UnifiedSearchProduct {
   };
   inStock: boolean;
   availableQty: number;
+  isVeg?: boolean | null;
+  isBestseller?: boolean;
   /** Default purchasable variant; required for add-to-cart from search */
   variantId?: string;
   /** True when this result is a paid (sponsored) placement. */
@@ -268,6 +275,22 @@ export interface UnifiedSearchResult {
   categories: Array<{ id: string; name: string; slug: string; imageUrl: string | null; parentId?: string | null }>;
   subcategories: Array<{ id: string; name: string; slug: string; imageUrl: string | null; parentId?: string | null }>;
   brands: Array<{ name: string }>;
+  menuItems: Array<{
+    id: string;
+    name: string;
+    basePrice: number;
+    dietType: string;
+    store: { id: string; name: string; slug: string; logoUrl?: string | null } | null;
+  }>;
+  restaurants: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    logoUrl: string | null;
+    bannerUrl: string | null;
+    ratingAvg: number;
+    ratingCount?: number;
+  }>;
   meta: PaginationMeta & { sort?: string; tab?: string; totalProducts: number };
 }
 

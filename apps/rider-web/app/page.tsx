@@ -22,5 +22,5 @@ export default function Page() {
     router.replace('/home');
   }, [router, session.data, session.isError, session.isLoading]);
 
-  return <div className="grid min-h-screen place-items-center bg-slate-950 text-slate-400">Opening rider app...</div>;
+  return <div className="grid min-h-screen place-items-center bg-rider-bg text-rider-muted">Opening rider app...</div>;
 }

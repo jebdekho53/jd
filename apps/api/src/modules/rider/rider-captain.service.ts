@@ -11,6 +11,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { decimalToNumber, roundMoney } from '../settlement/settlement.utils';
+import { RiderPushNotificationService } from '../push/rider-push-notification.service';
 
 export const REQUIRED_RIDER_DOCUMENTS = [
   RiderDocumentType.ID_PROOF,
@@ -20,7 +21,10 @@ export const REQUIRED_RIDER_DOCUMENTS = [
 
 @Injectable()
 export class RiderCaptainService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly riderPush: RiderPushNotificationService,
+  ) {}
 
   async riderProfileId(userId: string): Promise<string> {
     const profile = await this.prisma.riderProfile.findUnique({
@@ -236,7 +240,7 @@ export class RiderCaptainService {
   }
 
   async adminApproveDocument(documentId: string, reviewedBy: string) {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const document = await tx.riderDocument.update({
         where: { id: documentId },
         data: {
@@ -249,10 +253,17 @@ export class RiderCaptainService {
       const profile = await this.syncRiderKycStatus(tx, document.riderProfileId);
       return { document, profile };
     });
+
+    // Only the transition to APPROVED is worth a push — a single approved
+    // document among several still-pending ones is not news to the rider.
+    if (result.profile.kycStatus === KycStatus.APPROVED) {
+      void this.riderPush.notifyKycDecision(result.profile.id, true).catch(() => {});
+    }
+    return result;
   }
 
   async adminRejectDocument(documentId: string, reviewedBy: string, reason: string) {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const document = await tx.riderDocument.update({
         where: { id: documentId },
         data: {
@@ -265,6 +276,9 @@ export class RiderCaptainService {
       const profile = await this.syncRiderKycStatus(tx, document.riderProfileId);
       return { document, profile };
     });
+
+    void this.riderPush.notifyKycDecision(result.profile.id, false, reason).catch(() => {});
+    return result;
   }
 
   async adminListIncentives(status?: RiderIncentiveStatus) {

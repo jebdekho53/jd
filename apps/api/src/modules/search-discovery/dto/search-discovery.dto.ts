@@ -76,6 +76,31 @@ export class BuyerSearchDto {
   @IsNumber()
   maxPrice?: number;
 
+  @ApiPropertyOptional({ description: 'Minimum store rating (proxy for product rating), 1-5' })
+  @IsOptional()
+  @Transform(({ value }) => (value != null ? parseFloat(value) : undefined))
+  @IsNumber()
+  @Min(0)
+  @Max(5)
+  minRating?: number;
+
+  @ApiPropertyOptional({ description: 'Only vegetarian products' })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  isVeg?: boolean;
+
+  @ApiPropertyOptional({ description: 'Only products deliverable within this many minutes' })
+  @IsOptional()
+  @Transform(({ value }) => (value != null ? parseInt(value, 10) : undefined))
+  @IsNumber()
+  @Min(1)
+  maxDeliveryMins?: number;
+
+  @ApiPropertyOptional({ description: 'Exact brand name match' })
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
   @ApiPropertyOptional({ enum: ['relevance', 'distance', 'price_low_high', 'price_high_low', 'rating', 'fastest_delivery'] })
   @IsOptional()
   @IsIn(['relevance', 'distance', 'price_low_high', 'price_high_low', 'rating', 'fastest_delivery'])

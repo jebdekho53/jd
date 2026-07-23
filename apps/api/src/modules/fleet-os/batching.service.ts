@@ -82,12 +82,30 @@ export class BatchingService {
     return groups.filter((g) => g.length > 1);
   }
 
+  /**
+   * The rider's own view of their batch. Selects the pickup and drop geography
+   * too — without it the rider app can only print a list of order numbers and
+   * has nothing to navigate to.
+   */
   async getRiderBatch(riderId: string) {
     return this.prisma.deliveryBatch.findFirst({
       where: { riderId, status: { in: [DeliveryBatchStatus.PLANNED, DeliveryBatchStatus.ACTIVE] } },
       include: {
         items: {
-          include: { order: { select: { id: true, orderNumber: true, status: true } } },
+          include: {
+            order: {
+              select: {
+                id: true,
+                orderNumber: true,
+                status: true,
+                paymentMethod: true,
+                deliveryAddress: true,
+                deliveryLat: true,
+                deliveryLng: true,
+                store: { select: { name: true, latitude: true, longitude: true } },
+              },
+            },
+          },
           orderBy: { sequence: 'asc' },
         },
       },

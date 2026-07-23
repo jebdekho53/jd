@@ -127,6 +127,21 @@ export class RiskEngineService {
     return Boolean(hard);
   }
 
+  /** Active hard-block/suspend restriction with its reason, or null — used to
+   *  both gate an action and explain the block to the affected user. */
+  async getActiveSuspension(userId: string): Promise<{ reason: string; createdAt: Date } | null> {
+    const restriction = await this.prisma.accountRestriction.findFirst({
+      where: {
+        userId,
+        active: true,
+        restrictionType: { in: ['HARD_BLOCK', 'MERCHANT_SUSPEND', 'RIDER_SUSPEND'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { reason: true, createdAt: true },
+    });
+    return restriction;
+  }
+
   async canUseCod(userId: string): Promise<boolean> {
     const profile = await this.getOrCreateProfile(userId);
     if (!profile.codEnabled) return false;

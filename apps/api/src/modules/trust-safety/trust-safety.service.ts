@@ -69,22 +69,27 @@ export class TrustSafetyService {
     return this.cases.listCases(category, FraudCaseStatus.OPEN, page, limit);
   }
 
-  async listBlockedAccounts(page = 1, limit = 20) {
+  async listBlockedAccounts(page = 1, limit = 20, userId?: string) {
+    const where = userId ? { active: true, userId } : { active: true };
     const [items, total] = await Promise.all([
       this.prisma.accountRestriction.findMany({
-        where: { active: true },
+        where,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.accountRestriction.count({ where: { active: true } }),
+      this.prisma.accountRestriction.count({ where }),
     ]);
     return { items, total, page, limit };
   }
 
+  async liftRestriction(restrictionId: string, adminUserId: string) {
+    return this.actions.liftRestrictionFully(restrictionId, adminUserId);
+  }
+
   async adminAction(
     adminUserId: string,
-    action: 'approve' | 'reject' | 'warn' | 'restrict' | 'suspend' | 'blacklist',
+    action: string,
     userId: string,
     reason: string,
     caseId?: string,
@@ -96,6 +101,13 @@ export class TrustSafetyService {
       restrict: FraudDecisionAction.RESTRICT,
       suspend: FraudDecisionAction.HARD_BLOCK,
       blacklist: FraudDecisionAction.BLACKLIST,
+      wallet_freeze: FraudDecisionAction.WALLET_FREEZE,
+      referral_freeze: FraudDecisionAction.REFERRAL_FREEZE,
+      coupon_freeze: FraudDecisionAction.COUPON_FREEZE,
+      cod_disable: FraudDecisionAction.COD_DISABLE,
+      merchant_suspend: FraudDecisionAction.MERCHANT_SUSPEND,
+      rider_suspend: FraudDecisionAction.RIDER_SUSPEND,
+      soft_block: FraudDecisionAction.SOFT_BLOCK,
     };
 
     if (caseId && (action === 'approve' || action === 'reject')) {

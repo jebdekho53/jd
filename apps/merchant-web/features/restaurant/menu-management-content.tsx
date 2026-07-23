@@ -14,10 +14,14 @@ import {
   createCombo,
   createMenuCategory,
   createMenuItem,
+  deleteMenuItem,
   fetchMerchantMenu,
   linkAddonToItem,
+  setMenuItemAvailability,
+  updateMenuItem,
   type DishAiDraft,
   type MenuCategory,
+  type MenuItem,
 } from '@/services/restaurant/menu-api';
 import { useApprovedMenuCategoriesQuery } from '@/hooks/use-categories-governance';
 import { useStoreCatalogKind } from '@/hooks/use-store-catalog-kind';
@@ -92,6 +96,29 @@ export function MenuManagementContent({ storeId }: { storeId: string }) {
     mutationFn: ({ menuItemId, groupId }: { menuItemId: string; groupId: string }) =>
       linkAddonToItem(storeId, menuItemId, groupId),
     onSuccess: () => { toast('Addon group linked to item', 'success'); invalidate(); },
+    onError: (e: Error) => toast(e.message, 'error'),
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: ({ menuItemId, body }: { menuItemId: string; body: Parameters<typeof updateMenuItem>[2] }) =>
+      updateMenuItem(storeId, menuItemId, body),
+    onSuccess: () => { toast('Menu item updated', 'success'); invalidate(); },
+    onError: (e: Error) => toast(e.message, 'error'),
+  });
+
+  const availabilityMutation = useMutation({
+    mutationFn: ({ menuItemId, availability }: { menuItemId: string; availability: 'AVAILABLE' | 'HIDDEN' }) =>
+      setMenuItemAvailability(storeId, menuItemId, availability),
+    onSuccess: (_data, vars) => {
+      toast(vars.availability === 'HIDDEN' ? 'Marked sold out' : 'Marked available', 'success');
+      invalidate();
+    },
+    onError: (e: Error) => toast(e.message, 'error'),
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: (menuItemId: string) => deleteMenuItem(storeId, menuItemId),
+    onSuccess: () => { toast('Menu item deleted', 'success'); invalidate(); },
     onError: (e: Error) => toast(e.message, 'error'),
   });
 
@@ -199,6 +226,12 @@ export function MenuManagementContent({ storeId }: { storeId: string }) {
               loading={itemMutation.isPending || aiItemMutation.isPending}
               onCreate={(body) => itemMutation.mutate(body)}
               onAiCreate={(jobId, body) => aiItemMutation.mutate({ jobId, body })}
+              onUpdate={(menuItemId, body) => updateItemMutation.mutate({ menuItemId, body })}
+              updateLoading={updateItemMutation.isPending}
+              onToggleAvailability={(menuItemId, availability) =>
+                availabilityMutation.mutate({ menuItemId, availability })
+              }
+              onDelete={(menuItemId) => deleteItemMutation.mutate(menuItemId)}
             />
           )}
           {tab === 'Addon Groups' && (
@@ -367,13 +400,22 @@ function ItemsPanel({
   loading,
   onCreate,
   onAiCreate,
+  onUpdate,
+  updateLoading,
+  onToggleAvailability,
+  onDelete,
 }: {
   storeId: string;
   categories: MenuCategory[];
   loading: boolean;
   onCreate: (body: Parameters<typeof createMenuItem>[1]) => void;
   onAiCreate: (jobId: string, body: Parameters<typeof createMenuItem>[1]) => void;
+  onUpdate: (menuItemId: string, body: Parameters<typeof updateMenuItem>[2]) => void;
+  updateLoading: boolean;
+  onToggleAvailability: (menuItemId: string, availability: 'AVAILABLE' | 'HIDDEN') => void;
+  onDelete: (menuItemId: string) => void;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? '');
   const [name, setName] = useState('');
   const [basePrice, setBasePrice] = useState('');
@@ -413,6 +455,7 @@ function ItemsPanel({
   });
 
   const reset = () => {
+    setEditingId(null);
     setName('');
     setBasePrice('');
     setMrp('');
@@ -423,6 +466,23 @@ function ItemsPanel({
     setSizeName('');
     setSizePrice('');
     setAiDraft(null);
+  };
+
+  const startEdit = (item: MenuItem) => {
+    setEditingId(item.id);
+    setCategoryId(item.categoryId);
+    setName(item.name);
+    setBasePrice(String(item.basePrice));
+    setMrp(item.mrp != null ? String(item.mrp) : '');
+    setDescription(item.description ?? '');
+    setImageUrl(item.imageUrls?.[0] ?? '');
+    setServingSize(item.servingSize ?? '');
+    setDietType(item.dietType ?? 'VEG');
+    setSpiceLevel(item.spiceLevel ?? 'MEDIUM');
+    setPrepTimeMins(String(item.prepTimeMins ?? 15));
+    setSizes([]);
+    setAiDraft(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const addSize = () => {
@@ -467,7 +527,14 @@ function ItemsPanel({
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardBody className="space-y-4">
-          <h2 className="font-semibold text-slate-900">Add menu item</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-slate-900">{editingId ? 'Edit menu item' : 'Add menu item'}</h2>
+            {editingId && (
+              <button type="button" className="text-xs text-slate-500 underline" onClick={reset}>
+                Cancel edit
+              </button>
+            )}
+          </div>
           <p className="text-sm text-slate-500">
             Photo, price, and sizes appear on the customer app as soon as you save.
           </p>
@@ -486,33 +553,35 @@ function ItemsPanel({
             purpose="product"
             hint="Shown to customers on the menu"
           />
-          <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
-            <p className="text-sm font-medium text-slate-800">Add with AI</p>
-            <p className="mt-1 text-xs text-slate-600">
-              Upload the dish photo above, then let AI write the name, description, diet, prep time
-              and a price suggestion. The analysis is free — you are charged only when the item is
-              created, and you can edit everything first.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              disabled={!imageUrl}
-              loading={analyzeMutation.isPending}
-              onClick={() => analyzeMutation.mutate()}
-            >
-              <Sparkles className="h-4 w-4" />
-              {aiDraft ? 'Re-run AI on this photo' : 'Fill details with AI'}
-            </Button>
-            {aiDraft && (
-              <p className="mt-2 text-xs text-slate-600">
-                AI draft ready · confidence {(aiDraft.fields.confidence * 100).toFixed(0)}% · ₹
-                {aiDraft.priceRupee.toFixed(2)} charged when you create this item. AI can be wrong —
-                check the price and diet type.
+          {!editingId && (
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
+              <p className="text-sm font-medium text-slate-800">Add with AI</p>
+              <p className="mt-1 text-xs text-slate-600">
+                Upload the dish photo above, then let AI write the name, description, diet, prep time
+                and a price suggestion. The analysis is free — you are charged only when the item is
+                created, and you can edit everything first.
               </p>
-            )}
-          </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                disabled={!imageUrl}
+                loading={analyzeMutation.isPending}
+                onClick={() => analyzeMutation.mutate()}
+              >
+                <Sparkles className="h-4 w-4" />
+                {aiDraft ? 'Re-run AI on this photo' : 'Fill details with AI'}
+              </Button>
+              {aiDraft && (
+                <p className="mt-2 text-xs text-slate-600">
+                  AI draft ready · confidence {(aiDraft.fields.confidence * 100).toFixed(0)}% · ₹
+                  {aiDraft.priceRupee.toFixed(2)} charged when you create this item. AI can be wrong —
+                  check the price and diet type.
+                </p>
+              )}
+            </div>
+          )}
           {!hasSizes && (
             <div className="grid gap-4 sm:grid-cols-2">
               <Input
@@ -531,59 +600,61 @@ function ItemsPanel({
               />
             </div>
           )}
-          <div className="rounded-xl border border-slate-200 p-3 space-y-3">
-            <div>
-              <p className="text-sm font-medium text-slate-800">Sizes (optional)</p>
-              <p className="text-xs text-slate-500">
-                Add Half / Full, Regular / Large, etc. Each size can have its own price.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Input
-                placeholder="Size name (e.g. Regular)"
-                value={sizeName}
-                onChange={(e) => setSizeName(e.target.value)}
-                className="min-w-[140px] flex-1"
-              />
-              <Input
-                placeholder="Price ₹"
-                type="number"
-                min={0}
-                value={sizePrice}
-                onChange={(e) => setSizePrice(e.target.value)}
-                className="w-28"
-              />
-              <Button type="button" variant="secondary" size="sm" onClick={addSize}>
-                Add size
-              </Button>
-            </div>
-            {sizes.map((size, index) => (
-              <div key={`${size.name}-${index}`} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                <span className="text-slate-700">
-                  {size.name} — <strong>₹{size.price}</strong>
-                  {size.isDefault && <span className="ml-2 text-xs text-brand-600">Default</span>}
-                </span>
-                <div className="flex gap-2">
-                  {!size.isDefault && (
+          {!editingId && (
+            <div className="rounded-xl border border-slate-200 p-3 space-y-3">
+              <div>
+                <p className="text-sm font-medium text-slate-800">Sizes (optional)</p>
+                <p className="text-xs text-slate-500">
+                  Add Half / Full, Regular / Large, etc. Each size can have its own price.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  placeholder="Size name (e.g. Regular)"
+                  value={sizeName}
+                  onChange={(e) => setSizeName(e.target.value)}
+                  className="min-w-[140px] flex-1"
+                />
+                <Input
+                  placeholder="Price ₹"
+                  type="number"
+                  min={0}
+                  value={sizePrice}
+                  onChange={(e) => setSizePrice(e.target.value)}
+                  className="w-28"
+                />
+                <Button type="button" variant="secondary" size="sm" onClick={addSize}>
+                  Add size
+                </Button>
+              </div>
+              {sizes.map((size, index) => (
+                <div key={`${size.name}-${index}`} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="text-slate-700">
+                    {size.name} — <strong>₹{size.price}</strong>
+                    {size.isDefault && <span className="ml-2 text-xs text-brand-600">Default</span>}
+                  </span>
+                  <div className="flex gap-2">
+                    {!size.isDefault && (
+                      <button
+                        type="button"
+                        className="text-xs text-brand-600 underline"
+                        onClick={() => setDefaultSize(index)}
+                      >
+                        Set default
+                      </button>
+                    )}
                     <button
                       type="button"
-                      className="text-xs text-brand-600 underline"
-                      onClick={() => setDefaultSize(index)}
+                      className="text-xs text-red-600 underline"
+                      onClick={() => removeSize(index)}
                     >
-                      Set default
+                      Remove
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    className="text-xs text-red-600 underline"
-                    onClick={() => removeSize(index)}
-                  >
-                    Remove
-                  </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
           <Input
             label="Serving size (optional)"
             value={servingSize}
@@ -601,9 +672,25 @@ function ItemsPanel({
           </div>
           <Input label="Prep time (mins)" type="number" min={1} value={prepTimeMins} onChange={(e) => setPrepTimeMins(e.target.value)} />
           <Button
-            loading={loading}
+            loading={editingId ? updateLoading : loading}
             disabled={!canSubmit}
             onClick={() => {
+              if (editingId) {
+                onUpdate(editingId, {
+                  categoryId,
+                  name: name.trim(),
+                  basePrice: Number(basePrice),
+                  description: description.trim() || undefined,
+                  imageUrls: imageUrl.trim() ? [imageUrl.trim()] : undefined,
+                  mrp: mrp.trim() ? Number(mrp) : undefined,
+                  servingSize: servingSize.trim() || undefined,
+                  dietType,
+                  spiceLevel,
+                  prepTimeMins: Number(prepTimeMins) || 15,
+                });
+                reset();
+                return;
+              }
               const price = resolvedBasePrice();
               const body = {
                 categoryId,
@@ -630,7 +717,11 @@ function ItemsPanel({
             }}
           >
             <Plus className="h-4 w-4" />
-            {aiDraft ? `Create item with AI — ₹${aiDraft.priceRupee.toFixed(2)}` : 'Create item'}
+            {editingId
+              ? 'Update item'
+              : aiDraft
+                ? `Create item with AI — ₹${aiDraft.priceRupee.toFixed(2)}`
+                : 'Create item'}
           </Button>
         </CardBody>
       </Card>
@@ -659,12 +750,55 @@ function ItemsPanel({
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-slate-900">{item.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-slate-900">{item.name}</p>
+                          {item.availability === 'HIDDEN' && (
+                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                              Sold out
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-500">
                           {formatLabel(item.dietType)} · {item.prepTimeMins ?? 15} min
                           {item.servingSize ? ` · ${item.servingSize}` : ''}
                         </p>
                         <p className="mt-1 text-sm font-semibold text-brand-700">{priceLabel}</p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1.5">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-brand-600 underline"
+                            onClick={() => startEdit(item)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-red-600 underline"
+                            onClick={() => {
+                              if (confirm(`Delete "${item.name}"? This can't be undone.`)) onDelete(item.id);
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                            item.availability === 'HIDDEN'
+                              ? 'bg-slate-100 text-slate-600'
+                              : 'bg-green-100 text-green-700'
+                          }`}
+                          onClick={() =>
+                            onToggleAvailability(
+                              item.id,
+                              item.availability === 'HIDDEN' ? 'AVAILABLE' : 'HIDDEN',
+                            )
+                          }
+                        >
+                          {item.availability === 'HIDDEN' ? 'Mark available' : 'Mark sold out'}
+                        </button>
                       </div>
                     </CardBody>
                   </Card>

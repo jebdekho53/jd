@@ -96,9 +96,10 @@ export class PromotionPricingService {
 
     let couponDiscount = 0;
     if (input.coupon) {
+      const couponEligibleSubtotal = this.eligibleSubtotalForCoupon(input.items, input.coupon);
       const couponResult = this.computeCouponDiscount(
         input.coupon,
-        subtotal,
+        couponEligibleSubtotal,
         input.baseDeliveryFee,
         freeDelivery,
       );
@@ -289,6 +290,22 @@ export class PromotionPricingService {
         .reduce((s, i) => s + i.lineTotal, 0);
     }
     return 0;
+  }
+
+  /** Mirrors eligibleSubtotal for promotions — a category/product-scoped coupon
+   *  must only discount the items it actually applies to, not the whole cart. */
+  private eligibleSubtotalForCoupon(items: PromoCartItem[], coupon: Coupon): number {
+    if (coupon.categoryId) {
+      return items
+        .filter((i) => i.categoryId === coupon.categoryId)
+        .reduce((s, i) => s + i.lineTotal, 0);
+    }
+    if (coupon.productId) {
+      return items
+        .filter((i) => i.productId === coupon.productId)
+        .reduce((s, i) => s + i.lineTotal, 0);
+    }
+    return items.reduce((s, i) => s + i.lineTotal, 0);
   }
 
   private computePromotionDiscount(

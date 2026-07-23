@@ -25,12 +25,28 @@ export class ListTrustQueryDto {
   status?: RiskProfileStatus;
 }
 
+const TRUST_ACTIONS = [
+  'approve',
+  'reject',
+  'warn',
+  'restrict',
+  'suspend',
+  'blacklist',
+  'wallet_freeze',
+  'referral_freeze',
+  'coupon_freeze',
+  'cod_disable',
+  'merchant_suspend',
+  'rider_suspend',
+  'soft_block',
+] as const;
+
 export class AdminTrustActionDto {
   @IsString()
   userId: string;
 
-  @IsEnum(['approve', 'reject', 'warn', 'restrict', 'suspend', 'blacklist'])
-  action: 'approve' | 'reject' | 'warn' | 'restrict' | 'suspend' | 'blacklist';
+  @IsEnum(TRUST_ACTIONS)
+  action: (typeof TRUST_ACTIONS)[number];
 
   @IsString()
   reason: string;

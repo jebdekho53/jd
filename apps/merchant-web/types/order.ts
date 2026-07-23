@@ -120,6 +120,7 @@ export interface OrderDetail {
   id: string;
   orderNumber: string;
   status: OrderStatus;
+  orderVertical?: 'GROCERY' | 'FOOD';
   /** 'SELF' stores have no rider/3PL assigned — the merchant reports their own hand-off. */
   deliveryMode?: 'PLATFORM' | 'SELF';
   paymentMethod: PaymentMethod;

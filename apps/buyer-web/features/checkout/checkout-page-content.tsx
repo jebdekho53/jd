@@ -1,13 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
-import { AddressForm } from '@/features/checkout/components/address-form';
+import { AddressSelector } from '@/features/checkout/components/address-selector';
 import { PaymentMethodSelector } from '@/features/checkout/components/payment-method-selector';
 import { CheckoutSummary } from '@/features/checkout/components/checkout-summary';
+import { CheckoutTrustBadges } from '@/features/checkout/components/checkout-trust-badges';
 import { CheckoutReturnPolicyPanel } from '@/features/checkout/components/checkout-return-policy-panel';
 import { CouponPanel } from '@/features/checkout/components/coupon-panel';
 import { CheckoutRequirementsHint } from '@/features/checkout/components/checkout-requirements-hint';
@@ -70,6 +71,7 @@ export function CheckoutPageContent() {
     rewardPointsToRedeem,
     checkoutId,
     setStep,
+    setDeliveryAddress,
     setPaymentMethod,
     setBuyerNote,
     setWalletAmountToUse,
@@ -132,7 +134,22 @@ export function CheckoutPageContent() {
     }
   }, [cart?.id, cart?.items.length]);
 
+  const placingOrderRef = useRef(false);
+
   const handlePlaceOrder = async () => {
+    // Guards a double-click/double-tap race: React state (isPending) doesn't
+    // flip synchronously, so two clicks in the same tick could both pass the
+    // button's disabled check and place two orders. A ref updates instantly.
+    if (placingOrderRef.current) return;
+    placingOrderRef.current = true;
+    try {
+      await placeOrderOnce();
+    } finally {
+      placingOrderRef.current = false;
+    }
+  };
+
+  const placeOrderOnce = async () => {
     if (!deliveryAddress) return;
 
     if (!isDeliveryAddressComplete(deliveryAddress)) {
@@ -313,7 +330,11 @@ export function CheckoutPageContent() {
                     <h2 className="text-lg font-semibold">Delivery address</h2>
                   </div>
                   {step === 'address' ? (
-                    <AddressForm onNext={() => setStep('payment')} />
+                    <AddressSelector
+                      selected={deliveryAddress}
+                      onSelect={setDeliveryAddress}
+                      onNext={() => setStep('payment')}
+                    />
                   ) : deliveryAddress ? (
                     <div className="space-y-3">
                       {!isDeliveryAddressComplete(deliveryAddress) && (
@@ -436,6 +457,7 @@ export function CheckoutPageContent() {
                   <CouponPanel cart={cart} />
                   <CheckoutReturnPolicyPanel items={cart.items} />
                   <CheckoutSummary cart={cart} address={deliveryAddress} />
+                  <CheckoutTrustBadges />
                 </div>
               )}
             </div>
