@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Package, ShoppingBag, LayoutDashboard } from 'lucide-react';
+import { Package, ShoppingBag, LayoutDashboard, Wallet } from 'lucide-react';
 import { BrandLockup } from '@/components/brand/brand-lockup';
 import { requireVendorUser } from '@/lib/auth/session';
 import { LogoutButton } from './logout-button';
@@ -8,6 +8,7 @@ const NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/catalog', label: 'Catalog', icon: Package },
   { href: '/orders', label: 'Orders', icon: ShoppingBag },
+  { href: '/settlements', label: 'Settlements', icon: Wallet },
 ];
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {

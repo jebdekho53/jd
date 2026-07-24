@@ -119,6 +119,15 @@ export class VendorPortalService {
     });
   }
 
+  async listSettlements(userId: string) {
+    const vendorId = await this.resolveVendorId(userId);
+    return this.prisma.vendorSettlement.findMany({
+      where: { vendorId },
+      orderBy: { periodEnd: 'desc' },
+      take: 50,
+    });
+  }
+
   async getCatalog(userId: string) {
     const vendorId = await this.resolveVendorId(userId);
     return this.prisma.vendorCatalog.findMany({

@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Min, ValidateNested, IsArray } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, Min, ValidateNested, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 import { VendorDisputeStatus } from '@prisma/client';
 
@@ -59,6 +59,7 @@ export class CreateVendorOrderDto {
   notes?: string;
 
   @IsOptional()
+  @IsBoolean()
   useCredit?: boolean;
 }
 
@@ -85,8 +86,13 @@ export class CreateVendorProductDto {
   hsnCode?: string;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
   gstRate?: number;
 
+  @IsNumber()
+  @Min(0)
   basePrice!: number;
 
   @IsOptional()

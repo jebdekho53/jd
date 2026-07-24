@@ -69,6 +69,11 @@ export class VendorPortalController {
     return { success: true, data: await this.vendor.resolveDispute(user.id, id, dto) };
   }
 
+  @Get('settlements')
+  async settlements(@CurrentUser() user: RequestUser) {
+    return { success: true, data: await this.vendor.listSettlements(user.id) };
+  }
+
   @Get('catalog')
   async catalog(@CurrentUser() user: RequestUser) {
     return { success: true, data: await this.vendor.getCatalog(user.id) };
