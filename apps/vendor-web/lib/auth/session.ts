@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   ACCESS_COOKIE,
@@ -8,6 +9,7 @@ import {
   REFRESH_MAX_AGE,
 } from '@/lib/auth/cookies';
 import { backendFetch, BackendError } from '@/lib/auth/backend-fetch';
+import { isVendor, type AuthUser } from '@/types/auth';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -25,6 +27,51 @@ export async function getAccessToken(req?: NextRequest): Promise<string | undefi
   if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7);
   const jar = await cookies();
   return jar.get(ACCESS_COOKIE)?.value;
+}
+
+export async function setAuthCookies(
+  response: NextResponse,
+  tokens: { accessToken: string; refreshToken: string; expiresIn: number; rememberMe?: boolean },
+) {
+  response.cookies.set(ACCESS_COOKIE, tokens.accessToken, {
+    ...cookieOptions,
+    maxAge: accessCookieMaxAge(tokens.expiresIn),
+  });
+  response.cookies.set(REFRESH_COOKIE, tokens.refreshToken, {
+    ...cookieOptions,
+    // Without rememberMe the refresh token is a session cookie (no maxAge).
+    ...(tokens.rememberMe ? { maxAge: REFRESH_MAX_AGE } : {}),
+  });
+  return response;
+}
+
+export function clearAuthCookies(response: NextResponse) {
+  response.cookies.set(ACCESS_COOKIE, '', { ...cookieOptions, maxAge: 0 });
+  response.cookies.set(REFRESH_COOKIE, '', { ...cookieOptions, maxAge: 0 });
+  return response;
+}
+
+/**
+ * Resolve the signed-in user server-side, or null if not authenticated.
+ * Returns null rather than throwing so layouts can simply redirect.
+ */
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  try {
+    return await fetchWithAuth<AuthUser>('/auth/me', { method: 'GET' });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every page in this app is vendor-only. A valid token is not enough: a buyer
+ * or merchant signed in on this domain must not reach the portal shell.
+ */
+export async function requireVendorUser(): Promise<AuthUser> {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  if (!isVendor(user)) redirect('/login?error=not_a_vendor');
+  return user;
 }
 
 async function getRefreshToken(): Promise<string | undefined> {

@@ -1,0 +1,34 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { backendFetch, BackendError } from '@/lib/auth/backend-fetch';
+import { setAuthCookies } from '@/lib/auth/session';
+import { isVendor, type ApiResponse, type AuthBackendData } from '@/types/auth';
+
+/** Email + password login. */
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { data } = await backendFetch<ApiResponse<AuthBackendData>>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ ...body, deviceName: 'vendor-web' }),
+    });
+    const { accessToken, refreshToken, expiresIn, user, rememberMe } = data.data;
+
+    // Authenticating is not the same as being allowed in. A buyer or merchant with
+    // valid credentials must not get a vendor session cookie.
+    if (!isVendor(user)) {
+      return NextResponse.json(
+        { success: false, message: 'This account is not a vendor partner.' },
+        { status: 403 },
+      );
+    }
+
+    const response = NextResponse.json({ success: true, data: { user, expiresIn } });
+    await setAuthCookies(response, { accessToken, refreshToken, expiresIn, rememberMe });
+    return response;
+  } catch (err) {
+    if (err instanceof BackendError) {
+      return NextResponse.json({ success: false, message: err.message }, { status: err.status });
+    }
+    return NextResponse.json({ success: false, message: 'Internal error' }, { status: 500 });
+  }
+}

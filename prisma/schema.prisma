@@ -1245,15 +1245,16 @@ model City {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  zones             Zone[]
-  serviceAreas      ServiceArea[]
-  stores            Store[]
-  vendors           Vendor[]
-  franchisePartners FranchisePartner[]
-  cityLaunchPlans   CityLaunchPlan[]
-  seoPages          SeoPage[]
-  seoFaqs           SeoFaq[]
-  locationCities    LocationCity[]
+  zones              Zone[]
+  serviceAreas       ServiceArea[]
+  stores             Store[]
+  vendors            Vendor[]
+  vendorApplications VendorApplication[]
+  franchisePartners  FranchisePartner[]
+  cityLaunchPlans    CityLaunchPlan[]
+  seoPages           SeoPage[]
+  seoFaqs            SeoFaq[]
+  locationCities     LocationCity[]
 
   @@index([isActive])
   @@map("cities")
@@ -5357,7 +5358,7 @@ model Vendor {
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
 
-  city             City?              @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  city             City?               @relation(fields: [cityId], references: [id], onDelete: SetNull)
   profile          VendorProfile?
   catalogs         VendorCatalog[]
   products         VendorProduct[]
@@ -5366,6 +5367,7 @@ model Vendor {
   creditLines      VendorCreditLine[]
   ratings          VendorRating[]
   procurementCarts ProcurementCart[]
+  application      VendorApplication?
 
   @@index([vendorType, isActive])
   @@index([cityId, isActive])
@@ -5668,6 +5670,50 @@ model VendorDispute {
 
   @@index([vendorOrderId, status])
   @@map("vendor_disputes")
+}
+
+enum VendorApplicationStatus {
+  NEW
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+/// Public vendor-partner application, deliberately flat (mirrors ExpansionLead,
+/// not the multi-step MerchantApplication) — Vendor itself has no KYC/workflow
+/// state, so there's no per-step draft to persist.
+model VendorApplication {
+  id           String                  @id @default(cuid())
+  businessName String                  @map("business_name")
+  vendorType   VendorType              @map("vendor_type")
+  phone        String
+  email        String?
+  cityId       String?                 @map("city_id")
+  line1        String?
+  pincode      String?
+  gstNumber    String?                 @map("gst_number")
+  panNumber    String?                 @map("pan_number")
+  status       VendorApplicationStatus @default(NEW)
+  notes        String?                 @db.Text
+  /// Argon2 hash of the password chosen on the public form. Only ever copied
+  /// onto a BRAND-NEW user at approval — never onto an existing account, same
+  /// rule as ExpansionLead.passwordHash.
+  passwordHash String?                 @map("password_hash")
+  reviewedAt   DateTime?               @map("reviewed_at")
+  reviewedBy   String?                 @map("reviewed_by")
+  rejectionReason  String?             @map("rejection_reason") @db.Text
+  /// Which vendor this application became. Without it the link is
+  /// unrecoverable after the fact.
+  convertedVendorId String?            @unique @map("converted_vendor_id")
+  createdAt    DateTime                @default(now()) @map("created_at")
+  updatedAt    DateTime                @updatedAt @map("updated_at")
+
+  city            City?   @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  convertedVendor Vendor? @relation(fields: [convertedVendorId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([phone])
+  @@map("vendor_applications")
 }
 
 // =============================================================================
