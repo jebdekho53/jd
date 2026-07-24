@@ -1,5 +1,6 @@
-import { IsInt, IsOptional, IsString, Min, ValidateNested, IsArray } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Min, ValidateNested, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
+import { VendorDisputeStatus } from '@prisma/client';
 
 export class ProcurementQueryDto {
   @IsOptional()
@@ -111,4 +112,28 @@ export class ShipVendorOrderDto {
   @IsOptional()
   @IsString()
   trackingNumber?: string;
+}
+
+export class CreateReturnDto {
+  @IsString()
+  reason!: string;
+}
+
+export class CreateDisputeDto {
+  @IsString()
+  reason!: string;
+}
+
+export class ResolveReturnDto {
+  @IsBoolean()
+  approve!: boolean;
+}
+
+export class ResolveDisputeDto {
+  @IsString()
+  resolution!: string;
+
+  @IsOptional()
+  @IsEnum(VendorDisputeStatus)
+  status?: VendorDisputeStatus;
 }

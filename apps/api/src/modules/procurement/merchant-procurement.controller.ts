@@ -13,6 +13,8 @@ import { ProcurementOrderService } from './procurement-order.service';
 import { ProcurementAnalyticsService } from './procurement-analytics.service';
 import {
   AddCartItemDto,
+  CreateDisputeDto,
+  CreateReturnDto,
   CreateVendorOrderDto,
   ProcurementQueryDto,
   UpdateCartDto,
@@ -88,6 +90,24 @@ export class MerchantProcurementController {
   @Get('orders')
   async listOrders(@CurrentUser() user: RequestUser, @Query() query: ProcurementQueryDto) {
     return { success: true, data: await this.orders.listOrders(user.id, query.storeId) };
+  }
+
+  @Post('orders/:id/return')
+  async createReturn(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: CreateReturnDto,
+  ) {
+    return { success: true, data: await this.orders.createReturn(user.id, id, dto.reason) };
+  }
+
+  @Post('orders/:id/dispute')
+  async createDispute(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: CreateDisputeDto,
+  ) {
+    return { success: true, data: await this.orders.createDispute(user.id, id, dto.reason) };
   }
 
   @Get('analytics')

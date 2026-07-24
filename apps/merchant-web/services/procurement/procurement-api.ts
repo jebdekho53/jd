@@ -97,3 +97,19 @@ export async function listOrders(storeId: string): Promise<VendorOrder[]> {
   );
   return res.data;
 }
+
+export async function createReturn(orderId: string, reason: string): Promise<VendorOrder> {
+  const res = await merchantFetch<ApiResponse<VendorOrder>>(
+    `/api/merchant/procurement/orders/${orderId}/return`,
+    { method: 'POST', body: JSON.stringify({ reason }) },
+  );
+  return res.data;
+}
+
+export async function createDispute(orderId: string, reason: string): Promise<VendorOrder> {
+  const res = await merchantFetch<ApiResponse<VendorOrder>>(
+    `/api/merchant/procurement/orders/${orderId}/dispute`,
+    { method: 'POST', body: JSON.stringify({ reason }) },
+  );
+  return res.data;
+}

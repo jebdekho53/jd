@@ -3,7 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   addCartItem,
+  createDispute,
   createOrder,
+  createReturn,
   getAnalytics,
   getCart,
   getCreditLines,
@@ -138,5 +140,21 @@ export function useProcurementOrdersQuery(storeId?: string) {
     queryKey: ['merchant', 'procurement', 'orders', storeId],
     queryFn: () => listOrders(storeId!),
     enabled: !!storeId,
+  });
+}
+
+export function useCreateReturnMutation(storeId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderId, reason }: { orderId: string; reason: string }) => createReturn(orderId, reason),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['merchant', 'procurement', 'orders', storeId] }),
+  });
+}
+
+export function useCreateDisputeMutation(storeId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderId, reason }: { orderId: string; reason: string }) => createDispute(orderId, reason),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['merchant', 'procurement', 'orders', storeId] }),
   });
 }

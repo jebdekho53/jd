@@ -76,6 +76,26 @@ export type VendorOrderStatus = 'PENDING' | 'CONFIRMED' | 'SHIPPED' | 'DELIVERED
 export type VendorShipmentStatus = 'PENDING' | 'IN_TRANSIT' | 'DELIVERED' | 'FAILED';
 export type VendorInvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'OVERDUE' | 'CANCELLED';
 
+export type VendorReturnStatus = 'REQUESTED' | 'APPROVED' | 'RECEIVED' | 'REJECTED';
+export type VendorDisputeStatus = 'OPEN' | 'RESOLVED' | 'ESCALATED';
+
+export interface VendorReturn {
+  id: string;
+  status: VendorReturnStatus;
+  reason: string;
+  createdAt: string;
+  resolvedAt?: string | null;
+}
+
+export interface VendorDispute {
+  id: string;
+  status: VendorDisputeStatus;
+  reason: string;
+  resolution?: string | null;
+  createdAt: string;
+  resolvedAt?: string | null;
+}
+
 export interface VendorOrderItem {
   id: string;
   vendorProductId: string;
@@ -100,4 +120,6 @@ export interface VendorOrder {
   items: VendorOrderItem[];
   shipment?: { status: VendorShipmentStatus; carrier?: string | null; trackingNumber?: string | null } | null;
   invoice?: { status: VendorInvoiceStatus; totalAmount: number; dueDate?: string | null } | null;
+  returns?: VendorReturn[];
+  disputes?: VendorDispute[];
 }

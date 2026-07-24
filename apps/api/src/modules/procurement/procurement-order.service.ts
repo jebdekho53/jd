@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   VendorInvoiceStatus,
   VendorOrderStatus,
@@ -120,9 +120,34 @@ export class ProcurementOrderService {
         shipment: true,
         invoice: true,
         items: true,
+        returns: true,
+        disputes: true,
       },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
+  }
+
+  private async ownedOrder(userId: string, orderId: string) {
+    const profile = await this.prisma.merchantProfile.findUnique({ where: { userId } });
+    if (!profile) throw new ForbiddenException('Merchant profile required');
+    const order = await this.prisma.vendorOrder.findFirst({
+      where: { id: orderId, merchantProfileId: profile.id },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    return order;
+  }
+
+  async createReturn(userId: string, orderId: string, reason: string) {
+    const order = await this.ownedOrder(userId, orderId);
+    if (order.status !== VendorOrderStatus.DELIVERED) {
+      throw new BadRequestException('Only delivered orders can be returned');
+    }
+    return this.prisma.vendorReturn.create({ data: { vendorOrderId: order.id, reason } });
+  }
+
+  async createDispute(userId: string, orderId: string, reason: string) {
+    const order = await this.ownedOrder(userId, orderId);
+    return this.prisma.vendorDispute.create({ data: { vendorOrderId: order.id, reason } });
   }
 }

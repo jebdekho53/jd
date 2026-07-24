@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Badge } from '@/design-system/primitives';
-import { useProcurementOrdersQuery } from '@/hooks/use-procurement';
+import { Badge, useToast } from '@/design-system/primitives';
+import { useCreateDisputeMutation, useCreateReturnMutation, useProcurementOrdersQuery } from '@/hooks/use-procurement';
 import type { VendorOrder, VendorOrderStatus } from '@/types/procurement';
 
 const STATUS_TONE: Record<VendorOrderStatus, 'neutral' | 'success' | 'warning' | 'danger' | 'info'> = {
@@ -17,6 +17,33 @@ const STATUS_TONE: Record<VendorOrderStatus, 'neutral' | 'success' | 'warning' |
 export function ProcurementOrdersPanel({ storeId }: { storeId: string }) {
   const { data: orders = [], isLoading } = useProcurementOrdersQuery(storeId);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const createReturn = useCreateReturnMutation(storeId);
+  const createDispute = useCreateDisputeMutation(storeId);
+  const { toast } = useToast();
+
+  function requestReturn(orderId: string) {
+    const reason = window.prompt('Reason for return?');
+    if (!reason) return;
+    createReturn.mutate(
+      { orderId, reason },
+      {
+        onSuccess: () => toast('Return requested', 'success'),
+        onError: (err: unknown) => toast((err as Error).message ?? 'Could not request return', 'error'),
+      },
+    );
+  }
+
+  function raiseDispute(orderId: string) {
+    const reason = window.prompt('Describe the issue with this order?');
+    if (!reason) return;
+    createDispute.mutate(
+      { orderId, reason },
+      {
+        onSuccess: () => toast('Dispute raised', 'success'),
+        onError: (err: unknown) => toast((err as Error).message ?? 'Could not raise dispute', 'error'),
+      },
+    );
+  }
 
   if (isLoading) return <p className="text-sm text-slate-500">Loading orders...</p>;
   if (orders.length === 0) return <p className="text-sm text-slate-500">No procurement orders yet.</p>;
@@ -71,6 +98,37 @@ export function ProcurementOrdersPanel({ storeId }: { storeId: string }) {
                 {order.notes && <p className="text-xs text-slate-500">Notes: {order.notes}</p>}
                 {order.creditUsed > 0 && (
                   <p className="text-xs text-slate-500">Credit used: ₹{order.creditUsed.toLocaleString()}</p>
+                )}
+
+                {(order.returns ?? []).map((r) => (
+                  <p key={r.id} className="text-xs text-amber-700">
+                    Return {r.status.toLowerCase()}: {r.reason}
+                  </p>
+                ))}
+                {(order.disputes ?? []).map((d) => (
+                  <p key={d.id} className="text-xs text-amber-700">
+                    Dispute {d.status.toLowerCase()}: {d.reason}
+                    {d.resolution && ` — ${d.resolution}`}
+                  </p>
+                ))}
+
+                {order.status === 'DELIVERED' && (
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => requestReturn(order.id)}
+                      className="text-xs font-medium text-slate-600 hover:underline"
+                    >
+                      Request return
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => raiseDispute(order.id)}
+                      className="text-xs font-medium text-red-600 hover:underline"
+                    >
+                      Raise dispute
+                    </button>
+                  </div>
                 )}
               </div>
             )}

@@ -1,12 +1,19 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  VendorDisputeStatus,
   VendorInvoiceStatus,
   VendorOrderStatus,
+  VendorReturnStatus,
   VendorShipmentStatus,
 } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
-import { CreateVendorProductDto, ShipVendorOrderDto } from './dto/procurement.dto';
+import {
+  CreateVendorProductDto,
+  ResolveDisputeDto,
+  ResolveReturnDto,
+  ShipVendorOrderDto,
+} from './dto/procurement.dto';
 
 @Injectable()
 export class VendorPortalService {
@@ -121,6 +128,66 @@ export class VendorPortalService {
           include: { inventory: true, priceTiers: true },
           orderBy: { name: 'asc' },
         },
+      },
+    });
+  }
+
+  async listReturns(userId: string) {
+    const vendorId = await this.resolveVendorId(userId);
+    return this.prisma.vendorReturn.findMany({
+      where: { vendorOrder: { vendorId } },
+      include: {
+        vendorOrder: {
+          select: { orderNumber: true, merchantProfile: { select: { businessName: true } } },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async resolveReturn(userId: string, returnId: string, dto: ResolveReturnDto) {
+    const vendorId = await this.resolveVendorId(userId);
+    const existing = await this.prisma.vendorReturn.findFirst({
+      where: { id: returnId, vendorOrder: { vendorId } },
+    });
+    if (!existing) throw new NotFoundException('Return not found');
+    if (existing.status !== VendorReturnStatus.REQUESTED) {
+      throw new BadRequestException('Return already resolved');
+    }
+    return this.prisma.vendorReturn.update({
+      where: { id: returnId },
+      data: {
+        status: dto.approve ? VendorReturnStatus.APPROVED : VendorReturnStatus.REJECTED,
+        resolvedAt: new Date(),
+      },
+    });
+  }
+
+  async listDisputes(userId: string) {
+    const vendorId = await this.resolveVendorId(userId);
+    return this.prisma.vendorDispute.findMany({
+      where: { vendorOrder: { vendorId } },
+      include: {
+        vendorOrder: {
+          select: { orderNumber: true, merchantProfile: { select: { businessName: true } } },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async resolveDispute(userId: string, disputeId: string, dto: ResolveDisputeDto) {
+    const vendorId = await this.resolveVendorId(userId);
+    const existing = await this.prisma.vendorDispute.findFirst({
+      where: { id: disputeId, vendorOrder: { vendorId } },
+    });
+    if (!existing) throw new NotFoundException('Dispute not found');
+    return this.prisma.vendorDispute.update({
+      where: { id: disputeId },
+      data: {
+        status: dto.status ?? VendorDisputeStatus.RESOLVED,
+        resolution: dto.resolution,
+        resolvedAt: new Date(),
       },
     });
   }

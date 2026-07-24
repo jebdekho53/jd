@@ -7,7 +7,12 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types';
 import { ApiTags as Tags } from '../../common/constants';
 import { VendorPortalService } from './vendor-portal.service';
-import { CreateVendorProductDto, ShipVendorOrderDto } from './dto/procurement.dto';
+import {
+  CreateVendorProductDto,
+  ResolveDisputeDto,
+  ResolveReturnDto,
+  ShipVendorOrderDto,
+} from './dto/procurement.dto';
 
 @ApiTags(Tags.MERCHANTS)
 @ApiBearerAuth('access-token')
@@ -34,6 +39,34 @@ export class VendorPortalController {
   @Patch('orders/:id/deliver')
   async deliver(@CurrentUser() user: RequestUser, @Param('id') id: string) {
     return { success: true, data: await this.vendor.deliverOrder(user.id, id) };
+  }
+
+  @Get('returns')
+  async returns(@CurrentUser() user: RequestUser) {
+    return { success: true, data: await this.vendor.listReturns(user.id) };
+  }
+
+  @Patch('returns/:id/resolve')
+  async resolveReturn(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: ResolveReturnDto,
+  ) {
+    return { success: true, data: await this.vendor.resolveReturn(user.id, id, dto) };
+  }
+
+  @Get('disputes')
+  async disputes(@CurrentUser() user: RequestUser) {
+    return { success: true, data: await this.vendor.listDisputes(user.id) };
+  }
+
+  @Patch('disputes/:id/resolve')
+  async resolveDispute(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: ResolveDisputeDto,
+  ) {
+    return { success: true, data: await this.vendor.resolveDispute(user.id, id, dto) };
   }
 
   @Get('catalog')
