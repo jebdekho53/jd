@@ -36,10 +36,18 @@ export class BuyerPushNotificationService {
     try {
       const order = await this.prisma.order.findUnique({
         where: { id: orderId },
-        select: { buyerProfile: { select: { user: { select: { phone: true } } } } },
+        select: { buyerProfile: { select: { userId: true, user: { select: { phone: true } } } } },
       });
       const phone = order?.buyerProfile?.user?.phone;
-      if (!phone) return;
+      const userId = order?.buyerProfile?.userId;
+      if (!phone || !userId) return;
+
+      // whatsappEnabled defaults to false — buyers must opt in. This previously
+      // sent unconditionally to any phone on file, ignoring both that opt-in
+      // and the order-updates preference sendToUser already respects for push.
+      const prefs = await this.notifications.getPreferences(userId);
+      if (!prefs.whatsappEnabled || !prefs.orderUpdates) return;
+
       await this.whatsapp.sendText(phone, message);
     } catch (err) {
       this.logger.warn(`Order WhatsApp failed for ${orderId}: ${(err as Error).message}`);

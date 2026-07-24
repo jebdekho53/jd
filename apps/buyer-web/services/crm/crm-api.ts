@@ -29,12 +29,32 @@ export async function updateCrmPreferences(patch: Partial<CrmPreferences>): Prom
 
 export async function trackMarketingEvent(
   eventType: string,
-  metadata?: Record<string, unknown>,
+  opts?: { productId?: string; storeId?: string; orderId?: string; metadata?: Record<string, unknown> },
 ) {
-  await buyerFetch('/api/buyer/crm/events', {
-    method: 'POST',
-    body: JSON.stringify({ eventType, metadata }),
-  });
+  try {
+    await buyerFetch('/api/buyer/crm/events', {
+      method: 'POST',
+      body: JSON.stringify({ eventType, ...opts }),
+    });
+  } catch {
+    // Best-effort personalization signal — never break the buyer's action over this.
+  }
+}
+
+export interface RecommendationEntry {
+  entityType: string;
+  entityId: string;
+  score: number;
+  reason: string;
+}
+
+export async function fetchRecommendations(
+  type: 'product' | 'store' = 'product',
+): Promise<RecommendationEntry[]> {
+  const res = await buyerFetch<{ success: boolean; data: RecommendationEntry[] }>(
+    `/api/buyer/crm/recommendations?type=${type}`,
+  );
+  return res.data ?? [];
 }
 
 export interface InboxNotification {

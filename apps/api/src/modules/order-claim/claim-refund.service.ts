@@ -10,6 +10,7 @@ import {
   PaymentMethod,
   PaymentStatus,
   Prisma,
+  SettlementLedgerStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { RazorpayService } from '../payment/razorpay.service';
@@ -220,6 +221,16 @@ export class ClaimRefundService {
       this.logger.error({ err, claimId }, 'Claim refund ledger failed');
     });
 
+    // The buyer got their money back — the merchant must not keep the earnings
+    // (or the platform its commission) on the refunded share of this order.
+    // Without this, every claim refund was a straight platform loss: the buyer
+    // refund AND the merchant's full settlement both went out.
+    try {
+      await this.clawbackMerchantSettlement(claim.orderId, amount);
+    } catch (err) {
+      this.logger.error({ err, claimId }, 'Claim refund merchant clawback failed');
+    }
+
     void this.creditNotes
       .createForRefund(
         claim.orderId,
@@ -232,6 +243,42 @@ export class ClaimRefundService {
       .catch((err) => {
         this.logger.error({ err, claimId }, 'Claim credit note failed');
       });
+  }
+  /** Reduce the merchant's settlement by the same proportion of the order that
+   *  was refunded to the buyer. Applies whether the ledger is still PENDING
+   *  (deduct from pendingBalance before it's ever paid out) or already SETTLED
+   *  (deduct from availableBalance — nets against the merchant's next payout). */
+  private async clawbackMerchantSettlement(orderId: string, refundAmount: number): Promise<void> {
+    const [snapshot, ledger, order] = await Promise.all([
+      this.prisma.orderFinancialSnapshot.findUnique({ where: { orderId } }),
+      this.prisma.settlementLedger.findUnique({ where: { orderId } }),
+      this.prisma.order.findUnique({ where: { id: orderId }, select: { totalAmount: true } }),
+    ]);
+    // No settlement exists yet (order not delivered) — nothing to claw back;
+    // the eventual settlement will simply never be created for a fully refunded order.
+    if (!snapshot || !ledger || !order) return;
+
+    const orderTotal = Number(order.totalAmount);
+    if (orderTotal <= 0) return;
+    const fraction = Math.min(1, refundAmount / orderTotal);
+    const merchantClawback = round(Number(snapshot.netMerchantEarnings) * fraction);
+    if (merchantClawback <= 0) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.settlementLedger.update({
+        where: { id: ledger.id },
+        data: { netAmount: { decrement: merchantClawback } },
+      });
+      await tx.merchantWallet.update({
+        where: { merchantProfileId: ledger.merchantProfileId },
+        data:
+          ledger.status === SettlementLedgerStatus.SETTLED
+            ? { availableBalance: { decrement: merchantClawback }, totalEarned: { decrement: merchantClawback } }
+            : { pendingBalance: { decrement: merchantClawback }, totalEarned: { decrement: merchantClawback } },
+      });
+    });
+
+    this.logger.log({ orderId, merchantClawback, refundAmount }, 'Merchant settlement clawed back for claim refund');
   }
 }
 

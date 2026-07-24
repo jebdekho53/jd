@@ -48,7 +48,7 @@ export class RiderSupportController {
   }
 
   @Get('articles')
-  async articles() {
-    return { success: true, data: await this.kb.search(undefined, undefined, 'RIDER') };
+  async articles(@Query('q') q?: string) {
+    return { success: true, data: await this.kb.search(q, undefined, 'RIDER') };
   }
 }

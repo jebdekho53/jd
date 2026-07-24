@@ -58,7 +58,13 @@ export class VerticalService {
         }
       }
 
-      const toRemove = existing.filter((e) => !types.includes(e.businessType));
+      // Mirror syncApplicationBusinessTypes: an admin-APPROVED vertical must
+      // never be silently dropped by a partial resubmission — that's the
+      // one thing that can flip a store's catalogKind (MENU vs PRODUCT)
+      // out from under an already-approved merchant.
+      const toRemove = existing.filter(
+        (e) => !types.includes(e.businessType) && e.status !== StoreBusinessTypeStatus.APPROVED,
+      );
       for (const row of toRemove) {
         await tx.storeBusinessType.delete({ where: { id: row.id } });
       }

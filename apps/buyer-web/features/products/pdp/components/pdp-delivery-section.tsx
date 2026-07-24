@@ -31,9 +31,17 @@ export function PdpDeliverySection({
         className="rounded-2xl border border-border bg-card p-4 shadow-card sm:p-5"
         aria-labelledby="pdp-delivery-heading"
       >
-        <h2 id="pdp-delivery-heading" className="mb-3 text-lg font-semibold text-jd-text-primary">
-          Delivery
-        </h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 id="pdp-delivery-heading" className="text-lg font-semibold text-jd-text-primary">
+            Delivery
+          </h2>
+          {etaMins != null && (
+            <span className="flex items-baseline gap-1 rounded-full bg-primary px-3 py-1">
+              <span className="text-lg font-extrabold leading-none text-white">{etaMins}</span>
+              <span className="text-[10px] font-bold uppercase leading-none text-white/90">min</span>
+            </span>
+          )}
+        </div>
 
         <button
           type="button"

@@ -35,7 +35,7 @@ export function ReturnPickupsCard() {
 
   return (
     <div>
-      <p className="mb-2 text-sm font-semibold text-slate-700">Return pickups ({list.length})</p>
+      <p className="mb-2 text-sm font-bold text-rider-text">Return pickups ({list.length})</p>
       <ul className="space-y-3">
         {list.map((p) => {
           const step = nextStep(p.status);
@@ -44,35 +44,35 @@ export function ReturnPickupsCard() {
             ? { lat: p.store.latitude ?? p.dropLat ?? 0, lng: p.store.longitude ?? p.dropLng ?? 0 }
             : { lat: p.pickupLat, lng: p.pickupLng };
           return (
-            <li key={p.id} className="overflow-hidden rounded-xl bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b px-4 py-2">
-                <span className="font-semibold">Return · {p.claim.claimNumber}</span>
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+            <li key={p.id} className="overflow-hidden rounded-2xl border border-rider-border bg-rider-surface">
+              <div className="flex items-center justify-between border-b border-rider-border px-4 py-2">
+                <span className="font-bold text-rider-text">Return · {p.claim.claimNumber}</span>
+                <span className="rounded-full bg-rider-accent/15 px-2 py-0.5 text-[11px] font-bold text-rider-accent">
                   {p.status.replace(/_/g, ' ')}
                 </span>
               </div>
               <div className="space-y-2 p-4 text-sm">
                 <div className="flex items-start gap-2">
-                  <span className="mt-0.5 text-amber-600">●</span>
-                  <p className="font-medium">Collect from customer</p>
+                  <span className="mt-0.5 text-rider-accent">●</span>
+                  <p className="font-semibold text-rider-text">Collect from customer</p>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="mt-0.5 text-emerald-600">●</span>
-                  <p className="font-medium">Drop at {p.store.name}</p>
+                  <span className="mt-0.5 text-rider-online">●</span>
+                  <p className="font-semibold text-rider-text">Drop at {p.store.name}</p>
                 </div>
-                <div className="flex items-center justify-between pt-1 text-slate-500">
+                <div className="flex items-center justify-between pt-1 text-rider-muted">
                   <span>Reason: {p.claim.reason.replace(/_/g, ' ').toLowerCase()}</span>
                   {p.riderEarning != null && (
-                    <span className="font-semibold text-emerald-600">You earn ₹{Math.round(p.riderEarning)}</span>
+                    <span className="font-bold text-rider-online">You earn ₹{Math.round(p.riderEarning)}</span>
                   )}
                 </div>
               </div>
-              <div className="flex gap-2 border-t p-3">
+              <div className="flex gap-2 border-t border-rider-border p-3">
                 <a
                   href={mapsHref(target.lat, target.lng)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex h-11 flex-1 items-center justify-center rounded-lg bg-slate-100 text-sm font-medium"
+                  className="flex h-11 flex-1 items-center justify-center rounded-xl bg-white/5 text-sm font-semibold text-rider-text"
                 >
                   Navigate {toStore ? 'to store' : 'to customer'}
                 </a>
@@ -80,7 +80,7 @@ export function ReturnPickupsCard() {
                   <button
                     onClick={() => act.mutate({ id: p.id, verb: 'decline' })}
                     disabled={act.isPending}
-                    className="h-11 flex-1 rounded-lg bg-slate-100 text-sm font-medium text-red-600 disabled:opacity-60"
+                    className="h-11 flex-1 rounded-xl bg-rider-danger/15 text-sm font-bold text-rider-danger disabled:opacity-60"
                   >
                     Decline
                   </button>
@@ -89,7 +89,7 @@ export function ReturnPickupsCard() {
                   <button
                     onClick={() => act.mutate({ id: p.id, verb: step.verb })}
                     disabled={act.isPending}
-                    className="h-11 flex-[1.6] rounded-lg bg-slate-900 text-sm font-semibold text-white disabled:opacity-60"
+                    className="h-11 flex-[1.6] rounded-xl bg-rider-accent text-sm font-bold text-rider-accent-foreground disabled:opacity-60"
                   >
                     {step.label}
                   </button>

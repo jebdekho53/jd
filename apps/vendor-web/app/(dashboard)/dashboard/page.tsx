@@ -5,10 +5,9 @@ export default function DashboardPage() {
       <p className="text-sm text-slate-400">
         Manage catalog, fulfill merchant procurement orders, and track settlements.
       </p>
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <Card title="Catalog" href="/catalog" desc="Products & price tiers" />
         <Card title="Orders" href="/orders" desc="Ship & deliver B2B orders" />
-        <Card title="Analytics" href="/dashboard" desc="Performance insights" />
       </div>
     </div>
   );

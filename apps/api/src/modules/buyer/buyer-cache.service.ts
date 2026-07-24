@@ -25,8 +25,11 @@ export const BUYER_CACHE_KEYS = {
     storeId: string | undefined,
     page: number,
     limit: number,
+    productIds?: string[],
   ) =>
-    `buyer:search:${q ?? ''}:cat${categoryId ?? ''}:sub${subcategoryId ?? ''}:s${storeId ?? ''}:p${page}:l${limit}`,
+    `buyer:search:${q ?? ''}:cat${categoryId ?? ''}:sub${subcategoryId ?? ''}:s${storeId ?? ''}:p${page}:l${limit}:ids${
+      productIds?.length ? [...productIds].sort().join(',') : ''
+    }`,
 
   categories: (storeId: string | undefined) => `buyer:categories:s${storeId ?? 'global'}`,
 

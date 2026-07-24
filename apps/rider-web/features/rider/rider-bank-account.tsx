@@ -5,11 +5,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBankAccount, saveBankAccount, type RiderBankAccount } from '@/lib/api';
 
 const INPUT =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none';
+  'w-full rounded-xl border border-rider-border bg-rider-bg px-3 py-2.5 text-sm text-rider-text placeholder:text-rider-muted focus:border-rider-accent focus:outline-none';
 
 export function RiderBankAccountScreen({ onBack }: { onBack: () => void }) {
   const qc = useQueryClient();
-  const [form, setForm] = useState({ accountHolderName: '', accountNumber: '', ifsc: '', bankName: '', upiId: '' });
+  const [form, setForm] = useState({ accountHolderName: '', accountNumber: '', ifsc: '', bankName: '', upiId: '', email: '' });
   const [editing, setEditing] = useState(false);
 
   const { data: bank, isLoading } = useQuery<RiderBankAccount | null>({
@@ -25,6 +25,7 @@ export function RiderBankAccountScreen({ onBack }: { onBack: () => void }) {
         ifsc: bank.ifsc,
         bankName: bank.bankName ?? '',
         upiId: bank.upiId ?? '',
+        email: '',
       });
     }
   }, [bank, editing]);
@@ -37,6 +38,7 @@ export function RiderBankAccountScreen({ onBack }: { onBack: () => void }) {
         ifsc: form.ifsc.trim().toUpperCase(),
         bankName: form.bankName.trim() || undefined,
         upiId: form.upiId.trim() || undefined,
+        email: form.email.trim() || undefined,
       }),
     onSuccess: async () => {
       setEditing(false);
@@ -49,27 +51,27 @@ export function RiderBankAccountScreen({ onBack }: { onBack: () => void }) {
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
-    <div className="mx-auto min-h-screen max-w-md bg-slate-100 pb-10">
-      <header className="sticky top-0 z-10 bg-slate-950 px-4 py-3 text-white">
-        <button onClick={onBack} className="text-xs text-slate-400 underline">
+    <div className="mx-auto min-h-screen max-w-md bg-rider-bg pb-10 text-rider-text">
+      <header className="sticky top-0 z-10 bg-rider-surface2 px-4 py-3">
+        <button onClick={onBack} className="text-xs text-rider-muted underline">
           ‹ Back
         </button>
-        <p className="mt-1 font-semibold">Payout account</p>
-        <p className="text-xs text-slate-400">Your weekly earnings are paid into this account.</p>
+        <p className="mt-1 font-bold">Payout account</p>
+        <p className="text-xs text-rider-muted">Your weekly earnings are paid into this account.</p>
       </header>
 
       <div className="space-y-4 p-4">
-        {isLoading && <p className="text-sm text-slate-500">Loading…</p>}
+        {isLoading && <p className="text-sm text-rider-muted">Loading…</p>}
 
         {bank && !editing && (
-          <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="rounded-2xl border border-rider-border bg-rider-surface p-4">
             <div className="mb-3">
               {bank.verified ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-rider-online/15 px-2.5 py-1 text-xs font-bold text-rider-online">
                   ✓ Verified
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-rider-accent/15 px-2.5 py-1 text-xs font-bold text-rider-accent">
                   ⏳ Pending verification
                 </span>
               )}
@@ -84,7 +86,7 @@ export function RiderBankAccountScreen({ onBack }: { onBack: () => void }) {
             </dl>
 
             {!bank.verified && (
-              <p className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">
+              <p className="mt-3 rounded-xl bg-white/5 px-3 py-2 text-xs text-rider-muted">
                 We&apos;re verifying this account. Payouts start once it&apos;s verified.
               </p>
             )}
@@ -94,7 +96,7 @@ export function RiderBankAccountScreen({ onBack }: { onBack: () => void }) {
                 setEditing(true);
                 setForm((f) => ({ ...f, accountNumber: '' }));
               }}
-              className="mt-3 text-xs font-semibold text-emerald-600"
+              className="mt-3 text-xs font-bold text-rider-accent"
             >
               Change account
             </button>
@@ -107,24 +109,28 @@ export function RiderBankAccountScreen({ onBack }: { onBack: () => void }) {
               e.preventDefault();
               save.mutate();
             }}
-            className="space-y-3 rounded-xl bg-white p-4 shadow-sm"
+            className="space-y-3 rounded-2xl border border-rider-border bg-rider-surface p-4"
           >
             <input className={INPUT} placeholder="Account holder name" value={form.accountHolderName} onChange={set('accountHolderName')} required />
             <input className={INPUT} inputMode="numeric" placeholder="Account number" value={form.accountNumber} onChange={set('accountNumber')} required />
             <input className={INPUT} placeholder="IFSC (e.g. HDFC0001234)" value={form.ifsc} onChange={set('ifsc')} required />
             <input className={INPUT} placeholder="Bank name (optional)" value={form.bankName} onChange={set('bankName')} />
             <input className={INPUT} placeholder="UPI ID (optional)" value={form.upiId} onChange={set('upiId')} />
+            <input className={INPUT} type="email" placeholder="Email (required to verify payouts)" value={form.email} onChange={set('email')} />
+            <p className="-mt-1 text-xs text-rider-muted">
+              We only ask once — needed to set up your payout account. Skip this if you&apos;ve already given us one.
+            </p>
 
             {/* A changed account has not been checked yet, and we will not pay into
                 it until it has been. Say that plainly. */}
             {bank && (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              <p className="rounded-xl bg-rider-accent/10 px-3 py-2 text-xs text-rider-accent">
                 Changing your account means it must be verified again before your next payout.
               </p>
             )}
 
             {save.isError && (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+              <p className="rounded-xl bg-rider-danger/10 px-3 py-2 text-sm text-rider-danger">
                 {(save.error as Error).message}
               </p>
             )}
@@ -133,7 +139,7 @@ export function RiderBankAccountScreen({ onBack }: { onBack: () => void }) {
               <button
                 type="submit"
                 disabled={save.isPending}
-                className="h-11 flex-1 rounded-lg bg-emerald-500 text-sm font-semibold text-white disabled:opacity-50"
+                className="h-12 flex-1 rounded-xl bg-rider-accent text-sm font-bold text-rider-accent-foreground disabled:opacity-50"
               >
                 {save.isPending ? 'Saving…' : 'Save account'}
               </button>
@@ -141,7 +147,7 @@ export function RiderBankAccountScreen({ onBack }: { onBack: () => void }) {
                 <button
                   type="button"
                   onClick={() => setEditing(false)}
-                  className="h-11 flex-1 rounded-lg border border-slate-300 text-sm font-semibold text-slate-600"
+                  className="h-12 flex-1 rounded-xl border border-rider-border text-sm font-bold text-rider-text"
                 >
                   Cancel
                 </button>
@@ -157,8 +163,8 @@ export function RiderBankAccountScreen({ onBack }: { onBack: () => void }) {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-4">
-      <dt className="text-slate-500">{label}</dt>
-      <dd className="font-medium text-slate-900">{value}</dd>
+      <dt className="text-rider-muted">{label}</dt>
+      <dd className="font-semibold text-rider-text">{value}</dd>
     </div>
   );
 }

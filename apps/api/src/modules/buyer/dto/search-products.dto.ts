@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsIn,
   IsLatitude,
   IsLongitude,
@@ -33,6 +35,19 @@ export class SearchProductsDto {
   @IsOptional()
   @IsString()
   storeId?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Fetch this exact set of product IDs (e.g. to hydrate a recommendations list), comma-separated',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',').map((s) => s.trim()).filter(Boolean) : value,
+  )
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(50)
+  productIds?: string[];
 
   @ApiProperty({ required: false })
   @IsOptional()

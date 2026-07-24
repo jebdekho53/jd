@@ -13,7 +13,7 @@ import {
 import { Type } from 'class-transformer';
 
 export class CreateCommissionRuleDto {
-  @ApiProperty({ enum: CommissionRuleScope, description: 'GLOBAL, STORE, or CATEGORY' })
+  @ApiProperty({ enum: CommissionRuleScope, description: 'GLOBAL, STORE, CATEGORY, or CAMPAIGN' })
   @IsEnum(CommissionRuleScope)
   scope!: CommissionRuleScope;
 
@@ -26,6 +26,11 @@ export class CreateCommissionRuleDto {
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @ApiPropertyOptional({ description: 'Required when scope=CAMPAIGN' })
+  @IsOptional()
+  @IsString()
+  campaignId?: string;
 
   @ApiProperty({ example: 15, description: 'Commission percentage (0–100)' })
   @Type(() => Number)

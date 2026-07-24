@@ -1,11 +1,28 @@
-*,
-*::before,
-*::after {
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --rider-bg: #0a0e1a;
+  --rider-surface: #131a2b;
+  --rider-surface-2: #1b2438;
+  --rider-border: #283350;
+  --rider-text: #f1f5f9;
+  --rider-muted: #8b96ab;
+  --rider-accent: #fbbf24;
+  --rider-accent-foreground: #1a1203;
+  --rider-online: #22c55e;
+  --rider-danger: #ef4444;
+  --rider-info: #38bdf8;
+}
+
+* {
   box-sizing: border-box;
 }
 
 html {
   -webkit-font-smoothing: antialiased;
+  background: var(--rider-bg);
 }
 
 body {
@@ -19,15 +36,18 @@ body {
     'Helvetica Neue',
     Arial,
     sans-serif;
-  background: linear-gradient(160deg, #0f172a 0%, #1e293b 45%, #0f172a 100%);
-  color: #e2e8f0;
+  background: var(--rider-bg);
+  color: var(--rider-text);
 }
 
 a {
-  color: #38bdf8;
+  color: var(--rider-info);
   text-decoration: none;
 }
 
-a:hover {
-  text-decoration: underline;
+/* Large numeric readouts (earnings, distance, countdown) — tabular figures
+   so digits don't jiggle width as they tick, matters for a live countdown. */
+.rider-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 }

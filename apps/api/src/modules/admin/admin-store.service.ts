@@ -182,6 +182,11 @@ export class AdminStoreService {
           `Only PENDING_REVIEW or UNDER_REVIEW stores can be approved.`,
       );
     }
+    if (store.merchantProfile?.isBlacklisted) {
+      throw new BadRequestException(
+        'This merchant is blacklisted — remove the blacklist before approving any of their stores.',
+      );
+    }
 
     const now = new Date();
 
@@ -428,6 +433,13 @@ export class AdminStoreService {
             blacklistRemovedAt: null,
             blacklistRemovedBy: null,
           },
+        });
+        // A blacklist is merchant-wide, not store-wide — without this, a
+        // merchant's OTHER already-approved stores kept serving buyers and
+        // taking orders indefinitely after being blacklisted on this one.
+        await tx.store.updateMany({
+          where: { merchantProfileId: store.merchantProfileId, id: { not: storeId } },
+          data: { isActive: false },
         });
       }
 
@@ -851,6 +863,7 @@ export class AdminStoreService {
         status: true,
         merchantProfileId: true,
         isActive: true,
+        merchantProfile: { select: { isBlacklisted: true } },
       },
     });
     if (!store) throw new NotFoundException(`Store not found: ${storeId}`);

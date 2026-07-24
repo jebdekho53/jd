@@ -224,6 +224,7 @@ export class MerchantDashboardService {
             id: true,
             orderNumber: true,
             status: true,
+            orderVertical: true,
             totalAmount: true,
             createdAt: true,
             buyerProfile: { select: { name: true, user: { select: { phone: true } } } },
@@ -267,6 +268,7 @@ export class MerchantDashboardService {
           amount: decimalToNumber(o.totalAmount),
           createdAt: o.createdAt.toISOString(),
           status: o.status,
+          orderVertical: o.orderVertical,
           rider: o.delivery?.riderProfile
             ? {
                 id: o.delivery.riderProfile.id,

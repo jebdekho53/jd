@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, UtensilsCrossed } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
@@ -19,6 +19,7 @@ import { useProfileQuery } from '@/features/profile/hooks/use-profile';
 import { useCheckoutStore } from '@/store/checkout-store';
 import { getDefaultSavedDeliveryAddress } from '@/lib/saved-delivery-address';
 import { formatCurrency } from '@/lib/utils';
+import { CheckoutTrustBadges } from '@/features/checkout/components/checkout-trust-badges';
 import { SessionError } from '@/services/auth/auth-api';
 import type { DeliveryAddress, PayerContact, PaymentMethod } from '@/types/checkout';
 
@@ -87,7 +88,22 @@ export function FoodCheckoutPageContent() {
     reset();
   };
 
+  const placingOrderRef = useRef(false);
+
   const handlePlaceOrder = async () => {
+    // Guards a double-click/double-tap race: React state (isPending) doesn't
+    // flip synchronously, so two clicks in the same tick could both pass the
+    // button's disabled check and place two orders. A ref updates instantly.
+    if (placingOrderRef.current) return;
+    placingOrderRef.current = true;
+    try {
+      await placeOrderOnce();
+    } finally {
+      placingOrderRef.current = false;
+    }
+  };
+
+  const placeOrderOnce = async () => {
     if (!deliveryAddress || !cart) return;
     try {
       if (paymentMethod === 'COD') {
@@ -244,6 +260,8 @@ export function FoodCheckoutPageContent() {
                   </div>
                 </dl>
               </div>
+
+              <CheckoutTrustBadges />
 
               <ActionBar mobileOnly={false} className="lg:static lg:border-0 lg:bg-transparent lg:p-0">
                 {paymentMethod === 'RAZORPAY' && checkoutId ? (

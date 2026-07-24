@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminFetch } from '@/services/api/admin-client';
 
-type Scope = 'GLOBAL' | 'STORE' | 'CATEGORY';
+type Scope = 'GLOBAL' | 'STORE' | 'CATEGORY' | 'CAMPAIGN';
 
 interface CommissionRule {
   id: string;
@@ -13,6 +13,8 @@ interface CommissionRule {
   storeName: string | null;
   categoryId: string | null;
   categoryName: string | null;
+  campaignId: string | null;
+  campaignName: string | null;
   commissionPercent: number;
   settlementDelayDays: number;
   isActive: boolean;
@@ -23,7 +25,28 @@ interface RulesResponse {
   rules: CommissionRule[];
 }
 
+interface StoreHit {
+  id: string;
+  name: string;
+  slug: string;
+  cityName: string | null;
+}
+
+interface CampaignHit {
+  id: string;
+  name: string;
+  status: string;
+}
+
+interface CategoryNode {
+  id: string;
+  name: string;
+  parentId: string | null;
+  children: CategoryNode[];
+}
+
 const QK = ['admin', 'finance', 'commission-rules'];
+const CATEGORY_QK = ['admin', 'categories', 'global-tree'];
 
 async function fetchRules() {
   const res = await adminFetch<{ success: boolean; data: RulesResponse }>(
@@ -32,12 +55,281 @@ async function fetchRules() {
   return res.data;
 }
 
+async function fetchCategoryTree() {
+  const res = await adminFetch<{ success: boolean; data: CategoryNode[] }>(
+    '/api/admin/categories',
+  );
+  return res.data;
+}
+
+/** Flatten the tree into id → { name, path, depth } so the table can show a full
+ *  breadcrumb (L1 > L2 > L3) instead of an ambiguous leaf name. */
+function flattenCategoryTree(nodes: CategoryNode[]): Map<string, { name: string; path: string[] }> {
+  const map = new Map<string, { name: string; path: string[] }>();
+  const walk = (list: CategoryNode[], trail: string[]) => {
+    for (const node of list) {
+      const path = [...trail, node.name];
+      map.set(node.id, { name: node.name, path });
+      if (node.children?.length) walk(node.children, path);
+    }
+  };
+  walk(nodes, []);
+  return map;
+}
+
+/** L1 → L2 → L3 cascading category picker. Categories are a shallow, bounded
+ *  platform-wide tree, so cascading dropdowns beat a raw ID text field without
+ *  needing a search/tree-view widget. */
+function CategoryPicker({
+  tree,
+  value,
+  onChange,
+}: {
+  tree: CategoryNode[];
+  value: string;
+  onChange: (categoryId: string) => void;
+}) {
+  const [l1, setL1] = useState('');
+  const [l2, setL2] = useState('');
+  const [l3, setL3] = useState('');
+
+  const l1Options = tree;
+  const l2Options = useMemo(() => l1Options.find((n) => n.id === l1)?.children ?? [], [l1Options, l1]);
+  const l3Options = useMemo(() => l2Options.find((n) => n.id === l2)?.children ?? [], [l2Options, l2]);
+
+  useEffect(() => {
+    const deepest = l3 || l2 || l1;
+    if (deepest !== value) onChange(deepest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [l1, l2, l3]);
+
+  useEffect(() => {
+    if (!value) {
+      setL1('');
+      setL2('');
+      setL3('');
+    }
+  }, [value]);
+
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <select
+        className="w-full rounded-lg border px-2 py-1.5 text-sm"
+        value={l1}
+        onChange={(e) => {
+          setL1(e.target.value);
+          setL2('');
+          setL3('');
+        }}
+      >
+        <option value="">L1 category…</option>
+        {l1Options.map((n) => (
+          <option key={n.id} value={n.id}>
+            {n.name}
+          </option>
+        ))}
+      </select>
+      <select
+        className="w-full rounded-lg border px-2 py-1.5 text-sm disabled:opacity-40"
+        value={l2}
+        disabled={!l1 || l2Options.length === 0}
+        onChange={(e) => {
+          setL2(e.target.value);
+          setL3('');
+        }}
+      >
+        <option value="">{l2Options.length ? 'L2 subcategory…' : 'No subcategories'}</option>
+        {l2Options.map((n) => (
+          <option key={n.id} value={n.id}>
+            {n.name}
+          </option>
+        ))}
+      </select>
+      <select
+        className="w-full rounded-lg border px-2 py-1.5 text-sm disabled:opacity-40"
+        value={l3}
+        disabled={!l2 || l3Options.length === 0}
+        onChange={(e) => setL3(e.target.value)}
+      >
+        <option value="">{l3Options.length ? 'L3 subcategory…' : 'No subcategories'}</option>
+        {l3Options.map((n) => (
+          <option key={n.id} value={n.id}>
+            {n.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/** Debounced name search against a picker endpoint — replaces raw ID entry.
+ *  Shared by the STORE and CAMPAIGN scope pickers below. */
+function SearchPicker<T extends { id: string }>({
+  value,
+  valueName,
+  searchPath,
+  placeholder,
+  noResultsLabel,
+  renderHit,
+  formatSelectedName,
+  onChange,
+}: {
+  value: string;
+  valueName: string | null;
+  searchPath: string;
+  placeholder: string;
+  noResultsLabel: string;
+  renderHit: (hit: T) => ReactNode;
+  formatSelectedName: (hit: T) => string;
+  onChange: (id: string, name: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [hits, setHits] = useState<T[]>([]);
+  const [open, setOpen] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!query.trim()) {
+      setHits([]);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      const res = await adminFetch<{ success: boolean; data: T[] }>(
+        `${searchPath}?q=${encodeURIComponent(query.trim())}`,
+      );
+      setHits(res.data);
+      setOpen(true);
+    }, 250);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query, searchPath]);
+
+  if (value && valueName) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border px-2 py-1.5 text-sm">
+        <span className="truncate">{valueName}</span>
+        <button
+          type="button"
+          className="ml-auto shrink-0 text-xs text-muted-foreground hover:underline"
+          onClick={() => {
+            onChange('', '');
+            setQuery('');
+          }}
+        >
+          Change
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <input
+        className="w-full rounded-lg border px-2 py-1.5 text-sm"
+        value={query}
+        placeholder={placeholder}
+        onChange={(e) => setQuery(e.target.value)}
+        onFocus={() => hits.length > 0 && setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+      />
+      {open && hits.length > 0 && (
+        <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border bg-background shadow-lg">
+          {hits.map((hit) => (
+            <li key={hit.id}>
+              <button
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                onMouseDown={() => {
+                  onChange(hit.id, formatSelectedName(hit));
+                  setOpen(false);
+                }}
+              >
+                {renderHit(hit)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {open && query.trim() && hits.length === 0 && (
+        <div className="absolute z-10 mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm text-muted-foreground shadow-lg">
+          {noResultsLabel}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StorePicker({
+  value,
+  valueName,
+  onChange,
+}: {
+  value: string;
+  valueName: string | null;
+  onChange: (storeId: string, storeName: string) => void;
+}) {
+  return (
+    <SearchPicker<StoreHit>
+      value={value}
+      valueName={valueName}
+      searchPath="/api/admin/finance/commission-rules/store-search"
+      placeholder="Search store by name…"
+      noResultsLabel="No matching stores"
+      formatSelectedName={(s) => (s.cityName ? `${s.name} (${s.cityName})` : s.name)}
+      renderHit={(s) => (
+        <>
+          {s.name}
+          {s.cityName ? <span className="text-muted-foreground"> · {s.cityName}</span> : null}
+        </>
+      )}
+      onChange={onChange}
+    />
+  );
+}
+
+function CampaignPicker({
+  value,
+  valueName,
+  onChange,
+}: {
+  value: string;
+  valueName: string | null;
+  onChange: (campaignId: string, campaignName: string) => void;
+}) {
+  return (
+    <SearchPicker<CampaignHit>
+      value={value}
+      valueName={valueName}
+      searchPath="/api/admin/finance/commission-rules/campaign-search"
+      placeholder="Search campaign by name…"
+      noResultsLabel="No matching campaigns"
+      formatSelectedName={(c) => c.name}
+      renderHit={(c) => (
+        <>
+          {c.name}
+          <span className="text-muted-foreground"> · {c.status}</span>
+        </>
+      )}
+      onChange={onChange}
+    />
+  );
+}
+
 export function CommissionRulesContent() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: QK, queryFn: fetchRules });
+  const { data: categoryTree } = useQuery({ queryKey: CATEGORY_QK, queryFn: fetchCategoryTree });
+
+  const categoryMap = useMemo(() => flattenCategoryTree(categoryTree ?? []), [categoryTree]);
 
   const [scope, setScope] = useState<Scope>('GLOBAL');
-  const [targetId, setTargetId] = useState('');
+  const [storeId, setStoreId] = useState('');
+  const [storeName, setStoreName] = useState<string | null>(null);
+  const [categoryId, setCategoryId] = useState('');
+  const [campaignId, setCampaignId] = useState('');
+  const [campaignName, setCampaignName] = useState<string | null>(null);
   const [percent, setPercent] = useState('15');
   const [delay, setDelay] = useState('2');
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +339,18 @@ export function CommissionRulesContent() {
 
   async function createRule() {
     setError(null);
+    if (scope === 'STORE' && !storeId) {
+      setError('Pick a store');
+      return;
+    }
+    if (scope === 'CATEGORY' && !categoryId) {
+      setError('Pick a category');
+      return;
+    }
+    if (scope === 'CAMPAIGN' && !campaignId) {
+      setError('Pick a campaign');
+      return;
+    }
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
@@ -54,14 +358,19 @@ export function CommissionRulesContent() {
         commissionPercent: Number(percent),
         settlementDelayDays: Number(delay),
       };
-      if (scope === 'STORE') body.storeId = targetId.trim();
-      if (scope === 'CATEGORY') body.categoryId = targetId.trim();
+      if (scope === 'STORE') body.storeId = storeId;
+      if (scope === 'CATEGORY') body.categoryId = categoryId;
+      if (scope === 'CAMPAIGN') body.campaignId = campaignId;
       const res = await adminFetch<{ success: boolean; message?: string }>(
         '/api/admin/finance/commission-rules',
         { method: 'POST', body: JSON.stringify(body) },
       );
       if (!res.success) throw new Error(res.message ?? 'Failed to create rule');
-      setTargetId('');
+      setStoreId('');
+      setStoreName(null);
+      setCategoryId('');
+      setCampaignId('');
+      setCampaignName(null);
       setPercent('15');
       setDelay('2');
       await refresh();
@@ -85,6 +394,14 @@ export function CommissionRulesContent() {
     await refresh();
   }
 
+  function categoryLabel(rule: CommissionRule): string {
+    if (rule.categoryId) {
+      const hit = categoryMap.get(rule.categoryId);
+      if (hit) return hit.path.join(' > ');
+    }
+    return rule.categoryName ?? '—';
+  }
+
   return (
     <div className="space-y-8">
       <section className="rounded-xl border p-4">
@@ -102,7 +419,9 @@ export function CommissionRulesContent() {
       <section className="rounded-xl border p-4">
         <h3 className="mb-3 font-semibold">Add commission rule</h3>
         <p className="mb-3 text-xs text-muted-foreground">
-          Priority: Store &gt; Category &gt; Global &gt; platform default.
+          Priority: Store &gt; Category &gt; Global &gt; platform default. Use this to set a
+          lower commission on thin-margin categories (e.g. staples, medicines) instead of one
+          flat rate for everything.
         </p>
         <div className="grid gap-3 sm:grid-cols-5">
           <label className="text-sm">
@@ -110,26 +429,56 @@ export function CommissionRulesContent() {
             <select
               className="w-full rounded-lg border px-2 py-1.5"
               value={scope}
-              onChange={(e) => setScope(e.target.value as Scope)}
+              onChange={(e) => {
+                setScope(e.target.value as Scope);
+                setStoreId('');
+                setStoreName(null);
+                setCategoryId('');
+                setCampaignId('');
+                setCampaignName(null);
+                setError(null);
+              }}
             >
               <option value="GLOBAL">Global</option>
               <option value="STORE">Store</option>
               <option value="CATEGORY">Category</option>
+              <option value="CAMPAIGN">Campaign</option>
             </select>
           </label>
 
-          {scope !== 'GLOBAL' && (
-            <label className="text-sm sm:col-span-2">
-              <span className="mb-1 block text-muted-foreground">
-                {scope === 'STORE' ? 'Store ID' : 'Category ID'}
-              </span>
-              <input
-                className="w-full rounded-lg border px-2 py-1.5"
-                value={targetId}
-                onChange={(e) => setTargetId(e.target.value)}
-                placeholder={scope === 'STORE' ? 'store id' : 'category id'}
+          {scope === 'STORE' && (
+            <div className="text-sm sm:col-span-2">
+              <span className="mb-1 block text-muted-foreground">Store</span>
+              <StorePicker
+                value={storeId}
+                valueName={storeName}
+                onChange={(id, name) => {
+                  setStoreId(id);
+                  setStoreName(name || null);
+                }}
               />
-            </label>
+            </div>
+          )}
+
+          {scope === 'CATEGORY' && (
+            <div className="text-sm sm:col-span-2">
+              <span className="mb-1 block text-muted-foreground">Category (L1 → L3)</span>
+              <CategoryPicker tree={categoryTree ?? []} value={categoryId} onChange={setCategoryId} />
+            </div>
+          )}
+
+          {scope === 'CAMPAIGN' && (
+            <div className="text-sm sm:col-span-2">
+              <span className="mb-1 block text-muted-foreground">Campaign</span>
+              <CampaignPicker
+                value={campaignId}
+                valueName={campaignName}
+                onChange={(id, name) => {
+                  setCampaignId(id);
+                  setCampaignName(name || null);
+                }}
+              />
+            </div>
           )}
 
           <label className="text-sm">
@@ -195,7 +544,11 @@ export function CommissionRulesContent() {
                   <tr key={r.id} className="border-b last:border-0">
                     <td className="py-2 pr-3 font-medium">{r.scope}</td>
                     <td className="py-2 pr-3">
-                      {r.storeName ?? r.categoryName ?? (r.scope === 'GLOBAL' ? 'All stores' : '—')}
+                      {r.scope === 'CATEGORY'
+                        ? categoryLabel(r)
+                        : r.scope === 'CAMPAIGN'
+                          ? (r.campaignName ?? '—')
+                          : (r.storeName ?? (r.scope === 'GLOBAL' ? 'All stores' : '—'))}
                     </td>
                     <td className="py-2 pr-3">
                       <input

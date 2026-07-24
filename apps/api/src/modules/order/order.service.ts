@@ -133,6 +133,7 @@ const ORDER_DETAIL_SELECT = {
   id: true,
   orderNumber: true,
   status: true,
+  orderVertical: true,
   deliveryMode: true,
   paymentMethod: true,
   paymentStatus: true,
@@ -175,6 +176,19 @@ const ORDER_DETAIL_SELECT = {
       productName: true,
       variantName: true,
       sku: true,
+      quantity: true,
+      unitPrice: true,
+      discount: true,
+      totalPrice: true,
+    },
+  },
+  // FOOD orders never populate `items` (the grocery OrderItem relation) —
+  // without this, a buyer's food order detail page showed a blank item list.
+  foodItems: {
+    select: {
+      id: true,
+      itemName: true,
+      variantName: true,
       quantity: true,
       unitPrice: true,
       discount: true,
@@ -310,6 +324,7 @@ export class OrderService implements OnModuleInit {
           id: true,
           orderNumber: true,
           status: true,
+          orderVertical: true,
           paymentMethod: true,
           paymentStatus: true,
           totalAmount: true,
@@ -320,6 +335,13 @@ export class OrderService implements OnModuleInit {
               productName: true,
               quantity: true,
               product: { select: { imageUrls: true } },
+            },
+            take: 3,
+          },
+          foodItems: {
+            select: {
+              itemName: true,
+              quantity: true,
             },
             take: 3,
           },
@@ -654,6 +676,7 @@ export class OrderService implements OnModuleInit {
           updatedAt: true,
           storeId: true,
           orderVertical: true,
+          deliveryMode: true,
           deliveryLat: true,
           deliveryLng: true,
           buyerProfile: {
@@ -1238,10 +1261,21 @@ export class OrderService implements OnModuleInit {
 // ── Serializers ──────────────────────────────────────────────────────────────
 
 function serializeListItem(order: any) {
+  const items = order.items?.length
+    ? order.items.map((item: any) => {
+        const { product, ...rest } = item;
+        return { ...rest, imageUrl: product?.imageUrls?.[0] ?? null };
+      })
+    : (order.foodItems ?? []).map((item: any) => {
+        const { itemName, ...rest } = item;
+        return { ...rest, productName: itemName, imageUrl: null };
+      });
+
   return {
     id: order.id,
     orderNumber: order.orderNumber,
     status: order.status,
+    orderVertical: order.orderVertical,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
     totalAmount: Number(order.totalAmount),
@@ -1249,10 +1283,7 @@ function serializeListItem(order: any) {
     store: order.store,
     storeId: order.storeId,
     buyerProfile: order.buyerProfile,
-    items: order.items?.map((item: any) => {
-      const { product, ...rest } = item;
-      return { ...rest, imageUrl: product?.imageUrls?.[0] ?? null };
-    }),
+    items,
   };
 }
 
@@ -1265,7 +1296,9 @@ function serializeMerchantListItem(order: any) {
   )?.createdAt;
   const pipelineColumn = resolvePipelineColumn(order.status, order.paymentMethod);
   const awaitingRider =
-    order.status === 'READY_FOR_PICKUP' && !order.delivery?.riderProfile;
+    order.deliveryMode !== 'SELF' &&
+    order.status === 'READY_FOR_PICKUP' &&
+    !order.delivery?.riderProfile;
   const riderWaitMins = awaitingRider && readyAt ? minutesSince(readyAt) : 0;
 
   return {
@@ -1308,7 +1341,10 @@ function buildOrderOperations(order: any) {
   )?.createdAt;
   const packingAt = order.statusHistory?.find((h: { status: string }) => h.status === 'PACKING')?.createdAt;
   const readyAt = order.statusHistory?.find((h: { status: string }) => h.status === 'READY_FOR_PICKUP')?.createdAt;
-  const awaitingRider = order.status === 'READY_FOR_PICKUP' && !order.delivery?.riderProfile;
+  const awaitingRider =
+    order.deliveryMode !== 'SELF' &&
+    order.status === 'READY_FOR_PICKUP' &&
+    !order.delivery?.riderProfile;
   const riderWaitMins = awaitingRider && readyAt ? minutesSince(readyAt) : 0;
 
   return {
@@ -1331,16 +1367,27 @@ function buildOrderOperations(order: any) {
 }
 
 function serializeDetail(order: any) {
-  const items = order.items.map((i: any) => ({
-    id: i.id,
-    productName: i.productName,
-    variantName: i.variantName,
-    sku: i.sku,
-    quantity: i.quantity,
-    unitPrice: Number(i.unitPrice),
-    discount: Number(i.discount),
-    totalPrice: Number(i.totalPrice),
-  }));
+  const items = order.items.length
+    ? order.items.map((i: any) => ({
+        id: i.id,
+        productName: i.productName,
+        variantName: i.variantName,
+        sku: i.sku,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+        discount: Number(i.discount),
+        totalPrice: Number(i.totalPrice),
+      }))
+    : (order.foodItems ?? []).map((i: any) => ({
+        id: i.id,
+        productName: i.itemName,
+        variantName: i.variantName,
+        sku: null,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+        discount: Number(i.discount),
+        totalPrice: Number(i.totalPrice),
+      }));
   const statusHistory = order.statusHistory.map((h: any) => ({
     status: h.status,
     note: h.note,
@@ -1372,6 +1419,7 @@ function serializeDetail(order: any) {
     id: order.id,
     orderNumber: order.orderNumber,
     status: order.status,
+    orderVertical: order.orderVertical,
     deliveryMode: order.deliveryMode,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,

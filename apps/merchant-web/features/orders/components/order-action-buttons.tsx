@@ -21,9 +21,11 @@ interface Props {
   status: OrderStatus;
   /** 'SELF' stores get no rider/3PL — the merchant reports their own hand-off. */
   deliveryMode?: 'PLATFORM' | 'SELF';
+  /** FOOD orders skip PACKING — see FOOD_MERCHANT_FORWARD in the API. */
+  orderVertical?: 'GROCERY' | 'FOOD';
 }
 
-export function OrderActionButtons({ orderId, status, deliveryMode }: Props) {
+export function OrderActionButtons({ orderId, status, deliveryMode, orderVertical }: Props) {
   const { toast } = useToast();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
@@ -39,6 +41,7 @@ export function OrderActionButtons({ orderId, status, deliveryMode }: Props) {
   const issueMutation = useMarkIssueMutation(orderId);
   const cancelMutation = useCancelOrderMutation(orderId);
   const isSelfDelivery = deliveryMode === 'SELF';
+  const isFood = orderVertical === 'FOOD';
 
   const act = async (mutate: (id: string) => Promise<unknown>, label: string) => {
     try {
@@ -93,7 +96,17 @@ export function OrderActionButtons({ orderId, status, deliveryMode }: Props) {
           <ChefHat className="h-4 w-4" /> Start Preparing
         </Button>
       )}
-      {status === 'PREPARING' && (
+      {status === 'PREPARING' && isFood && (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => act((id) => readyMutation.mutateAsync(id), 'ready for pickup')}
+          loading={readyMutation.isPending}
+        >
+          <PackageCheck className="h-4 w-4" /> Ready For Pickup
+        </Button>
+      )}
+      {status === 'PREPARING' && !isFood && (
         <Button
           size="sm"
           variant="secondary"

@@ -12,6 +12,7 @@ import {
   RAZORPAY_TRANSFER_EVENTS,
   type RazorpayTransferEvent,
 } from '../payment/razorpay-transfer.events';
+import { RiderReferralService } from './rider-referral.service';
 
 @Injectable()
 export class RiderPayoutService {
@@ -22,6 +23,7 @@ export class RiderPayoutService {
     private readonly ledger: LedgerService,
     private readonly cache: FinanceCacheService,
     private readonly razorpay: RazorpayService,
+    private readonly referrals: RiderReferralService,
   ) {}
 
   async getRiderEarnings(riderProfileId: string) {
@@ -65,6 +67,49 @@ export class RiderPayoutService {
     };
   }
 
+  async getRiderEarningsHistory(
+    riderProfileId: string,
+    opts: { page?: number; limit?: number; dateFrom?: string; dateTo?: string },
+  ) {
+    const page = opts.page ?? 1;
+    const limit = Math.min(opts.limit ?? 20, 50);
+
+    const where = {
+      riderProfileId,
+      status: DeliveryStatus.DELIVERED,
+      ...(opts.dateFrom || opts.dateTo
+        ? {
+            deliveredAt: {
+              ...(opts.dateFrom && { gte: new Date(opts.dateFrom) }),
+              ...(opts.dateTo && { lte: new Date(opts.dateTo) }),
+            },
+          }
+        : {}),
+    };
+
+    const [deliveries, total] = await Promise.all([
+      this.prisma.delivery.findMany({
+        where,
+        include: { order: { select: { orderNumber: true, paymentMethod: true, totalAmount: true } } },
+        orderBy: { deliveredAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.delivery.count({ where }),
+    ]);
+
+    return {
+      items: deliveries.map((d) => ({
+        orderNumber: d.order.orderNumber,
+        earning: decimalToNumber(d.riderEarning ?? 0),
+        deliveredAt: d.deliveredAt?.toISOString() ?? null,
+        paymentMethod: d.order.paymentMethod,
+        totalAmount: decimalToNumber(d.order.totalAmount),
+      })),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   async generateWeeklyPayout(riderProfileId: string) {
     const weekStart = startOfIstWeek();
     const weekEnd = new Date();
@@ -79,6 +124,9 @@ export class RiderPayoutService {
       include: { order: { select: { id: true, financialSnapshot: true } } },
     });
 
+    // Note: a rider with zero deliveries this week but a pending referral
+    // reward won't get paid until their next active week — an accepted gap
+    // rather than restructuring this run's delivery-driven eligibility gate.
     if (deliveries.length === 0) return null;
 
     let baseFee = 0;
@@ -90,7 +138,10 @@ export class RiderPayoutService {
     }
     baseFee = roundMoney(baseFee);
     distanceBonus = roundMoney(distanceBonus);
-    const total = roundMoney(baseFee + distanceBonus);
+
+    const pendingReferralReward = await this.referrals.getPendingRewardTotal(riderProfileId);
+    const incentives = roundMoney(pendingReferralReward.total);
+    const total = roundMoney(baseFee + distanceBonus + incentives);
 
     const payout = await this.prisma.riderPayout.create({
       data: {
@@ -99,6 +150,7 @@ export class RiderPayoutService {
         periodEnd: weekEnd,
         baseFee,
         distanceBonus,
+        incentives,
         totalAmount: total,
         items: {
           create: deliveries.map((d) => ({
@@ -109,6 +161,10 @@ export class RiderPayoutService {
         },
       },
     });
+
+    if (pendingReferralReward.referralIds.length > 0) {
+      await this.referrals.markRewardsPaid(pendingReferralReward.referralIds);
+    }
 
     await this.cache.invalidatePayouts();
     return payout;

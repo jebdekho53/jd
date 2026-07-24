@@ -160,7 +160,10 @@ export class EmailTemplateService {
   }
 
   orderDelivered(orderNumber: string, reviewUrl: string): { subject: string; html: string; text: string } {
-    const subject = 'Your Order Has Been Delivered';
+    // Must include the order number — the dedup check keys on subject, and a
+    // static subject here meant every buyer's SECOND delivered order silently
+    // never got this email (the dedup query matched their first one forever).
+    const subject = `Your Order ${orderNumber} Has Been Delivered`;
     const body = `
       <p>Great news! Your order <strong>${this.escape(orderNumber)}</strong> has been delivered.</p>
       <p>We hope you enjoyed your purchase. Please take a moment to rate your experience and share feedback.</p>
@@ -245,7 +248,9 @@ export class EmailTemplateService {
     amount: string;
     settlementTime: string;
   }): { subject: string; html: string; text: string } {
-    const subject = 'Refund Processed';
+    // See orderDelivered's note — a static subject here broke the dedup check
+    // for every buyer's second-and-later refund.
+    const subject = `Refund Processed for Order ${data.orderNumber}`;
     const body = `
       <p>Your refund has been processed.</p>
       <p><strong>Order Number:</strong> ${this.escape(data.orderNumber)}</p>

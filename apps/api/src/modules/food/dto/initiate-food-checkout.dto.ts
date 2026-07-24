@@ -27,12 +27,6 @@ export class InitiateFoodCheckoutDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  couponDiscount?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
   @IsString()
   scheduledDeliveryAt?: string;
 

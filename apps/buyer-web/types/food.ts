@@ -186,7 +186,6 @@ export interface InitiateFoodCheckoutPayload {
   deliveryLng: number;
   paymentMethod: 'COD' | 'RAZORPAY';
   tipAmount?: number;
-  couponDiscount?: number;
   scheduledDeliveryAt?: string;
   specialInstructions?: string;
   restaurantNote?: string;

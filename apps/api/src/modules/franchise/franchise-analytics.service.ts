@@ -139,7 +139,20 @@ export class FranchiseAnalyticsService {
             where: { storeId: { in: storeIds }, createdAt: { gte: thirtyDaysAgo } },
           })
         : 0,
-      this.prisma.riderProfile.count({ where: { status: { in: ['ONLINE', 'ON_DELIVERY'] } } }),
+      // Distinct riders who actually delivered for THIS franchise's stores in the
+      // window — not a platform-wide online-rider count, which told a partner
+      // nothing about their own territory.
+      storeIds.length > 0
+        ? this.prisma.delivery.findMany({
+            where: {
+              order: { storeId: { in: storeIds } },
+              createdAt: { gte: thirtyDaysAgo },
+              riderProfileId: { not: null },
+            },
+            select: { riderProfileId: true },
+            distinct: ['riderProfileId'],
+          })
+        : [],
     ]);
 
     const gmvNum = Number(gmv._sum.totalAmount ?? 0);
@@ -153,7 +166,7 @@ export class FranchiseAnalyticsService {
       revenueShare,
       commissionPercent: fp.commissionPercent,
       storeCount: fp.stores.length,
-      riderCount: riders,
+      riderCount: riders.length,
       territories: fp.territories,
       pincodes: fp.territories.flatMap((t) => t.pincodes),
     };

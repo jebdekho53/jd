@@ -24,6 +24,8 @@ interface ProductCardProps {
   storeCount?: number;
   showWishlist?: boolean;
   rating?: number;
+  /** Real signal from cumulative sold quantity (top quartile), not cosmetic. */
+  bestseller?: boolean;
   /** Paid placement — shows an "Ad" badge. */
   sponsored?: boolean;
   /** Fired once when a sponsored card is opened, to record the ad click. */
@@ -65,6 +67,7 @@ export function ProductCard({
   storeCount,
   showWishlist = true,
   rating,
+  bestseller = false,
   sponsored = false,
   onSponsoredClick,
 }: ProductCardProps) {
@@ -148,6 +151,12 @@ export function ProductCard({
             )}
           >
             {discountPct}% OFF
+          </span>
+        )}
+
+        {bestseller && (
+          <span className="absolute bottom-2 left-2 rounded-md bg-jd-text-primary/90 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+            🔥 Bestseller
           </span>
         )}
 

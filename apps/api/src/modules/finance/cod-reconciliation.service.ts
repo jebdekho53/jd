@@ -89,20 +89,31 @@ export class CodReconciliationService {
     const mismatch = roundMoney(Math.abs(expected - input.amountDeposited));
     const now = new Date();
 
-    await this.prisma.$transaction(
-      records.map((r) =>
-        this.prisma.codReconciliation.update({
-          where: { id: r.id },
-          data: {
-            status: CodReconciliationStatus.SUBMITTED,
-            amountDeposited: input.amountDeposited / records.length,
-            mismatchAmount: mismatch / records.length,
-            submittedAt: now,
-            notes: input.notes,
-          },
-        }),
-      ),
-    );
+    // Allocate the single deposited amount across orders proportionally to what
+    // each order actually owed — an even split hid which specific order's cash
+    // was short. The last record absorbs the rounding remainder so the parts
+    // still sum to the real amountDeposited.
+    let allocatedSoFar = 0;
+    const updates = records.map((r, idx) => {
+      const recordExpected = decimalToNumber(r.amountExpected);
+      const isLast = idx === records.length - 1;
+      const allocatedDeposit = isLast
+        ? roundMoney(input.amountDeposited - allocatedSoFar)
+        : roundMoney(expected > 0 ? (recordExpected / expected) * input.amountDeposited : 0);
+      allocatedSoFar = roundMoney(allocatedSoFar + allocatedDeposit);
+      return this.prisma.codReconciliation.update({
+        where: { id: r.id },
+        data: {
+          status: CodReconciliationStatus.SUBMITTED,
+          amountDeposited: allocatedDeposit,
+          mismatchAmount: roundMoney(Math.abs(allocatedDeposit - recordExpected)),
+          submittedAt: now,
+          notes: input.notes,
+        },
+      });
+    });
+
+    await this.prisma.$transaction(updates);
 
     if (mismatch > 1) {
       await this.alerts.raiseCodMismatch(riderProfileId, mismatch);

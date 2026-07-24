@@ -29,12 +29,32 @@ export class FinanceCommissionService {
 
   // ── Admin: manage commission rules ─────────────────────────────────────────
 
+  /** Searchable store picker for the commission-rule admin UI (avoids raw ID entry). */
+  async searchStores(q: string) {
+    const stores = await this.prisma.store.findMany({
+      where: {
+        status: 'APPROVED',
+        ...(q?.trim() ? { name: { contains: q.trim(), mode: 'insensitive' as const } } : {}),
+      },
+      select: { id: true, name: true, slug: true, city: { select: { name: true } } },
+      orderBy: { name: 'asc' },
+      take: 20,
+    });
+    return stores.map((s) => ({
+      id: s.id,
+      name: s.name,
+      slug: s.slug,
+      cityName: s.city?.name ?? null,
+    }));
+  }
+
   async listRules() {
     const rules = await this.prisma.commissionRule.findMany({
       orderBy: [{ scope: 'asc' }, { updatedAt: 'desc' }],
       include: {
         store: { select: { id: true, name: true } },
         category: { select: { id: true, name: true } },
+        campaign: { select: { id: true, name: true } },
       },
     });
     return {
@@ -46,6 +66,8 @@ export class FinanceCommissionService {
         storeName: r.store?.name ?? null,
         categoryId: r.categoryId,
         categoryName: r.category?.name ?? null,
+        campaignId: r.campaignId,
+        campaignName: r.campaign?.name ?? null,
         commissionPercent: decimalToNumber(r.commissionPercent),
         settlementDelayDays: r.settlementDelayDays,
         isActive: r.isActive,
@@ -55,7 +77,7 @@ export class FinanceCommissionService {
   }
 
   async createRule(dto: CreateCommissionRuleDto) {
-    this.assertScopeTarget(dto.scope, dto.storeId, dto.categoryId);
+    this.assertScopeTarget(dto.scope, dto.storeId, dto.categoryId, dto.campaignId);
 
     if (dto.scope === CommissionRuleScope.STORE && dto.storeId) {
       const store = await this.prisma.store.findUnique({ where: { id: dto.storeId }, select: { id: true } });
@@ -65,12 +87,17 @@ export class FinanceCommissionService {
       const cat = await this.prisma.category.findUnique({ where: { id: dto.categoryId }, select: { id: true } });
       if (!cat) throw new NotFoundException('Category not found');
     }
+    if (dto.scope === CommissionRuleScope.CAMPAIGN && dto.campaignId) {
+      const campaign = await this.prisma.campaign.findUnique({ where: { id: dto.campaignId }, select: { id: true } });
+      if (!campaign) throw new NotFoundException('Campaign not found');
+    }
 
     const created = await this.prisma.commissionRule.create({
       data: {
         scope: dto.scope,
         storeId: dto.scope === CommissionRuleScope.STORE ? dto.storeId : null,
         categoryId: dto.scope === CommissionRuleScope.CATEGORY ? dto.categoryId : null,
+        campaignId: dto.scope === CommissionRuleScope.CAMPAIGN ? dto.campaignId : null,
         commissionPercent: new Prisma.Decimal(dto.commissionPercent),
         settlementDelayDays: dto.settlementDelayDays ?? 2,
         isActive: dto.isActive ?? true,
@@ -102,16 +129,38 @@ export class FinanceCommissionService {
     return { id };
   }
 
-  private assertScopeTarget(scope: CommissionRuleScope, storeId?: string, categoryId?: string): void {
+  private assertScopeTarget(
+    scope: CommissionRuleScope,
+    storeId?: string,
+    categoryId?: string,
+    campaignId?: string,
+  ): void {
     if (scope === CommissionRuleScope.STORE && !storeId) {
       throw new BadRequestException('storeId is required for a STORE-scoped rule');
     }
     if (scope === CommissionRuleScope.CATEGORY && !categoryId) {
       throw new BadRequestException('categoryId is required for a CATEGORY-scoped rule');
     }
-    if (scope === CommissionRuleScope.CAMPAIGN) {
-      throw new BadRequestException('CAMPAIGN rules are managed via campaigns, not here');
+    if (scope === CommissionRuleScope.CAMPAIGN && !campaignId) {
+      throw new BadRequestException('campaignId is required for a CAMPAIGN-scoped rule');
     }
+  }
+
+  /** Searchable campaign picker for the commission-rule admin UI. */
+  async searchCampaigns(q: string) {
+    const campaigns = await this.prisma.campaign.findMany({
+      where: q?.trim() ? { name: { contains: q.trim(), mode: 'insensitive' as const } } : {},
+      select: { id: true, name: true, status: true, startsAt: true, endsAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    return campaigns.map((c) => ({
+      id: c.id,
+      name: c.name,
+      status: c.status,
+      startsAt: c.startsAt,
+      endsAt: c.endsAt,
+    }));
   }
 
   /** Resolve commission with priority: CAMPAIGN > STORE > CATEGORY > GLOBAL > legacy SettlementConfig */

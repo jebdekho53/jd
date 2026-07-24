@@ -1,4 +1,4 @@
-/** Maps NestJS delivery entities → rider-mobile contract */
+/** Maps NestJS delivery entities → the shape this app's `/api/rider/*` routes serve */
 
 export interface BackendDelivery {
   id: string;
@@ -14,6 +14,8 @@ export interface BackendDelivery {
   distanceKm: number | null;
   estimatedMins: number | null;
   riderEarning: string | number | null;
+  /** Set only while this delivery has a live, unaccepted offer — drives the countdown UI. */
+  expiresAt?: string | null;
   // Rider-safe handover state (backend sanitizeForRider — never the raw OTP).
   pickupOtpRequired?: boolean;
   pickupVerified?: boolean;
@@ -67,6 +69,7 @@ export function mapDeliveryListItem(d: BackendDelivery) {
     deliveryVerified: d.deliveryVerified ?? false,
     codDue: d.codDue ?? false,
     codAmount: d.codAmount ?? null,
+    expiresAt: d.expiresAt ?? null,
   };
 }
 

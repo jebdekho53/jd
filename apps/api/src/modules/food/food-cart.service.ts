@@ -231,6 +231,45 @@ export class FoodCartService {
     return null;
   }
 
+  async reorderFromOrder(userId: string, orderId: string) {
+    const buyerProfileId = await this.getBuyerProfileId(userId);
+
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, buyerProfileId },
+      select: {
+        id: true,
+        foodItems: { select: { menuItemId: true, variantId: true, quantity: true } },
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.foodItems.length === 0) throw new BadRequestException('This order has no items to reorder');
+
+    // Start fresh so a reorder from a different restaurant doesn't collide
+    // with the food cart's single-restaurant constraint.
+    await this.clearCart(userId);
+
+    let added = 0;
+    let skipped = 0;
+    for (const item of order.foodItems) {
+      try {
+        await this.addItem(userId, {
+          menuItemId: item.menuItemId,
+          variantId: item.variantId ?? undefined,
+          quantity: item.quantity,
+        });
+        added += 1;
+      } catch {
+        // Menu item/variant no longer available — skip it. Addons aren't
+        // reapplied since only their name/price (not id) survives on the
+        // order snapshot.
+        skipped += 1;
+      }
+    }
+
+    const cart = await this.getFoodCart(userId);
+    return { cart, added, skipped };
+  }
+
   private async cleanupEmptyCart(buyerProfileId: string) {
     const cart = await this.prisma.foodCart.findFirst({
       where: { buyerProfileId },

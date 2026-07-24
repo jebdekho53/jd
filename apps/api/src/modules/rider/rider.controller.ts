@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -33,7 +34,13 @@ import { UpdateRiderStatusDto } from './dto/update-rider-status.dto';
 import { FailDeliveryDto } from './dto/fail-delivery.dto';
 import { VerifyDeliveryDto, VerifyPickupDto } from './dto/verify-handover.dto';
 import { RiderCaptainService } from './rider-captain.service';
+import { RiderOnboardingService } from './rider-onboarding.service';
 import { MarkNotificationReadDto, SaveRiderDocumentDto, ShiftLocationDto } from './dto/rider-captain.dto';
+import { UpdateRiderProfileDto } from './dto/update-rider-profile.dto';
+import { RiskEngineService } from '../trust-safety/risk-engine.service';
+import { NotificationOrchestratorService } from '../crm/notification-orchestrator.service';
+import { UpdatePreferencesDto } from '../crm/dto/crm.dto';
+import { RiderReferralService } from '../finance/rider-referral.service';
 
 @ApiTags('rider')
 @ApiBearerAuth('access-token')
@@ -47,6 +54,10 @@ export class RiderController {
     private readonly assignmentService: RiderAssignmentService,
     private readonly prisma: PrismaService,
     private readonly captain: RiderCaptainService,
+    private readonly onboarding: RiderOnboardingService,
+    private readonly riskEngine: RiskEngineService,
+    private readonly notificationPrefs: NotificationOrchestratorService,
+    private readonly riderReferrals: RiderReferralService,
   ) {}
 
   // ── Profile ───────────────────────────────────────────────────────────────
@@ -78,6 +89,8 @@ export class RiderController {
       },
     });
 
+    const suspension = profile ? await this.riskEngine.getActiveSuspension(user.id) : null;
+
     return {
       success: true,
       data: {
@@ -89,8 +102,50 @@ export class RiderController {
         },
         isRider: Boolean(profile),
         profile,
+        restricted: Boolean(suspension),
+        restrictionReason: suspension?.reason ?? null,
       },
     };
+  }
+
+  @Patch('profile')
+  @Permissions('deliveries:read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update own name and vehicle details' })
+  async updateProfile(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: UpdateRiderProfileDto,
+  ) {
+    const data = await this.onboarding.updateProfile(user.id, dto);
+    return { success: true, data };
+  }
+
+  @Get('referrals')
+  @Permissions('deliveries:read')
+  @ApiOperation({ summary: 'My referral code, reward status, and referral history' })
+  async myReferrals(@CurrentUser() user: RequestUser) {
+    const riderProfile = await this.deliveryService.requireRiderProfile(user.id);
+    const data = await this.riderReferrals.getMyReferrals(riderProfile.id);
+    return { success: true, data };
+  }
+
+  @Get('notifications/preferences')
+  @Permissions('deliveries:read')
+  @ApiOperation({ summary: 'Per-category notification preferences (offers, payouts, compliance, support)' })
+  async getNotificationPreferences(@CurrentUser() user: RequestUser) {
+    return { success: true, data: await this.notificationPrefs.getPreferences(user.id) };
+  }
+
+  @Patch('notifications/preferences')
+  @Permissions('deliveries:read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update per-category notification preferences' })
+  async updateNotificationPreferences(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: UpdatePreferencesDto,
+  ) {
+    const data = await this.notificationPrefs.updatePreferences(user.id, dto as Record<string, boolean>);
+    return { success: true, data };
   }
 
   // ── Availability ──────────────────────────────────────────────────────────
@@ -105,6 +160,18 @@ export class RiderController {
     @Body() dto: UpdateRiderStatusDto,
   ) {
     const riderProfile = await this.deliveryService.requireRiderProfile(user.id);
+
+    if (dto.status !== 'OFFLINE') {
+      const suspension = await this.riskEngine.getActiveSuspension(user.id);
+      if (suspension) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          error: 'Account Restricted',
+          message: suspension.reason,
+        });
+      }
+    }
+
     await this.prisma.riderProfile.update({
       where: { id: riderProfile.id },
       data: { status: dto.status },

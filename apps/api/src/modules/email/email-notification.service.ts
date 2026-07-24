@@ -158,6 +158,9 @@ export class EmailNotificationService {
       where: { id: orderId },
       include: {
         items: true,
+        // Grocery orders populate `items`; FOOD orders never do — they use
+        // `foodItems` instead, so this was always an empty table for food.
+        foodItems: true,
         buyerProfile: { include: { user: { select: { email: true } } } },
       },
     });
@@ -167,13 +170,20 @@ export class EmailNotificationService {
     if (!to) return;
 
     const address = this.formatAddress(order.deliveryAddress);
+    const lineItems = order.items.length
+      ? order.items.map((i) => ({
+          name: `${i.productName}${i.variantName ? ` (${i.variantName})` : ''}`,
+          qty: i.quantity,
+          price: `₹${Number(i.unitPrice).toFixed(2)}`,
+        }))
+      : order.foodItems.map((i) => ({
+          name: `${i.itemName}${i.variantName ? ` (${i.variantName})` : ''}`,
+          qty: i.quantity,
+          price: `₹${Number(i.unitPrice).toFixed(2)}`,
+        }));
     const tpl = this.templates.orderConfirmation({
       orderNumber: order.orderNumber,
-      items: order.items.map((i) => ({
-        name: `${i.productName}${i.variantName ? ` (${i.variantName})` : ''}`,
-        qty: i.quantity,
-        price: `₹${Number(i.unitPrice).toFixed(2)}`,
-      })),
+      items: lineItems,
       total: `₹${Number(order.totalAmount).toFixed(2)}`,
       paymentMethod: order.paymentMethod,
       address,

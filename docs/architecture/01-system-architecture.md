@@ -56,7 +56,7 @@ Design goals: horizontal scalability, strict RBAC, geographic query performance,
 |-----|-------|----------------|-----------|
 | **Buyer** (`apps/buyer-web`) | End customers | Discovery, cart, checkout, tracking | `BUYER` |
 | **Merchant** (`apps/merchant-web`) | Store owners/staff | Catalog, inventory, orders, analytics | `MERCHANT` |
-| **Rider** (`apps/rider-mobile`) | Delivery partners | Assignment, navigation, earnings | `RIDER` |
+| **Rider** (`apps/rider-web`) | Delivery partners | Assignment, navigation, earnings | `RIDER` |
 | **Admin** (`apps/admin-web`) | Platform operators | Users, merchants, riders, platform config | `ADMIN` |
 | **API** (`apps/api`) | All clients | Business logic, persistence, integrations | — |
 

@@ -34,6 +34,20 @@ export class RiderBankAccountService {
    * on an old verification is how money reaches the wrong person.
    */
   async save(riderProfileId: string, dto: SaveRiderBankAccountDto) {
+    if (dto.email?.trim()) {
+      const rider = await this.prisma.riderProfile.findUnique({
+        where: { id: riderProfileId },
+        select: { userId: true, user: { select: { email: true } } },
+      });
+      // Never overwrite an email the rider already has on file via another path.
+      if (rider && !rider.user.email) {
+        await this.prisma.user.update({
+          where: { id: rider.userId },
+          data: { email: dto.email.trim().toLowerCase() },
+        });
+      }
+    }
+
     const bank = await this.prisma.riderBankAccount.upsert({
       where: { riderProfileId },
       create: {

@@ -9,6 +9,7 @@ import {
   reorderFromOrder,
   updateCartItem,
 } from '@/services/cart/cart-api';
+import { trackMarketingEvent } from '@/services/crm/crm-api';
 import type { AddCartItemPayload, Cart } from '@/types/cart';
 import { useAuthStore } from '@/store/auth-store';
 import { useGuestCartStore } from '@/store/guest-cart-store';
@@ -44,8 +45,9 @@ export function useAddCartItemMutation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: AddCartItemPayload) => addCartItem(payload),
-    onSuccess: (cart) => {
+    onSuccess: (cart, payload) => {
       qc.setQueryData(cartKeys.current(), cart);
+      void trackMarketingEvent('ADD_CART', { productId: payload.productId, storeId: cart?.storeId });
     },
   });
 }

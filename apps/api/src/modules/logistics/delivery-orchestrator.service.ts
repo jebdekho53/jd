@@ -31,6 +31,7 @@ import { OrderDeliveredHandlerService } from '../order/order-delivered-handler.s
 import { isDispatchEligibleOrderStatus } from './utils/dispatch-eligibility.util';
 import { parseShadowfaxAwbPool } from './providers/shadowfax/shadowfax-awb-pool.util';
 import { EmailNotificationService } from '../email/email-notification.service';
+import { BuyerPushNotificationService } from '../push/buyer-push-notification.service';
 
 const PROVIDER_NAMES: Record<DeliveryProviderType, string> = {
   [DeliveryProviderType.SHADOWFAX]: 'Shadowfax',
@@ -114,6 +115,7 @@ export class DeliveryOrchestratorService {
     private readonly events: EventEmitter2,
     private readonly orderDelivered: OrderDeliveredHandlerService,
     private readonly emailNotifications: EmailNotificationService,
+    private readonly buyerPush: BuyerPushNotificationService,
     private readonly config: ConfigService,
   ) {}
 
@@ -138,9 +140,16 @@ export class DeliveryOrchestratorService {
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { status: true, paymentMethod: true, paymentStatus: true, orderVertical: true },
+      select: { status: true, paymentMethod: true, paymentStatus: true, orderVertical: true, deliveryMode: true },
     });
     if (!order) throw new NotFoundException('Order not found');
+    // Enforced here (not just at the primary dispatch call site) because this
+    // method has multiple entry points — claim replacements and the merchant
+    // "retry shipment" action both call it directly, and both were able to
+    // create a real 3PL shipment for a store that delivers its own orders.
+    if (order.deliveryMode === 'SELF') {
+      throw new BadRequestException('This store delivers its own orders — no 3PL shipment can be created');
+    }
     const allowAssignedRepair =
       options?.allowAssignedRepair === true && order.status === OrderStatus.RIDER_ASSIGNED;
     if (!allowAssignedRepair && !isDispatchEligibleOrderStatus(order.status, order.orderVertical)) {
@@ -259,6 +268,10 @@ export class DeliveryOrchestratorService {
       );
       this.events.emit(LOGISTICS_EVENTS.SHIPMENT_CREATED, { orderId, shipmentId: shipment.id, providerType });
       void this.emailNotifications.sendBuyerDeliveryAssigned(orderId).catch(() => {});
+      // Own-fleet assignment sends both email and push (rider-assignment.service.ts)
+      // — the 3PL path only ever sent the email, so buyers dispatched via
+      // Shadowfax/Borzo got no push notification when a rider was assigned.
+      void this.buyerPush.notifyRiderAssigned(orderId).catch(() => {});
 
       void this.orderCache.invalidateAll(orderId);
 
@@ -529,6 +542,13 @@ export class DeliveryOrchestratorService {
       note: `Provider status: ${status}`,
       skipIfAlreadyStatus: true,
     });
+    // The own-fleet rider path and the self-delivery merchant path both notify
+    // the buyer here (order.service.ts, rider/delivery.service.ts) — this 3PL
+    // path (the default when own-fleet is off) never did, for either vertical.
+    if (target === OrderStatus.OUT_FOR_DELIVERY) {
+      void this.emailNotifications.sendBuyerPickedUpOrOutForDelivery(orderId).catch(() => {});
+      void this.buyerPush.notifyOutForDelivery(orderId).catch(() => {});
+    }
   }
 
   private orderStatusForShipment(status: ShipmentProviderStatus): OrderStatus | null {

@@ -73,6 +73,22 @@ export class AdminFinanceController {
     return { success: true, data };
   }
 
+  @Get('commission-rules/store-search')
+  @Permissions('settlements:read')
+  @ApiOperation({ summary: 'Search approved stores by name (for the STORE-scope rule picker)' })
+  async searchCommissionRuleStores(@Query('q') q?: string) {
+    const data = await this.commission.searchStores(q ?? '');
+    return { success: true, data };
+  }
+
+  @Get('commission-rules/campaign-search')
+  @Permissions('settlements:read')
+  @ApiOperation({ summary: 'Search campaigns by name (for the CAMPAIGN-scope rule picker)' })
+  async searchCommissionRuleCampaigns(@Query('q') q?: string) {
+    const data = await this.commission.searchCampaigns(q ?? '');
+    return { success: true, data };
+  }
+
   @Post('commission-rules')
   @HttpCode(HttpStatus.CREATED)
   @Permissions('settlements:manage')

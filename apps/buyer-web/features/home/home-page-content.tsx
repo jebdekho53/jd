@@ -23,6 +23,7 @@ import { HorizontalCarousel } from '@/components/v2/horizontal-carousel';
 import { SectionHeader } from '@/components/v2/section-header';
 import { MembershipBanner, ReferralBanner } from '@/components/merchandising/home-banners';
 import { RecentlyViewedRail } from '@/components/merchandising/recently-viewed-rail';
+import { RecommendationsRail } from '@/components/merchandising/recommendations-rail';
 import { ProductCardSkeleton, StoreGridSkeleton } from '@/components/common/skeletons';
 import { StoreCardItem } from '@/features/stores/store-card';
 import { RestaurantCard } from '@/features/food/restaurant-card';
@@ -644,6 +645,7 @@ export function HomePageContent() {
               <OffersNearYouSection />
               {selectedVertical === 'grocery' && <FoodSection lat={lat!} lng={lng!} pincode={pincode} />}
               {selectedVertical === 'grocery' && <StoreSection title="Popular stores" subtitle="Most loved in your area" sort="popular" href="/stores?sort=popular" lat={lat!} lng={lng!} pincode={pincode} />}
+              <RecommendationsRail lat={lat!} lng={lng!} pincode={pincode} />
               <RecentlyViewedRail />
               <SocialProofStrip />
               <CommerceCtas />

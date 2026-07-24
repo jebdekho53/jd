@@ -15,6 +15,7 @@ import { OrderTimeline } from '@jebdekho/order-timeline';
 import { Button, Skeleton, Spinner } from '@/design-system/primitives';
 import { useOrderDetailQuery, useCancelOrderMutation } from '@/hooks/use-orders';
 import { useReorderMutation } from '@/hooks/use-cart';
+import { useFoodReorderMutation } from '@/hooks/use-food-cart';
 import { useToast } from '@/design-system/primitives';
 import { OrderReviewPanel } from '@/features/reviews/order-review-panel';
 import { OrderInvoicePanel } from '@/features/orders/order-invoice-panel';
@@ -33,14 +34,19 @@ export function OrderDetailContent({ orderId }: OrderDetailContentProps) {
   const { data: tracking } = useDeliveryTracking(orderId, order?.status);
   const cancelOrder = useCancelOrderMutation();
   const reorder = useReorderMutation();
+  const foodReorder = useFoodReorderMutation();
   const router = useRouter();
   const { toast } = useToast();
   const [claimEligibility, setClaimEligibility] = useState<OrderClaimEligibility | null>(null);
 
+  const isFoodOrder = order?.orderVertical === 'FOOD';
+
   const handleReorder = async () => {
     if (!order) return;
     try {
-      const result = await reorder.mutateAsync(order.id);
+      const result = isFoodOrder
+        ? await foodReorder.mutateAsync(order.id)
+        : await reorder.mutateAsync(order.id);
       if (result.added === 0) {
         toast('None of these items are available right now', 'error');
         return;
@@ -51,7 +57,7 @@ export function OrderDetailContent({ orderId }: OrderDetailContentProps) {
           : 'Added to your cart',
         'success',
       );
-      router.push('/cart');
+      router.push(isFoodOrder ? '/food/cart' : '/cart');
     } catch (err) {
       toast(err instanceof SessionError ? err.message : 'Could not reorder', 'error');
     }
@@ -102,7 +108,7 @@ export function OrderDetailContent({ orderId }: OrderDetailContentProps) {
                 variant="outline"
                 size="sm"
                 onClick={handleReorder}
-                loading={reorder.isPending}
+                loading={reorder.isPending || foodReorder.isPending}
               >
                 <RotateCcw className="h-4 w-4" /> Reorder
               </Button>

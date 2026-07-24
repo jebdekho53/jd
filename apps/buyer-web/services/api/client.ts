@@ -12,7 +12,7 @@ export class ApiError extends Error {
   }
 }
 
-export function buildUrl(path: string, params?: Record<string, string | number | undefined>): string {
+export function buildUrl(path: string, params?: Record<string, string | number | boolean | undefined>): string {
   const url = new URL(`${getApiBaseUrl()}${path}`);
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
@@ -38,7 +38,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function apiGet<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
+export async function apiGet<T>(path: string, params?: Record<string, string | number | boolean | undefined>): Promise<T> {
   const res = await fetch(buildUrl(path, params), {
     method: 'GET',
     headers: { Accept: 'application/json' },
@@ -49,7 +49,7 @@ export async function apiGet<T>(path: string, params?: Record<string, string | n
 
 export async function apiGetClient<T>(
   path: string,
-  params?: Record<string, string | number | undefined>,
+  params?: Record<string, string | number | boolean | undefined>,
 ): Promise<T> {
   const res = await fetch(buildUrl(path, params), {
     method: 'GET',

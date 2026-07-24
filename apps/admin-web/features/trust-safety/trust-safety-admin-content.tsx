@@ -31,6 +31,18 @@ const TABS: { id: Tab; label: string; category?: string }[] = [
 
 const PROFILE_STATUSES = ['', 'LOW_RISK', 'MEDIUM_RISK', 'HIGH_RISK', 'BLOCKED'];
 
+const RESTRICTION_ACTIONS = [
+  { value: 'warn', label: 'Warn' },
+  { value: 'wallet_freeze', label: 'Freeze wallet' },
+  { value: 'referral_freeze', label: 'Freeze referrals' },
+  { value: 'coupon_freeze', label: 'Freeze coupons' },
+  { value: 'cod_disable', label: 'Disable COD' },
+  { value: 'soft_block', label: 'Soft block (watchlist)' },
+  { value: 'suspend', label: 'Hard block / suspend' },
+  { value: 'merchant_suspend', label: 'Blacklist merchant' },
+  { value: 'rider_suspend', label: 'Suspend rider' },
+];
+
 export function TrustSafetyAdminContent() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>('cases');
@@ -101,6 +113,18 @@ export function TrustSafetyAdminContent() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'trust-safety'] }),
   });
 
+  const applyAction = useMutation({
+    mutationFn: (input: { userId: string; action: string; reason: string }) =>
+      adminFetch('/api/admin/trust-safety/actions', { method: 'POST', body: JSON.stringify(input) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'trust-safety'] }),
+  });
+
+  const liftRestriction = useMutation({
+    mutationFn: (restrictionId: string) =>
+      adminFetch(`/api/admin/trust-safety/restrictions/${restrictionId}/lift`, { method: 'POST', body: '{}' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'trust-safety'] }),
+  });
+
   const m = overview?.metrics ?? {};
   const caseRows = useMemo(() => filterRows(cases?.items ?? [], search, ['caseNumber', 'title', 'severity', 'category']), [cases, search]);
   const profileRows = useMemo(() => filterRows(profiles?.items ?? [], search, ['userId', 'status']), [profiles, search]);
@@ -161,6 +185,8 @@ export function TrustSafetyAdminContent() {
         )}
       </section>
 
+      <ApplyRestrictionForm onApply={(input) => applyAction.mutate(input)} loading={applyAction.isPending} />
+
       <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border bg-white p-3">
         <Input
           label="Search"
@@ -205,7 +231,12 @@ export function TrustSafetyAdminContent() {
       )}
 
       {tab === 'blocked' && (
-        <BlockedTable rows={blockedRows} loading={blockedLoading} />
+        <BlockedTable
+          rows={blockedRows}
+          loading={blockedLoading}
+          lifting={liftRestriction.isPending}
+          onLift={(id) => liftRestriction.mutate(id)}
+        />
       )}
 
       {tab !== 'profiles' && tab !== 'blocked' && (
@@ -373,7 +404,17 @@ function ProfilesTable({ rows, loading }: { rows: ProfileRow[]; loading?: boolea
   );
 }
 
-function BlockedTable({ rows, loading }: { rows: BlockedRow[]; loading?: boolean }) {
+function BlockedTable({
+  rows,
+  loading,
+  lifting,
+  onLift,
+}: {
+  rows: BlockedRow[];
+  loading?: boolean;
+  lifting: boolean;
+  onLift: (id: string) => void;
+}) {
   return (
     <section className="overflow-hidden rounded-xl border bg-white">
       <div className="border-b p-4">
@@ -392,6 +433,7 @@ function BlockedTable({ rows, loading }: { rows: BlockedRow[]; loading?: boolean
                 <th className="p-3">Restriction</th>
                 <th className="p-3">Reason</th>
                 <th className="p-3">Created</th>
+                <th className="p-3" />
               </tr>
             </thead>
             <tbody>
@@ -401,12 +443,81 @@ function BlockedTable({ rows, loading }: { rows: BlockedRow[]; loading?: boolean
                   <td className="p-3"><Badge tone="danger">{b.restrictionType}</Badge></td>
                   <td className="p-3 text-xs text-slate-600">{b.reason}</td>
                   <td className="p-3 text-xs text-slate-500">{b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN') : '—'}</td>
+                  <td className="p-3 text-right">
+                    <Button size="sm" variant="outline" loading={lifting} onClick={() => onLift(b.id)}>
+                      Lift
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+    </section>
+  );
+}
+
+function ApplyRestrictionForm({
+  onApply,
+  loading,
+}: {
+  onApply: (input: { userId: string; action: string; reason: string }) => void;
+  loading: boolean;
+}) {
+  const [userId, setUserId] = useState('');
+  const [action, setAction] = useState(RESTRICTION_ACTIONS[0].value);
+  const [reason, setReason] = useState('');
+
+  const canSubmit = userId.trim().length > 0 && reason.trim().length > 0;
+
+  return (
+    <section className="rounded-xl border bg-white p-4">
+      <h3 className="font-semibold">Apply enforcement action</h3>
+      <p className="mt-1 text-sm text-slate-500">
+        Freeze a wallet, disable COD, or blacklist an account directly — this is the same backend
+        the fraud-case actions use, exposed here for ad-hoc enforcement.
+      </p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-4">
+        <Input
+          label="User ID"
+          placeholder="usr_..."
+          value={userId}
+          onChange={(e) => setUserId(e.target.value)}
+        />
+        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
+          Action
+          <select
+            value={action}
+            onChange={(e) => setAction(e.target.value)}
+            className="h-9 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+          >
+            {RESTRICTION_ACTIONS.map((a) => (
+              <option key={a.value} value={a.value}>{a.label}</option>
+            ))}
+          </select>
+        </label>
+        <Input
+          label="Reason"
+          placeholder="Why this action is being taken"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          className="sm:col-span-2"
+        />
+      </div>
+      <Button
+        size="sm"
+        className="mt-3"
+        disabled={!canSubmit}
+        loading={loading}
+        onClick={() => {
+          onApply({ userId: userId.trim(), action, reason: reason.trim() });
+          setUserId('');
+          setReason('');
+        }}
+      >
+        Apply
+      </Button>
     </section>
   );
 }

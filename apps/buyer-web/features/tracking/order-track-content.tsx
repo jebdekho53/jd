@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, MapPin, Store } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Store } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
 import { DeliveryTrackingMap } from '@/features/tracking/delivery-tracking-map';
@@ -207,18 +207,38 @@ export function OrderTrackContent({ orderId }: OrderTrackContentProps) {
                 )}
                 {!order.delivery?.rider && tracking?.rider && (
                   <div className="rounded-2xl border bg-card p-5 shadow-sm">
-                    <p className="text-xs text-muted-foreground">Delivery partner</p>
-                    <p className="mt-1 font-medium">{tracking.rider.name}</p>
-                    {tracking.provider?.driverPhone && (
-                      <p className="text-sm text-muted-foreground">{tracking.provider.driverPhone}</p>
-                    )}
-                    {tracking.rider.vehicleType && (
-                      <p className="text-sm text-muted-foreground">
-                        {tracking.rider.vehicleType.replace(/_/g, ' ')}
-                      </p>
-                    )}
+                    <p className="mb-3 text-xs text-muted-foreground">Delivery partner</p>
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                        {tracking.rider.name
+                          .trim()
+                          .split(/\s+/)
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map((p) => p[0])
+                          .join('')
+                          .toUpperCase() || '?'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{tracking.rider.name}</p>
+                        {tracking.rider.vehicleType && (
+                          <p className="text-xs text-muted-foreground">
+                            {tracking.rider.vehicleType.replace(/_/g, ' ')}
+                          </p>
+                        )}
+                      </div>
+                      {tracking.provider?.driverPhone && (
+                        <a
+                          href={`tel:${tracking.provider.driverPhone}`}
+                          aria-label={`Call ${tracking.rider.name}`}
+                          className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-600 text-white shadow-sm transition hover:bg-brand-700"
+                        >
+                          <Phone className="h-4 w-4" aria-hidden />
+                        </a>
+                      )}
+                    </div>
                     {!tracking.hasLiveProviderLocation && (
-                      <p className="mt-2 text-xs text-muted-foreground">
+                      <p className="mt-3 text-xs text-muted-foreground">
                         Live map location unavailable — see timeline for updates.
                       </p>
                     )}

@@ -23,16 +23,15 @@ immutable-ledger-backed earnings/payout path (Razorpay Route), COD reconciliatio
 authenticated & scoped WebSocket tracking, and admin rider operations.
 
 The **user-facing OTP handover flow is now wired end-to-end** across API →
-rider-web BFF → rider-mobile / rider-web captain PWA, plus buyer and merchant UI,
+rider-web BFF → the rider-web captain PWA, plus buyer and merchant UI,
 and is covered by automated tests.
 
 **What is NOT yet done and gates a real pilot** is validation, not code: the
-rider **mobile app has no test harness, an existing baseline typecheck error, and
-no physical-device / background-location / staging end-to-end validation**; the
-**delivery-handover Prisma migration is still pending (unapplied)**; **Expo/FCM
-push credentials and Shadowfax production credentials are not configured**; and a
-**return-to-store workflow does not exist** (delivery failure only marks
-`DELIVERY_FAILED`).
+rider PWA has **no physical-device / background-location / staging end-to-end
+validation**; the **delivery-handover Prisma migration is still pending
+(unapplied)**; **push VAPID keys are unset** so rider and buyer push are silent,
+and Shadowfax production credentials are not configured; and a **return-to-store workflow does not exist**
+(delivery failure only marks `DELIVERY_FAILED`).
 
 Treat the rider system as **code-complete for the happy path, pending
 device/staging validation and operational hardening before a pilot.**
@@ -56,9 +55,9 @@ device/staging validation and operational hardening before a pilot.**
 - **Real-time:** authenticated Socket.IO gateways (`delivery-tracking.gateway`,
   `rider-assignment.gateway`, `fleet-os.gateway`) guarded by
   `common/websocket/ws-auth.service` (unauthenticated sockets are rejected).
-- **Rider surfaces:** `apps/rider-web` serves **both** the mobile BFF
-  (`/api/rider/*` → NestJS `/rider/*`) **and** the captain PWA UI; `apps/rider-mobile`
-  is the Expo React Native app that talks to the BFF.
+- **Rider surfaces:** `apps/rider-web` serves **both** the BFF
+  (`/api/rider/*` → NestJS `/rider/*`) **and** the captain PWA UI. It is the only
+  rider client — the Expo app `apps/rider-mobile` was removed on 2026-07-23.
 
 ---
 
@@ -88,7 +87,6 @@ Verified in code + tests unless noted.
 | Admin rider/captain operations | `rider/admin-rider.controller.ts`, admin-web `features/riders/*` |
 | Buyer delivery-OTP UI | `buyer-web` `delivery-otp-card.tsx` + BFF `delivery-otp` route |
 | Merchant pickup-OTP UI | `merchant-web` `pickup-otp-banner.tsx` + BFF `pickup-otp` route |
-| Rider-mobile OTP entry (pickup/delivery + COD ack) | `rider-mobile` `handover-otp-panel.tsx`, `hooks/use-delivery.ts` |
 | Rider-web captain OTP entry | `rider-web` `features/rider/rider-home.tsx` (`HandoverOtpForm`) |
 | Typed BFF routes + API clients | rider-web `verify-pickup/verify-delivery`; buyer/merchant OTP clients |
 
@@ -104,7 +102,7 @@ Verified in code + tests unless noted.
 | Buyer delivery integration | **MOSTLY COMPLETE** | Assignment/status/rider panel/ETA/live map/OTP card present; not device/staging validated end-to-end. |
 | Merchant delivery integration | **MOSTLY COMPLETE** | Prep/ready/assignment/arrival/pickup-OTP/handover present; no return-to-store UI (no backend). |
 | Admin rider operations | **MOSTLY COMPLETE** | KYC review, incentives, live ops, dispatch present; manual reassignment / provider-switch-before-pickup controls **NEED VERIFICATION**. |
-| Rider push notifications | **PARTIAL** | `rider-mobile/services/notifications.ts` + realtime provider wire tokens; **Expo/FCM credentials not configured**, not device-validated. |
+| Rider push notifications | **BUILT, NOT CONFIGURED** | `RiderPushController` (`rider/notifications/push`) + `RiderPushNotificationService`; offer push fires from `finishAssignment`, KYC decisions from `adminApprove/RejectDocument`; PWA has the handler and a subscribe toggle. **`WEB_PUSH_PUBLIC_KEY`/`WEB_PUSH_PRIVATE_KEY` are unset, so nothing sends.** |
 | Background / live location on device | **NEEDS VERIFICATION** | Server + client code exist; **screen-locked background tracking not validated on a real device.** |
 
 ---
@@ -116,10 +114,9 @@ See [§10 Pilot checklist](#10-pilot-readiness-checklist) and
 
 - **Return-to-store workflow — NOT STARTED.** No `RETURN_TO_STORE*` states or flow
   exist; `markFailed` only sets order `DELIVERY_FAILED` and releases the rider.
-- **Rider-mobile test harness — NOT STARTED.** `apps/rider-mobile` has no `test`
-  script and no jest/vitest config.
-- **Baseline typecheck error** in `apps/rider-mobile/services/live-location.service.ts:174`
-  (pre-existing; present before OTP work).
+- **Rider push — BUILT, NOT CONFIGURED.** End-to-end code is in place; VAPID keys
+  are not set in `.env.production`, so `WebPushService.isConfigured()` is false
+  and no notification is sent. Same blocker affects buyer push.
 - **Porter / Delhivery — NOT STARTED** (stub adapters throw `ProviderNotImplementedError`).
 
 ---
@@ -129,7 +126,7 @@ See [§10 Pilot checklist](#10-pilot-readiness-checklist) and
 | Blocker | Impact |
 |---|---|
 | Shadowfax **production** credentials + webhook config | External-provider fallback can't be validated live |
-| **Expo/FCM push credentials** + Android/iOS signing | No production push; no store build |
+| **VAPID keys unset** (`WEB_PUSH_PUBLIC_KEY`/`WEB_PUSH_PRIVATE_KEY`) | Rider *and* buyer push are built but silent |
 | Physical Android device(s) for QA | Cannot validate delivery/location/OTP on-device |
 | Staging environment for full E2E order run | Cannot validate one real prepaid + one COD delivery end-to-end |
 
@@ -151,7 +148,6 @@ Commands run against this branch (16 July 2026):
   (asserts raw OTP never leaks to the rider payload).
 - `buyer-web` `tsc` clean + `jest delivery-otp-visibility` → **4 passed**.
 - `merchant-web` `tsc` clean + `jest pickup-otp-visibility` → **3 passed**.
-- `rider-mobile` `tsc --noEmit` → **no new errors** (1 pre-existing baseline error).
 
 **Not yet validated:** any physical-device run, background location with the
 screen locked, app-restart/network-reconnect recovery, and a full staging E2E
@@ -196,10 +192,9 @@ delivery (prepaid or COD).
 **P0 — required before a rider production pilot:**
 
 - [ ] Apply and validate the pending `20260808000100_delivery_handover_otp` migration.
-- [ ] Add a rider-mobile test runner/harness (jest + expo preset).
-- [ ] Fix the baseline typecheck error in `rider-mobile/services/live-location.service.ts:174`.
-- [ ] Configure Expo/FCM push credentials; validate a push on-device.
-- [ ] Run real Android device QA of the full active-delivery flow.
+- [ ] Generate and set VAPID keys (`npx web-push generate-vapid-keys`) plus
+      `WEB_PUSH_SUBJECT`; verify a real offer push lands on a device.
+- [ ] Run real Android device QA of the full active-delivery flow in the PWA.
 - [ ] Validate background location with the screen locked.
 - [ ] Validate app-restart and network-reconnect recovery (no false "delivered", no duplicate actions).
 - [ ] Staging E2E: one complete **prepaid** delivery (assign → pickup OTP → delivery OTP → delivered).
@@ -249,7 +244,7 @@ not checkbox counts.
 | Merchant delivery integration | **~85% MOSTLY** | Prep/ready/assignment/arrival/pickup-OTP/handover; no return-to-store UI |
 | Admin rider operations | **~80% MOSTLY** | KYC review, incentives, live ops; manual reassign/provider-switch controls need verification |
 | External logistics integration | **~55% PARTIAL** | Shadowfax real (blocked on creds), Borzo unvalidated, Porter/Delhivery stubs; orchestration complete |
-| Automated test coverage | **~65%** | 165 API spec files (strong on rider/delivery/OTP/order); targeted web tests; no rider-mobile tests, no E2E in repo |
+| Automated test coverage | **~65%** | 165 API spec files (strong on rider/delivery/OTP/order); targeted web tests; no E2E in repo |
 | Physical-device / staging validation | **~10% NOT STARTED** | No device QA, no staging E2E, no background-location test |
 | **Overall rider pilot readiness** | **~65%** | Code ready; blocked by device validation, push creds, migration apply, staging E2E |
 | **Overall production rollout readiness** | **~55%** | Adds monitoring/alerting, load tests, store release, live provider validation |
@@ -259,8 +254,7 @@ not checkbox counts.
 ## 13. Recommended next implementation order
 
 1. Apply the pending handover-OTP migration on staging; smoke-test verify endpoints.
-2. Stand up a rider-mobile jest/expo test harness; fix the `live-location.service.ts:174` baseline error.
-3. Configure Expo/FCM push credentials; validate a push on-device.
+2. Set VAPID keys so the rider and buyer push that already exist actually send.
 4. Physical-device QA of the active-delivery + OTP + background-location flow.
 5. Staging E2E: prepaid delivery, then COD delivery, then cancel-before-pickup.
 6. Implement the **return-to-store** workflow (states, rider/merchant/admin surfaces) — currently absent.

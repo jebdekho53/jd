@@ -18,9 +18,10 @@ import { FinanceModule } from '../finance/finance.module';
 import { ComplianceModule } from '../compliance/compliance.module';
 import { TrustSafetyModule } from '../trust-safety/trust-safety.module';
 import { PushModule } from '../push/push.module';
+import { CrmModule } from '../crm/crm.module';
 
 @Module({
-  imports: [RiderAssignmentModule, DeliveryTrackingModule, OrderFulfillmentModule, FinanceModule, CheckoutModule, OrderTimelineModule, PushModule, EmailModule],
+  imports: [RiderAssignmentModule, DeliveryTrackingModule, OrderFulfillmentModule, FinanceModule, CheckoutModule, OrderTimelineModule, PushModule, EmailModule, TrustSafetyModule, CrmModule],
   controllers: [RiderController, RiderOnboardingController, AdminRiderController],
   providers: [DeliveryService, RiderLocationService, RiderOnboardingService, RiderCaptainService],
   exports: [DeliveryService, RiderAssignmentModule],

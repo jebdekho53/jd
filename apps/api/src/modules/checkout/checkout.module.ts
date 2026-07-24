@@ -16,6 +16,7 @@ import { CorporateModule } from '../corporate/corporate.module';
 import { LocationDirectoryModule } from '../location-directory/location-directory.module';
 import { PushModule } from '../push/push.module';
 import { LogisticsModule } from '../logistics/logistics.module';
+import { CrmModule } from '../crm/crm.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { LogisticsModule } from '../logistics/logistics.module';
     LocationDirectoryModule,
     PushModule,
     forwardRef(() => LogisticsModule),
+    CrmModule,
   ],
   controllers: [CheckoutController],
   providers: [CheckoutService, ReservationService, OrderExpiryService],

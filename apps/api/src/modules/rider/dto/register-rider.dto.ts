@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { VehicleType } from '@prisma/client';
-import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, Length, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { requiresDrivingLicense } from '../../../common/utils/vehicle.util';
 
 export class RegisterRiderDto {
   @ApiProperty({ example: 'Ramesh Kumar' })
@@ -19,9 +20,19 @@ export class RegisterRiderDto {
   @MaxLength(20)
   vehicleNumber?: string;
 
-  @ApiPropertyOptional({ example: 'DL-1420110012345' })
-  @IsOptional()
+  @ApiPropertyOptional({
+    example: 'DL-1420110012345',
+    description: 'Required for any motorised vehicle (motorcycle, scooter, car) — optional for bicycle/on-foot',
+  })
+  @ValidateIf((o: RegisterRiderDto) => requiresDrivingLicense(o.vehicleType))
+  @IsNotEmpty({ message: 'Driving licence number is required for this vehicle type' })
   @IsString()
   @MaxLength(40)
   licenseNumber?: string;
+
+  @ApiPropertyOptional({ example: 'RID1A2B3C4D', description: 'Another rider\'s referral code' })
+  @IsOptional()
+  @IsString()
+  @Length(3, 20)
+  referralCode?: string;
 }

@@ -45,12 +45,16 @@ export function profileAddressToDelivery(addr: ProfileAddress): DeliveryAddress 
   };
 }
 
-/** Persist checkout address locally and mark as default saved address (Blinkit-style). */
+/** Persist checkout address locally. Only claims "default" the first time a
+ *  buyer ever saves an address — once they have multiple (Home/Work/Other),
+ *  completing an order must not silently steal the default from whichever one
+ *  they deliberately picked at checkout (see AddressSelector). */
 export function persistDeliveryAddress(addr: DeliveryAddress): void {
   const store = useAddressStore.getState();
   const existing = store.addresses.find(
     (a) => a.pincode === addr.pincode && a.line1.trim() === addr.line1.trim(),
   );
+  const isFirstAddress = store.addresses.length === 0;
 
   if (existing) {
     store.updateAddress(existing.id, {
@@ -60,7 +64,7 @@ export function persistDeliveryAddress(addr: DeliveryAddress): void {
       lat: addr.lat,
       lng: addr.lng,
     });
-    store.setDefault(existing.id);
+    if (isFirstAddress) store.setDefault(existing.id);
   } else {
     store.addAddress({
       label: 'Home',
@@ -71,7 +75,7 @@ export function persistDeliveryAddress(addr: DeliveryAddress): void {
       city: addr.city,
       lat: addr.lat,
       lng: addr.lng,
-      isDefault: true,
+      isDefault: isFirstAddress,
     });
   }
 

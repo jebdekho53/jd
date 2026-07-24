@@ -161,11 +161,20 @@ export class SettlementService {
         eligibleAt: { lte: now },
       },
       take: 200,
-      select: { id: true, merchantProfileId: true, netAmount: true, orderId: true },
+      select: {
+        id: true,
+        merchantProfileId: true,
+        netAmount: true,
+        orderId: true,
+        merchantProfile: { select: { isBlacklisted: true } },
+      },
     });
 
     let processed = 0;
     for (const entry of eligible) {
+      // A blacklisted merchant's pending payouts stay held — never auto-release
+      // to available balance while a fraud/policy investigation is open.
+      if (entry.merchantProfile?.isBlacklisted) continue;
       const net = decimalToNumber(entry.netAmount);
       try {
         await this.prisma.$transaction(async (tx) => {

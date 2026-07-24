@@ -17,7 +17,7 @@ jebdekho/
 │   ├── api/                          # NestJS backend
 │   ├── buyer-web/                    # Next.js — customer app
 │   ├── merchant-web/                 # Next.js — merchant dashboard
-│   ├── rider-mobile/                 # React Native (Expo) — rider app
+│   ├── rider-web/                    # Next.js — rider BFF + captain PWA
 │   └── admin-web/                    # Next.js — super admin
 ├── packages/
 │   ├── shared-types/                 # DTOs, enums, API contracts
@@ -206,34 +206,29 @@ apps/merchant-web/
 
 ---
 
-## `apps/rider-mobile` — Rider App (React Native / Expo)
+## `apps/rider-web` — Rider BFF + Captain PWA
 
 ```
-apps/rider-mobile/
-├── app/                          # Expo Router
-│   ├── (auth)/
-│   ├── (tabs)/
-│   │   ├── home/                 # Online toggle, active delivery
-│   │   ├── orders/
-│   │   └── earnings/
-│   ├── orders/[orderId].tsx
-│   └── navigation/[orderId].tsx
-├── src/
-│   ├── components/
-│   ├── hooks/
-│   │   ├── use-geolocation.ts    # Background location (expo-location)
-│   │   └── use-background-task.ts
-│   ├── lib/
-│   │   ├── api-client.ts
-│   │   └── websocket.ts
-│   └── stores/
-│       └── rider-status.store.ts
-├── app.json
-├── eas.json                      # EAS Build config
-└── package.json
+apps/rider-web/
+├── app/
+│   ├── api/                      # BFF: proxies /api/rider/* → NestJS /rider/*
+│   ├── login/  onboarding/       # OTP sign-in, signup, application status
+│   ├── home/ orders/ earnings/   # Captain tabs (render features/rider/rider-home)
+│   ├── cod/ shifts/ kyc/         # Dedicated captain pages
+│   ├── fleet/ incentives/ training/ notifications/
+│   ├── account/                  # edit, security, bank
+│   ├── about/ help/ faq/ contact/ payouts/ privacy/ data-deletion/ agreement/
+│   ├── offline/                  # PWA fallback
+│   └── sw.ts                     # Serwist service worker
+├── features/                     # rider/, auth/, fleet/, public/, pwa/
+├── design-system/                # primitives, bottom-nav
+└── lib/                          # typed api client, auth/session, transforms
 ```
 
-**Why React Native over PWA:** Reliable background GPS for live rider tracking and assignment notifications.
+**Why a PWA, not React Native:** the Expo app (`apps/rider-mobile`) was removed on
+2026-07-23 — it had fallen far behind the PWA and was never deployed. The
+trade-off that follows: background GPS only runs while the PWA is open, and there
+is no rider push channel yet (`modules/push` is buyer-only).
 
 ---
 
@@ -314,7 +309,7 @@ The following `.gitkeep` files mark future app roots until scaffolding:
 - `apps/api/.gitkeep`
 - `apps/buyer-web/.gitkeep`
 - `apps/merchant-web/.gitkeep`
-- `apps/rider-mobile/.gitkeep`
+- `apps/rider-web/.gitkeep`
 - `apps/admin-web/.gitkeep`
 - `packages/shared-types/.gitkeep`
 - `packages/ui/.gitkeep`

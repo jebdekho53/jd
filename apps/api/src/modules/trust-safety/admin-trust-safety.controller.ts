@@ -70,8 +70,18 @@ export class AdminTrustSafetyController {
 
   @Get('blocked-accounts')
   @Permissions('settlements:read')
-  async blocked(@Query() query: ListTrustQueryDto) {
-    return { success: true, data: await this.trust.listBlockedAccounts(query.page, query.limit) };
+  async blocked(@Query() query: ListTrustQueryDto & { userId?: string }) {
+    return {
+      success: true,
+      data: await this.trust.listBlockedAccounts(query.page, query.limit, query.userId),
+    };
+  }
+
+  @Post('restrictions/:id/lift')
+  @Permissions('settlements:manage')
+  @ApiOperation({ summary: 'Lift a restriction and reverse the side effect it applied' })
+  async liftRestriction(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return { success: true, data: await this.trust.liftRestriction(id, user.id) };
   }
 
   @Post('actions')

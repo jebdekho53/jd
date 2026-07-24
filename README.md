@@ -26,7 +26,6 @@ Status labels: **COMPLETE** · **MOSTLY COMPLETE** · **PARTIAL** · **NOT START
 | `apps/merchant-web` | 3002 | Merchant dashboard, order & handover ops | **MOSTLY COMPLETE** | Return-to-store UI (no backend yet) |
 | `apps/admin-web` | 3003 | Platform admin & rider operations | **MOSTLY COMPLETE** | Some dispatch controls need verification |
 | `apps/rider-web` | 3004 | Rider **BFF** (`/api/rider/*`) **and** captain **PWA** UI | **MOSTLY COMPLETE** | Device/staging validation of OTP flow |
-| `apps/rider-mobile` | — | Expo React Native rider app | **PARTIAL** | No test harness, baseline TS error, no device QA, no push creds |
 | `apps/vendor-web` | 3005 | Vendor / procurement portal | **PARTIAL** | Basic pages |
 | `apps/franchise-web` | 3006 | Franchise territory portal (real Razorpay Route payouts) | **PARTIAL** | Ongoing |
 
@@ -52,14 +51,14 @@ work before a pilot is **validation, not code**. Full detail:
   delivery OTP generation/verification with attempt-limiting, audit, one-time use;
   **COD cash-acknowledgment gate** (amount is server-authoritative). OTPs are
   sanitized out of rider/generic payloads. **COMPLETE** (backend).
-- **OTP UI** — buyer delivery-OTP card, merchant pickup-OTP banner, rider-mobile &
-  rider-web captain OTP entry (with COD acknowledgment). **MOSTLY COMPLETE**
-  (pending device/staging validation).
+- **OTP UI** — buyer delivery-OTP card, merchant pickup-OTP banner, and rider-web
+  captain OTP entry (with COD acknowledgment). **MOSTLY COMPLETE**
+  (pending staging validation).
 - **COD reconciliation, rider earnings/payouts (Razorpay Route), live location &
   ETA, authenticated/scoped WebSocket events, admin rider/captain ops** — implemented.
-- **Not yet done:** return-to-store workflow (**NOT STARTED**), rider-mobile test
-  harness, physical-device & background-location QA, Expo/FCM push credentials,
-  staging E2E.
+- **Not yet done:** return-to-store workflow (**NOT STARTED**), rider push
+  notifications (no rider subscription endpoint exists — `modules/push` is
+  buyer-only), staging E2E.
 
 Legacy planning docs are retained for history:
 [Development Roadmap](docs/architecture/07-development-roadmap.md) (superseded) and
@@ -114,12 +113,6 @@ pnpm --filter @jebdekho/<app> run build            # next build
 pnpm --filter @jebdekho/<app> run lint
 ```
 
-**Rider mobile (`apps/rider-mobile`):**
-```bash
-pnpm --filter @jebdekho/rider-mobile run typecheck  # tsc --noEmit
-pnpm --filter @jebdekho/rider-mobile run lint
-# NOTE: no `test` script yet — a jest/expo test harness is pending (P0).
-```
 
 > `vendor-web` and `franchise-web` expose `dev`/`build`/`lint` only (no `test`).
 

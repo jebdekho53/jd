@@ -7,6 +7,7 @@ import {
   foodKeys,
   getFoodCart,
   removeFoodCartItem,
+  reorderFoodFromOrder,
   updateFoodCartItem,
 } from '@/services/food/food-api';
 import type { AddFoodCartItemPayload, FoodCart } from '@/types/food';
@@ -43,6 +44,17 @@ export function useAddFoodCartItemMutation() {
     mutationFn: (payload: AddFoodCartItemPayload) => addFoodCartItem(payload),
     onSuccess: (cart) => {
       qc.setQueryData(foodCartKeys.current(), cart);
+    },
+  });
+}
+
+export function useFoodReorderMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (orderId: string) => reorderFoodFromOrder(orderId),
+    onSuccess: (result) => {
+      if (result.cart) qc.setQueryData(foodCartKeys.current(), result.cart);
+      else qc.invalidateQueries({ queryKey: foodCartKeys.all });
     },
   });
 }

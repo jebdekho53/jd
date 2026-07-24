@@ -190,7 +190,10 @@ export function MerchantDashboardContent() {
                           {row.status === 'MERCHANT_ACCEPTED' && (
                             <Button size="sm" onClick={() => handleAction('preparing', row.id)}>Prepare</Button>
                           )}
-                          {row.status === 'PREPARING' && (
+                          {row.status === 'PREPARING' && row.orderVertical === 'FOOD' && (
+                            <Button size="sm" onClick={() => handleAction('ready', row.id)}>Ready</Button>
+                          )}
+                          {row.status === 'PREPARING' && row.orderVertical !== 'FOOD' && (
                             <Button size="sm" onClick={() => handleAction('packing', row.id)}>Pack</Button>
                           )}
                           {row.status === 'PACKING' && (
