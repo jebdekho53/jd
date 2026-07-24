@@ -115,10 +115,24 @@ export function FinanceAdminContent() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-slate-800">Finance Control Tower</h2>
-        <Button variant="outline" size="sm" onClick={triggerRefresh} disabled={isOverviewLoading || isCodLoading || isAlertsLoading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${(isOverviewLoading || isCodLoading || isAlertsLoading) ? 'animate-spin' : ''}`} />
-          Refresh Finance Control
-        </Button>
+        <div className="flex items-center gap-2">
+          <a
+            href="/api/admin/finance/exports/settlements"
+            className="inline-flex h-8 items-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Export settlements
+          </a>
+          <a
+            href="/api/admin/finance/exports/payouts"
+            className="inline-flex h-8 items-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Export payouts
+          </a>
+          <Button variant="outline" size="sm" onClick={triggerRefresh} disabled={isOverviewLoading || isCodLoading || isAlertsLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${(isOverviewLoading || isCodLoading || isAlertsLoading) ? 'animate-spin' : ''}`} />
+            Refresh Finance Control
+          </Button>
+        </div>
       </div>
 
       {/* Overview stats cards */}

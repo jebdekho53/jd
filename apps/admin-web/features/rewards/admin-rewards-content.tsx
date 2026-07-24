@@ -1,9 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { adminFetch } from '@/services/api/admin-client';
+
+interface FraudReviewRow {
+  id: string;
+  reviewType: string;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  wallet: {
+    id: string;
+    referralCode: string | null;
+    balance: number;
+    buyerProfile?: { id: string; name: string } | null;
+  };
+}
 
 function inr(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
@@ -61,6 +74,7 @@ const STATUS_STYLE: Record<ReferralStatus, string> = {
 };
 
 export function AdminRewardsContent() {
+  const qc = useQueryClient();
   const [pointsPer100, setPointsPer100] = useState(1);
   const { data: analytics, refetch } = useQuery({
     queryKey: ['rewards-analytics'],
@@ -72,6 +86,66 @@ export function AdminRewardsContent() {
     queryKey: ['rewards-referrals', refStatus],
     queryFn: () => fetchReferrals(refStatus),
   });
+
+  const { data: fraudReviews = [] } = useQuery({
+    queryKey: ['rewards-fraud-reviews'],
+    queryFn: async () => {
+      const res = await adminFetch<{ success: boolean; data: FraudReviewRow[] }>(
+        '/api/admin/rewards/fraud-reviews',
+      );
+      return res.data;
+    },
+  });
+
+  const resolveFraud = useMutation({
+    mutationFn: async ({ id, approve }: { id: string; approve: boolean }) =>
+      adminFetch(`/api/admin/rewards/fraud-reviews/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ approve }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['rewards-fraud-reviews'] }),
+  });
+
+  const [adjustWalletId, setAdjustWalletId] = useState('');
+  const [adjustAmount, setAdjustAmount] = useState('');
+  const [adjustReason, setAdjustReason] = useState('');
+  const [adjustError, setAdjustError] = useState<string | null>(null);
+  const [adjustSuccess, setAdjustSuccess] = useState<string | null>(null);
+
+  const adjustWallet = useMutation({
+    mutationFn: async ({ action, walletId, amount, reason }: { action: 'credit' | 'debit' | 'points'; walletId: string; amount: number; reason: string }) => {
+      const body = action === 'points' ? { points: amount, reason } : { amount, reason };
+      const res = await fetch(`/api/admin/rewards/wallets/${walletId}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? 'Failed');
+      return json.data;
+    },
+    onSuccess: (_data, vars) => {
+      setAdjustSuccess(`${vars.action === 'credit' ? 'Credited' : vars.action === 'debit' ? 'Debited' : 'Adjusted points for'} wallet ${vars.walletId}`);
+      setAdjustError(null);
+      setAdjustAmount('');
+      setAdjustReason('');
+      refetch();
+    },
+    onError: (err: Error) => {
+      setAdjustError(err.message);
+      setAdjustSuccess(null);
+    },
+  });
+
+  function submitAdjust(action: 'credit' | 'debit' | 'points') {
+    setAdjustError(null);
+    setAdjustSuccess(null);
+    if (!adjustWalletId || !adjustAmount || !adjustReason) {
+      setAdjustError('Wallet ID, amount, and reason are required');
+      return;
+    }
+    adjustWallet.mutate({ action, walletId: adjustWalletId, amount: Number(adjustAmount), reason: adjustReason });
+  }
 
   const savePointsRule = async () => {
     await adminFetch('/api/admin/rewards/config/points_per_100_inr', {
@@ -126,6 +200,107 @@ export function AdminRewardsContent() {
             </ul>
           </div>
         )}
+
+        {/* Pending fraud reviews on wallets — flagged by automated rules, need an admin decision. */}
+        <div className="rounded-xl border bg-white p-5">
+          <h2 className="mb-3 font-semibold">Wallet fraud review queue</h2>
+          {fraudReviews.length === 0 && (
+            <p className="text-sm text-slate-400">Nothing pending review.</p>
+          )}
+          <div className="space-y-2">
+            {fraudReviews.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-100 bg-amber-50/50 p-3 text-sm">
+                <div>
+                  <p className="font-medium">
+                    {r.wallet.buyerProfile?.name ?? 'Unknown buyer'}{' '}
+                    <span className="text-xs text-slate-400">wallet {r.wallet.id}</span>
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {r.reviewType} · balance {inr(r.wallet.balance)} · flagged {new Date(r.createdAt).toLocaleDateString('en-IN')}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdjustWalletId(r.wallet.id)}
+                    className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700"
+                  >
+                    Adjust wallet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => resolveFraud.mutate({ id: r.id, approve: true })}
+                    className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => resolveFraud.mutate({ id: r.id, approve: false })}
+                    className="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Manual wallet adjustment — for support-ticket refunds, goodwill credits, or clawing back a fraud-confirmed balance. */}
+        <div className="rounded-xl border bg-white p-5">
+          <h2 className="mb-3 font-semibold">Manual wallet adjustment</h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <input
+              placeholder="Wallet ID"
+              value={adjustWalletId}
+              onChange={(e) => setAdjustWalletId(e.target.value)}
+              className="rounded border px-2 py-1.5 text-sm"
+            />
+            <input
+              type="number"
+              min={0}
+              placeholder="Amount / points"
+              value={adjustAmount}
+              onChange={(e) => setAdjustAmount(e.target.value)}
+              className="rounded border px-2 py-1.5 text-sm"
+            />
+            <input
+              placeholder="Reason (required, shown to buyer)"
+              value={adjustReason}
+              onChange={(e) => setAdjustReason(e.target.value)}
+              className="rounded border px-2 py-1.5 text-sm"
+            />
+          </div>
+          {adjustError && <p className="mt-2 text-sm text-red-600">{adjustError}</p>}
+          {adjustSuccess && <p className="mt-2 text-sm text-emerald-600">{adjustSuccess}</p>}
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => submitAdjust('credit')}
+              disabled={adjustWallet.isPending}
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Credit wallet
+            </button>
+            <button
+              type="button"
+              onClick={() => submitAdjust('debit')}
+              disabled={adjustWallet.isPending}
+              className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Debit wallet
+            </button>
+            <button
+              type="button"
+              onClick={() => submitAdjust('points')}
+              disabled={adjustWallet.isPending}
+              className="rounded-lg bg-admin-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Adjust points
+            </button>
+          </div>
+        </div>
 
         {/* Full referral list — who referred whom, incl. pending & fraud-flagged. */}
         <div className="rounded-xl border bg-white p-5">

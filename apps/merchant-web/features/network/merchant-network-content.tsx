@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { GoogleStoreMap, useGoogleMaps } from '@jebdekho/google-maps';
 import { useStoreStore } from '@/store/store-store';
+import { useStoresQuery } from '@/hooks/use-stores';
+import { listProducts } from '@/services/products/products-api';
 
 async function fetchNetwork(path: string, storeId?: string) {
   const params = storeId ? `?storeId=${storeId}` : '';
@@ -11,6 +13,31 @@ async function fetchNetwork(path: string, storeId?: string) {
   const json = await res.json();
   if (!res.ok) throw new Error(json.message ?? 'Failed');
   return json.data;
+}
+
+async function postInventory(path: string, body: unknown) {
+  const res = await fetch(`/api/merchant/inventory/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message ?? 'Failed');
+  return json.data;
+}
+
+async function patchInventory(path: string) {
+  const res = await fetch(`/api/merchant/inventory/${path}`, { method: 'PATCH' });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message ?? 'Failed');
+  return json.data;
+}
+
+interface TransferLineItem {
+  variantId: string;
+  sku: string;
+  label: string;
+  quantity: number;
 }
 
 const STORE_TYPE_LABEL: Record<string, string> = {
@@ -23,6 +50,88 @@ const STORE_TYPE_LABEL: Record<string, string> = {
 export function MerchantNetworkContent() {
   const { currentStore } = useStoreStore();
   const storeId = currentStore?.id;
+  const qc = useQueryClient();
+
+  const [showTransferForm, setShowTransferForm] = useState(false);
+  const [fromStoreId, setFromStoreId] = useState('');
+  const [toStoreId, setToStoreId] = useState('');
+  const [lineItems, setLineItems] = useState<TransferLineItem[]>([]);
+  const [selectedVariant, setSelectedVariant] = useState('');
+  const [quantity, setQuantity] = useState('1');
+  const [notes, setNotes] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const { data: stores } = useStoresQuery();
+
+  const { data: fromStoreProducts } = useQuery({
+    queryKey: ['merchant', 'network', 'transfer-products', fromStoreId],
+    queryFn: () => listProducts(fromStoreId),
+    enabled: !!fromStoreId && showTransferForm,
+  });
+
+  const variantOptions = useMemo(() => {
+    const opts: { variantId: string; sku: string; label: string }[] = [];
+    for (const p of fromStoreProducts?.data ?? []) {
+      for (const v of p.variants ?? []) {
+        opts.push({
+          variantId: v.id,
+          sku: v.sku,
+          label: `${p.name} — ${v.name} (${v.sku}) · stock ${v.inventory?.availableQty ?? 0}`,
+        });
+      }
+    }
+    return opts;
+  }, [fromStoreProducts]);
+
+  function addLineItem() {
+    const variant = variantOptions.find((v) => v.variantId === selectedVariant);
+    const qty = Number(quantity);
+    if (!variant || !qty || qty < 1) return;
+    setLineItems((items) => [
+      ...items.filter((i) => i.variantId !== variant.variantId),
+      { variantId: variant.variantId, sku: variant.sku, label: variant.label, quantity: qty },
+    ]);
+    setSelectedVariant('');
+    setQuantity('1');
+  }
+
+  const createTransfer = useMutation({
+    mutationFn: () =>
+      postInventory('transfers', {
+        fromStoreId,
+        toStoreId,
+        notes: notes || undefined,
+        items: lineItems.map((i) => ({ variantId: i.variantId, sku: i.sku, quantity: i.quantity })),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['merchant', 'network', 'transfers'] });
+      setShowTransferForm(false);
+      setLineItems([]);
+      setNotes('');
+      setFromStoreId('');
+      setToStoreId('');
+      setFormError(null);
+    },
+    onError: (err: Error) => setFormError(err.message),
+  });
+
+  const approveTransfer = useMutation({
+    mutationFn: (id: string) => patchInventory(`transfers/${id}/approve`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['merchant', 'network', 'transfers'] }),
+  });
+
+  const completeTransfer = useMutation({
+    mutationFn: (id: string) => patchInventory(`transfers/${id}/complete`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['merchant', 'network', 'transfers'] }),
+  });
+
+  function submitTransfer() {
+    setFormError(null);
+    if (!fromStoreId || !toStoreId) return setFormError('Select both stores');
+    if (fromStoreId === toStoreId) return setFormError('Source and destination must differ');
+    if (lineItems.length === 0) return setFormError('Add at least one item');
+    createTransfer.mutate();
+  }
 
   const { data: overview, isLoading } = useQuery({
     queryKey: ['merchant', 'network', 'overview', storeId],
@@ -161,7 +270,115 @@ export function MerchantNetworkContent() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-semibold">Inventory Transfers</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Inventory Transfers</h2>
+          <button
+            type="button"
+            onClick={() => {
+              setShowTransferForm((s) => !s);
+              setFormError(null);
+            }}
+            className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+          >
+            {showTransferForm ? 'Cancel' : 'Create transfer'}
+          </button>
+        </div>
+
+        {showTransferForm && (
+          <div className="mb-4 space-y-3 rounded-xl border bg-white p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <select
+                value={fromStoreId}
+                onChange={(e) => {
+                  setFromStoreId(e.target.value);
+                  setLineItems([]);
+                }}
+                className="rounded-lg border px-3 py-2 text-sm"
+              >
+                <option value="">From store…</option>
+                {(stores?.data ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              <select
+                value={toStoreId}
+                onChange={(e) => setToStoreId(e.target.value)}
+                className="rounded-lg border px-3 py-2 text-sm"
+              >
+                <option value="">To store…</option>
+                {(stores?.data ?? []).filter((s) => s.id !== fromStoreId).map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {fromStoreId && (
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={selectedVariant}
+                  onChange={(e) => setSelectedVariant(e.target.value)}
+                  className="min-w-64 flex-1 rounded-lg border px-3 py-2 text-sm"
+                >
+                  <option value="">Select a product…</option>
+                  {variantOptions.map((v) => (
+                    <option key={v.variantId} value={v.variantId}>{v.label}</option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min={1}
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  className="w-20 rounded-lg border px-2 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={addLineItem}
+                  className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-medium text-white"
+                >
+                  Add item
+                </button>
+              </div>
+            )}
+
+            {lineItems.length > 0 && (
+              <div className="space-y-1">
+                {lineItems.map((item) => (
+                  <div key={item.variantId} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs">
+                    <span>{item.label} × {item.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => setLineItems((items) => items.filter((i) => i.variantId !== item.variantId))}
+                      className="text-red-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Notes (optional)"
+              rows={2}
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+            />
+
+            {formError && <p className="text-sm text-red-600">{formError}</p>}
+
+            <button
+              type="button"
+              onClick={submitTransfer}
+              disabled={createTransfer.isPending}
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              {createTransfer.isPending ? 'Creating…' : 'Submit transfer'}
+            </button>
+          </div>
+        )}
+
         <div className="space-y-2">
           {(transfers ?? []).length === 0 && (
             <p className="text-sm text-slate-500">No transfers yet.</p>
@@ -173,6 +390,26 @@ export function MerchantNetworkContent() {
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{t.status}</span>
               </div>
               <p className="mt-1 text-xs text-slate-500">{t.items?.length ?? 0} SKU(s)</p>
+              <div className="mt-2 flex gap-2">
+                {t.status === 'REQUESTED' && (
+                  <button
+                    type="button"
+                    onClick={() => approveTransfer.mutate(t.id)}
+                    className="rounded bg-brand-600 px-2 py-1 text-xs text-white"
+                  >
+                    Approve
+                  </button>
+                )}
+                {(t.status === 'APPROVED' || t.status === 'IN_TRANSIT') && (
+                  <button
+                    type="button"
+                    onClick={() => completeTransfer.mutate(t.id)}
+                    className="rounded bg-green-600 px-2 py-1 text-xs text-white"
+                  >
+                    Mark received
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -190,6 +427,30 @@ export function MerchantNetworkContent() {
               <p className="text-slate-600">{r.fromStoreName} → {r.toStoreName}</p>
               <p className="mt-1 text-xs text-slate-500">{r.reason}</p>
               <p className="text-xs text-brand-700">Expected uplift +{r.expectedUpliftPct}%</p>
+              <button
+                type="button"
+                onClick={async () => {
+                  const products = await listProducts(r.fromStoreId);
+                  const variant = products.data
+                    .flatMap((p) => p.variants ?? [])
+                    .find((v) => v.sku === r.sku);
+                  if (!variant) return;
+                  setFromStoreId(r.fromStoreId);
+                  setToStoreId(r.toStoreId);
+                  setLineItems([
+                    {
+                      variantId: variant.id,
+                      sku: variant.sku,
+                      label: `${variant.name} (${variant.sku})`,
+                      quantity: r.suggestedQty,
+                    },
+                  ]);
+                  setShowTransferForm(true);
+                }}
+                className="mt-2 rounded bg-amber-500 px-2 py-1 text-xs font-medium text-white hover:bg-amber-600"
+              >
+                Start transfer
+              </button>
             </div>
           ))}
         </div>
@@ -254,6 +515,8 @@ interface TransferRow {
 
 interface RebalanceRow {
   id: string;
+  fromStoreId: string;
+  toStoreId: string;
   sku: string;
   suggestedQty: number;
   fromStoreName: string;

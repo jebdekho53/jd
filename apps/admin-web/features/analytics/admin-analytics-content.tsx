@@ -70,7 +70,11 @@ export function AdminAnalyticsContent() {
           </button>
         ))}
         <a
-          href="/api/admin/analytics/export?format=csv&range=7d&type=executive"
+          // The backend export pipeline only distinguishes 'sales' vs everything
+          // else (which falls back to the executive summary) — every other tab
+          // name would silently download the same executive CSV, so only Sales
+          // gets its own export type; all other tabs export the executive summary.
+          href={`/api/admin/analytics/export?format=csv&range=7d&type=${tab === 'Sales' ? 'sales' : 'executive'}`}
           className="ml-auto rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-muted"
         >
           Export CSV
