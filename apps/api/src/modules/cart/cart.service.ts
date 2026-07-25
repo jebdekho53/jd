@@ -459,6 +459,7 @@ export class CartService {
                 isVeg: true,
                 categoryId: true,
                 gstSlab: true,
+                taxInclusive: true,
                 isReturnable: true,
                 isRefundable: true,
                 isReplaceable: true,
@@ -562,6 +563,7 @@ export class CartService {
       unitPrice: Number(item.variant.price),
       lineTotal: Number(item.variant.price) * item.quantity,
       gstSlab: item.product.gstSlab,
+      taxInclusive: item.product.taxInclusive,
     }));
 
     const enriched = await this.promotions.enrichCartPromotions(

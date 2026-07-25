@@ -31,8 +31,15 @@ export interface PromoCartItem {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
-  /** GST slab for this item; used to surface the GST embedded in the (inclusive) price. */
+  /** GST slab for this item; used to compute the GST due on it. */
   gstSlab?: GstSlab | null;
+  /**
+   * Whether unitPrice/lineTotal already include GST. Defaults to true (the
+   * platform norm — MRP-style pricing) when omitted by an older caller.
+   * false means GST must be added on top of the payable amount (e.g.
+   * hand-made/made-to-order items priced ex-tax).
+   */
+  taxInclusive?: boolean;
 }
 
 export interface PromoBreakdown {
@@ -119,11 +126,9 @@ export class PromotionPricingService {
     }
 
     const deliveryFee = freeDelivery ? 0 : input.baseDeliveryFee;
-    // Prices are GST-inclusive: `tax` is the GST already embedded in the item prices,
-    // surfaced for transparency/invoicing. It is NOT added on top of the payable amount.
     const netGoods = Math.max(0, subtotal - offerDiscount - couponDiscount);
-    const tax = this.embeddedGst(input.items, subtotal, netGoods);
-    const grandTotal = Math.max(0, netGoods + deliveryFee);
+    const { tax, addOnTax } = this.computeTax(input.items, subtotal, netGoods);
+    const grandTotal = Math.max(0, netGoods + deliveryFee + addOnTax);
     const totalSavings =
       input.catalogSavings + offerDiscount + couponDiscount + deliveryDiscount;
 
@@ -164,18 +169,35 @@ export class PromotionPricingService {
   }
 
   /**
-   * GST embedded in the (inclusive) item prices, scaled to the net-of-discount goods
-   * value. Per-item slabs are honoured. Returned for display/invoicing — never added
-   * on top of the payable amount, since the prices already include GST.
+   * GST due per item, scaled to the net-of-discount goods value, honouring each
+   * item's own taxInclusive flag:
+   *  - taxInclusive (default): GST is already embedded in the price — backed out
+   *    for display/invoicing only, never added on top.
+   *  - not taxInclusive (e.g. hand-made/made-to-order items priced ex-tax): GST
+   *    is computed on the price and must be added on top of the payable amount.
+   * `tax` is the full GST total (both kinds, for display); `addOnTax` is the
+   * portion that still needs adding to grandTotal.
    */
-  private embeddedGst(items: PromoCartItem[], subtotal: number, netGoods: number): number {
-    if (subtotal <= 0) return 0;
-    const grossGst = items.reduce((sum, it) => {
+  private computeTax(
+    items: PromoCartItem[],
+    subtotal: number,
+    netGoods: number,
+  ): { tax: number; addOnTax: number } {
+    if (subtotal <= 0) return { tax: 0, addOnTax: 0 };
+    const scale = netGoods / subtotal;
+    let embedded = 0;
+    let addOn = 0;
+    for (const it of items) {
       const rate = it.gstSlab ? GST_SLAB_PERCENT[it.gstSlab] : 0;
-      if (rate <= 0 || it.lineTotal <= 0) return sum;
-      return sum + (it.lineTotal * rate) / (100 + rate);
-    }, 0);
-    return round2(grossGst * (netGoods / subtotal));
+      if (rate <= 0 || it.lineTotal <= 0) continue;
+      const discountedLine = it.lineTotal * scale;
+      if (it.taxInclusive === false) {
+        addOn += discountedLine * (rate / 100);
+      } else {
+        embedded += (discountedLine * rate) / (100 + rate);
+      }
+    }
+    return { tax: round2(embedded + addOn), addOnTax: round2(addOn) };
   }
 
   computeTotalsWithOfferExtras(input: {
@@ -204,10 +226,9 @@ export class PromotionPricingService {
       const maxAllowed = Math.round(subtotal * (MAX_COMBINED_DISCOUNT_PCT / 100) * 100) / 100;
       const cappedOffer = Math.min(offerDiscount, maxAllowed);
       const deliveryFee = base.promo.freeDelivery ? 0 : input.baseDeliveryFee;
-      // GST-inclusive prices — tax is embedded, not added to the payable.
       const netGoods = Math.max(0, subtotal - cappedOffer - base.couponDiscount);
-      const tax = this.embeddedGst(input.items, subtotal, netGoods);
-      const grandTotal = Math.max(0, netGoods + deliveryFee);
+      const { tax, addOnTax } = this.computeTax(input.items, subtotal, netGoods);
+      const grandTotal = Math.max(0, netGoods + deliveryFee + addOnTax);
       const cashback = input.cashbackAmount ?? 0;
       const points = input.rewardPointsBonus ?? 0;
 

@@ -9,9 +9,10 @@ interface PdpPriceBlockProps {
   price: number;
   mrp: number | null;
   lowestNearby?: { price: number; storeName: string; storeSlug: string };
+  taxInclusive?: boolean;
 }
 
-export function PdpPriceBlock({ price, mrp, lowestNearby }: PdpPriceBlockProps) {
+export function PdpPriceBlock({ price, mrp, lowestNearby, taxInclusive = true }: PdpPriceBlockProps) {
   const { hasDiscount, savings, discountPct } = calcDiscount(price, mrp);
 
   return (
@@ -30,7 +31,9 @@ export function PdpPriceBlock({ price, mrp, lowestNearby }: PdpPriceBlockProps) 
       {hasDiscount && savings > 0 && (
         <p className="text-sm font-semibold text-success">You save {formatCurrency(savings)}</p>
       )}
-      <p className="text-[11px] text-jd-text-muted">Inclusive of all taxes</p>
+      <p className="text-[11px] text-jd-text-muted">
+        {taxInclusive ? 'Inclusive of all taxes' : 'Taxes extra, added at checkout'}
+      </p>
 
       {lowestNearby && lowestNearby.price < price && (
         <div className="flex items-start gap-2 rounded-xl bg-success/10 px-3 py-2.5 text-sm">

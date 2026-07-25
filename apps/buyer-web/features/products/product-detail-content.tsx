@@ -255,7 +255,7 @@ export function ProductDetailContent({ productId }: { productId: string }) {
               etaMins={product.store.avgPrepTimeMins}
             />
 
-            <PdpPriceBlock price={price} mrp={mrp} lowestNearby={lowestNearby} />
+            <PdpPriceBlock price={price} mrp={mrp} lowestNearby={lowestNearby} taxInclusive={product.metadata?.taxInclusive} />
 
             {/* Mobile purchase (non-sticky inline) */}
             <div className="lg:hidden">
