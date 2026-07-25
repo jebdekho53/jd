@@ -19,7 +19,7 @@ Schema:
   "name": "",
   "description": "",
   "dietType": "VEG" | "NON_VEG" | "EGG" | "VEGAN",
-  "spiceLevel": "MILD" | "MEDIUM" | "HOT" | "EXTRA_HOT",
+  "spiceLevel": "NONE" | "MILD" | "MEDIUM" | "HOT" | "EXTRA_HOT",
   "prepTimeMins": null,
   "servingSize": "",
   "suggestedPrice": null,
@@ -31,7 +31,7 @@ Rules:
 - name: the dish as a customer would recognise it (e.g. "Chocolate Truffle Pastry").
 - description: one appetising sentence, max 160 chars, only what is visible.
 - dietType: VEG unless meat/fish/egg is clearly visible. Eggless bakery items are VEG.
-- spiceLevel: MILD for bakery, sweets and desserts.
+- spiceLevel: NONE for bakery, sweets and desserts — they are not spicy at all, so never use MILD for them. Only use MILD/MEDIUM/HOT/EXTRA_HOT for savory dishes where a spice level genuinely applies.
 - prepTimeMins: realistic prep estimate in minutes (bakery/counter items 10-15).
 - servingSize: e.g. "1 piece", "Serves 2", "250g" — only if reasonably inferable.
 - suggestedPrice: typical Indian retail price in rupees, or null if unsure.
@@ -188,7 +188,7 @@ export class MenuAiService {
       name: str('name'),
       description: str('description').slice(0, 300),
       dietType: ['VEG', 'NON_VEG', 'EGG', 'VEGAN'].includes(diet) ? diet : 'VEG',
-      spiceLevel: ['MILD', 'MEDIUM', 'HOT', 'EXTRA_HOT'].includes(spice) ? spice : 'MILD',
+      spiceLevel: ['NONE', 'MILD', 'MEDIUM', 'HOT', 'EXTRA_HOT'].includes(spice) ? spice : 'NONE',
       prepTimeMins: num('prepTimeMins'),
       servingSize: str('servingSize'),
       suggestedPrice: num('suggestedPrice'),

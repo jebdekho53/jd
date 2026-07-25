@@ -215,6 +215,7 @@ enum DietType {
 }
 
 enum SpiceLevel {
+  NONE
   MILD
   MEDIUM
   HOT

@@ -30,11 +30,13 @@ const TABS = ['Categories', 'Items', 'Addon Groups', 'Combos', 'Link Addons'] as
 type Tab = (typeof TABS)[number];
 
 const DIET_TYPES = ['VEG', 'NON_VEG', 'EGG', 'VEGAN'] as const;
-const SPICE_LEVELS = ['MILD', 'MEDIUM', 'HOT', 'EXTRA_HOT'] as const;
+const SPICE_LEVELS = ['NONE', 'MILD', 'MEDIUM', 'HOT', 'EXTRA_HOT'] as const;
 const SELECTION_TYPES = ['SINGLE', 'MULTIPLE'] as const;
 
+const SPICE_LABELS: Record<string, string> = { NONE: 'Not spicy' };
+
 function formatLabel(value: string) {
-  return value.replace(/_/g, ' ');
+  return SPICE_LABELS[value] ?? value.replace(/_/g, ' ');
 }
 
 export function MenuManagementContent({ storeId }: { storeId: string }) {
