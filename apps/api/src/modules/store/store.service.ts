@@ -564,22 +564,35 @@ export class StoreService {
     const store = await this.fetchStoreWithRelations(storeId);
     await this.assertOwnership(userId, store);
 
-    if (store.status !== StoreStatus.DOCUMENTS_REQUIRED) {
+    // DOCUMENTS_REQUIRED = admin flagged specific gaps, must be filled before
+    // resubmission. APPROVED = a live merchant proactively adding a document
+    // they never uploaded (e.g. FSSAI/GST skipped during onboarding) — allowed
+    // any time, not gated behind an admin request.
+    const canUpload =
+      store.status === StoreStatus.DOCUMENTS_REQUIRED || store.status === StoreStatus.APPROVED;
+    if (!canUpload) {
       throw new BadRequestException(
-        'Documents can only be uploaded when additional documents are requested.',
+        'Documents can only be uploaded once your store is approved, or when additional documents are requested.',
       );
     }
 
-    const requestedTypes = this.parseDocumentTypes(store.requestedDocumentTypes);
-    if (requestedTypes.length && !requestedTypes.includes(dto.documentType)) {
-      throw new BadRequestException(
-        `Document type ${dto.documentType} was not requested. ` +
-          `Requested: ${requestedTypes.join(', ')}`,
-      );
+    if (store.status === StoreStatus.DOCUMENTS_REQUIRED) {
+      const requestedTypes = this.parseDocumentTypes(store.requestedDocumentTypes);
+      if (requestedTypes.length && !requestedTypes.includes(dto.documentType)) {
+        throw new BadRequestException(
+          `Document type ${dto.documentType} was not requested. ` +
+            `Requested: ${requestedTypes.join(', ')}`,
+        );
+      }
     }
 
     assertTrustedUploadUrl(dto.fileUrl, uploadPublicBases(getConfig(this.config).storage));
 
+    // One document per type: replacing an existing upload should actually
+    // replace it, not accumulate a duplicate the UI would never show.
+    await this.prisma.storeVerificationDocument.deleteMany({
+      where: { storeId, documentType: dto.documentType },
+    });
     await this.prisma.storeVerificationDocument.create({
       data: {
         storeId,

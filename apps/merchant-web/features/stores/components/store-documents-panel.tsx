@@ -6,6 +6,16 @@ import { Button } from '@/design-system/primitives';
 import type { Store, StoreDocumentType } from '@/types/store';
 import { DOCUMENT_TYPE_LABELS } from '@/types/store';
 
+/** The standard compliance document set a merchant may be missing (excludes
+ *  the catch-all OTHER type, which isn't something to solicit proactively). */
+const STANDARD_DOCUMENT_TYPES: StoreDocumentType[] = [
+  'GST_CERTIFICATE',
+  'PAN_CARD',
+  'FSSAI_LICENSE',
+  'TRADE_LICENSE',
+  'BANK_PROOF',
+];
+
 interface StoreDocumentsPanelProps {
   store: Store;
   onUpload: (payload: {
@@ -17,6 +27,10 @@ interface StoreDocumentsPanelProps {
   onSubmitDocuments: () => Promise<void>;
   isUploading: boolean;
   isSubmitting: boolean;
+  /** 'requested' (default) = admin flagged specific gaps, must resubmit for
+   *  review once filled. 'all' = an approved merchant browsing their full
+   *  standard document set to fill in whatever they skipped — no review step. */
+  mode?: 'requested' | 'all';
 }
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
@@ -36,11 +50,13 @@ export function StoreDocumentsPanel({
   onSubmitDocuments,
   isUploading,
   isSubmitting,
+  mode = 'requested',
 }: StoreDocumentsPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeType, setActiveType] = useState<StoreDocumentType | null>(null);
 
   const requestedTypes = (store.requestedDocumentTypes ?? []) as StoreDocumentType[];
+  const displayTypes = mode === 'all' ? STANDARD_DOCUMENT_TYPES : requestedTypes;
   const uploadedTypes = new Set(store.verificationDocuments.map((d) => d.documentType));
   const allUploaded = requestedTypes.every((t) => uploadedTypes.has(t));
 
@@ -71,15 +87,28 @@ export function StoreDocumentsPanel({
     fileInputRef.current?.click();
   };
 
+  const containerClass =
+    mode === 'all'
+      ? 'mb-4 rounded-xl border border-slate-200 bg-white p-4'
+      : 'mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4';
+
   return (
-    <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
-      <h3 className="text-sm font-semibold text-blue-900">Documents required</h3>
-      {store.documentRequestReason && (
-        <p className="mt-2 text-sm text-blue-800">{store.documentRequestReason}</p>
+    <div className={containerClass}>
+      <h3 className={mode === 'all' ? 'text-sm font-semibold text-slate-900' : 'text-sm font-semibold text-blue-900'}>
+        {mode === 'all' ? 'Store documents' : 'Documents required'}
+      </h3>
+      {mode === 'all' ? (
+        <p className="mt-1 text-xs text-slate-500">
+          Add or update any compliance document you skipped earlier — no admin request needed.
+        </p>
+      ) : (
+        store.documentRequestReason && (
+          <p className="mt-2 text-sm text-blue-800">{store.documentRequestReason}</p>
+        )
       )}
 
       <ul className="mt-4 space-y-2">
-        {requestedTypes.map((type) => {
+        {displayTypes.map((type) => {
           const uploaded = store.verificationDocuments.find((d) => d.documentType === type);
           return (
             <li
@@ -118,15 +147,17 @@ export function StoreDocumentsPanel({
         onChange={handleFileChange}
       />
 
-      <div className="mt-4 flex justify-end">
-        <Button
-          onClick={onSubmitDocuments}
-          loading={isSubmitting}
-          disabled={!allUploaded || isUploading}
-        >
-          Submit documents for review
-        </Button>
-      </div>
+      {mode === 'requested' && (
+        <div className="mt-4 flex justify-end">
+          <Button
+            onClick={onSubmitDocuments}
+            loading={isSubmitting}
+            disabled={!allUploaded || isUploading}
+          >
+            Submit documents for review
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

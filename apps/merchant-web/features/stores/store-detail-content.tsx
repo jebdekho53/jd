@@ -191,6 +191,25 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
         />
       )}
 
+      {store.status === 'APPROVED' && !store.merchantProfile?.isBlacklisted && (
+        <StoreDocumentsPanel
+          store={store}
+          mode="all"
+          isUploading={uploadDocMutation.isPending}
+          isSubmitting={submitDocsMutation.isPending}
+          onUpload={async (payload) => {
+            try {
+              await uploadDocMutation.mutateAsync(payload);
+              toast('Document uploaded', 'success');
+            } catch (err) {
+              toast((err as Error).message, 'error');
+              throw err;
+            }
+          }}
+          onSubmitDocuments={async () => {}}
+        />
+      )}
+
       {store.status === 'APPROVED' && (
         <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 flex items-center gap-2">
           <CheckCircle className="h-4 w-4" /> Your store is approved and live!
