@@ -8,7 +8,8 @@ import { useStoreStore } from '@/store/store-store';
 import { MerchantAddressPicker } from '@/components/google-maps/merchant-address-picker';
 import { ApiError, merchantFetch } from '@/services/api/merchant-client';
 import { useStoreQuery, useUpdateStoreMutation } from '@/hooks/use-stores';
-import { Button } from '@/design-system/primitives';
+import { Button, Input } from '@/design-system/primitives';
+import type { SelfDeliveryFeeTier } from '@/types/store';
 import {
   DUPLICATE_COVERAGE_MESSAGE,
   friendlyCoverageErrorMessage,
@@ -84,16 +85,54 @@ export function DeliveryCoverageContent() {
   }, [savedDeliveryMode, savedFreeThreshold, storeId]);
 
   const parsedThreshold = freeThreshold.trim() === '' ? null : Math.max(0, Number(freeThreshold) || 0);
+
+  // ── Self-delivery fee tiers (distance-banded, e.g. 0-3km / 3-5km / 5-9km) ──
+  const savedTiers = useMemo(() => storeDetail?.selfDeliveryFeeTiers ?? [], [storeDetail?.selfDeliveryFeeTiers]);
+  const [tierRows, setTierRows] = useState<Array<{ minKm: string; maxKm: string; fee: string }>>([]);
+  useEffect(() => {
+    setTierRows(
+      savedTiers.map((t) => ({
+        minKm: String(t.minKm),
+        maxKm: t.maxKm == null ? '' : String(t.maxKm),
+        fee: String(t.fee),
+      })),
+    );
+  }, [savedTiers, storeId]);
+
+  const parsedTiers = useMemo(
+    () =>
+      tierRows.map((t) => ({
+        minKm: Math.max(0, Number(t.minKm) || 0),
+        maxKm: t.maxKm.trim() === '' ? null : Math.max(0, Number(t.maxKm) || 0),
+        fee: Math.max(0, Number(t.fee) || 0),
+      })),
+    [tierRows],
+  );
+  const tiersDirty = JSON.stringify(parsedTiers) !== JSON.stringify(savedTiers);
+
+  const addTierRow = () => {
+    const last = tierRows[tierRows.length - 1];
+    const nextMin = last?.maxKm || '';
+    setTierRows((rows) => [...rows, { minKm: nextMin, maxKm: '', fee: '' }]);
+  };
+  const removeTierRow = (i: number) => setTierRows((rows) => rows.filter((_, idx) => idx !== i));
+  const updateTierRow = (i: number, field: 'minKm' | 'maxKm' | 'fee', value: string) =>
+    setTierRows((rows) => rows.map((row, idx) => (idx === i ? { ...row, [field]: value } : row)));
+
   const deliveryModeDirty =
-    deliveryMode !== savedDeliveryMode || parsedThreshold !== savedFreeThreshold;
+    deliveryMode !== savedDeliveryMode ||
+    parsedThreshold !== savedFreeThreshold ||
+    (deliveryMode === 'SELF' && tiersDirty);
 
   const saveDeliveryMethod = () => {
     if (!storeId) return;
     updateStoreMutation.mutate(
       {
         deliveryMode,
-        // Self-delivery is always free to the customer, so the threshold is moot.
+        // Self-delivery no longer waives the fee — the customer still pays it and
+        // it's credited to the merchant, so the free-delivery threshold is moot.
         freeDeliveryThreshold: deliveryMode === 'SELF' ? null : parsedThreshold,
+        ...(deliveryMode === 'SELF' && { selfDeliveryFeeTiers: parsedTiers }),
       },
       {
         onSuccess: () =>
@@ -307,7 +346,7 @@ export function DeliveryCoverageContent() {
             className={`rounded-lg border p-3 text-left ${deliveryMode === 'SELF' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'}`}
           >
             <p className="font-medium">Self delivery (my own rider)</p>
-            <p className="text-xs text-slate-500">You deliver with your own delivery boy. Delivery is free for the customer; JebDekho arranges nothing.</p>
+            <p className="text-xs text-slate-500">You deliver with your own delivery boy. Customer still pays the delivery fee — it's credited to you instead of going to our delivery partner.</p>
           </button>
         </div>
 
@@ -329,6 +368,58 @@ export function DeliveryCoverageContent() {
             <span className="text-xs text-slate-500">
               Above this, you absorb the ₹49 fee (customer gets free delivery).
             </span>
+          </div>
+        )}
+
+        {deliveryMode === 'SELF' && (
+          <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
+            <p className="text-sm font-medium text-slate-700">Your delivery fee by distance</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Set what you charge per distance band, e.g. 0–3 km, 3–5 km, 5–9 km. Leave empty to
+              use the platform's flat fee (₹49) instead.
+            </p>
+            <div className="mt-3 space-y-2">
+              {tierRows.map((row, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={row.minKm}
+                    onChange={(e) => updateTierRow(i, 'minKm', e.target.value)}
+                    placeholder="From (km)"
+                    className="w-28"
+                  />
+                  <span className="text-xs text-slate-400">to</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={row.maxKm}
+                    onChange={(e) => updateTierRow(i, 'maxKm', e.target.value)}
+                    placeholder="Up to (km, blank = no limit)"
+                    className="w-44"
+                  />
+                  <span className="text-xs text-slate-400">₹</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={row.fee}
+                    onChange={(e) => updateTierRow(i, 'fee', e.target.value)}
+                    placeholder="Fee"
+                    className="w-24"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeTierRow(i)}
+                    className="rounded-lg border border-red-200 px-2 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <Button type="button" variant="outline" size="sm" className="mt-3" onClick={addTierRow}>
+              <Plus className="h-3.5 w-3.5" /> Add distance band
+            </Button>
           </div>
         )}
 

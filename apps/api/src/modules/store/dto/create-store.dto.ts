@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsEmail,
@@ -16,6 +16,7 @@ import {
 import { Type } from 'class-transformer';
 import { PHONE_E164_REGEX } from '../../../common/constants';
 import { StoreHourDto } from './store-hours.dto';
+import { SelfDeliveryFeeTierDto } from './self-delivery-fee-tier.dto';
 
 export class CreateStoreDto {
   @ApiProperty({ example: 'Sharma General Store' })
@@ -122,7 +123,7 @@ export class CreateStoreDto {
   @ApiProperty({
     required: false,
     enum: ['PLATFORM', 'SELF'],
-    description: 'Delivery fulfilment: PLATFORM (JebDekho arranges) or SELF (own rider, free to customer)',
+    description: 'Delivery fulfilment: PLATFORM (JebDekho arranges) or SELF (own rider — customer still pays the fee, credited to the merchant)',
   })
   @IsOptional()
   @IsIn(['PLATFORM', 'SELF'])
@@ -137,6 +138,16 @@ export class CreateStoreDto {
   @IsNumber()
   @Min(0)
   freeDeliveryThreshold?: number | null;
+
+  @ApiPropertyOptional({
+    type: [SelfDeliveryFeeTierDto],
+    description: 'Self-delivery only: distance-banded fee schedule for the merchant\'s own rider. Empty/omitted = flat platform fee.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SelfDeliveryFeeTierDto)
+  selfDeliveryFeeTiers?: SelfDeliveryFeeTierDto[];
 
   @ApiProperty({ required: false, type: [String], description: 'Zone IDs to serve' })
   @IsOptional()

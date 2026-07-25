@@ -29,9 +29,13 @@ import { InitiateCheckoutDto } from './dto/initiate-checkout.dto';
 import { StorePromotionService } from '../promotion/store-promotion.service';
 import { ConfigService } from '@nestjs/config';
 import { GeospatialService } from '../geospatial/geospatial.service';
-import { isValidCoordinate } from '../../common/utils/delivery-eta.util';
+import { isValidCoordinate, safeDistanceKm } from '../../common/utils/delivery-eta.util';
 import { getConfig } from '../../config/configuration';
-import { resolveDeliveryPricing, type DeliveryMode } from '../../common/utils/delivery-pricing.util';
+import {
+  resolveDeliveryPricing,
+  type DeliveryMode,
+  type SelfDeliveryFeeTier,
+} from '../../common/utils/delivery-pricing.util';
 import { WalletLoyaltyCheckoutService } from '../wallet-loyalty/wallet-loyalty-checkout.service';
 import { ReferralService } from '../wallet-loyalty/referral.service';
 import { WalletService } from '../wallet-loyalty/wallet.service';
@@ -596,12 +600,22 @@ export class CheckoutService {
     const gmvImpact = totals.grandTotal ?? 0;
 
     // Resolve delivery fulfilment + who bears the fee, frozen onto the order so
-    // payout stays correct (self = free; platform = flat fee, merchant absorbs
-    // it above their free-delivery threshold).
+    // payout stays correct (self = merchant's own distance tiers or flat fee;
+    // platform = flat fee, merchant absorbs it above their free-delivery threshold).
     const deliveryStore = await this.prisma.store.findUnique({
       where: { id: cart.storeId },
-      select: { deliveryMode: true, freeDeliveryThreshold: true },
+      select: {
+        deliveryMode: true,
+        freeDeliveryThreshold: true,
+        selfDeliveryFeeTiers: true,
+        latitude: true,
+        longitude: true,
+      },
     });
+    const checkoutDistanceKm =
+      deliveryStore?.deliveryMode === 'SELF'
+        ? safeDistanceKm(deliveryStore.latitude, deliveryStore.longitude, deliveryLat, deliveryLng)
+        : null;
     const deliveryPricing = resolveDeliveryPricing({
       deliveryMode: (deliveryStore?.deliveryMode ?? 'PLATFORM') as DeliveryMode,
       subtotal: totals.subtotal ?? 0,
@@ -610,6 +624,8 @@ export class CheckoutService {
           ? Number(deliveryStore.freeDeliveryThreshold)
           : null,
       platformFee: getConfig(this.config).delivery.platformFeeRupees,
+      selfDeliveryFeeTiers: deliveryStore?.selfDeliveryFeeTiers as SelfDeliveryFeeTier[] | null,
+      distanceKm: checkoutDistanceKm,
     });
 
     const pmBase = paymentMethodInput === PaymentMethod.COD ? 'COD' : 'RAZORPAY';

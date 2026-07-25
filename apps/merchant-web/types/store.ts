@@ -7,6 +7,14 @@ export type StoreStatus =
   | 'REJECTED'
   | 'SUSPENDED';
 
+/** Self-delivery only: one distance band of the merchant's own fee schedule. */
+export interface SelfDeliveryFeeTier {
+  minKm: number;
+  /** null = open-ended (farthest band). */
+  maxKm: number | null;
+  fee: number;
+}
+
 export type StoreDocumentType =
   | 'GST_CERTIFICATE'
   | 'PAN_CARD'
@@ -74,6 +82,7 @@ export interface Store {
   deliveryRadiusKm: number;
   deliveryMode: 'PLATFORM' | 'SELF';
   freeDeliveryThreshold: number | null;
+  selfDeliveryFeeTiers: SelfDeliveryFeeTier[] | null;
   rejectionReason: string | null;
   rejectionType: RejectionType | null;
   documentRequestReason: string | null;
@@ -120,6 +129,7 @@ export interface UpdateStorePayload extends Partial<CreateStorePayload> {
   hours?: StoreHour[];
   deliveryMode?: 'PLATFORM' | 'SELF';
   freeDeliveryThreshold?: number | null;
+  selfDeliveryFeeTiers?: SelfDeliveryFeeTier[];
 }
 
 export interface UploadVerificationDocumentPayload {

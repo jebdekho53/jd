@@ -1584,11 +1584,16 @@ model Store {
   requestedDocumentTypes Json?             @map("requested_document_types")
   minOrderAmount         Decimal           @default(0) @map("min_order_amount") @db.Decimal(10, 2)
   deliveryFee            Decimal           @default(0) @map("delivery_fee") @db.Decimal(10, 2)
-  // Delivery fulfilment: PLATFORM (JebDekho arranges) or SELF (merchant's own rider, free to customer).
+  // Delivery fulfilment: PLATFORM (JebDekho arranges) or SELF (merchant's own rider —
+  // customer still pays the delivery fee, credited to the merchant instead of Shadowfax).
   deliveryMode           StoreDeliveryMode @default(PLATFORM) @map("delivery_mode")
   // Merchant-set: order subtotal at/above which the merchant gives free delivery
   // (merchant absorbs the platform delivery fee). null = no free-delivery offer.
   freeDeliveryThreshold  Decimal?          @map("free_delivery_threshold") @db.Decimal(10, 2)
+  // Self-delivery only: distance-banded fee the merchant sets for their own rider,
+  // e.g. [{minKm:0,maxKm:3,fee:20},{minKm:3,maxKm:5,fee:35},{minKm:5,maxKm:null,fee:50}].
+  // null/empty = fall back to the flat platform fee. Ignored in PLATFORM mode.
+  selfDeliveryFeeTiers   Json?             @map("self_delivery_fee_tiers")
   avgPrepTimeMins        Int               @default(15) @map("avg_prep_time_mins")
   ratingAvg              Float             @default(0) @map("rating_avg")
   ratingCount            Int               @default(0) @map("rating_count")

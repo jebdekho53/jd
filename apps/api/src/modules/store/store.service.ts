@@ -31,7 +31,7 @@ const APPROVED_STORE_EDITABLE_FIELDS: Array<keyof UpdateStoreDto> = [
   'description', 'phone', 'email',
   'logoUrl', 'bannerUrl',
   'minOrderAmount', 'deliveryFee', 'avgPrepTimeMins', 'deliveryRadiusKm',
-  'deliveryMode', 'freeDeliveryThreshold',
+  'deliveryMode', 'freeDeliveryThreshold', 'selfDeliveryFeeTiers',
   'hours', 'zoneIds', 'serviceAreaIds',
 ];
 
@@ -408,6 +408,9 @@ export class StoreService {
           ...(dto.freeDeliveryThreshold !== undefined && {
             freeDeliveryThreshold: dto.freeDeliveryThreshold,
           }),
+          ...(dto.selfDeliveryFeeTiers !== undefined && {
+            selfDeliveryFeeTiers: dto.selfDeliveryFeeTiers as unknown as Prisma.InputJsonValue,
+          }),
         },
       });
 
@@ -467,7 +470,11 @@ export class StoreService {
 
     // Delivery-mode / free-delivery-threshold changes affect the cart delivery
     // fee, so refresh any cached carts for this store immediately.
-    if (dto.deliveryMode !== undefined || dto.freeDeliveryThreshold !== undefined) {
+    if (
+      dto.deliveryMode !== undefined ||
+      dto.freeDeliveryThreshold !== undefined ||
+      dto.selfDeliveryFeeTiers !== undefined
+    ) {
       void this.cartService.invalidateStoreCarts(storeId);
     }
 

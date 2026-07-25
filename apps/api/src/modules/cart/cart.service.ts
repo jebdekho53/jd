@@ -12,7 +12,12 @@ import { ConfigService } from '@nestjs/config';
 import { DomainEventType, Prisma, StoreStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { getConfig } from '../../config/configuration';
-import { resolveDeliveryPricing, type DeliveryMode } from '../../common/utils/delivery-pricing.util';
+import {
+  resolveDeliveryPricing,
+  type DeliveryMode,
+  type SelfDeliveryFeeTier,
+} from '../../common/utils/delivery-pricing.util';
+import { safeDistanceKm } from '../../common/utils/delivery-eta.util';
 import { AuditService } from '../audit/audit.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { CartCacheService } from './cart-cache.service';
@@ -447,6 +452,9 @@ export class CartService {
             minOrderAmount: true,
             deliveryMode: true,
             freeDeliveryThreshold: true,
+            selfDeliveryFeeTiers: true,
+            latitude: true,
+            longitude: true,
           },
         },
         items: {
@@ -541,17 +549,37 @@ export class CartService {
 
     const catalogSavings = items.reduce((sum, i) => sum + i.savings, 0);
 
-    // Delivery fee (self = free, platform = flat fee, free above merchant threshold).
+    // Delivery fee (self = merchant's own distance tiers or flat fee; platform =
+    // flat fee, free above merchant threshold). Distance uses the buyer's default
+    // address as a preview estimate — checkout uses the actually-chosen address.
     const goodsSubtotal = cart.items.reduce(
       (sum, item) => sum + Number(item.variant.price) * item.quantity,
       0,
     );
+    let previewDistanceKm: number | null = null;
+    if (cart.store.deliveryMode === 'SELF') {
+      const defaultAddress = await this.prisma.address.findFirst({
+        where: { buyerProfileId },
+        orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
+        select: { latitude: true, longitude: true },
+      });
+      if (defaultAddress) {
+        previewDistanceKm = safeDistanceKm(
+          cart.store.latitude,
+          cart.store.longitude,
+          defaultAddress.latitude,
+          defaultAddress.longitude,
+        );
+      }
+    }
     const deliveryPricing = resolveDeliveryPricing({
       deliveryMode: cart.store.deliveryMode as DeliveryMode,
       subtotal: goodsSubtotal,
       freeDeliveryThreshold:
         cart.store.freeDeliveryThreshold != null ? Number(cart.store.freeDeliveryThreshold) : null,
       platformFee: this.platformDeliveryFee,
+      selfDeliveryFeeTiers: cart.store.selfDeliveryFeeTiers as SelfDeliveryFeeTier[] | null,
+      distanceKm: previewDistanceKm,
     });
     const baseDeliveryFee = deliveryPricing.customerDeliveryFee;
 

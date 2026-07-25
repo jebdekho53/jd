@@ -4,10 +4,12 @@
  * platform margin never disagree.
  *
  * Model (agreed):
- *  - SELF delivery      → customer pays the same flat fee as PLATFORM would;
- *                         that fee is credited to the MERCHANT (they're doing
- *                         the delivery work Shadowfax would otherwise be paid
- *                         for), and the platform earns no delivery revenue on it.
+ *  - SELF delivery      → customer pays the merchant's own distance-banded fee
+ *                         (selfDeliveryFeeTiers) if configured, else the flat
+ *                         platform fee. That fee is credited to the MERCHANT
+ *                         (they're doing the delivery work Shadowfax would
+ *                         otherwise be paid for), and the platform earns no
+ *                         delivery revenue on it.
  *  - PLATFORM, below the merchant's free-delivery threshold → customer pays the
  *                         flat platform fee.
  *  - PLATFORM, at/above the threshold → free to the customer; the MERCHANT
@@ -22,6 +24,36 @@
 
 export type DeliveryMode = 'PLATFORM' | 'SELF';
 
+/** One distance band of a merchant's self-delivery fee schedule. */
+export interface SelfDeliveryFeeTier {
+  /** Inclusive lower bound in km. */
+  minKm: number;
+  /** Exclusive upper bound in km; null = open-ended (the farthest tier). */
+  maxKm: number | null;
+  /** Fee in rupees for a delivery whose distance falls in this band. */
+  fee: number;
+}
+
+/**
+ * Fee for a self-delivery order at the given distance: the matching tier if
+ * one covers it, else the farthest tier's fee (rather than silently falling
+ * back to the flat platform fee, which is likely cheaper than the merchant's
+ * real long-distance cost), else the flat fallback when no tiers are set or
+ * the distance is unknown.
+ */
+export function resolveSelfDeliveryFee(
+  tiers: SelfDeliveryFeeTier[] | null | undefined,
+  distanceKm: number | null | undefined,
+  fallbackFee: number,
+): number {
+  if (!tiers?.length || distanceKm == null) return Math.max(0, fallbackFee);
+  const sorted = [...tiers].sort((a, b) => a.minKm - b.minKm);
+  const match = sorted.find(
+    (t) => distanceKm >= t.minKm && (t.maxKm == null || distanceKm < t.maxKm),
+  );
+  return Math.max(0, match ? match.fee : sorted[sorted.length - 1].fee);
+}
+
 export interface DeliveryPricingInput {
   deliveryMode: DeliveryMode;
   /** Order subtotal (goods value) used to test the free-delivery threshold. */
@@ -30,6 +62,10 @@ export interface DeliveryPricingInput {
   freeDeliveryThreshold?: number | null;
   /** Flat platform delivery fee (GST-inclusive), in rupees. */
   platformFee: number;
+  /** Store's own distance-banded self-delivery fee schedule, if configured. */
+  selfDeliveryFeeTiers?: SelfDeliveryFeeTier[] | null;
+  /** Straight-line/road distance store→delivery address in km, when known. */
+  distanceKm?: number | null;
 }
 
 export interface DeliveryPricing {
@@ -46,7 +82,11 @@ export interface DeliveryPricing {
 
 export function resolveDeliveryPricing(input: DeliveryPricingInput): DeliveryPricing {
   if (input.deliveryMode === 'SELF') {
-    const fee = Math.max(0, input.platformFee);
+    const fee = resolveSelfDeliveryFee(
+      input.selfDeliveryFeeTiers,
+      input.distanceKm,
+      input.platformFee,
+    );
     return {
       deliveryMode: 'SELF',
       customerDeliveryFee: fee,
