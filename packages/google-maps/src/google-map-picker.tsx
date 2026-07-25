@@ -58,6 +58,20 @@ export function GoogleMapPicker({
   const onPositionChangeRef = useRef(onPositionChange);
   onPositionChangeRef.current = onPositionChange;
 
+  // Set right before a click/drag on the map itself reports a new position —
+  // that point is by definition already visible, so the recenter effect below
+  // must skip panning for it. Without this, panTo() re-centers the map on
+  // every position change, which pulls a just-dragged pin right back toward
+  // the viewport centre and reads as "drag doesn't work" even though the
+  // coordinate did update. Recentering is still wanted for externally-driven
+  // changes (search selection, GPS, initial load) that may be off-screen.
+  const skipNextRecenterRef = useRef(false);
+
+  const handleInternalPositionChange = (nextPosition: MapPickerPosition) => {
+    skipNextRecenterRef.current = true;
+    onPositionChangeRef.current(nextPosition);
+  };
+
   const center = useMemo(
     () =>
       position.lat && position.lng
@@ -69,6 +83,11 @@ export function GoogleMapPicker({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+
+    if (skipNextRecenterRef.current) {
+      skipNextRecenterRef.current = false;
+      return;
+    }
 
     if (viewport) {
       const bounds = new google.maps.LatLngBounds(
@@ -135,7 +154,7 @@ export function GoogleMapPicker({
           }}
           onClick={(event) => {
             if (disabled || !event.latLng) return;
-            onPositionChangeRef.current({
+            handleInternalPositionChange({
               lat: event.latLng.lat(),
               lng: event.latLng.lng(),
             });
@@ -147,7 +166,7 @@ export function GoogleMapPicker({
             draggable={!disabled}
             title={address || 'Selected location'}
             color="#16a34a"
-            onDragEnd={(nextPosition) => onPositionChangeRef.current(nextPosition)}
+            onDragEnd={handleInternalPositionChange}
           />
         </GoogleMap>
 
