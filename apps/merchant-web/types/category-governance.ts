@@ -30,6 +30,8 @@ export interface CatalogNode {
   imageUrl?: string | null;
   catalogKind?: CategoryCatalogKind;
   requestStatus: StoreCategoryRequestStatus | null;
+  /** Platform commission % that applies once this category is approved. */
+  commissionPercent: number;
   children: CatalogNode[];
 }
 

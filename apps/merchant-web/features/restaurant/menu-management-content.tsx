@@ -287,6 +287,7 @@ function CategoriesPanel({
       id: child.id,
       label: `${parent.name} → ${child.name}`,
       platformName: child.name,
+      commissionPercent: child.commissionPercent,
     })),
   );
   const usedPlatformIds = new Set(
@@ -339,9 +340,14 @@ function CategoriesPanel({
               >
                 <option value="">Select subcategory…</option>
                 {availableOptions.map((o) => (
-                  <option key={o.id} value={o.id}>{o.label}</option>
+                  <option key={o.id} value={o.id}>{o.label} — {o.commissionPercent}% commission</option>
                 ))}
               </Select>
+              {selected && (
+                <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700">
+                  Platform commission for <strong>{selected.platformName}</strong>: <strong>{selected.commissionPercent}%</strong>
+                </p>
+              )}
               <Input
                 label="Display name (optional)"
                 value={name}

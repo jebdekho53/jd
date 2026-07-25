@@ -7,6 +7,7 @@ import {
   CreateCommissionRuleDto,
   UpdateCommissionRuleDto,
 } from './dto/commission-rule.dto';
+import { getEffectiveCategoryCommissionMap } from './commission-lookup.util';
 
 export interface CommissionResolution {
   commissionPercent: number;
@@ -28,6 +29,17 @@ export class FinanceCommissionService {
   readonly defaultCommissionPercent = DEFAULT_COMMISSION;
 
   // ── Admin: manage commission rules ─────────────────────────────────────────
+
+  /**
+   * Effective commission % per categoryId — the CATEGORY rule if one is
+   * active, else the active GLOBAL rule, else the hardcoded platform default.
+   * Used to show merchants what commission applies before/while they sell in
+   * a category (category browse/apply tree, product-add forms) — display
+   * only, order-time resolution still goes through resolveForOrder().
+   */
+  async getEffectiveCategoryCommissionMap(categoryIds: string[]): Promise<Map<string, number>> {
+    return getEffectiveCategoryCommissionMap(this.prisma, categoryIds);
+  }
 
   /** Searchable store picker for the commission-rule admin UI (avoids raw ID entry). */
   async searchStores(q: string) {

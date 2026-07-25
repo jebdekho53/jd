@@ -7,6 +7,7 @@ export interface CategoryNode {
   id: string;
   name: string;
   children?: CategoryNode[] | null;
+  commissionPercent?: number;
 }
 
 /** Labels per level; anything deeper falls back to the last one. */
@@ -98,10 +99,17 @@ export function CategoryCascadeSelect({ categories, value, onChange, error, disa
           {level.options.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
+              {typeof c.commissionPercent === 'number' ? ` — ${c.commissionPercent}% commission` : ''}
             </option>
           ))}
         </Select>
       ))}
+      {path.length > 0 && typeof path[path.length - 1].commissionPercent === 'number' && (
+        <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700">
+          Platform commission for <strong>{path[path.length - 1].name}</strong>:{' '}
+          <strong>{path[path.length - 1].commissionPercent}%</strong>
+        </p>
+      )}
     </div>
   );
 }

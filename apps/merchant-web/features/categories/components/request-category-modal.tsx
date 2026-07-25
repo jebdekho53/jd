@@ -81,7 +81,7 @@ export function RequestCategoryModal({ open, catalog, loading, onClose, onSubmit
                 const locked = n.requestStatus === 'APPROVED' || n.requestStatus === 'PENDING';
                 return (
                   <option key={n.id} value={n.id} disabled={locked}>
-                    {n.name}
+                    {n.name} — {n.commissionPercent}% commission
                     {n.children.length > 0 ? ' ›' : ''}
                     {n.requestStatus === 'APPROVED' ? ' (approved)' : ''}
                     {n.requestStatus === 'PENDING' ? ' (pending)' : ''}
@@ -95,6 +95,8 @@ export function RequestCategoryModal({ open, catalog, loading, onClose, onSubmit
         {selectedId && (
           <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700">
             Requesting: <strong>{buildPathLabel(catalog, path)}</strong>
+            {' — '}
+            <strong>{findNode(catalog, selectedId)?.commissionPercent}% platform commission</strong> applies once approved.
           </p>
         )}
 
@@ -107,6 +109,16 @@ export function RequestCategoryModal({ open, catalog, loading, onClose, onSubmit
       </div>
     </Modal>
   );
+}
+
+/** Find a node anywhere in the tree by id (depth-first). */
+function findNode(catalog: CatalogNode[], id: string): CatalogNode | undefined {
+  for (const node of catalog) {
+    if (node.id === id) return node;
+    const hit = findNode(node.children, id);
+    if (hit) return hit;
+  }
+  return undefined;
 }
 
 /** Human-readable "Root › … › Selected" from the chosen id path. */

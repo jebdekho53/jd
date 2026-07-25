@@ -6,6 +6,10 @@ import {
   StoreCategoryRequestStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import {
+  DEFAULT_COMMISSION_PERCENT,
+  getEffectiveCategoryCommissionMap,
+} from '../finance/commission-lookup.util';
 
 export type ApprovedCategoryTree = {
   id: string;
@@ -15,6 +19,9 @@ export type ApprovedCategoryTree = {
   icon: string | null;
   parentId: string | null;
   sortOrder: number;
+  /** Platform commission % for this category — shown to merchants while adding
+   *  products/menu items so the cost of selling here is never a surprise. */
+  commissionPercent: number;
   children: ApprovedCategoryTree[];
 };
 
@@ -229,7 +236,14 @@ export class StoreCategoryAccessService {
       select: { id: true, name: true, slug: true, imageUrl: true, icon: true, parentId: true, sortOrder: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
-    const map = new Map<string, ApprovedCategoryTree>(all.map((c) => [c.id, { ...c, children: [] }]));
+    const commissionById = await getEffectiveCategoryCommissionMap(this.prisma, all.map((c) => c.id));
+    const map = new Map<string, ApprovedCategoryTree>(
+      all.map((c) => [c.id, {
+        ...c,
+        commissionPercent: commissionById.get(c.id) ?? DEFAULT_COMMISSION_PERCENT,
+        children: [],
+      }]),
+    );
     for (const node of map.values()) {
       const parent = node.parentId ? map.get(node.parentId) : null;
       if (parent) parent.children.push(node);

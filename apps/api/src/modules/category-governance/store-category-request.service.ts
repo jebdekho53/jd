@@ -28,6 +28,10 @@ import { assertTrustedUploadUrl } from '../../common/utils/trusted-upload-url.ut
 import { uploadPublicBases } from '../../common/utils/asset-url.util';
 import { resolveStoreCatalogKind } from './utils/catalog-kind.util';
 import { VerticalService } from '../store-vertical/vertical.service';
+import {
+  DEFAULT_COMMISSION_PERCENT,
+  getEffectiveCategoryCommissionMap,
+} from '../finance/commission-lookup.util';
 
 /** A node of the drill-down catalog tree returned to the merchant (any depth). */
 export type CategoryTreeNode = {
@@ -38,6 +42,9 @@ export type CategoryTreeNode = {
   sortOrder: number;
   icon: string | null;
   requestStatus: StoreCategoryRequestStatus | null;
+  /** Platform commission % that will apply if this category is approved — shown
+   *  so a merchant knows the cost of selling here before/while they request access. */
+  commissionPercent: number;
   children: CategoryTreeNode[];
 };
 
@@ -94,11 +101,13 @@ export class StoreCategoryRequestService {
     approved.forEach((a) => { approvedIds.add(a.subcategoryId); approvedIds.add(a.categoryId); });
     const statusById = new Map<string, StoreCategoryRequestStatus>();
     requests.forEach((r) => { if (!statusById.has(r.subcategoryId)) statusById.set(r.subcategoryId, r.status); });
+    const commissionById = await getEffectiveCategoryCommissionMap(this.prisma, all.map((c) => c.id));
 
     const nodeMap = new Map<string, CategoryTreeNode>(
       all.map((c) => [c.id, {
         ...c,
         requestStatus: approvedIds.has(c.id) ? StoreCategoryRequestStatus.APPROVED : (statusById.get(c.id) ?? null),
+        commissionPercent: commissionById.get(c.id) ?? DEFAULT_COMMISSION_PERCENT,
         children: [],
       }]),
     );
