@@ -68,6 +68,16 @@ export class MerchantOnboardingController {
 
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
+  @Post('application/check-delivery-serviceability')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Check Shadowfax same-day serviceability for the store pincode' })
+  async checkDeliveryServiceability(@CurrentUser() user: RequestUser) {
+    const data = await this.onboarding.checkDeliveryServiceability(user.id);
+    return { success: true, data };
+  }
+
+  @ApiBearerAuth('access-token')
+  @UseGuards(JwtAuthGuard)
   @Patch('application')
   async updateStep(
     @CurrentUser() user: RequestUser,

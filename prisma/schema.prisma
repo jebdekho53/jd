@@ -896,6 +896,14 @@ model MerchantApplication {
   latitude                 Float?
   longitude                Float?
   deliveryRadiusKm         Float?                    @map("delivery_radius_km")
+  // How this store will fulfil delivery, defaulted from the Shadowfax same-day
+  // serviceability check below and overridable by the merchant during onboarding.
+  deliveryMode             StoreDeliveryMode         @default(PLATFORM) @map("delivery_mode")
+  // Result of the last automated Shadowfax same-day serviceability check for this
+  // application's pincode. null = never checked or the check errored (unknown,
+  // not "unserviceable") — do not treat null as false.
+  shadowfaxServiceable     Boolean?                  @map("shadowfax_serviceable")
+  shadowfaxCheckedAt       DateTime?                 @map("shadowfax_checked_at")
   storeLogoUrl             String?                   @map("store_logo_url") @db.Text
   storeBannerUrl           String?                   @map("store_banner_url") @db.Text
   // Owner's photo for the shareable marketing card (distinct from the store logo).

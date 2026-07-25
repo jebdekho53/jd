@@ -17,6 +17,7 @@ import {
   Prisma,
   RejectionType,
   StoreBusinessTypeStatus,
+  StoreDeliveryMode,
   StoreDocumentType,
   StoreStatus,
   SupportActorType,
@@ -54,6 +55,7 @@ import { GeoService } from '../geo/geo.service';
 import { GeocodingCacheService } from '../geocoding/geocoding-cache.service';
 import { VerticalService } from '../store-vertical/vertical.service';
 import { FranchiseService } from '../franchise/franchise.service';
+import { ShadowfaxClient } from '../logistics/providers/shadowfax/shadowfax.client';
 
 const DOC_TO_STORE: Partial<Record<MerchantDocumentType, StoreDocumentType>> = {
   GST_CERTIFICATE: StoreDocumentType.GST_CERTIFICATE,
@@ -150,6 +152,7 @@ export class MerchantOnboardingService {
     private readonly geocoding: GeocodingCacheService,
     private readonly verticalService: VerticalService,
     private readonly franchiseService: FranchiseService,
+    private readonly shadowfax: ShadowfaxClient,
   ) {}
 
   async getPublicStats() {
@@ -528,6 +531,61 @@ export class MerchantOnboardingService {
     };
   }
 
+  /**
+   * Checks whether Shadowfax can arrange same-day pickup/drop for this
+   * merchant's store pincode. Works off the latest application regardless of
+   * status (not just DRAFT) so it can be re-run after submission/approval —
+   * but only auto-defaults deliveryMode to SELF while the application is still
+   * editable (DRAFT/REJECTED); a submitted/approved merchant's live delivery
+   * mode is never silently flipped by this check. A failed/unreachable check
+   * leaves shadowfaxServiceable null and deliveryMode untouched — an infra
+   * error is not evidence of unserviceability.
+   */
+  async checkDeliveryServiceability(userId: string) {
+    const app = await this.prisma.merchantApplication.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!app) throw new NotFoundException('No application found. Start onboarding first.');
+    const pincode = this.getPickupAddress(app.pickupAddress)?.pincode ?? app.pincode;
+    if (!pincode) {
+      throw new BadRequestException('Save your store location before checking delivery serviceability');
+    }
+
+    let serviceable: boolean | null = null;
+    let message: string;
+    try {
+      const result = await this.shadowfax.checkServiceability(pincode);
+      serviceable = result.serviceable;
+      message = serviceable
+        ? 'Same-day delivery is available in your area — JebDekho can arrange pickup and drop.'
+        : "Same-day delivery isn't available in your area yet. You'll need to deliver orders yourself.";
+    } catch (err) {
+      this.logger.warn(
+        `Shadowfax serviceability check failed for pincode ${pincode}: ${err instanceof Error ? err.message : err}`,
+      );
+      message = 'Could not verify automatically right now. Choose how you will deliver orders.';
+    }
+
+    const isEditable =
+      app.status === MerchantApplicationStatus.DRAFT || app.status === MerchantApplicationStatus.REJECTED;
+
+    const updated = await this.prisma.merchantApplication.update({
+      where: { id: app.id },
+      data: {
+        shadowfaxServiceable: serviceable,
+        shadowfaxCheckedAt: new Date(),
+        ...(isEditable && serviceable === false ? { deliveryMode: StoreDeliveryMode.SELF } : {}),
+      },
+    });
+
+    return {
+      serviceable,
+      message,
+      deliveryMode: updated.deliveryMode,
+    };
+  }
+
   async updateStep(userId: string, dto: UpdateOnboardingStepDto, ipAddress?: string) {
     await this.getOrCreateApplication(userId);
     const app = await this.requireDraftApplication(userId);
@@ -581,6 +639,7 @@ export class MerchantOnboardingService {
     if (dto.latitude !== undefined) data.latitude = dto.latitude;
     if (dto.longitude !== undefined) data.longitude = dto.longitude;
     if (deliveryRadiusKm !== undefined) data.deliveryRadiusKm = deliveryRadiusKm;
+    if (dto.deliveryMode) data.deliveryMode = dto.deliveryMode;
     if (dto.storeLogoUrl) data.storeLogoUrl = dto.storeLogoUrl;
     if (dto.storeBannerUrl) data.storeBannerUrl = dto.storeBannerUrl;
     if (dto.ownerPhotoUrl) data.ownerPhotoUrl = dto.ownerPhotoUrl;
@@ -813,10 +872,13 @@ export class MerchantOnboardingService {
       const store = await this.storeService.createStore(userId, storeDto, ipAddress);
       storeId = store.id;
 
-      if (app.deliveryRadiusKm) {
+      if (app.deliveryRadiusKm || app.deliveryMode) {
         await this.prisma.store.update({
           where: { id: storeId },
-          data: { deliveryRadiusKm: app.deliveryRadiusKm },
+          data: {
+            ...(app.deliveryRadiusKm ? { deliveryRadiusKm: app.deliveryRadiusKm } : {}),
+            deliveryMode: app.deliveryMode,
+          },
         });
       }
 
@@ -1509,6 +1571,9 @@ export class MerchantOnboardingService {
       latitude: app.latitude,
       longitude: app.longitude,
       deliveryRadiusKm: app.deliveryRadiusKm,
+      deliveryMode: app.deliveryMode,
+      shadowfaxServiceable: app.shadowfaxServiceable,
+      shadowfaxCheckedAt: app.shadowfaxCheckedAt,
       storeLogoUrl: app.storeLogoUrl,
       storeBannerUrl: app.storeBannerUrl,
       deliveryCoveragePincodes: app.deliveryCoveragePincodes,

@@ -204,6 +204,51 @@ export class ShadowfaxClient {
     return this.request('GET', this.daleServiceabilityPath(payload.pincode));
   }
 
+  /**
+   * Pincode-level serviceability check used by merchant onboarding to decide
+   * whether Shadowfax can arrange same-day pickup/drop for a new store, or
+   * whether the merchant must be defaulted to self-delivery. Only meaningful
+   * in the Dale API modes (the only mode this deployment's SHADOWFAX_API_URL
+   * currently resolves); other modes need a lat/lng-based check we don't yet
+   * have a configured endpoint for.
+   */
+  async checkServiceability(pincode: string): Promise<{ serviceable: boolean; raw: unknown }> {
+    if (
+      this.apiMode === 'legacy' ||
+      this.apiMode === 'hl_staging' ||
+      this.apiMode === 'flash'
+    ) {
+      throw new LogisticsProviderError(
+        `Pincode serviceability check is not supported for Shadowfax API mode "${this.apiMode}"`,
+        DeliveryProviderType.SHADOWFAX,
+        'UNSUPPORTED_MODE',
+        false,
+      );
+    }
+    const raw = await this.request('GET', this.daleServiceabilityPath(pincode));
+    return { serviceable: this.parseDaleServiceability(raw, pincode), raw };
+  }
+
+  private parseDaleServiceability(raw: unknown, pincode: string): boolean {
+    const rows = Array.isArray(raw)
+      ? raw
+      : Array.isArray((raw as Record<string, unknown> | undefined)?.data)
+        ? ((raw as Record<string, unknown>).data as unknown[])
+        : Array.isArray((raw as Record<string, unknown> | undefined)?.results)
+          ? ((raw as Record<string, unknown>).results as unknown[])
+          : [];
+    const target = String(pincode).trim();
+    return rows.some((row) => {
+      if (!row || typeof row !== 'object') return false;
+      const r = row as Record<string, unknown>;
+      const code = r.code ?? r.pincode;
+      const services = r.services ?? r.service_types;
+      const matchesPincode = code == null || String(code).trim() === target;
+      const hasServices = Array.isArray(services) ? services.length > 0 : Boolean(services);
+      return matchesPincode && hasServices;
+    });
+  }
+
   async healthCheck(): Promise<{ healthy: boolean; latencyMs: number; message?: string }> {
     const started = Date.now();
     if (!this.isConfigured()) {

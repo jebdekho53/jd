@@ -20,6 +20,7 @@ import {
   fetchApplication,
   resolveStoreLocation,
   postAttribution,
+  checkDeliveryServiceability,
 } from '@/services/onboarding/onboarding-api';
 import { captureAttributionFromUrl, getStoredAttribution } from '@/lib/analytics/attribution';
 import type { VerifyOtpResult } from '@/types/auth';
@@ -220,6 +221,8 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
   const [contactPhone, setContactPhone] = useState('');
   const [saving, setSaving] = useState(false);
   const [resolvingLocation, setResolvingLocation] = useState(false);
+  const [checkingServiceability, setCheckingServiceability] = useState(false);
+  const [serviceabilityMessage, setServiceabilityMessage] = useState('');
   const [declarationAccepted, setDeclarationAccepted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [uploadedDocs, setUploadedDocs] = useState<Set<string>>(new Set());
@@ -265,6 +268,8 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
     longitude: null as number | null,
     deliveryRadiusKm: 5,
     deliveryCoverageInput: '',
+    deliveryMode: 'PLATFORM' as 'PLATFORM' | 'SELF',
+    shadowfaxServiceable: null as boolean | null,
     preferredCategories: [] as string[],
     storeLogoUrl: '',
     storeBannerUrl: '',
@@ -383,6 +388,8 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       latitude: pickup?.latitude ?? app.latitude ?? f.latitude,
       longitude: pickup?.longitude ?? app.longitude ?? f.longitude,
       deliveryRadiusKm: app.deliveryRadiusKm ?? f.deliveryRadiusKm,
+      deliveryMode: (app.deliveryMode as 'PLATFORM' | 'SELF' | undefined) ?? f.deliveryMode,
+      shadowfaxServiceable: app.shadowfaxServiceable ?? f.shadowfaxServiceable,
       deliveryCoverageInput: Array.isArray(app.deliveryCoveragePincodes)
         ? (app.deliveryCoveragePincodes as string[]).filter((p) => p !== app.pincode).join(', ')
         : f.deliveryCoverageInput,
@@ -467,6 +474,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       storeBannerUrl: form.storeBannerUrl || undefined,
       ownerPhotoUrl: form.ownerPhotoUrl || undefined,
       deliveryRadiusKm: form.deliveryRadiusKm,
+      deliveryMode: form.deliveryMode,
       locality: form.locality.trim() || undefined,
       state: form.state.trim() || undefined,
       city: (city?.name ?? form.operationalCityName ?? form.city) || undefined,
@@ -694,6 +702,27 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
     }
   };
 
+  const handleCheckServiceability = async () => {
+    if (!form.pincode.trim()) {
+      toast('Save your store location first', 'error');
+      return;
+    }
+    setCheckingServiceability(true);
+    try {
+      const result = await checkDeliveryServiceability();
+      setForm((f) => ({
+        ...f,
+        shadowfaxServiceable: result.serviceable,
+        deliveryMode: result.deliveryMode,
+      }));
+      setServiceabilityMessage(result.message);
+    } catch (e) {
+      handleStepError(e);
+    } finally {
+      setCheckingServiceability(false);
+    }
+  };
+
   const saveStoreDetails = async () => {
     const pickupIssues = getPickupAddressIssues();
     if (
@@ -737,6 +766,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
         latitude: form.latitude,
         longitude: form.longitude,
         deliveryRadiusKm: form.deliveryRadiusKm,
+        deliveryMode: form.deliveryMode,
         deliveryCoveragePincodes: [
           ...new Set([
             form.pincode.trim(),
@@ -1468,6 +1498,67 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                     <p className="mt-1 text-xs text-red-600">{fieldErrors.deliveryCoverage}</p>
                   )}
                 </div>
+
+                <div className="rounded-lg border border-slate-200 p-4">
+                  <p className="text-sm font-medium text-slate-800">Same-day delivery</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Check whether JebDekho can arrange same-day pickup &amp; drop for your store, or whether you&apos;ll deliver orders yourself.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="mt-3"
+                    disabled={checkingServiceability}
+                    onClick={handleCheckServiceability}
+                  >
+                    {checkingServiceability ? <Spinner className="h-4 w-4" /> : 'Check same-day delivery availability'}
+                  </Button>
+
+                  {serviceabilityMessage && (
+                    <p
+                      className={`mt-3 rounded-md px-3 py-2 text-xs ${
+                        form.shadowfaxServiceable === true
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : form.shadowfaxServiceable === false
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-slate-50 text-slate-600'
+                      }`}
+                    >
+                      {serviceabilityMessage}
+                    </p>
+                  )}
+
+                  <div className="mt-4 space-y-2">
+                    <label className={`flex items-start gap-2 rounded-md border p-3 text-sm ${form.deliveryMode === 'PLATFORM' ? 'border-brand-500 bg-brand-50' : 'border-slate-200'} ${form.shadowfaxServiceable === false ? 'opacity-50' : 'cursor-pointer'}`}>
+                      <input
+                        type="radio"
+                        name="deliveryMode"
+                        className="mt-0.5"
+                        checked={form.deliveryMode === 'PLATFORM'}
+                        disabled={form.shadowfaxServiceable === false}
+                        onChange={() => setForm({ ...form, deliveryMode: 'PLATFORM' })}
+                      />
+                      <span>
+                        <span className="block font-medium text-slate-800">Let JebDekho deliver (recommended)</span>
+                        <span className="block text-xs text-slate-500">We arrange pickup &amp; drop via our delivery partners.</span>
+                      </span>
+                    </label>
+                    <label className={`flex items-start gap-2 rounded-md border p-3 text-sm cursor-pointer ${form.deliveryMode === 'SELF' ? 'border-brand-500 bg-brand-50' : 'border-slate-200'}`}>
+                      <input
+                        type="radio"
+                        name="deliveryMode"
+                        className="mt-0.5"
+                        checked={form.deliveryMode === 'SELF'}
+                        onChange={() => setForm({ ...form, deliveryMode: 'SELF' })}
+                      />
+                      <span>
+                        <span className="block font-medium text-slate-800">I&apos;ll deliver my own orders</span>
+                        <span className="block text-xs text-slate-500">Delivery is free to customers; you handle pickup &amp; drop yourself.</span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
                 <NavButtons saving={saving} onBack={() => setStep(3)} onNext={saveStoreDetails} />
               </div>
             )}

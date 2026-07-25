@@ -20,6 +20,7 @@ import {
   MerchantBusinessType,
   MerchantDocumentType,
   MerchantOnboardingStepKey,
+  StoreDeliveryMode,
   VerticalBusinessType,
 } from '@prisma/client';
 
@@ -393,6 +394,11 @@ export class UpdateOnboardingStepDto {
   @Min(1)
   @Max(50)
   deliveryRadius?: number;
+
+  @ApiPropertyOptional({ enum: StoreDeliveryMode, description: 'PLATFORM = JebDekho/Shadowfax delivers, SELF = merchant delivers own orders' })
+  @IsOptional()
+  @IsEnum(StoreDeliveryMode)
+  deliveryMode?: StoreDeliveryMode;
 
   @ApiPropertyOptional()
   @IsOptional()

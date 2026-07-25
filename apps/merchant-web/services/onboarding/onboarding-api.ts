@@ -46,6 +46,9 @@ export interface MerchantApplication {
   latitude?: number | null;
   longitude?: number | null;
   deliveryRadiusKm?: number | null;
+  deliveryMode?: 'PLATFORM' | 'SELF' | null;
+  shadowfaxServiceable?: boolean | null;
+  shadowfaxCheckedAt?: string | null;
   deliveryCoveragePincodes?: string[] | null;
   storeLogoUrl?: string | null;
   storeBannerUrl?: string | null;
@@ -128,6 +131,22 @@ export async function resolveStoreLocation(body: {
   } }>(
     '/api/merchant/onboarding/application/resolve-location',
     { method: 'POST', body: JSON.stringify(body) },
+  );
+  return res.data;
+}
+
+export async function checkDeliveryServiceability(): Promise<{
+  serviceable: boolean | null;
+  message: string;
+  deliveryMode: 'PLATFORM' | 'SELF';
+}> {
+  const res = await merchantFetch<{ data: {
+    serviceable: boolean | null;
+    message: string;
+    deliveryMode: 'PLATFORM' | 'SELF';
+  } }>(
+    '/api/merchant/onboarding/application/check-delivery-serviceability',
+    { method: 'POST' },
   );
   return res.data;
 }

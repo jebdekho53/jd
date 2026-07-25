@@ -40,6 +40,6 @@ import { AdminLogisticsController } from './admin-logistics.controller';
     ShadowfaxWebhookService,
     BorzoWebhookService,
   ],
-  exports: [DeliveryDispatchService, DeliveryOrchestratorService, LogisticsProviderRegistry],
+  exports: [DeliveryDispatchService, DeliveryOrchestratorService, LogisticsProviderRegistry, ShadowfaxClient],
 })
 export class LogisticsModule {}

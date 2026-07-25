@@ -11,6 +11,7 @@ import { GeocodingModule } from '../geocoding/geocoding.module';
 import { LocationDirectoryModule } from '../location-directory/location-directory.module';
 import { StoreVerticalModule } from '../store-vertical/store-vertical.module';
 import { FranchiseModule } from '../franchise/franchise.module';
+import { LogisticsModule } from '../logistics/logistics.module';
 import { PasswordService } from '../auth/password.service';
 import { MerchantOnboardingService } from './merchant-onboarding.service';
 import { MerchantApplicationRiskService } from './merchant-application-risk.service';
@@ -31,6 +32,7 @@ import { AdminMerchantApplicationController } from './admin-merchant-application
     LocationDirectoryModule,
     StoreVerticalModule,
     FranchiseModule,
+    LogisticsModule,
   ],
   controllers: [MerchantOnboardingController, AdminMerchantApplicationController],
   providers: [
