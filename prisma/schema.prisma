@@ -2174,6 +2174,11 @@ model Order {
   // Platform delivery fee the merchant absorbs (order ≥ their free-delivery
   // threshold). Deducted from merchant payout so the platform never subsidises.
   merchantDeliveryContribution Decimal            @default(0) @map("merchant_delivery_contribution") @db.Decimal(10, 2)
+  // Delivery fee credited TO the merchant for self-delivery (deliveryMode=SELF):
+  // the customer still pays the normal delivery fee, but since the merchant
+  // delivers instead of Shadowfax, that fee passes through to their payout
+  // instead of platform/rider revenue.
+  merchantDeliveryEarning      Decimal            @default(0) @map("merchant_delivery_earning") @db.Decimal(10, 2)
   taxAmount                    Decimal            @default(0) @map("tax_amount") @db.Decimal(10, 2)
   totalAmount                  Decimal            @map("total_amount") @db.Decimal(10, 2)
   walletAmountUsed             Decimal            @default(0) @map("wallet_amount_used") @db.Decimal(10, 2)

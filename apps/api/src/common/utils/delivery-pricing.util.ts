@@ -1,11 +1,13 @@
 /**
  * Delivery pricing — the single source of truth shared by cart, checkout and
- * order financials so the customer fee, merchant contribution and platform
- * margin never disagree.
+ * order financials so the customer fee, merchant contribution/earning and
+ * platform margin never disagree.
  *
  * Model (agreed):
- *  - SELF delivery      → free to the customer; merchant delivers with their own
- *                         rider; platform arranges nothing.
+ *  - SELF delivery      → customer pays the same flat fee as PLATFORM would;
+ *                         that fee is credited to the MERCHANT (they're doing
+ *                         the delivery work Shadowfax would otherwise be paid
+ *                         for), and the platform earns no delivery revenue on it.
  *  - PLATFORM, below the merchant's free-delivery threshold → customer pays the
  *                         flat platform fee.
  *  - PLATFORM, at/above the threshold → free to the customer; the MERCHANT
@@ -36,17 +38,21 @@ export interface DeliveryPricing {
   customerDeliveryFee: number;
   /** Platform fee the merchant absorbs (deducted from payout); 0 otherwise. */
   merchantDeliveryContribution: number;
+  /** Delivery fee credited to the merchant for self-delivery; 0 otherwise. */
+  merchantDeliveryEarning: number;
   /** True when delivery is free to the customer (self, or threshold met). */
   freeForCustomer: boolean;
 }
 
 export function resolveDeliveryPricing(input: DeliveryPricingInput): DeliveryPricing {
   if (input.deliveryMode === 'SELF') {
+    const fee = Math.max(0, input.platformFee);
     return {
       deliveryMode: 'SELF',
-      customerDeliveryFee: 0,
+      customerDeliveryFee: fee,
       merchantDeliveryContribution: 0,
-      freeForCustomer: true,
+      merchantDeliveryEarning: fee,
+      freeForCustomer: false,
     };
   }
 
@@ -61,6 +67,7 @@ export function resolveDeliveryPricing(input: DeliveryPricingInput): DeliveryPri
       deliveryMode: 'PLATFORM',
       customerDeliveryFee: 0,
       merchantDeliveryContribution: fee,
+      merchantDeliveryEarning: 0,
       freeForCustomer: true,
     };
   }
@@ -69,6 +76,7 @@ export function resolveDeliveryPricing(input: DeliveryPricingInput): DeliveryPri
     deliveryMode: 'PLATFORM',
     customerDeliveryFee: fee,
     merchantDeliveryContribution: 0,
+    merchantDeliveryEarning: 0,
     freeForCustomer: false,
   };
 }

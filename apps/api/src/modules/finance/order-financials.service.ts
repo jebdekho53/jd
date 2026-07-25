@@ -21,6 +21,10 @@ export interface FreezeOrderInput {
   /** Platform delivery fee the merchant sponsors (free-delivery threshold met).
    *  Deducted from merchant payout; the platform never subsidises delivery. */
   merchantDeliveryContribution?: number;
+  /** Delivery fee credited to the merchant for self-delivery (deliveryMode=SELF).
+   *  Added to merchant payout; excluded from the platform's rider-payout pool
+   *  since no platform rider is dispatched. */
+  merchantDeliveryEarning?: number;
   taxAmount?: number;
   /** Actual amount payable by the buyer (order total). Used for the cash/receivable
    *  ledger so it always matches what is collected, regardless of inclusive/exclusive
@@ -67,12 +71,21 @@ export class OrderFinancialsService {
     // Merchant sponsors the delivery fee when they offer free delivery above
     // their threshold — deduct it from their payout so the platform stays whole.
     const merchantDeliveryContribution = input.merchantDeliveryContribution ?? 0;
-    const netMerchant = roundMoney(gross - commissionAmount - merchantDeliveryContribution);
+    // Self-delivery: the fee the customer pays is credited to the merchant instead
+    // of Shadowfax, since the merchant does the delivery work.
+    const merchantDeliveryEarning = input.merchantDeliveryEarning ?? 0;
+    const netMerchant = roundMoney(
+      gross - commissionAmount - merchantDeliveryContribution + merchantDeliveryEarning,
+    );
     const taxAmount = input.taxAmount ?? roundMoney((gross * DEFAULT_GST_RATE) / 100);
     const deliveryFee = input.deliveryFee;
     // Platform collects the customer fee AND any merchant-sponsored fee, and pays
-    // the rider from that pool. Self-delivery contributes neither (merchant delivers).
-    const deliveryCollected = roundMoney(deliveryFee + merchantDeliveryContribution);
+    // the rider from that pool — except self-delivery earning, which passes
+    // straight to the merchant and never enters the platform's rider-payout pool
+    // (no platform rider is dispatched, so the platform earns nothing on it).
+    const deliveryCollected = roundMoney(
+      deliveryFee + merchantDeliveryContribution - merchantDeliveryEarning,
+    );
     const platformEarnings = roundMoney(commissionAmount + deliveryCollected);
     // The rider earns the delivery-fee-based payout PLUS the buyer's full tip.
     // The tip is pass-through — it is not in deliveryCollected, so it never

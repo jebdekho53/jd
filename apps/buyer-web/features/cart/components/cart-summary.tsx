@@ -44,7 +44,7 @@ export function CartSummary({ cart, className }: CartSummaryProps) {
     <div className={className}>
       {selfDelivery && (
         <div className="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
-          🚴 Free delivery — this store delivers to you directly.
+          🚴 This store delivers to you directly.
         </div>
       )}
       {addMoreForFree != null && addMoreForFree > 0 && (
