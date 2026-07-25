@@ -486,13 +486,29 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
     };
     if (form.latitude != null) payload.latitude = form.latitude;
     if (form.longitude != null) payload.longitude = form.longitude;
-    if (form.storeAddress.trim() || form.pincode.trim()) {
+    // pickupAddress's own fields (addressLine1, locality, landmark, city, state,
+    // pincode) are all required server-side with no @IsOptional() — sending the
+    // object before every one of them is filled in (e.g. landmark still blank
+    // while the merchant is mid-typing) 400s on every autosave tick. Only
+    // include it once it can actually pass validation; the flat top-level
+    // fields above still autosave individually in the meantime.
+    const pickupCity = city?.name ?? (form.operationalCityName || form.city);
+    const pickupAddressComplete =
+      form.storeAddress.trim().length >= 8 &&
+      form.locality.trim().length >= 2 &&
+      form.landmark.trim().length >= 3 &&
+      Boolean(pickupCity) &&
+      form.state.trim().length >= 2 &&
+      /^\d{6}$/.test(form.pincode.trim()) &&
+      form.latitude != null &&
+      form.longitude != null;
+    if (pickupAddressComplete) {
       payload.pickupAddress = {
         addressLine1: form.storeAddress.trim(),
         addressLine2: form.addressLine2.trim() || undefined,
         locality: form.locality.trim(),
         landmark: form.landmark.trim(),
-        city: city?.name ?? (form.operationalCityName || form.city),
+        city: pickupCity,
         state: form.state.trim(),
         pincode: form.pincode.trim(),
         latitude: form.latitude,
