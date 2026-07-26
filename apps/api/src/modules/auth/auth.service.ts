@@ -41,7 +41,10 @@ import { TokenPair } from './interfaces/token-pair.interface';
 export interface MeResponse {
   id: string;
   phone: string;
+  /** Personal (buyer-facing) email — never set by merchant onboarding. */
   email: string | null;
+  /** Merchant-only login email, separate from the personal `email` above. */
+  merchantLoginEmail: string | null;
   name: string | null;
   status: UserStatus;
   phoneVerified: boolean;
@@ -345,6 +348,10 @@ export class AuthService {
     const email = dto.email.trim().toLowerCase();
     await this.blocklist.assertNotBlocked({ email });
 
+    if (dto.portal === 'merchant') {
+      return this.merchantEmailSignup(dto, email, ipAddress, userAgent);
+    }
+
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
       throw new ConflictException('An account with this email already exists');
@@ -404,6 +411,61 @@ export class AuthService {
     });
   }
 
+  /**
+   * Merchant-portal email signup: deliberately does NOT touch User.email or
+   * create a BuyerProfile. A merchant's business login is its own credential
+   * (merchantLoginEmail/merchantLoginPasswordHash) so it can never surface as
+   * this same account's personal buyer email if they later shop as a buyer
+   * with the same phone number.
+   */
+  private async merchantEmailSignup(
+    dto: EmailSignupDto,
+    email: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<VerifyOtpResponse> {
+    const existing = await this.prisma.user.findUnique({ where: { merchantLoginEmail: email } });
+    if (existing) {
+      throw new ConflictException('An account with this email already exists');
+    }
+
+    const phone = await this.generatePlaceholderPhone();
+    const passwordHash = await this.passwordService.hash(dto.password);
+    const merchantRole = await this.prisma.role.findUniqueOrThrow({
+      where: { name: RoleName.MERCHANT },
+    });
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          phone,
+          status: UserStatus.PENDING_VERIFICATION,
+          phoneVerified: false,
+          merchantLoginEmail: email,
+          merchantLoginEmailVerified: true,
+          merchantLoginPasswordHash: passwordHash,
+        },
+      });
+      await tx.userRole.upsert({
+        where: { userId_roleId: { userId: created.id, roleId: merchantRole.id } },
+        update: {},
+        create: { userId: created.id, roleId: merchantRole.id },
+      });
+      return created;
+    });
+
+    return this.completeAuthentication(user.id, {
+      isNewUser: true,
+      deviceId: dto.deviceId,
+      deviceName: dto.deviceName,
+      ipAddress,
+      userAgent,
+      auditAction: 'USER_REGISTERED',
+      metadata: { email, signupMethod: 'email', portal: 'merchant' },
+      skipBuyerAutoProvision: true,
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Email + password login
   // ---------------------------------------------------------------------------
@@ -416,6 +478,10 @@ export class AuthService {
     this.assertEmailAuthEnabled();
     const email = dto.email.trim().toLowerCase();
     await this.blocklist.assertNotBlocked({ email });
+
+    if (dto.portal === 'merchant') {
+      return this.merchantEmailLogin(dto, email, ipAddress, userAgent);
+    }
 
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user || !user.passwordHash) {
@@ -454,6 +520,48 @@ export class AuthService {
     return result;
   }
 
+  /** Merchant-portal email login — checks merchantLoginEmail/PasswordHash,
+   *  never the account's personal (buyer) email/passwordHash. */
+  private async merchantEmailLogin(
+    dto: EmailLoginDto,
+    email: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<VerifyOtpResponse> {
+    const user = await this.prisma.user.findUnique({ where: { merchantLoginEmail: email } });
+    if (!user || !user.merchantLoginPasswordHash) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.status === UserStatus.SUSPENDED || user.status === UserStatus.DELETED) {
+      throw new ForbiddenException('Account is not active');
+    }
+
+    await this.blocklist.assertUserNotBlacklisted(user.id);
+
+    const valid = await this.passwordService.verify(user.merchantLoginPasswordHash, dto.password);
+    if (!valid) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    return this.completeAuthentication(user.id, {
+      isNewUser: false,
+      deviceId: dto.deviceId,
+      deviceName: dto.deviceName,
+      ipAddress,
+      userAgent,
+      auditAction: 'USER_LOGGED_IN',
+      metadata: { email, loginMethod: 'email', portal: 'merchant' },
+      rememberMe: dto.rememberMe,
+      skipBuyerAutoProvision: true,
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Forgot password
   // ---------------------------------------------------------------------------
@@ -463,13 +571,17 @@ export class AuthService {
       this.assertEmailAuthEnabled();
       const email = dto.email.trim().toLowerCase();
       await this.blocklist.assertNotBlocked({ email });
+      const isMerchant = dto.portal === 'merchant';
 
-      const user = await this.prisma.user.findUnique({ where: { email } });
+      const user = await this.prisma.user.findUnique({
+        where: isMerchant ? { merchantLoginEmail: email } : { email },
+      });
       if (!user) {
         return { message: 'If an account exists, a reset link has been sent to your email' };
       }
 
-      if (!user.passwordHash) {
+      const hasCredential = isMerchant ? user.merchantLoginPasswordHash : user.passwordHash;
+      if (!hasCredential) {
         throw new BadRequestException('This account uses mobile OTP login. Reset via mobile instead.');
       }
 
@@ -477,7 +589,7 @@ export class AuthService {
       const tokenHash = createHash('sha256').update(rawToken).digest('hex');
       await this.redis.set(
         REDIS_KEYS.passwordReset(tokenHash),
-        user.id,
+        JSON.stringify({ userId: user.id, portal: isMerchant ? 'merchant' : 'buyer' }),
         REDIS_TTL.PASSWORD_RESET,
       );
 
@@ -520,14 +632,25 @@ export class AuthService {
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
     let userId: string | null = null;
+    let isMerchant = false;
 
     if (dto.token) {
       const tokenHash = createHash('sha256').update(dto.token).digest('hex');
-      userId = await this.redis.get(REDIS_KEYS.passwordReset(tokenHash));
-      if (!userId) {
+      const stored = await this.redis.get(REDIS_KEYS.passwordReset(tokenHash));
+      if (!stored) {
         throw new BadRequestException('Invalid or expired reset link. Please request a new one.');
       }
       await this.redis.del(REDIS_KEYS.passwordReset(tokenHash));
+      // Older tokens stored a bare userId string; new ones store JSON with a
+      // portal tag so we know which credential (buyer/admin vs merchant) to
+      // update below.
+      try {
+        const parsed = JSON.parse(stored) as { userId: string; portal?: string };
+        userId = parsed.userId;
+        isMerchant = parsed.portal === 'merchant';
+      } catch {
+        userId = stored;
+      }
     } else if (dto.phone && dto.code) {
       this.assertPhoneOtpEnabled();
       await this.otpService.verifyOtp(dto.phone, dto.code, OtpPurpose.PASSWORD_RESET);
@@ -543,7 +666,7 @@ export class AuthService {
     const passwordHash = await this.passwordService.hash(dto.newPassword);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash },
+      data: isMerchant ? { merchantLoginPasswordHash: passwordHash } : { passwordHash },
     });
 
     await this.tokenService.revokeAllUserSessions(userId);
@@ -661,6 +784,7 @@ export class AuthService {
       id: user.id,
       phone: user.phone,
       email: user.email,
+      merchantLoginEmail: user.merchantLoginEmail,
       name,
       status: user.status,
       phoneVerified: user.phoneVerified,
@@ -841,9 +965,15 @@ export class AuthService {
       auditAction: string;
       metadata: Record<string, unknown>;
       rememberMe?: boolean;
+      /** Merchant-portal auth must never implicitly provision a BuyerProfile —
+       *  that should only happen when the same person separately signs into
+       *  the buyer app of their own accord. */
+      skipBuyerAutoProvision?: boolean;
     },
   ): Promise<VerifyOtpResponse> {
-    await this.ensureBuyerAccess(userId);
+    if (!opts.skipBuyerAutoProvision) {
+      await this.ensureBuyerAccess(userId);
+    }
 
     const refreshedUser = await this.tokenService.buildUserForToken(userId);
 

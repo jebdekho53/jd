@@ -1,7 +1,10 @@
 export interface AuthUser {
   id: string;
   phone: string;
+  /** Personal (buyer-facing) email, if any — not the merchant login below. */
   email: string | null;
+  /** The email this merchant actually signed in / registered with. */
+  merchantLoginEmail: string | null;
   status: string;
   phoneVerified: boolean;
   roles: string[];

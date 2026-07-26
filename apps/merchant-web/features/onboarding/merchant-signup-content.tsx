@@ -409,7 +409,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
 
   const handleVerified = async (result: VerifyOtpResult) => {
     const phone = result.user.phone ?? '';
-    const email = result.user.email ?? '';
+    const email = result.user.merchantLoginEmail ?? result.user.email ?? '';
     setVerifiedPhone(phone);
     setVerifiedEmail(email);
     setNeedsPhone(isPlaceholderPhone(phone));

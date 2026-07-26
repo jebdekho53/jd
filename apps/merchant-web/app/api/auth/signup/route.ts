@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { data } = await backendFetch<ApiResponse<AuthBackendData>>('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ ...body, deviceName: 'merchant-web' }),
+      body: JSON.stringify({ ...body, deviceName: 'merchant-web', portal: 'merchant' }),
     });
     const { accessToken, refreshToken, expiresIn, user, isNewUser } = data.data;
     const response = NextResponse.json({ success: true, data: { user, isNewUser, expiresIn } });

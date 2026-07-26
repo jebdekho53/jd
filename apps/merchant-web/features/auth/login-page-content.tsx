@@ -85,7 +85,8 @@ export function LoginPageContent() {
       {activeUser && (
         <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
           <p className="text-slate-700">
-            You&apos;re signed in as <strong>{activeUser.email}</strong>.
+            You&apos;re signed in as{' '}
+            <strong>{activeUser.merchantLoginEmail ?? activeUser.email ?? activeUser.phone}</strong>.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Button

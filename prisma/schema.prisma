@@ -626,11 +626,19 @@ enum DayOfWeek {
 
 model User {
   id            String     @id @default(cuid())
+  /// Personal login email — used by the buyer app (and admin). Never written
+  /// to by merchant onboarding; see merchantLoginEmail for that.
   email         String?    @unique
   phone         String     @unique
   passwordHash  String?    @map("password_hash")
   phoneVerified Boolean    @default(false) @map("phone_verified")
   emailVerified Boolean    @default(false) @map("email_verified")
+  /// Merchant-only login email, deliberately separate from `email` — a
+  /// merchant's business contact address must never surface as this same
+  /// account's personal buyer email if the account also shops as a buyer.
+  merchantLoginEmail         String?  @unique @map("merchant_login_email")
+  merchantLoginEmailVerified Boolean  @default(false) @map("merchant_login_email_verified")
+  merchantLoginPasswordHash  String?  @map("merchant_login_password_hash")
   status        UserStatus @default(PENDING_VERIFICATION)
   lastLoginAt   DateTime?  @map("last_login_at")
   createdAt     DateTime   @default(now()) @map("created_at")

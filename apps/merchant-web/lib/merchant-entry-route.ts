@@ -30,9 +30,11 @@ export function inferSignupWizardStep(app: MerchantApplication): number {
   return 8;
 }
 
-export function syncVerifiedIdentityFromUser(user: Pick<AuthUser, 'email' | 'phone'>) {
+export function syncVerifiedIdentityFromUser(
+  user: Pick<AuthUser, 'email' | 'merchantLoginEmail' | 'phone'>,
+) {
   const phone = user.phone ?? '';
-  const email = user.email ?? '';
+  const email = user.merchantLoginEmail ?? user.email ?? '';
   return {
     verifiedEmail: email,
     verifiedPhone: phone,

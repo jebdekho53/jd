@@ -648,10 +648,18 @@ export class MerchantOnboardingService {
     }
 
     if (dto.password && ownerEmail) {
+      // Merchant-only login credential — deliberately NOT User.email/passwordHash
+      // (the account's personal buyer-facing identity). Without this split, a
+      // merchant's business contact email silently became this same account's
+      // buyer-app login email the moment they used the same phone to shop.
       const passwordHash = await this.passwordService.hash(dto.password);
       await this.prisma.user.update({
         where: { id: userId },
-        data: { passwordHash, email: ownerEmail.trim().toLowerCase(), emailVerified: true },
+        data: {
+          merchantLoginPasswordHash: passwordHash,
+          merchantLoginEmail: ownerEmail.trim().toLowerCase(),
+          merchantLoginEmailVerified: true,
+        },
       });
     }
 

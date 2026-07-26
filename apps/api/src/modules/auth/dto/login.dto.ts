@@ -1,7 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import type { ResetPortal } from './forgot-password.dto';
 
 export class EmailLoginDto {
+  /** 'merchant' looks this email up against the merchant-only login
+   *  credential instead of the account's personal (buyer) email. */
+  @ApiProperty({ required: false, enum: ['buyer', 'merchant', 'franchise', 'admin'], default: 'buyer' })
+  @IsOptional()
+  @IsIn(['buyer', 'merchant', 'franchise', 'admin'])
+  portal?: ResetPortal;
+
   @ApiProperty({ example: 'rahul@example.com' })
   @IsEmail()
   email: string;
