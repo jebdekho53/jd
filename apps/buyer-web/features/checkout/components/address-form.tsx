@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -76,7 +77,25 @@ export function AddressForm({ onNext }: AddressFormProps) {
   const lat = watch('lat');
   const lng = watch('lng');
 
+  // defaultValues above only seed the form once, at mount — if the buyer changes their
+  // delivery location (the header picker) while this form is already open, without this
+  // the map-pin fields keep whatever location was current at mount time (observed: a
+  // stale "Connaught Place, New Delhi" pin persisting after switching to a different
+  // city). Re-sync from the store as long as the user hasn't picked their own pin here
+  // and there's no existing address already seeding the form.
+  const hasUserPickedLocation = useRef(false);
+  useEffect(() => {
+    if (hasUserPickedLocation.current || deliveryAddress || !location.isReady) return;
+    setValue('locality', location.label ?? '');
+    setValue('city', location.city ?? '');
+    setValue('pincode', location.pincode ?? '');
+    setValue('lat', location.lat);
+    setValue('lng', location.lng);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.isReady, location.lat, location.lng, location.city, location.pincode, location.label]);
+
   const handleLocationChange = (selection: AddressLocationValue) => {
+    hasUserPickedLocation.current = true;
     setValue('locality', selection.locality, { shouldValidate: true });
     setValue('city', selection.city, { shouldValidate: true });
     setValue('pincode', selection.pincode, { shouldValidate: true });
