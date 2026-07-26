@@ -48,8 +48,10 @@ export function ComparePageContent() {
     setQuery(qFromUrl);
   }, [qFromUrl]);
 
+  // Backend caps limit at 50 (SearchProductsDto @Max(50)) — 60 made every
+  // compare search 400, so this page never returned a single result.
   const { data, isLoading, isError, error, refetch } = useProductSearch(
-    { q: debouncedQuery.trim() || undefined, page: 1, limit: 60 },
+    { q: debouncedQuery.trim() || undefined, page: 1, limit: 50 },
     debouncedQuery.trim().length >= 2,
   );
 
