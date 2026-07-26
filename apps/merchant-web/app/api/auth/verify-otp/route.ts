@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { data } = await backendFetch<ApiResponse<VerifyBackendData>>('/auth/verify-otp', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, portal: 'merchant' }),
     });
     const { accessToken, refreshToken, expiresIn, user, isNewUser, rememberMe } = data.data;
     const response = NextResponse.json({ success: true, data: { user, isNewUser, expiresIn } });

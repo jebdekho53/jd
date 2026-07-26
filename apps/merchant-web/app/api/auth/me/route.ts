@@ -5,7 +5,7 @@ import type { AuthUser } from '@/types/auth';
 
 export async function GET() {
   try {
-    const user = await fetchWithAuth<AuthUser>('/auth/me');
+    const user = await fetchWithAuth<AuthUser>('/auth/me?portal=merchant');
     return NextResponse.json({ success: true, data: user });
   } catch (err) {
     if (err instanceof BackendError && err.status === 401) {

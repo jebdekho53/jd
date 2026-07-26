@@ -324,7 +324,7 @@ export class AuthService {
       ),
     ]);
 
-    const me = await this.getMe(user.id);
+    const me = await this.getMe(user.id, dto.portal);
 
     if (isNewUser) {
       void this.sendWelcomeEmailIfPossible(user.id, dto.name?.trim()).catch((err) =>
@@ -463,6 +463,7 @@ export class AuthService {
       auditAction: 'USER_REGISTERED',
       metadata: { email, signupMethod: 'email', portal: 'merchant' },
       skipBuyerAutoProvision: true,
+      portal: 'merchant',
     });
   }
 
@@ -559,6 +560,7 @@ export class AuthService {
       metadata: { email, loginMethod: 'email', portal: 'merchant' },
       rememberMe: dto.rememberMe,
       skipBuyerAutoProvision: true,
+      portal: 'merchant',
     });
   }
 
@@ -753,7 +755,7 @@ export class AuthService {
   // Get current user profile
   // ---------------------------------------------------------------------------
 
-  async getMe(userId: string): Promise<MeResponse> {
+  async getMe(userId: string, portal?: string): Promise<MeResponse> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -784,7 +786,9 @@ export class AuthService {
       id: user.id,
       phone: user.phone,
       email: user.email,
-      merchantLoginEmail: user.merchantLoginEmail,
+      // Only merchant-web has legitimate use for this — never let it ride along
+      // on a buyer/admin/franchise session's /auth/me response.
+      merchantLoginEmail: portal === 'merchant' ? user.merchantLoginEmail : null,
       name,
       status: user.status,
       phoneVerified: user.phoneVerified,
@@ -969,6 +973,9 @@ export class AuthService {
        *  that should only happen when the same person separately signs into
        *  the buyer app of their own accord. */
       skipBuyerAutoProvision?: boolean;
+      /** Which portal is authenticating — gates whether merchantLoginEmail is
+       *  included in the returned user object. */
+      portal?: string;
     },
   ): Promise<VerifyOtpResponse> {
     if (!opts.skipBuyerAutoProvision) {
@@ -1011,7 +1018,7 @@ export class AuthService {
       ),
     ]);
 
-    const me = await this.getMe(userId);
+    const me = await this.getMe(userId, opts.portal);
     return { ...tokens, user: me, isNewUser: opts.isNewUser };
   }
 

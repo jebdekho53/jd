@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Ip,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -259,8 +260,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current authenticated user profile' })
   @ApiResponse({ status: 200, description: 'Current user' })
   @ApiResponse({ status: 401, description: 'Not authenticated' })
-  async me(@CurrentUser() user: RequestUser) {
-    const profile = await this.authService.getMe(user.id);
+  async me(@CurrentUser() user: RequestUser, @Query('portal') portal?: string) {
+    const profile = await this.authService.getMe(user.id, portal);
     return {
       success: true,
       data: profile,

@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsBoolean, IsOptional, IsString, Length, Matches } from 'class-validator';
 import { INDIAN_PHONE_REGEX } from '../../../common/constants';
+import type { ResetPortal } from './forgot-password.dto';
 
 export class VerifyOtpDto {
   @ApiProperty({ example: '+919876543210' })
@@ -38,4 +39,9 @@ export class VerifyOtpDto {
   @IsOptional()
   @IsBoolean()
   rememberMe?: boolean;
+
+  @ApiProperty({ required: false, description: 'Which app is authenticating (gates which fields /auth/me returns)' })
+  @IsOptional()
+  @IsString()
+  portal?: ResetPortal;
 }
