@@ -24,6 +24,11 @@ interface CheckoutState {
   setCheckoutId: (id: string | null) => void;
   setConfirmed: (orderId: string, orderNumber: string) => void;
   reset: () => void;
+  /** Full clear, including deliveryAddress/paymentMethod — unlike reset(),
+   *  which deliberately keeps those as a convenience for the same buyer's
+   *  next order. Used on logout so this account's checkout state can't
+   *  carry over to whoever logs in next on the same browser/device. */
+  clearAll: () => void;
 }
 
 const INITIAL: Omit<
@@ -36,6 +41,7 @@ const INITIAL: Omit<
   | 'setRewardPointsToRedeem'
   | 'setCheckoutId'
   | 'setConfirmed'
+  | 'clearAll'
   | 'reset'
 > = {
   step: 'address',
@@ -68,6 +74,7 @@ export const useCheckoutStore = create<CheckoutState>()(
           deliveryAddress: get().deliveryAddress,
           paymentMethod: get().paymentMethod,
         }),
+      clearAll: () => set({ ...INITIAL }),
     }),
     {
       name: 'jebdekho-checkout-v1',

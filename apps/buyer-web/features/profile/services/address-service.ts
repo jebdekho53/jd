@@ -1,32 +1,43 @@
 import { useAddressStore } from '@/store/address-store';
 import type { ProfileAddress, UpsertAddressInput } from '@/features/profile/types';
+import {
+  listAddressesRemote,
+  createAddressRemote,
+  updateAddressRemote,
+  deleteAddressRemote,
+} from '@/services/addresses/address-api';
 
 export function getAddresses(): ProfileAddress[] {
   return useAddressStore.getState().addresses;
 }
 
 export async function fetchAddresses(): Promise<ProfileAddress[]> {
-  return getAddresses();
+  const addresses = await listAddressesRemote();
+  useAddressStore.getState().hydrate(addresses);
+  return addresses;
 }
 
 export async function createAddress(input: UpsertAddressInput): Promise<ProfileAddress> {
-  return useAddressStore.getState().addAddress(input);
+  const created = await createAddressRemote(input);
+  await fetchAddresses();
+  return created;
 }
 
 export async function updateAddress(
   id: string,
   patch: Partial<UpsertAddressInput>,
 ): Promise<ProfileAddress> {
-  useAddressStore.getState().updateAddress(id, patch);
-  const updated = getAddresses().find((a) => a.id === id);
-  if (!updated) throw new Error('Address not found');
+  const updated = await updateAddressRemote(id, patch);
+  await fetchAddresses();
   return updated;
 }
 
 export async function deleteAddress(id: string): Promise<void> {
-  useAddressStore.getState().removeAddress(id);
+  await deleteAddressRemote(id);
+  await fetchAddresses();
 }
 
 export async function setDefaultAddress(id: string): Promise<void> {
-  useAddressStore.getState().setDefault(id);
+  await updateAddressRemote(id, { isDefault: true });
+  await fetchAddresses();
 }

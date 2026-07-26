@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AuthUser } from '@/types/auth';
+import { useCheckoutStore } from '@/store/checkout-store';
 
 interface AuthState {
   user: AuthUser | null;
@@ -48,7 +49,7 @@ export const useAuthStore = create<AuthState>()(
           isNewUser,
           needsOnboarding: isNewUser,
         }),
-      clearSession: () =>
+      clearSession: () => {
         set({
           user: null,
           lastKnownUser: null,
@@ -57,7 +58,15 @@ export const useAuthStore = create<AuthState>()(
           sessionOffline: false,
           isNewUser: false,
           needsOnboarding: false,
-        }),
+        });
+        // Checkout persists its last-used delivery address/payment method to
+        // localStorage as a convenience for the *same* buyer's next order —
+        // without clearing it here, that address (and the address book cache,
+        // reset separately by AddressBookSync watching isAuthenticated) would
+        // silently carry over to whichever account logs in next on this
+        // browser/device.
+        useCheckoutStore.getState().clearAll();
+      },
       completeOnboarding: () => set({ needsOnboarding: false, isNewUser: false }),
     }),
     {

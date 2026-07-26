@@ -2,6 +2,8 @@ import type { ProfileAddress } from '@/features/profile/types';
 import type { DeliveryAddress } from '@/types/checkout';
 import { useAddressStore } from '@/store/address-store';
 import { useLocationStore } from '@/store/location-store';
+import { useAuthStore } from '@/store/auth-store';
+import { createAddressRemote, updateAddressRemote } from '@/services/addresses/address-api';
 
 export function isDefaultDelhiCoords(lat: number, lng: number): boolean {
   return (
@@ -76,6 +78,31 @@ export function persistDeliveryAddress(addr: DeliveryAddress): void {
       lat: addr.lat,
       lng: addr.lng,
       isDefault: isFirstAddress,
+    });
+  }
+
+  // Also save it server-side so it survives logout/another device — fire
+  // and forget so checkout's own flow (which already updated local state
+  // above for a snappy UI) never blocks or fails on this. Guests have no
+  // buyer profile to save against, so skip entirely when unauthenticated.
+  if (useAuthStore.getState().isAuthenticated) {
+    const input = {
+      label: 'Home' as const,
+      line1: addr.line1,
+      line2: addr.line2,
+      landmark: addr.locality,
+      pincode: addr.pincode,
+      city: addr.city,
+      lat: addr.lat,
+      lng: addr.lng,
+      isDefault: isFirstAddress,
+    };
+    const remoteCall = existing
+      ? updateAddressRemote(existing.id, input)
+      : createAddressRemote(input);
+    void remoteCall.catch(() => {
+      // Non-fatal: the buyer's checkout still proceeds with the locally-held
+      // address; it just won't have made it to their saved address book.
     });
   }
 

@@ -10,6 +10,7 @@ import { GoogleMapsProvider } from '@/components/providers/google-maps-provider'
 import { PwaProvider } from '@/components/pwa/pwa-provider';
 import { ThemeApplier } from '@/components/providers/theme-applier';
 import { LocationPreferenceSync } from '@/components/providers/location-preference-sync';
+import { AddressBookSync } from '@/components/providers/address-book-sync';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
@@ -71,6 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${inter.variable} pwa-root`}>
         <ThemeApplier />
         <LocationPreferenceSync />
+        <AddressBookSync />
         <QueryProvider>
           <GoogleMapsProvider>
             <PwaProvider>{children}</PwaProvider>
