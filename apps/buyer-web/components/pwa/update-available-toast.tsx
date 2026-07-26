@@ -18,7 +18,10 @@ export function UpdateAvailableToast({
 
   return (
     <div
-      className="fixed bottom-20 left-1/2 z-[110] w-[min(100%,24rem)] -translate-x-1/2 rounded-2xl border border-border bg-card p-4 shadow-xl md:bottom-6"
+      // z-40 (not the old z-[110]) keeps this below the shared Modal primitive's z-50 —
+      // it used to render on top of any open modal (e.g. the location picker), hiding
+      // whatever button sat at the same spot.
+      className="fixed bottom-20 left-1/2 z-40 w-[min(100%,24rem)] -translate-x-1/2 rounded-2xl border border-border bg-card p-4 shadow-xl md:bottom-6"
       role="status"
       aria-live="polite"
     >
