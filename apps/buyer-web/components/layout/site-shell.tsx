@@ -452,7 +452,10 @@ export function PageShell({
       <main
         className={cn(
           'mx-auto w-full max-w-6xl flex-1 px-4 pt-4 md:pt-6',
-          hideMobileNav ? 'pb-6 md:pb-8' : 'pb-28 md:pb-8',
+          // pb-28 only clears the bottom nav bar (h-16, offset via bottom-20 below it);
+          // the floating cart pill sits above the nav and adds its own ~55px, which pb-28
+          // doesn't cover — so its top edge overlapped the last row of page content.
+          hideMobileNav ? 'pb-6 md:pb-8' : 'pb-40 md:pb-8',
           className,
         )}
       >
