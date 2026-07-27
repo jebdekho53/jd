@@ -11,6 +11,7 @@ import { OrderLiveStatusPanel } from '@/features/tracking/order-live-status-pane
 import { useDeliveryTracking } from '@/features/tracking/use-delivery-tracking';
 import { useOrderDetailQuery } from '@/hooks/use-orders';
 import { RiderDeliveryPanel } from '@/features/orders/components/rider-delivery-panel';
+import { DeliveryOtpCard } from '@/features/orders/components/delivery-otp-card';
 import { OrderStatusBadge } from '@/features/orders/components/order-status-badge';
 import { Skeleton } from '@/design-system/primitives';
 import { PushEnableBanner } from '@/components/pwa/push-enable-banner';
@@ -201,6 +202,8 @@ export function OrderTrackContent({ orderId }: OrderTrackContentProps) {
                     </div>
                   )}
                 </div>
+
+                <DeliveryOtpCard orderId={order.id} orderStatus={order.status} />
 
                 {order.delivery?.rider && (
                   <RiderDeliveryPanel orderStatus={order.status} delivery={order.delivery} />
