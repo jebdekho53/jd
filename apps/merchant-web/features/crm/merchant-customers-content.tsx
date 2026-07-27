@@ -2,6 +2,12 @@
 
 import { useQuery } from '@tanstack/react-query';
 
+function formatColumnLabel(col: string): string {
+  return col
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/^./, (ch) => ch.toUpperCase());
+}
+
 async function fetchCustomers() {
   const res = await fetch('/api/merchant/crm/customers');
   const json = await res.json();
@@ -72,7 +78,7 @@ function Section({
           <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
             <tr>
               {cols.map((c) => (
-                <th key={c} className="px-4 py-3">{c}</th>
+                <th key={c} className="px-4 py-3">{formatColumnLabel(c)}</th>
               ))}
             </tr>
           </thead>
