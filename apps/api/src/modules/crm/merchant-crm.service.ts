@@ -28,7 +28,7 @@ export class MerchantCrmService {
       by: ['buyerProfileId'],
       where: {
         storeId: { in: storeIds },
-        status: { in: [OrderStatus.DELIVERED, OrderStatus.REFUNDED] },
+        status: { in: [OrderStatus.DELIVERED, OrderStatus.COMPLETED, OrderStatus.REFUNDED] },
       },
       _count: { _all: true },
       _sum: { totalAmount: true },
