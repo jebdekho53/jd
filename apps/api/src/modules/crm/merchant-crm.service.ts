@@ -156,4 +156,59 @@ export class MerchantCrmService {
       })),
     };
   }
+
+  /** Per-customer order ledger — every order this customer placed at the
+   *  merchant's own stores, oldest first, with a running total. */
+  async getCustomerLedger(merchantUserId: string, customerUserId: string, storeId?: string) {
+    const profile = await this.prisma.merchantProfile.findUnique({
+      where: { userId: merchantUserId },
+      include: { stores: { where: { deletedAt: null }, select: { id: true, name: true } } },
+    });
+    if (!profile) return { customer: null, entries: [], totalSpent: 0, totalOrders: 0 };
+
+    const storeIds = storeId
+      ? profile.stores.filter((s) => s.id === storeId).map((s) => s.id)
+      : profile.stores.map((s) => s.id);
+    if (storeIds.length === 0) return { customer: null, entries: [], totalSpent: 0, totalOrders: 0 };
+
+    const buyerProfile = await this.prisma.buyerProfile.findUnique({
+      where: { userId: customerUserId },
+      include: { user: { select: { phone: true } } },
+    });
+    if (!buyerProfile) return { customer: null, entries: [], totalSpent: 0, totalOrders: 0 };
+
+    const orders = await this.prisma.order.findMany({
+      where: { storeId: { in: storeIds }, buyerProfileId: buyerProfile.id },
+      select: {
+        id: true,
+        orderNumber: true,
+        createdAt: true,
+        status: true,
+        totalAmount: true,
+        store: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    let running = 0;
+    const entries = orders.map((o) => {
+      running += Number(o.totalAmount);
+      return {
+        orderId: o.id,
+        orderNumber: o.orderNumber,
+        date: o.createdAt,
+        storeName: o.store.name,
+        status: o.status,
+        amount: Number(o.totalAmount),
+        runningTotal: running,
+      };
+    });
+
+    return {
+      customer: { name: buyerProfile.name, phone: buyerProfile.user.phone },
+      entries: entries.reverse(),
+      totalSpent: running,
+      totalOrders: entries.length,
+    };
+  }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -19,5 +19,14 @@ export class MerchantCrmController {
   @Get('customers')
   async customers(@CurrentUser() user: RequestUser, @Query('storeId') storeId?: string) {
     return { success: true, data: await this.crm.getCustomers(user.id, storeId) };
+  }
+
+  @Get('customers/:customerId/ledger')
+  async customerLedger(
+    @CurrentUser() user: RequestUser,
+    @Param('customerId') customerId: string,
+    @Query('storeId') storeId?: string,
+  ) {
+    return { success: true, data: await this.crm.getCustomerLedger(user.id, customerId, storeId) };
   }
 }
