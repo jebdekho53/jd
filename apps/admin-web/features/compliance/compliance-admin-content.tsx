@@ -174,7 +174,17 @@ export function ComplianceAdminContent() {
           rows={(creditNotes?.items as CreditRow[] | undefined)?.map((n) => (
             <li key={n.id} className="flex justify-between py-2 text-sm border-t">
               <span>{n.creditNoteNumber}</span>
-              <span>₹{Number(n.grandTotal).toLocaleString()}</span>
+              <span className="flex items-center gap-3">
+                ₹{Number(n.grandTotal).toLocaleString()}
+                <a
+                  href={`/api/admin/compliance/credit-notes/${n.id}/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  Download
+                </a>
+              </span>
             </li>
           ))}
           exportHref="/api/admin/compliance/reports/credit-note-register?format=csv"

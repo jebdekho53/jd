@@ -23,6 +23,7 @@ import { ComplianceService } from './compliance.service';
 import { GstConfigService } from './gst-config.service';
 import { ComplianceExportService } from './compliance-export.service';
 import { InvoiceEngineService } from './invoice-engine.service';
+import { CreditNoteService } from './credit-note.service';
 import { EnsureHsnCodeDto, ExportComplianceQueryDto, ListComplianceQueryDto, UpdateProductTaxDto } from './dto/compliance.dto';
 
 @ApiTags(Tags.MERCHANTS)
@@ -37,6 +38,7 @@ export class MerchantGstController {
     private readonly config: GstConfigService,
     private readonly exports: ComplianceExportService,
     private readonly invoices: InvoiceEngineService,
+    private readonly creditNotes: CreditNoteService,
   ) {}
 
   private async merchantProfileId(userId: string) {
@@ -117,6 +119,102 @@ export class MerchantGstController {
     const pdf = await this.invoices.getInvoicePdf(id);
     res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
     res.send(pdf);
+  }
+
+  @Get('credit-notes')
+  async listCreditNotes(
+    @CurrentUser() user: RequestUser,
+    @Query() query: ListComplianceQueryDto,
+  ) {
+    const merchantProfileId = await this.merchantProfileId(user.id);
+    if (!merchantProfileId) return { success: false, message: 'Merchant profile not found' };
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = { invoice: { merchantProfileId } };
+
+    const [items, total] = await Promise.all([
+      this.prisma.creditNote.findMany({
+        where,
+        orderBy: { issuedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: { invoice: { select: { invoiceNumber: true } } },
+      }),
+      this.prisma.creditNote.count({ where }),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        items: items.map((n) => ({
+          id: n.id,
+          creditNoteNumber: n.creditNoteNumber,
+          invoiceNumber: n.invoice.invoiceNumber,
+          grandTotal: Number(n.grandTotal),
+          reason: n.reason,
+          issuedAt: n.issuedAt,
+        })),
+        total,
+        page,
+        limit,
+      },
+    };
+  }
+
+  @Get('credit-notes/:id/pdf')
+  @Header('Content-Type', 'application/pdf')
+  async creditNotePdf(@CurrentUser() user: RequestUser, @Param('id') id: string, @Res() res: Response) {
+    const merchantProfileId = await this.merchantProfileId(user.id);
+    const note = await this.prisma.creditNote.findFirst({
+      where: { id, invoice: { merchantProfileId: merchantProfileId ?? undefined } },
+    });
+    if (!note) {
+      res.status(404).send('Not found');
+      return;
+    }
+    const pdf = await this.creditNotes.getCreditNotePdf(id);
+    res.setHeader('Content-Disposition', `attachment; filename="${note.creditNoteNumber}.pdf"`);
+    res.send(pdf);
+  }
+
+  @Get('debit-notes')
+  async listDebitNotes(
+    @CurrentUser() user: RequestUser,
+    @Query() query: ListComplianceQueryDto,
+  ) {
+    const merchantProfileId = await this.merchantProfileId(user.id);
+    if (!merchantProfileId) return { success: false, message: 'Merchant profile not found' };
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = { merchantProfileId };
+
+    const [items, total] = await Promise.all([
+      this.prisma.debitNote.findMany({
+        where,
+        orderBy: { issuedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.debitNote.count({ where }),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        items: items.map((n) => ({
+          id: n.id,
+          debitNoteNumber: n.debitNoteNumber,
+          grandTotal: Number(n.grandTotal),
+          reason: n.reason,
+          issuedAt: n.issuedAt,
+        })),
+        total,
+        page,
+        limit,
+      },
+    };
   }
 
   @Get('reports/summary')
