@@ -39,7 +39,17 @@ export function MerchantGstContent() {
           {(data?.recentInvoices ?? []).map((inv) => (
             <li key={inv.id} className="flex justify-between py-2">
               <span>{inv.invoiceNumber} · #{inv.orderNumber}</span>
-              <span>₹{inv.grandTotal.toLocaleString()}</span>
+              <span className="flex items-center gap-3">
+                ₹{inv.grandTotal.toLocaleString()}
+                <a
+                  href={`/api/merchant/gst/invoices/${inv.id}/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-700 hover:underline"
+                >
+                  Download
+                </a>
+              </span>
             </li>
           ))}
         </ul>
