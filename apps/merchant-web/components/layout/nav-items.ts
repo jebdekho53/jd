@@ -16,6 +16,7 @@ import {
   BarChart3,
   RefreshCw,
   Share2,
+  FileText,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -42,6 +43,7 @@ export const baseNav: NavItem[] = [
   { href: '/earnings', label: 'Earnings', icon: Wallet, keywords: 'payouts settlement money' },
   { href: '/finance', label: 'Finance', icon: Wallet, keywords: 'money invoice ledger' },
   { href: '/gst', label: 'GST & Tax', icon: Wallet, keywords: 'tax invoice hsn' },
+  { href: '/estimates', label: 'Estimates', icon: FileText, keywords: 'quotation quote billing vyapar' },
   { href: '/support', label: 'Support', icon: Headphones, keywords: 'help ticket contact' },
   { href: '/customers', label: 'Customers', icon: Users, keywords: 'buyers' },
   { href: '/growth', label: 'Growth', icon: Star, keywords: 'marketing insights' },

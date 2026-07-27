@@ -33,6 +33,7 @@ import { BuyerInvoiceController } from './buyer-invoice.controller';
     ComplianceService,
     GstConfigService,
     TdsTcsService,
+    GstPdfService,
   ],
 })
 export class ComplianceModule {}

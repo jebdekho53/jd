@@ -49,6 +49,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { SearchDiscoveryModule } from './modules/search-discovery/search-discovery.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
+import { EstimateModule } from './modules/estimate/estimate.module';
 import { TrustSafetyModule } from './modules/trust-safety/trust-safety.module';
 import { SupportModule } from './modules/support/support.module';
 import { CrmModule } from './modules/crm/crm.module';
@@ -164,6 +165,7 @@ import { RequestIdInterceptor } from './common/interceptors/request-id.intercept
     SearchDiscoveryModule,
     FinanceModule,
     ComplianceModule,
+    EstimateModule,
     TrustSafetyModule,
     SupportModule,
     CrmModule,

@@ -866,6 +866,7 @@ model MerchantProfile {
   procurementWishlists    ProcurementWishlist[]
   adCampaigns             AdCampaign[]
   merchantApplication     MerchantApplication?
+  estimates               Estimate[]
   aiProductAnalyses       AIProductAnalysis[]
   aiCreditTransactions    MerchantAiCreditTransaction[]
   aiWallet                MerchantAiWallet?
@@ -8415,4 +8416,57 @@ model LegalAcceptance {
   @@index([userId, code])
   @@index([code, version])
   @@map("legal_acceptances")
+}
+
+enum EstimateStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+/// A price quote a merchant shares with a prospective customer before an
+/// order exists — for custom/bulk requests the buyer catalog doesn't cover
+/// (e.g. a custom cake, a bulk catering order). Not tied to the Order model:
+/// converting one into a real sale, if it ever happens, is a manual step the
+/// merchant takes outside this record, not an automated flow.
+model Estimate {
+  id                String         @id @default(cuid())
+  merchantProfileId String         @map("merchant_profile_id")
+  estimateNumber    String         @unique @map("estimate_number")
+  customerName      String         @map("customer_name")
+  customerPhone     String?        @map("customer_phone")
+  customerEmail     String?        @map("customer_email")
+  status            EstimateStatus @default(DRAFT)
+  notes             String?        @db.Text
+  subtotal          Decimal        @default(0) @map("subtotal") @db.Decimal(12, 2)
+  taxAmount         Decimal        @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  grandTotal        Decimal        @default(0) @map("grand_total") @db.Decimal(12, 2)
+  validUntil        DateTime?      @map("valid_until")
+  sentAt            DateTime?      @map("sent_at")
+  respondedAt       DateTime?      @map("responded_at")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  merchantProfile MerchantProfile @relation(fields: [merchantProfileId], references: [id], onDelete: Cascade)
+  lines           EstimateLine[]
+
+  @@index([merchantProfileId, createdAt(sort: Desc)])
+  @@map("estimates")
+}
+
+model EstimateLine {
+  id          String  @id @default(cuid())
+  estimateId  String  @map("estimate_id")
+  description String
+  quantity    Decimal @default(1) @db.Decimal(10, 2)
+  unitPrice   Decimal @map("unit_price") @db.Decimal(12, 2)
+  lineTotal   Decimal @map("line_total") @db.Decimal(12, 2)
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  estimate Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  @@index([estimateId])
+  @@map("estimate_lines")
 }
