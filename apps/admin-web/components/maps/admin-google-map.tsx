@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { GoogleMap, Circle } from '@react-google-maps/api';
 import { Loader2 } from 'lucide-react';
-import { AdvancedMarker, useGoogleMaps } from '@jebdekho/google-maps';
+import { AdvancedMarker, useGoogleMaps, GOOGLE_MAPS_MAP_ID } from '@jebdekho/google-maps';
 
 export interface AdminMapMarker {
   id: string;
@@ -97,7 +97,12 @@ export function AdminGoogleMap({
         mapContainerStyle={mapContainerStyle}
         center={center}
         zoom={11}
-        options={{ disableDefaultUI: true, zoomControl: true, fullscreenControl: true }}
+        options={{
+          disableDefaultUI: true,
+          zoomControl: true,
+          fullscreenControl: true,
+          ...(GOOGLE_MAPS_MAP_ID ? { mapId: GOOGLE_MAPS_MAP_ID } : {}),
+        }}
         onLoad={setMap}
         onUnmount={() => setMap(null)}
       >
