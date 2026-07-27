@@ -165,6 +165,9 @@ export class DeliveryOrchestratorService {
     if (providerType === DeliveryProviderType.OWN_FLEET) {
       throw new BadRequestException('Own fleet dispatch must use RiderAssignmentService');
     }
+    if (providerType === DeliveryProviderType.SHADOWFAX) {
+      await this.assertShadowfaxGstinRequirement(orderId);
+    }
 
     const providerRecord = await this.ensureProviderRecord(providerType);
     const provider = this.registry.get(providerType);
@@ -585,6 +588,34 @@ export class DeliveryOrchestratorService {
         isPrimary: type === this.registry.primaryType,
       },
     });
+  }
+
+  /**
+   * Shadowfax rejects shipment creation above ~₹50,000 order value without the
+   * seller's GSTIN — a real Indian e-commerce logistics rule, not a bug in our
+   * integration. We don't know the exact request field their API expects for it
+   * (their docs are a JS-rendered SPA we can't parse), so rather than guess and
+   * risk a silent no-op, we fail fast here with an actionable message instead of
+   * letting the merchant hit Shadowfax's opaque error after the fact.
+   */
+  private async assertShadowfaxGstinRequirement(orderId: string): Promise<void> {
+    const SHADOWFAX_GSTIN_THRESHOLD = 50000;
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        totalAmount: true,
+        store: { select: { merchantProfile: { select: { gstNumber: true } } } },
+      },
+    });
+    if (!order) return;
+
+    const orderValue = Number(order.totalAmount ?? 0);
+    const hasGstin = Boolean(order.store.merchantProfile.gstNumber?.trim());
+    if (orderValue > SHADOWFAX_GSTIN_THRESHOLD && !hasGstin) {
+      throw new BadRequestException(
+        `This order (₹${orderValue.toLocaleString('en-IN')}) is over the ₹${SHADOWFAX_GSTIN_THRESHOLD.toLocaleString('en-IN')} threshold that requires a GSTIN on file for Shadowfax delivery. Add your GST number in merchant Settings, or fulfil this order with self/own-fleet delivery instead.`,
+      );
+    }
   }
 
   private async buildShipmentInput(orderId: string): Promise<CreateShipmentInput> {
