@@ -151,7 +151,17 @@ export function ComplianceAdminContent() {
           rows={(invoices?.items ?? []).map((i) => (
             <li key={i.id} className="flex justify-between py-2 text-sm border-t">
               <span>{i.invoiceNumber}</span>
-              <span>₹{i.grandTotal.toLocaleString()} · {new Date(i.invoiceDate).toLocaleDateString()}</span>
+              <span className="flex items-center gap-3">
+                ₹{i.grandTotal.toLocaleString()} · {new Date(i.invoiceDate).toLocaleDateString()}
+                <a
+                  href={`/api/admin/compliance/invoices/${i.id}/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  Download
+                </a>
+              </span>
             </li>
           ))}
           exportHref="/api/admin/compliance/reports/invoice-register?format=csv"

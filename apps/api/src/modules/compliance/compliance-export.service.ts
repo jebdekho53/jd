@@ -165,12 +165,12 @@ export class ComplianceExportService {
     return { invoiceDate: { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) } };
   }
 
-  private export(name: string, rows: (string | number | boolean)[][], format: ComplianceExportFormat) {
+  private async export(name: string, rows: (string | number | boolean)[][], format: ComplianceExportFormat) {
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
     if (format === 'csv') {
       return { content: csv, mime: 'text/csv', filename: `${name}.csv` };
     }
-    const pdfBuf = this.pdf.generate({
+    const pdfBuf = await this.pdf.generate({
       title: name.replace(/-/g, ' '),
       documentNumber: name,
       documentDate: new Date().toISOString().slice(0, 10),
