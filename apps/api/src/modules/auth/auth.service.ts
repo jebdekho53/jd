@@ -451,6 +451,14 @@ export class AuthService {
         update: {},
         create: { userId: created.id, roleId: merchantRole.id },
       });
+      // Every merchant-scoped endpoint (stores, products, finance, ...) requires
+      // a MerchantProfile row to exist — without this, the account holds the
+      // MERCHANT role but 403s everywhere with "Merchant profile required."
+      await tx.merchantProfile.upsert({
+        where: { userId: created.id },
+        update: {},
+        create: { userId: created.id, businessName: dto.name },
+      });
       return created;
     });
 
