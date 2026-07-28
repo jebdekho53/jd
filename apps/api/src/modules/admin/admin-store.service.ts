@@ -230,6 +230,13 @@ export class AdminStoreService {
     // application is already APPROVED or doesn't exist.
     await this.closeOutLinkedApplication(storeId, adminUserId, now);
 
+    // Same class of bug again: a store can reach approval with zero StoreZone
+    // rows if its city never had a Zone seeded (see: Noida had none until a
+    // manual fix). createStore() now auto-creates one, but this catches any
+    // store that slipped through before that fix, or was edited to zoneIds:
+    // []. Idempotent, non-throwing.
+    await this.storeService.ensureZoneCoverage(storeId);
+
     await this.verticalService.ensureStoreBusinessTypesFromApplication(storeId);
     await this.prisma.storeBusinessType.updateMany({
       where: { storeId, status: StoreBusinessTypeStatus.PENDING },

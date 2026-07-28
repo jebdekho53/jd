@@ -160,20 +160,16 @@ export class StoreService {
         },
       });
 
-      // Attach zones — use all city zones when none specified
-      let zoneIds = dto.zoneIds;
-      if (!zoneIds?.length) {
-        const cityZones = await tx.zone.findMany({
-          where: { cityId: dto.cityId, isActive: true },
-          select: { id: true },
-        });
-        zoneIds = cityZones.map((z) => z.id);
-      }
-      if (zoneIds.length) {
+      // Attach zones — use all city zones when none specified; if the city
+      // has zero active zones, auto-create one centered on the new store so
+      // rider assignment never silently goes dark for a brand-new city.
+      if (dto.zoneIds?.length) {
         await tx.storeZone.createMany({
-          data: zoneIds.map((zoneId) => ({ storeId: created.id, zoneId })),
+          data: dto.zoneIds.map((zoneId) => ({ storeId: created.id, zoneId })),
           skipDuplicates: true,
         });
+      } else {
+        await this.attachZonesForStore(tx, created.id, dto.cityId, latitude, longitude);
       }
 
       // Attach service areas
@@ -248,6 +244,85 @@ export class StoreService {
 
     this.logger.log({ userId, storeId: store.id, slug }, 'Store created');
     return this.fetchStoreWithRelations(store.id);
+  }
+
+  /**
+   * Attaches a store to every active zone in its city; if the city has none
+   * yet, auto-creates one centered on the store (15km radius) so rider
+   * assignment never silently returns zero eligible riders. Accepts either a
+   * transaction client (used from createStore) or the plain PrismaService
+   * (used from ensureZoneCoverage, outside a transaction).
+   */
+  private async attachZonesForStore(
+    tx: Prisma.TransactionClient | PrismaService,
+    storeId: string,
+    cityId: string,
+    latitude: number,
+    longitude: number,
+  ): Promise<void> {
+    let cityZones = await tx.zone.findMany({
+      where: { cityId, isActive: true },
+      select: { id: true },
+    });
+
+    if (cityZones.length === 0) {
+      try {
+        const autoZone = await tx.zone.create({
+          data: {
+            cityId,
+            name: 'Auto Delivery Zone',
+            slug: 'auto-delivery-zone',
+            centerLat: latitude,
+            centerLng: longitude,
+            radiusKm: 15,
+            isActive: true,
+          },
+        });
+        cityZones = [{ id: autoZone.id }];
+        this.logger.warn(
+          { cityId, zoneId: autoZone.id },
+          'No active delivery zone existed for this city — auto-created one centered on the new store',
+        );
+      } catch (err) {
+        // Race with a concurrent store creation in the same zoneless city —
+        // it already created the auto zone, so just use it.
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          cityZones = await tx.zone.findMany({ where: { cityId, isActive: true }, select: { id: true } });
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    if (cityZones.length) {
+      await tx.storeZone.createMany({
+        data: cityZones.map((z) => ({ storeId, zoneId: z.id })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  /**
+   * Defense-in-depth for AdminStoreService.approveStore(): guarantees a
+   * store has at least one zone link before going live, covering stores
+   * created before this auto-zone fix shipped. Idempotent, non-throwing —
+   * a failure here must never block store approval.
+   */
+  async ensureZoneCoverage(storeId: string): Promise<void> {
+    try {
+      const existing = await this.prisma.storeZone.findFirst({ where: { storeId } });
+      if (existing) return;
+
+      const store = await this.prisma.store.findUnique({
+        where: { id: storeId },
+        select: { cityId: true, latitude: true, longitude: true },
+      });
+      if (!store) return;
+
+      await this.attachZonesForStore(this.prisma, storeId, store.cityId, store.latitude, store.longitude);
+    } catch (err) {
+      this.logger.error({ storeId, err }, 'ensureZoneCoverage failed — approval will proceed without it');
+    }
   }
 
   // ---------------------------------------------------------------------------
