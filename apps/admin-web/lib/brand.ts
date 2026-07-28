@@ -1,5 +1,8 @@
 export const BRAND_NAME = 'JebDekho';
 export const BRAND_LOGO_SRC = '/logo.png';
+// Icon-only mark (no wordmark baked in) — for small header/sidebar slots that
+// already render the brand name as separate text next to it.
+export const BRAND_ICON_SRC = '/icon.png';
 
 export const BRAND_ICONS = {
   icon: [

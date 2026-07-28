@@ -1,6 +1,6 @@
+import Image from 'next/image';
 import Link from 'next/link';
-import { Logo } from '@/components/brand/logo';
-import { BRAND_NAME } from '@/lib/brand';
+import { BRAND_ICON_SRC, BRAND_NAME } from '@/lib/brand';
 import { cn } from '@/lib/cn';
 
 interface BrandLockupProps {
@@ -19,7 +19,7 @@ export function BrandLockup({ subtitle, href, className, inverted = false }: Bra
           inverted ? 'bg-white' : 'bg-white shadow-sm ring-1 ring-slate-200/80',
         )}
       >
-        <Logo size="xs" className="h-7 w-7" />
+        <Image src={BRAND_ICON_SRC} alt={BRAND_NAME} width={28} height={28} className="h-7 w-7 object-contain" priority />
       </div>
       <div className="min-w-0">
         <p className={cn('truncate text-sm font-semibold', inverted ? 'text-white' : 'text-slate-900')}>
