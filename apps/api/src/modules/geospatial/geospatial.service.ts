@@ -469,6 +469,52 @@ export class GeospatialService {
     };
   }
 
+  /** Every delivery zone with city, status, and how many stores/riders attach to it. */
+  async listZonesDetailed() {
+    const zones = await this.prisma.zone.findMany({
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        centerLat: true,
+        centerLng: true,
+        radiusKm: true,
+        isActive: true,
+        createdAt: true,
+        city: { select: { id: true, name: true, state: true } },
+        _count: { select: { storeZones: true, riderZones: true } },
+      },
+      orderBy: [{ city: { name: 'asc' } }, { createdAt: 'desc' }],
+    });
+
+    return zones.map((z) => ({
+      id: z.id,
+      name: z.name,
+      city: z.city,
+      centerLat: z.centerLat,
+      centerLng: z.centerLng,
+      radiusKm: z.radiusKm,
+      isActive: z.isActive,
+      storeCount: z._count.storeZones,
+      riderCount: z._count.riderZones,
+      // createStore() auto-provisions a zone under this fixed slug whenever a
+      // city has none — anything else was seeded/created deliberately.
+      isAutoCreated: z.slug === 'auto-delivery-zone',
+      createdAt: z.createdAt,
+    }));
+  }
+
+  async setZoneActive(zoneId: string, isActive: boolean) {
+    const zone = await this.prisma.zone.findUnique({ where: { id: zoneId }, select: { id: true } });
+    if (!zone) throw new NotFoundException('Zone not found');
+
+    return this.prisma.zone.update({
+      where: { id: zoneId },
+      data: { isActive },
+      select: { id: true, name: true, isActive: true },
+    });
+  }
+
   async getHotspotAnalytics() {
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const orders = await this.prisma.order.findMany({

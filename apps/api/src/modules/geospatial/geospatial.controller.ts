@@ -22,6 +22,7 @@ import {
   CheckDeliverabilityDto,
   CreateAddressDto,
   MapStoresQueryDto,
+  SetZoneActiveDto,
   UpdateAddressDto,
 } from './dto/geospatial.dto';
 
@@ -116,6 +117,20 @@ export class AdminGeospatialController {
   @ApiOperation({ summary: 'Delivery hotspot analytics' })
   async hotspots() {
     const data = await this.geo.getHotspotAnalytics();
+    return { success: true, data };
+  }
+
+  @Get('zones')
+  @ApiOperation({ summary: 'List every delivery zone with city, status, and attach counts' })
+  async listZones() {
+    const data = await this.geo.listZonesDetailed();
+    return { success: true, data };
+  }
+
+  @Patch('zones/:id/active')
+  @ApiOperation({ summary: 'Activate or deactivate a delivery zone' })
+  async setZoneActive(@Param('id') id: string, @Body() dto: SetZoneActiveDto) {
+    const data = await this.geo.setZoneActive(id, dto.isActive);
     return { success: true, data };
   }
 }

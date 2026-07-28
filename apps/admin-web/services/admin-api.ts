@@ -717,3 +717,30 @@ export async function fetchMediaCoverage(): Promise<MediaCoverageReport> {
   const res = await adminFetch<ApiResponse<MediaCoverageReport>>('/api/admin/media/image-coverage');
   return res.data;
 }
+
+export interface AdminZone {
+  id: string;
+  name: string;
+  city: { id: string; name: string; state: string };
+  centerLat: number;
+  centerLng: number;
+  radiusKm: number;
+  isActive: boolean;
+  storeCount: number;
+  riderCount: number;
+  isAutoCreated: boolean;
+  createdAt: string;
+}
+
+export async function listZones(): Promise<AdminZone[]> {
+  const res = await adminFetch<ApiResponse<AdminZone[]>>('/api/admin/zones');
+  return res.data;
+}
+
+export async function setZoneActive(id: string, isActive: boolean): Promise<AdminZone> {
+  const res = await adminFetch<ApiResponse<AdminZone>>(`/api/admin/zones/${id}/active`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
+  });
+  return res.data;
+}

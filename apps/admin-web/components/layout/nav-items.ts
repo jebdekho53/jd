@@ -72,6 +72,7 @@ export const NAV: NavItem[] = [
   { href: '/fulfillment-network', label: 'Fulfillment Network', icon: Activity, keywords: 'dark store warehouse' },
   { href: '/locations', label: 'Master Locations', icon: MapPin, keywords: 'pincode city state' },
   { href: '/delivery-coverage', label: 'Delivery Coverage', icon: MapPin, keywords: 'radius serviceability pincode' },
+  { href: '/zones', label: 'Delivery Zones', icon: MapPin, keywords: 'rider assignment radius auto-created zone' },
   { href: '/supply-chain', label: 'Supply Chain', icon: Package, keywords: 'procurement vendors' },
   { href: '/expansion', label: 'Expansion', icon: Radio, keywords: 'new cities launch' },
   { href: '/ai-commerce', label: 'AI Commerce', icon: BarChart3 },

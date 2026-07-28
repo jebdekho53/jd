@@ -66,6 +66,12 @@ export class CheckDeliverabilityDto {
   pincode?: string;
 }
 
+export class SetZoneActiveDto {
+  @ApiProperty()
+  @IsBoolean()
+  isActive!: boolean;
+}
+
 export class UpdateStoreRadiusDto {
   @ApiProperty({ enum: ALLOWED_DELIVERY_RADII_KM })
   @Type(() => Number)
