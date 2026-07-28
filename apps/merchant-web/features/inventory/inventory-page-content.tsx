@@ -6,12 +6,14 @@ import { Card, Input, Badge, Table, THead, TBody, Tr, Th, Td, Skeleton } from '@
 import { InventoryInlineEditor } from '@/features/products/components/inventory-inline-editor';
 import { useProductsQuery } from '@/hooks/use-products';
 import { useStoreStore } from '@/store/store-store';
+import { useStoreCatalogKind } from '@/hooks/use-store-catalog-kind';
 import { useDebounce } from '@/hooks/use-debounce';
 import Link from 'next/link';
 import { Button } from '@/design-system/primitives';
 
 export function InventoryPageContent() {
   const { currentStore } = useStoreStore();
+  const { isMenuStore, isLoading: catalogLoading } = useStoreCatalogKind(currentStore?.id);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [filterLow, setFilterLow] = useState(false);
@@ -27,6 +29,26 @@ export function InventoryPageContent() {
         <AlertTriangle className="mb-3 h-8 w-8 text-amber-500" />
         <h3 className="font-semibold">No store selected</h3>
         <Link href="/stores"><Button className="mt-4" variant="outline">Go to Stores</Button></Link>
+      </div>
+    );
+  }
+
+  if (catalogLoading) {
+    return (
+      <div className="flex justify-center py-16 text-sm text-slate-500">Loading store type…</div>
+    );
+  }
+
+  if (isMenuStore) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
+        <h2 className="text-lg font-semibold text-slate-900">Restaurant menu, not inventory</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          This store uses food menu categories. Manage dish availability from Menu Management instead of Inventory.
+        </p>
+        <Link href={`/stores/${currentStore.id}/menu`} className="mt-4 inline-block">
+          <Button>Go to Menu</Button>
+        </Link>
       </div>
     );
   }

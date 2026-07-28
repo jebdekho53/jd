@@ -5,6 +5,8 @@ export const FOOD_VERTICALS: ReadonlySet<VerticalBusinessType> = new Set([
   VerticalBusinessType.RESTAURANT,
   VerticalBusinessType.CLOUD_KITCHEN,
   VerticalBusinessType.CAFE,
+  VerticalBusinessType.BAKERY,
+  VerticalBusinessType.SWEETS,
 ]);
 
 /** Verticals shown on buyer home top navigation. */

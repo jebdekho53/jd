@@ -80,10 +80,9 @@ export class MenuService {
       return;
     }
 
-    // FOOD_VERTICALS only covers RESTAURANT / CLOUD_KITCHEN / CAFE, but the MENU
-    // catalog also holds Bakery, Cakes and Sweets. An approved MENU category IS an
-    // admin decision that this store may run a menu, so honour it — otherwise an
-    // approved bakery is handed a menu builder it can never write to.
+    // Safety net for stores seeded before Bakery/Sweets joined FOOD_VERTICALS:
+    // an approved MENU category IS an admin decision that this store may run a
+    // menu, so honour it even if businessType lookup above didn't match.
     const approvedMenuTree = await this.categoryAccess.listApprovedCategoryTree(
       storeId,
       CategoryCatalogKind.MENU,
