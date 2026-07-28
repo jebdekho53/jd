@@ -42,7 +42,9 @@ const schema = z.object({
   locationPincodeId: z.string().optional(),
   localityLabel: z.string().optional(),
   cityId: z.string().min(1, 'Select a city'),
-  zoneIds: z.array(z.string()).min(1, 'Select at least one delivery zone'),
+  // Optional: if the selected city has no zones yet, the picker below never
+  // renders and the backend auto-creates a zone for the store on creation.
+  zoneIds: z.array(z.string()),
   phone: z.string().min(10, 'Enter 10-digit mobile'),
   email: z.string().email('Valid email required'),
   deliveryFee: z.coerce.number().min(0).optional(),
@@ -226,13 +228,19 @@ export function CreateStoreModal({ open, onClose }: Props) {
             )}
           />
 
+          {cityId && zones && zones.length === 0 && (
+            <p className="text-xs text-slate-500">
+              No delivery zones exist for this city yet — one will be created automatically, centered on your store.
+            </p>
+          )}
+
           {zones && zones.length > 0 && (
             <Controller
               name="zoneIds"
               control={control}
               render={({ field }) => (
                 <div>
-                  <p className="mb-2 text-sm font-medium text-slate-700">Delivery zones *</p>
+                  <p className="mb-2 text-sm font-medium text-slate-700">Delivery zones</p>
                   <div className="flex flex-wrap gap-2">
                     {zones.map((z) => {
                       const checked = field.value?.includes(z.id);
