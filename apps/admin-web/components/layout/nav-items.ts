@@ -24,6 +24,7 @@ import {
   Send,
   Sparkles,
   UtensilsCrossed,
+  RotateCcw,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -38,6 +39,8 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, keywords: 'home dashboard' },
   { href: '/analytics', label: 'Analytics', icon: BarChart3, keywords: 'reports metrics charts' },
+  { href: '/analytics/fleet', label: 'Fleet Analytics', icon: BarChart3, keywords: 'riders delivery performance' },
+  { href: '/analytics/franchise', label: 'Franchise Analytics', icon: BarChart3, keywords: 'territory partner performance' },
   { href: '/control-room', label: 'Control Room', icon: Radio, keywords: 'live ops' },
   { href: '/stores', label: 'Stores', icon: Store, keywords: 'merchants shops sellers' },
   { href: '/restaurant-ops', label: 'Restaurant Ops', icon: UtensilsCrossed, keywords: 'food kitchen menu' },
@@ -48,6 +51,7 @@ export const NAV: NavItem[] = [
   { href: '/rewards', label: 'Rewards & Wallet', icon: Tag, keywords: 'cashback loyalty points' },
   { href: '/catalog', label: 'Catalog', icon: FolderTree, keywords: 'products categories' },
   { href: '/catalog/image-coverage', label: 'Image Coverage', icon: ImageIcon, keywords: 'photos missing images' },
+  { href: '/ai-catalog', label: 'AI Catalog v2', icon: Sparkles, keywords: 'ai monitor catalog generation' },
   { href: '/ai-product-usage', label: 'AI Product Usage', icon: Sparkles, keywords: 'ai credits ocr' },
   { href: '/merchant-ai-wallets', label: 'Merchant AI Wallets', icon: Sparkles, keywords: 'ai balance credits topup' },
   { href: '/category-requests', label: 'Category Requests', icon: Tags },
@@ -57,7 +61,11 @@ export const NAV: NavItem[] = [
   { href: '/logistics', label: 'Logistics', icon: Truck, keywords: 'shadowfax delivery shipping courier' },
   { href: '/fleet/live', label: 'Fleet Live', icon: Activity, keywords: 'riders map tracking' },
   { href: '/operations/map', label: 'Operations Map', icon: Activity, keywords: 'map live' },
+  { href: '/riders', label: 'Riders', icon: Bike, keywords: 'delivery boys list all' },
   { href: '/riders/live', label: 'Riders Live', icon: Bike, keywords: 'delivery boys' },
+  { href: '/riders/kyc', label: 'Rider KYC Review', icon: Shield, keywords: 'documents license id proof approve reject' },
+  { href: '/riders/incentives', label: 'Rider Incentives', icon: Bike, keywords: 'bonus reward performance' },
+  { href: '/payments/refunds', label: 'Returns & Claims', icon: RotateCcw, keywords: 'refunds disputes' },
   { href: '/settlements', label: 'Settlements', icon: Banknote, keywords: 'payouts merchant money' },
   { href: '/finance', label: 'Finance', icon: Banknote, keywords: 'money cod ledger revenue' },
   { href: '/finance/commission', label: 'Commission Rules', icon: Percent, keywords: 'take rate fees' },
