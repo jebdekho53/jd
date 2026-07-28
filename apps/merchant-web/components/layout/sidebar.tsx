@@ -11,7 +11,7 @@ import { useStoreStore } from '@/store/store-store';
 import { useLogoutMutation } from '@/hooks/use-auth';
 import { useStoresQuery } from '@/hooks/use-stores';
 import { useStoreCatalogKind } from '@/hooks/use-store-catalog-kind';
-import { useApprovedMenuCategoriesQuery } from '@/hooks/use-categories-governance';
+import { useApprovedMenuCategoriesQuery, useApprovedCategoriesQuery } from '@/hooks/use-categories-governance';
 import { CommandPalette } from './command-palette';
 import { baseNav, restaurantNav } from './nav-items';
 
@@ -23,17 +23,18 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const { data: storeData } = useStoresQuery();
 
   const stores = storeData?.data ?? [];
-  const { isMenuStore, isLoading: catalogLoading } = useStoreCatalogKind(currentStore?.id);
-  // A store that sells both products and food (e.g. a bakery also stocking
-  // packaged grocery) resolves to the PRODUCT catalog, so isMenuStore is false.
-  // Any approved MENU category means the merchant needs the menu builder, so
-  // surface the restaurant nav whenever menu access exists — alongside Products.
+  const { isMenuStore, isProductStore, isLoading: catalogLoading } = useStoreCatalogKind(currentStore?.id);
+  // A store's default catalogKind comes from its businessTypes, but admins can
+  // separately grant approved categories of the other kind (e.g. a bakery also
+  // stocking packaged grocery/gift hampers). Whichever kind has approved
+  // categories should keep its nav item — a mixed store keeps both.
   const { data: approvedMenuCategories = [] } = useApprovedMenuCategoriesQuery(currentStore?.id);
+  const { data: approvedProductCategories = [] } = useApprovedCategoriesQuery(currentStore?.id);
   const hasMenuAccess = isMenuStore || approvedMenuCategories.length > 0;
+  const hasProductAccess = isProductStore || approvedProductCategories.length > 0;
 
   const filteredBaseNav = baseNav.filter((item) => {
-    // Hide product-only nav only for pure menu stores; a mixed store keeps both.
-    if (isMenuStore && (item.href === '/products' || item.href === '/inventory')) {
+    if (!hasProductAccess && (item.href === '/products' || item.href === '/inventory')) {
       return false;
     }
     return true;

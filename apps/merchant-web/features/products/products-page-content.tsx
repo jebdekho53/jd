@@ -14,6 +14,7 @@ import { AiWalletCard } from './components/ai-wallet-card';
 import { AiChargeReceiptModal } from './components/ai-charge-receipt-modal';
 import { useProductsQuery } from '@/hooks/use-products';
 import { useStoreCatalogKind } from '@/hooks/use-store-catalog-kind';
+import { useApprovedCategoriesQuery } from '@/hooks/use-categories-governance';
 import { useStoreStore } from '@/store/store-store';
 import { useDebounce } from '@/hooks/use-debounce';
 import type { Product } from '@/types/product';
@@ -33,6 +34,8 @@ export function ProductsPageContent() {
   const router = useRouter();
   const { currentStore } = useStoreStore();
   const { isMenuStore, isLoading: catalogLoading } = useStoreCatalogKind(currentStore?.id);
+  const { data: approvedProductCategories = [] } = useApprovedCategoriesQuery(currentStore?.id);
+  const isPureMenuStore = isMenuStore && approvedProductCategories.length === 0;
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
@@ -85,7 +88,7 @@ export function ProductsPageContent() {
     );
   }
 
-  if (isMenuStore) {
+  if (isPureMenuStore) {
     return (
       <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
         <h2 className="text-lg font-semibold text-slate-900">Restaurant menu, not products</h2>

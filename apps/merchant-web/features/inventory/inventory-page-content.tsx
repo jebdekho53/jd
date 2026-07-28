@@ -7,6 +7,7 @@ import { InventoryInlineEditor } from '@/features/products/components/inventory-
 import { useProductsQuery } from '@/hooks/use-products';
 import { useStoreStore } from '@/store/store-store';
 import { useStoreCatalogKind } from '@/hooks/use-store-catalog-kind';
+import { useApprovedCategoriesQuery } from '@/hooks/use-categories-governance';
 import { useDebounce } from '@/hooks/use-debounce';
 import Link from 'next/link';
 import { Button } from '@/design-system/primitives';
@@ -14,6 +15,8 @@ import { Button } from '@/design-system/primitives';
 export function InventoryPageContent() {
   const { currentStore } = useStoreStore();
   const { isMenuStore, isLoading: catalogLoading } = useStoreCatalogKind(currentStore?.id);
+  const { data: approvedProductCategories = [] } = useApprovedCategoriesQuery(currentStore?.id);
+  const isPureMenuStore = isMenuStore && approvedProductCategories.length === 0;
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [filterLow, setFilterLow] = useState(false);
@@ -39,7 +42,7 @@ export function InventoryPageContent() {
     );
   }
 
-  if (isMenuStore) {
+  if (isPureMenuStore) {
     return (
       <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
         <h2 className="text-lg font-semibold text-slate-900">Restaurant menu, not inventory</h2>
