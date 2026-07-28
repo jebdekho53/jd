@@ -1,5 +1,8 @@
 export const BRAND_NAME = 'JebDekho';
 export const BRAND_LOGO_SRC = '/logo.png';
+// Icon-only mark (no wordmark baked in) — for slots that render the brand
+// name as separate text next to/around it.
+export const BRAND_ICON_SRC = '/icon.png';
 export const BRAND_TAGLINE = 'Compare prices. Save more.';
 
 const PWA_ICON_SIZES = [72, 96, 128, 144, 152, 180, 192, 256, 384, 512] as const;
