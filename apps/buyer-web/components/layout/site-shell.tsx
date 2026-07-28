@@ -22,7 +22,7 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import { Logo, LogoLink } from '@/components/brand/logo';
-import { BRAND_NAME, BRAND_ICON_SRC, BRAND_TAGLINE } from '@/lib/brand';
+import { BRAND_NAME, BRAND_ICON_SRC, BRAND_WORDMARK_SRC, BRAND_TAGLINE } from '@/lib/brand';
 import { useCartQuery, useCartItemCount } from '@/hooks/use-cart';
 import { useFoodCartQuery, useFoodCartItemCount } from '@/hooks/use-food-cart';
 import { useAuthStore } from '@/store/auth-store';
@@ -212,9 +212,14 @@ export function SiteHeader() {
             <Link href="/" className="shrink-0" aria-label={BRAND_NAME}>
               <Image src={BRAND_ICON_SRC} alt={BRAND_NAME} width={32} height={32} className="h-8 w-8 object-contain" priority />
             </Link>
-            <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-base font-bold text-jd-text-primary">
-              {BRAND_NAME}
-            </span>
+            <Image
+              src={BRAND_WORDMARK_SRC}
+              alt={BRAND_NAME}
+              width={90}
+              height={20}
+              className="pointer-events-none absolute left-1/2 h-5 w-auto -translate-x-1/2 object-contain"
+              priority
+            />
             <div className="flex items-center gap-1">
               <Link
                 href="/food/cart"

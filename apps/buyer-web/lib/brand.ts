@@ -3,6 +3,10 @@ export const BRAND_LOGO_SRC = '/logo.png';
 // Icon-only mark (no wordmark baked in) — for slots that render the brand
 // name as separate text next to/around it.
 export const BRAND_ICON_SRC = '/icon.png';
+// Wordmark-only mark (text, no pin icon) — cropped from the full stacked
+// logo so it matches the exact brand typography, for slots that need the
+// icon and brand name positioned independently.
+export const BRAND_WORDMARK_SRC = '/wordmark.png';
 export const BRAND_TAGLINE = 'Compare prices. Save more.';
 
 const PWA_ICON_SIZES = [72, 96, 128, 144, 152, 180, 192, 256, 384, 512] as const;
