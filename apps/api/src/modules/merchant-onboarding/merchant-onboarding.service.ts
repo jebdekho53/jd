@@ -823,7 +823,26 @@ export class MerchantOnboardingService {
         ipAddress,
       );
     } else {
-      // Profile exists — role granted only on admin approval.
+      // Profile already exists — email-signup pre-creates a bare
+      // MerchantProfile with only businessName (see
+      // AuthService.merchantEmailSignup) so the onboarding wizard has a row
+      // to attach documents/steps to before the application is submitted.
+      // Without this sync, businessName/gstNumber/panNumber entered in the
+      // wizard's GST/PAN step lived only on the MerchantApplication draft —
+      // the profile's own panNumber stayed null forever, and
+      // submitForReview's validateSubmissionReadiness (which reads the
+      // profile, not the application) 400'd on "PAN is required" for every
+      // email-signup merchant, no matter what they entered. Role stays
+      // granted only on admin approval (ensureMerchantRole), unaffected by
+      // this update.
+      profile = await this.prisma.merchantProfile.update({
+        where: { userId },
+        data: {
+          businessName: app.businessName ?? profile.businessName,
+          gstNumber: app.gstNumber ?? profile.gstNumber,
+          panNumber: app.panNumber ?? profile.panNumber,
+        },
+      });
     }
 
     let storeId = app.storeId;
@@ -879,6 +898,19 @@ export class MerchantOnboardingService {
       };
       const store = await this.storeService.createStore(userId, storeDto, ipAddress);
       storeId = store.id;
+      // Link the application to its store immediately — not just in the final
+      // update at the end of this method. If anything after this point throws
+      // (submitForReview's readiness check, risk assessment, ...), app.storeId
+      // was otherwise still null, so the next submit retry re-entered this
+      // `if (!storeId)` branch and created a second store instead of resuming
+      // the one that already exists — exactly what happened before the
+      // MerchantProfile sync fix above (PAN never reached the profile, so
+      // submitForReview 400'd every time, and every retry left one more
+      // orphaned DRAFT store behind).
+      await this.prisma.merchantApplication.update({
+        where: { id: app.id },
+        data: { storeId },
+      });
 
       if (app.deliveryRadiusKm || app.deliveryMode) {
         await this.prisma.store.update({
