@@ -1,8 +1,6 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
 import { ApiTags as Tags } from '../../common/constants';
 import { UploadService } from './upload.service';
 import { UploadImageDto } from './dto/upload-image.dto';
@@ -10,10 +8,15 @@ import { UploadDocumentDto } from './dto/upload-document.dto';
 
 @ApiTags(Tags.MERCHANTS)
 @ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard, RolesGuard)
-// FRANCHISE partners upload KYC documents (PAN, cheque, signed agreement), so they
-// need the upload surface too — without this they could not complete onboarding.
-@Roles('BUYER', 'MERCHANT', 'FRANCHISE', 'ADMIN', 'SUPER_ADMIN')
+// Any authenticated user, no role required: a merchant/franchise applicant
+// mid-onboarding has no role yet (granted only on approval — see
+// AuthService.merchantEmailSignup and MerchantService.ensureMerchantRole),
+// so a role allowlist here 403s exactly the people uploading their
+// onboarding documents. Upload itself doesn't check ownership or attach
+// the file to anything — that happens at whichever endpoint later saves
+// the returned URL onto the caller's own record — so there's nothing a
+// role check would actually be protecting here.
+@UseGuards(JwtAuthGuard)
 @Controller('uploads')
 export class UploadController {
   constructor(private readonly uploads: UploadService) {}
