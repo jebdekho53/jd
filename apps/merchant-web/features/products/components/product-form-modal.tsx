@@ -146,6 +146,20 @@ export function ProductFormModal({ storeId, open, onClose, editProduct }: Props)
             stock: String(v.inventory?.availableQty ?? 0),
           })),
       );
+      setSpecs(Array.isArray(editProduct.specifications) ? editProduct.specifications : []);
+      // Load size/colour variants (non-default ones with a size or colour).
+      setSizeVariants(
+        (editProduct.variants ?? [])
+          .filter((v) => !v.isDefault && (v.size || v.color))
+          .map((v) => ({
+            size: v.size ?? '',
+            color: v.color ?? '',
+            sku: v.sku ?? '',
+            price: String(v.price ?? ''),
+            mrp: v.mrp != null ? String(v.mrp) : '',
+            stock: String(v.inventory?.availableQty ?? 0),
+          })),
+      );
       reset({
         name: editProduct.name,
         description: editProduct.description ?? '',
