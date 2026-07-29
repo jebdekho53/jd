@@ -1,15 +1,20 @@
 import { View, Text, StyleSheet, FlatList, Image, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCartQuery, useRemoveCartItemMutation, useUpdateCartItemMutation } from '@/hooks/use-cart';
+import { useIsAuthenticated } from '@/hooks/use-auth';
+import { GuestCartView } from '@/features/cart/guest-cart-view';
 import { Button } from '@/components/ui/button';
 import { Loader } from '@/components/ui/loader';
 import type { CartItem } from '@/types/cart';
 
 export function CartScreen() {
   const router = useRouter();
+  const isAuthenticated = useIsAuthenticated();
   const { data: cart, isLoading } = useCartQuery();
   const updateItem = useUpdateCartItemMutation();
   const removeItem = useRemoveCartItemMutation();
+
+  if (!isAuthenticated) return <GuestCartView />;
 
   if (isLoading) return <Loader fullScreen />;
 

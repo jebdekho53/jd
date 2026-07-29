@@ -96,6 +96,10 @@ export function LoginScreen() {
         )}
         {error && <Text style={styles.error}>{error}</Text>}
       </Card>
+
+      <Pressable onPress={() => router.push('/email-login')} style={styles.link}>
+        <Text style={styles.linkText}>Sign in with email & password instead</Text>
+      </Pressable>
     </KeyboardAvoidingView>
   );
 }

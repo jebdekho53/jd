@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { AppProviders } from '@/components/providers/app-providers';
+import { SessionSync } from '@/components/providers/session-sync';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* splash already hidden */
@@ -16,6 +17,7 @@ export default function RootLayout() {
 
   return (
     <AppProviders>
+      <SessionSync />
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />

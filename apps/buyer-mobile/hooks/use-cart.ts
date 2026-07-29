@@ -1,16 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addCartItem, clearCart, getCart, removeCartItem, updateCartItem } from '@/services/buyer-api';
+import { useIsAuthenticated } from '@/hooks/use-auth';
 
 export const cartKeys = {
   current: ['cart', 'current'] as const,
 };
 
+/** The server cart requires login — disabled for guests so product/home
+ *  screens (guest-browsable) don't fire a doomed authenticated request.
+ *  Guests use useGuestCartStore (store/guest-cart-store.ts) instead. */
 export function useCartQuery() {
+  const isAuthenticated = useIsAuthenticated();
   return useQuery({
     queryKey: cartKeys.current,
     queryFn: getCart,
     staleTime: 15_000,
     placeholderData: (previous) => previous,
+    enabled: isAuthenticated,
   });
 }
 

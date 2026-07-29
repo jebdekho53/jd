@@ -5,6 +5,8 @@ import { useEnsureLocation } from '@/hooks/use-location';
 import { useLocationStore } from '@/store/location-store';
 import { useCategoriesQuery, useDiscoverStoresQuery, useProductSearchQuery } from '@/hooks/use-buyer-queries';
 import { useCartQuery } from '@/hooks/use-cart';
+import { useIsAuthenticated } from '@/hooks/use-auth';
+import { useGuestCartStore } from '@/store/guest-cart-store';
 import { Badge } from '@/components/ui/badge';
 import { Loader } from '@/components/ui/loader';
 import type { CategoryItem, StoreCard } from '@/types/buyer';
@@ -42,7 +44,12 @@ export function HomeScreen() {
   const router = useRouter();
   useEnsureLocation();
   const { lat, lng, pincode, label, permissionDenied } = useLocationStore();
+  const isAuthenticated = useIsAuthenticated();
   const { data: cart } = useCartQuery();
+  const guestCartItems = useGuestCartStore((s) => s.items);
+  const cartItemCount = isAuthenticated
+    ? (cart?.itemCount ?? 0)
+    : guestCartItems.reduce((sum, i) => sum + i.quantity, 0);
   const { data: categories = [] } = useCategoriesQuery();
 
   const hasLocation = lat != null && lng != null;
@@ -71,7 +78,7 @@ export function HomeScreen() {
         </Pressable>
         <Pressable style={[styles.utilityButton, styles.utilityButtonPrimary]} onPress={() => router.push('/cart')}>
           <Text style={styles.utilityButtonTextPrimary}>🛒 Cart</Text>
-          {!!cart?.itemCount && <Badge label={String(cart.itemCount)} tone="success" />}
+          {!!cartItemCount && <Badge label={String(cartItemCount)} tone="success" />}
         </Pressable>
       </View>
 
@@ -220,6 +227,16 @@ export function HomeScreen() {
         <View style={styles.compareButton}>
           <Text style={styles.compareButtonText}>Search products →</Text>
         </View>
+      </Pressable>
+
+      {/* Offers banner */}
+      <Pressable style={styles.offersBanner} onPress={() => router.push('/offers')}>
+        <Text style={styles.offersEmoji}>🔥</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.offersTitle}>Offers & deals</Text>
+          <Text style={styles.offersSubtitle}>Flash sales, free delivery and top store discounts</Text>
+        </View>
+        <Text style={styles.offersArrow}>→</Text>
       </Pressable>
 
       <View style={{ height: 24 }} />
@@ -510,4 +527,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   compareButtonText: { color: COLORS.primary, fontSize: 13, fontWeight: '700' },
+
+  offersBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#fff7ed',
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+  },
+  offersEmoji: { fontSize: 24 },
+  offersTitle: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary },
+  offersSubtitle: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
+  offersArrow: { fontSize: 18, color: COLORS.accent, fontWeight: '700' },
 });

@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { useProductQuery } from '@/hooks/use-buyer-queries';
 import { useAddCartItemMutation, useCartQuery } from '@/hooks/use-cart';
 import { useIsWishlisted, useToggleWishlistMutation } from '@/hooks/use-wishlist';
+import { useIsAuthenticated } from '@/hooks/use-auth';
+import { useGuestCartStore, StoreConflictError } from '@/store/guest-cart-store';
 import { ProductReviewsSection } from '@/features/product/product-reviews-section';
 import { Button } from '@/components/ui/button';
 import { Loader } from '@/components/ui/loader';
@@ -11,27 +13,63 @@ import { Badge } from '@/components/ui/badge';
 
 export function ProductDetailScreen({ productId, storeSlug }: { productId: string; storeSlug?: string }) {
   const router = useRouter();
+  const isAuthenticated = useIsAuthenticated();
   const { data: product, isLoading } = useProductQuery(productId, storeSlug);
   const { data: cart } = useCartQuery();
   const addItem = useAddCartItemMutation();
   const wishlisted = useIsWishlisted(productId);
   const toggleWishlist = useToggleWishlistMutation();
+  const guestCart = useGuestCartStore();
   const [error, setError] = useState<string | null>(null);
 
   if (isLoading) return <Loader fullScreen />;
   if (!product) return <Text style={styles.empty}>Product not found</Text>;
 
   const variant = product.variants.find((v) => v.isDefault) ?? product.variants[0];
-  const inDifferentStoreCart = cart && cart.storeId !== product.store.id;
+  const inDifferentStoreCart = isAuthenticated
+    ? cart && cart.storeId !== product.store.id
+    : guestCart.storeId && guestCart.storeId !== product.store.id;
 
   const handleAdd = async () => {
     if (!variant) return;
     setError(null);
+
+    if (!isAuthenticated) {
+      try {
+        guestCart.addItem({
+          productId: product.id,
+          variantId: variant.id,
+          storeId: product.store.id,
+          storeName: product.store.name,
+          productName: product.name,
+          variantName: variant.name ?? null,
+          unitPrice: variant.price,
+          imageUrl: product.imageUrls[0] ?? null,
+          availableQty: variant.availableQty,
+        });
+      } catch (e) {
+        if (e instanceof StoreConflictError) {
+          setError(`Your cart has items from ${e.currentStoreName}. Clear it first to add from a new store.`);
+          return;
+        }
+        setError((e as Error).message);
+      }
+      return;
+    }
+
     try {
       await addItem.mutateAsync({ productId: product.id, variantId: variant.id, quantity: 1 });
     } catch (e) {
       setError((e as Error).message);
     }
+  };
+
+  const handleWishlistToggle = () => {
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+    toggleWishlist.mutate({ productId, wishlisted });
   };
 
   return (
@@ -46,7 +84,7 @@ export function ProductDetailScreen({ productId, storeSlug }: { productId: strin
           style={styles.wishlistButton}
           disabled={toggleWishlist.isPending}
           accessibilityLabel={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
-          onPress={() => toggleWishlist.mutate({ productId, wishlisted })}
+          onPress={handleWishlistToggle}
         >
           <Text style={[styles.wishlistIcon, wishlisted && styles.wishlistIconOn]}>
             {wishlisted ? '♥' : '♡'}

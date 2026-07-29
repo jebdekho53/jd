@@ -69,6 +69,7 @@ export function ProfileScreen() {
           subtitle: `${wallet?.rewardPoints ?? 0} points available`,
           href: '/profile/rewards',
         },
+        { icon: '⭐', title: 'JebDekho Plus', subtitle: 'Free delivery & more', href: '/plus' },
       ],
     },
     {

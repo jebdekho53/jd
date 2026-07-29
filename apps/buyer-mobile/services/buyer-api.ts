@@ -7,6 +7,8 @@ import type { AuthUser, RequestOtpResult, VerifyOtpResult } from '@/types/auth';
 import type { CategoryItem, StoreCard, StoreDetail, BuyerProduct, BuyerProductWithStore } from '@/types/buyer';
 import type { Cart } from '@/types/cart';
 import type { CompareProductResult } from '@/types/compare';
+import type { FlashSaleOffer, FreeDeliveryDeal, StorePromotionDeal } from '@/types/offers';
+import type { MembershipPlan, PlusMeResult } from '@/types/plus';
 import type {
   CheckoutPayload,
   CodCheckoutResult,
@@ -239,6 +241,50 @@ export async function logoutSession(): Promise<void> {
   await buyerFetch<ApiResponse<unknown>>('/auth/logout', { method: 'POST', body: JSON.stringify({}) });
 }
 
+/** Email+password registration — alternative to phone+OTP. Uses the same
+ *  token/user shape as verifyOtp. */
+export async function signupWithEmail(input: {
+  name: string;
+  email: string;
+  password: string;
+  referralCode?: string;
+}): Promise<VerifyOtpResult> {
+  const res = await buyerFetch<ApiResponse<VerifyOtpResult>>('/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify({ ...input, portal: 'buyer', deviceName: 'buyer-mobile' }),
+  });
+  await setTokens(res.data.accessToken, res.data.refreshToken);
+  return res.data;
+}
+
+export async function loginWithEmail(email: string, password: string): Promise<VerifyOtpResult> {
+  const res = await buyerFetch<ApiResponse<VerifyOtpResult>>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password, portal: 'buyer', deviceName: 'buyer-mobile' }),
+  });
+  await setTokens(res.data.accessToken, res.data.refreshToken);
+  return res.data;
+}
+
+export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+  const res = await buyerFetch<ApiResponse<{ message: string }>>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email, portal: 'buyer' }),
+  });
+  return res.data;
+}
+
+export async function resetPasswordWithCode(
+  code: string,
+  newPassword: string,
+): Promise<{ message: string }> {
+  const res = await buyerFetch<ApiResponse<{ message: string }>>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token: code, newPassword }),
+  });
+  return res.data;
+}
+
 // ─── Discovery ───────────────────────────────────────────────────────────────
 
 export async function fetchCategories(): Promise<CategoryItem[]> {
@@ -324,6 +370,66 @@ export async function compareProduct(
     if (e instanceof BuyerApiError && (e.status === 404 || e.status === 400)) return null;
     throw e;
   }
+}
+
+// ─── Offers & deals ──────────────────────────────────────────────────────────
+
+export async function getTopDeals(limit = 10): Promise<StorePromotionDeal[]> {
+  const res = await buyerFetch<ApiResponse<StorePromotionDeal[]>>(
+    `/buyer/deals/top${buildQuery({ limit })}`,
+  );
+  return res.data;
+}
+
+export async function getTrendingDeals(limit = 10): Promise<StorePromotionDeal[]> {
+  const res = await buyerFetch<ApiResponse<StorePromotionDeal[]>>(
+    `/buyer/deals/trending${buildQuery({ limit })}`,
+  );
+  return res.data;
+}
+
+export async function getFreeDeliveryDeals(limit = 10): Promise<FreeDeliveryDeal[]> {
+  const res = await buyerFetch<ApiResponse<FreeDeliveryDeal[]>>(
+    `/buyer/deals/free-delivery${buildQuery({ limit })}`,
+  );
+  return res.data;
+}
+
+export async function getFlashSales(limit = 12): Promise<FlashSaleOffer[]> {
+  const res = await buyerFetch<ApiResponse<FlashSaleOffer[]>>(
+    `/buyer/offers/flash-sales${buildQuery({ limit })}`,
+  );
+  return res.data;
+}
+
+export async function getOffersNearYou(
+  lat: number,
+  lng: number,
+  limit = 12,
+): Promise<FlashSaleOffer[]> {
+  const res = await buyerFetch<ApiResponse<FlashSaleOffer[]>>(
+    `/buyer/offers/near-you${buildQuery({ lat, lng, limit })}`,
+  );
+  return res.data;
+}
+
+// ─── JD Plus membership ──────────────────────────────────────────────────────
+
+export async function getPlusPlans(): Promise<MembershipPlan[]> {
+  const res = await buyerFetch<ApiResponse<MembershipPlan[]>>('/buyer/plus/plans');
+  return res.data;
+}
+
+export async function getPlusMe(): Promise<PlusMeResult> {
+  const res = await buyerFetch<ApiResponse<PlusMeResult>>('/buyer/plus/me');
+  return res.data;
+}
+
+export async function subscribeToPlus(planId: string, yearly = false): Promise<void> {
+  await buyerFetch<ApiResponse<unknown>>('/buyer/plus/subscribe', {
+    method: 'POST',
+    body: JSON.stringify({ planId, yearly }),
+  });
 }
 
 // ─── Cart ────────────────────────────────────────────────────────────────────

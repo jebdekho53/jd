@@ -1,5 +1,10 @@
+import { AuthGuard } from '@/features/auth/auth-guard';
 import { RewardsScreen } from '@/features/wallet/rewards-screen';
 
 export default function RewardsPage() {
-  return <RewardsScreen />;
+  return (
+    <AuthGuard>
+      <RewardsScreen />
+    </AuthGuard>
+  );
 }

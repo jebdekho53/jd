@@ -1,9 +1,45 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchMe, logoutSession, requestOtp, stepUp, verifyOtp } from '@/services/buyer-api';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import {
+  addCartItem,
+  fetchMe,
+  loginWithEmail,
+  logoutSession,
+  requestOtp,
+  requestPasswordReset,
+  resetPasswordWithCode,
+  signupWithEmail,
+  stepUp,
+  verifyOtp,
+} from '@/services/buyer-api';
 import { clearTokens } from '@/lib/auth/session';
 import { useAuthStore } from '@/store/auth-store';
+import { cartKeys } from '@/hooks/use-cart';
+import { useGuestCartStore } from '@/store/guest-cart-store';
 
 export const AUTH_ME_KEY = ['auth', 'me'] as const;
+
+/** Pushes the guest's locally-held cart lines into the newly-authenticated
+ *  server cart, then clears the guest cart. Best-effort per line — one
+ *  failure (e.g. an item went out of stock while browsing as a guest)
+ *  doesn't block sign-in or the rest of the merge. */
+async function mergeGuestCartIntoServer(qc: QueryClient): Promise<void> {
+  const { items, clear } = useGuestCartStore.getState();
+  if (items.length === 0) return;
+
+  for (const item of items) {
+    try {
+      await addCartItem({ productId: item.productId, variantId: item.variantId, quantity: item.quantity });
+    } catch {
+      // Item may be out of stock or the store no longer serviceable — skip it.
+    }
+  }
+  clear();
+  await qc.invalidateQueries({ queryKey: cartKeys.current });
+}
+
+export function useIsAuthenticated(): boolean {
+  return useAuthStore((s) => s.status === 'authenticated');
+}
 
 export function useMeQuery(enabled = true) {
   return useQuery({
@@ -25,10 +61,52 @@ export function useVerifyOtpMutation() {
 
   return useMutation({
     mutationFn: ({ phone, code }: { phone: string; code: string }) => verifyOtp(phone, code),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setSession(data.user);
       qc.setQueryData(AUTH_ME_KEY, data.user);
+      await mergeGuestCartIntoServer(qc);
     },
+  });
+}
+
+export function useSignupMutation() {
+  const { setSession } = useAuthStore();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { name: string; email: string; password: string; referralCode?: string }) =>
+      signupWithEmail(input),
+    onSuccess: async (data) => {
+      setSession(data.user);
+      qc.setQueryData(AUTH_ME_KEY, data.user);
+      await mergeGuestCartIntoServer(qc);
+    },
+  });
+}
+
+export function useEmailLoginMutation() {
+  const { setSession } = useAuthStore();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ email, password }: { email: string; password: string }) =>
+      loginWithEmail(email, password),
+    onSuccess: async (data) => {
+      setSession(data.user);
+      qc.setQueryData(AUTH_ME_KEY, data.user);
+      await mergeGuestCartIntoServer(qc);
+    },
+  });
+}
+
+export function useForgotPasswordMutation() {
+  return useMutation({ mutationFn: requestPasswordReset });
+}
+
+export function useResetPasswordMutation() {
+  return useMutation({
+    mutationFn: ({ code, newPassword }: { code: string; newPassword: string }) =>
+      resetPasswordWithCode(code, newPassword),
   });
 }
 

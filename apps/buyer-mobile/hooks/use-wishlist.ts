@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addToWishlist, getWishlist, removeFromWishlist } from '@/services/buyer-api';
+import { useIsAuthenticated } from '@/hooks/use-auth';
 import type { WishlistItem } from '@/types/wishlist';
 
 export const wishlistKeys = {
@@ -7,12 +8,19 @@ export const wishlistKeys = {
 };
 
 /**
- * Unlike buyer-web — which keeps a localStorage wishlist so guests can save
- * items and syncs it up on login — every screen in this app sits behind the
- * auth guard, so the server list is the only source of truth.
+ * The server wishlist requires login (unlike buyer-web, which keeps a
+ * localStorage wishlist for guests) — disabled here so a guest viewing a
+ * product doesn't fire a doomed authenticated request. Guests are prompted
+ * to sign in when they tap the wishlist heart instead.
  */
 export function useWishlistQuery() {
-  return useQuery({ queryKey: wishlistKeys.list, queryFn: getWishlist, staleTime: 30_000 });
+  const isAuthenticated = useIsAuthenticated();
+  return useQuery({
+    queryKey: wishlistKeys.list,
+    queryFn: getWishlist,
+    staleTime: 30_000,
+    enabled: isAuthenticated,
+  });
 }
 
 export function useIsWishlisted(productId: string): boolean {
