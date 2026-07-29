@@ -3,27 +3,26 @@ import { View, Text, StyleSheet, ScrollView, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCartQuery } from '@/hooks/use-cart';
 import { useAcceptLegalMutation, useCheckoutCodMutation, usePendingLegalQuery } from '@/hooks/use-checkout';
-import { useLocationStore } from '@/store/location-store';
+import { CheckoutAddressPicker } from '@/features/addresses/checkout-address-picker';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Loader } from '@/components/ui/loader';
 import { StepUpPrompt } from '@/features/auth/step-up-prompt';
 import { StepUpRequiredError, LegalAcceptanceRequiredError } from '@/services/buyer-api';
+import { hasUsableCoordinates, toDeliveryAddress } from '@/lib/address';
 import { uid } from '@/lib/uid';
+import type { BuyerAddress } from '@/types/address';
 import type { CheckoutPayload } from '@/types/checkout';
 
 export function CheckoutScreen() {
   const router = useRouter();
   const { data: cart } = useCartQuery();
-  const { lat, lng } = useLocationStore();
   const { data: pendingLegal, refetch: refetchLegal } = usePendingLegalQuery(true);
   const acceptLegal = useAcceptLegalMutation();
   const checkoutCod = useCheckoutCodMutation();
 
-  const [line1, setLine1] = useState('');
-  const [city, setCity] = useState('');
-  const [pincode, setPincode] = useState('');
+  const [address, setAddress] = useState<BuyerAddress | null>(null);
   const [buyerNote, setBuyerNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showStepUp, setShowStepUp] = useState(false);
@@ -33,20 +32,15 @@ export function CheckoutScreen() {
     return <Loader fullScreen />;
   }
 
-  const addressComplete = line1.trim().length >= 4 && city.trim().length >= 2 && /^\d{6}$/.test(pincode) && lat != null && lng != null;
+  const canPlace = hasUsableCoordinates(address);
 
   const buildPayload = (): CheckoutPayload => ({
-    deliveryAddress: {
-      line1: line1.trim(),
-      city: city.trim(),
-      pincode: pincode.trim(),
-      lat: lat!,
-      lng: lng!,
-    },
+    deliveryAddress: toDeliveryAddress(address!),
     buyerNote: buyerNote.trim() || undefined,
   });
 
   const placeOrder = async () => {
+    if (!canPlace) return;
     setError(null);
     try {
       const result = await checkoutCod.mutateAsync({ payload: buildPayload(), idempotencyKey });
@@ -74,24 +68,14 @@ export function CheckoutScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Delivery address</Text>
-          <Input label="House / flat / street" value={line1} onChangeText={setLine1} placeholder="42 MG Road" />
-          <Input label="City" value={city} onChangeText={setCity} placeholder="New Delhi" />
-          <Input
-            label="Pincode"
-            value={pincode}
-            onChangeText={(t) => setPincode(t.replace(/\D/g, ''))}
-            keyboardType="number-pad"
-            maxLength={6}
-            placeholder="110001"
-          />
-          {lat == null && (
-            <Text style={styles.warning}>
-              Location not available — enable location access so we can confirm delivery serviceability.
-            </Text>
-          )}
-        </Card>
+        <CheckoutAddressPicker selected={address} onSelect={setAddress} />
+
+        {address && !hasUsableCoordinates(address) && (
+          <Text style={styles.warning}>
+            This address has no map location. Edit it and re-pin so we can confirm delivery
+            serviceability.
+          </Text>
+        )}
 
         <Card style={styles.card}>
           <Text style={styles.sectionTitle}>Note for the store (optional)</Text>
@@ -113,7 +97,7 @@ export function CheckoutScreen() {
           label={`Place order · ₹${cart.totals.grandTotal.toFixed(0)} COD`}
           onPress={placeOrder}
           loading={checkoutCod.isPending}
-          disabled={!addressComplete}
+          disabled={!canPlace}
         />
       </View>
 

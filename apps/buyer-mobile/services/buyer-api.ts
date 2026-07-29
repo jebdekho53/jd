@@ -2,6 +2,7 @@ import { getAccessToken, getApiBaseUrl, getRefreshToken, setTokens, clearTokens 
 import { useAuthStore } from '@/store/auth-store';
 import { normalizeError, type NormalizedError } from '@/types/errors';
 import { uid } from '@/lib/uid';
+import type { BuyerAddress, UpsertAddressPayload } from '@/types/address';
 import type { AuthUser, RequestOtpResult, VerifyOtpResult } from '@/types/auth';
 import type { CategoryItem, StoreCard, StoreDetail, BuyerProduct, BuyerProductWithStore } from '@/types/buyer';
 import type { Cart } from '@/types/cart';
@@ -379,6 +380,38 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
     body: JSON.stringify({ reason }),
   });
   return res.data;
+}
+
+// ─── Addresses ───────────────────────────────────────────────────────────────
+
+export async function listAddresses(): Promise<BuyerAddress[]> {
+  const res = await buyerFetch<ApiResponse<BuyerAddress[]>>('/buyer/addresses');
+  return res.data;
+}
+
+export async function createAddress(payload: UpsertAddressPayload): Promise<BuyerAddress> {
+  const res = await buyerFetch<ApiResponse<BuyerAddress>>('/buyer/addresses', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.data;
+}
+
+export async function updateAddress(
+  id: string,
+  patch: Partial<UpsertAddressPayload>,
+): Promise<BuyerAddress> {
+  const res = await buyerFetch<ApiResponse<BuyerAddress>>(`/buyer/addresses/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+  return res.data;
+}
+
+export async function deleteAddress(id: string): Promise<void> {
+  await buyerFetch<ApiResponse<{ deleted: boolean }>>(`/buyer/addresses/${id}`, {
+    method: 'DELETE',
+  });
 }
 
 // ─── Product reviews ─────────────────────────────────────────────────────────

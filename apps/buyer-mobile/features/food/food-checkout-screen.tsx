@@ -3,14 +3,16 @@ import { View, Text, StyleSheet, ScrollView, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFoodCartQuery, useFoodCheckoutCodMutation } from '@/hooks/use-food';
 import { useAcceptLegalMutation, usePendingLegalQuery } from '@/hooks/use-checkout';
-import { useLocationStore } from '@/store/location-store';
+import { CheckoutAddressPicker } from '@/features/addresses/checkout-address-picker';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Loader } from '@/components/ui/loader';
 import { StepUpPrompt } from '@/features/auth/step-up-prompt';
 import { LegalAcceptanceRequiredError, StepUpRequiredError } from '@/services/buyer-api';
+import { hasUsableCoordinates, toDeliveryAddress } from '@/lib/address';
 import { uid } from '@/lib/uid';
+import type { BuyerAddress } from '@/types/address';
 import type { InitiateFoodCheckoutPayload } from '@/types/food';
 
 const COLORS = {
@@ -25,14 +27,11 @@ const COLORS = {
 export function FoodCheckoutScreen() {
   const router = useRouter();
   const { data: cart, isLoading } = useFoodCartQuery();
-  const { lat, lng } = useLocationStore();
   const { data: pendingLegal, refetch: refetchLegal } = usePendingLegalQuery(true);
   const acceptLegal = useAcceptLegalMutation();
   const placeCodOrder = useFoodCheckoutCodMutation();
 
-  const [line1, setLine1] = useState('');
-  const [city, setCity] = useState('');
-  const [pincode, setPincode] = useState('');
+  const [address, setAddress] = useState<BuyerAddress | null>(null);
   const [restaurantNote, setRestaurantNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showStepUp, setShowStepUp] = useState(false);
@@ -79,28 +78,18 @@ export function FoodCheckoutScreen() {
   // 'SELF' stores deliver with their own staff — there is no rider to collect
   // cash, so the API only offers online payment. This app is COD-only today.
   const selfDelivery = cart.store.deliveryMode === 'SELF';
-  const addressComplete =
-    line1.trim().length >= 4 &&
-    city.trim().length >= 2 &&
-    /^\d{6}$/.test(pincode) &&
-    lat != null &&
-    lng != null;
+  const canPlace = hasUsableCoordinates(address) && !selfDelivery;
 
   const buildPayload = (): InitiateFoodCheckoutPayload => ({
-    deliveryAddress: {
-      line1: line1.trim(),
-      city: city.trim(),
-      pincode: pincode.trim(),
-      lat: lat!,
-      lng: lng!,
-    },
-    deliveryLat: lat!,
-    deliveryLng: lng!,
+    deliveryAddress: toDeliveryAddress(address!) as unknown as Record<string, unknown>,
+    deliveryLat: address!.latitude,
+    deliveryLng: address!.longitude,
     paymentMethod: 'COD',
     restaurantNote: restaurantNote.trim() || undefined,
   });
 
   const placeOrder = async () => {
+    if (!canPlace) return;
     // A ref guards the double-tap race: `isPending` doesn't flip synchronously,
     // so two taps in the same tick could both clear the disabled check.
     if (placingRef.current) return;
@@ -136,25 +125,14 @@ export function FoodCheckoutScreen() {
           </Text>
         </View>
 
-        <Card style={styles.card}>
-          <Text style={styles.sectionTitle}>Delivery address</Text>
-          <Input label="House / flat / street" value={line1} onChangeText={setLine1} placeholder="42 MG Road" />
-          <Input label="City" value={city} onChangeText={setCity} placeholder="New Delhi" />
-          <Input
-            label="Pincode"
-            value={pincode}
-            onChangeText={(t) => setPincode(t.replace(/\D/g, ''))}
-            keyboardType="number-pad"
-            maxLength={6}
-            placeholder="110001"
-          />
-          {lat == null && (
-            <Text style={styles.warning}>
-              Location not available — enable location access so we can confirm delivery
-              serviceability.
-            </Text>
-          )}
-        </Card>
+        <CheckoutAddressPicker selected={address} onSelect={setAddress} />
+
+        {address && !hasUsableCoordinates(address) && (
+          <Text style={styles.warning}>
+            This address has no map location. Edit it and re-pin so we can confirm delivery
+            serviceability.
+          </Text>
+        )}
 
         <Card style={styles.card}>
           <Text style={styles.sectionTitle}>Note for the restaurant (optional)</Text>
@@ -203,7 +181,7 @@ export function FoodCheckoutScreen() {
           label={`Place order · ₹${cart.totals.grandTotal.toFixed(0)} COD`}
           onPress={placeOrder}
           loading={placeCodOrder.isPending}
-          disabled={!addressComplete || selfDelivery}
+          disabled={!canPlace}
         />
       </View>
 
