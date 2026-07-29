@@ -24,6 +24,7 @@ import type {
   ProductReview,
   ProductReviewsResult,
 } from '@/types/reviews';
+import type { ReferralSummary, RewardsSummary, WalletSummary } from '@/types/wallet';
 import type { WishlistItem } from '@/types/wishlist';
 
 export class BuyerApiError extends Error {
@@ -380,6 +381,32 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
     body: JSON.stringify({ reason }),
   });
   return res.data;
+}
+
+// ─── Wallet, rewards & referrals ─────────────────────────────────────────────
+
+export async function getWallet(): Promise<WalletSummary> {
+  const res = await buyerFetch<ApiResponse<WalletSummary>>('/buyer/wallet');
+  return res.data;
+}
+
+export async function getRewards(): Promise<RewardsSummary> {
+  const res = await buyerFetch<ApiResponse<RewardsSummary>>('/buyer/rewards');
+  return res.data;
+}
+
+export async function getReferrals(): Promise<ReferralSummary> {
+  const res = await buyerFetch<ApiResponse<ReferralSummary>>('/buyer/referrals');
+  return res.data;
+}
+
+/** 400s if a code was already applied, the code is unknown, or it is the
+ *  buyer's own (which also raises a self-referral fraud flag server-side). */
+export async function applyReferralCode(code: string): Promise<void> {
+  await buyerFetch<ApiResponse<unknown>>('/buyer/referrals/apply', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
 }
 
 // ─── Addresses ───────────────────────────────────────────────────────────────
