@@ -6,6 +6,7 @@ import { CheckCircle } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
 import { AddressSelector } from '@/features/checkout/components/address-selector';
+import { LegalReacceptGate } from '@/features/legal/legal-reaccept-gate';
 import { PaymentMethodSelector } from '@/features/checkout/components/payment-method-selector';
 import { CheckoutSummary } from '@/features/checkout/components/checkout-summary';
 import { CheckoutTrustBadges } from '@/features/checkout/components/checkout-trust-badges';
@@ -305,6 +306,7 @@ export function CheckoutPageContent() {
 
   return (
     <AuthGuard>
+      <LegalReacceptGate portal="buyer" agreementHref="/terms">
       <PageShell hideMobileNav>
         <div className={`space-y-5 lg:pb-0 ${showPayBar ? 'pb-28' : 'pb-6'}`}>
           <div>
@@ -484,6 +486,7 @@ export function CheckoutPageContent() {
           </ActionBar>
         )}
       </PageShell>
+      </LegalReacceptGate>
     </AuthGuard>
   );
 }

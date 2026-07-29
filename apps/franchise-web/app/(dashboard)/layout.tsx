@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { IdCard, LayoutDashboard, Landmark, Map, ShieldCheck, Store, Users, TrendingUp, Wallet } from 'lucide-react';
 import { requireFranchiseUser } from '@/lib/auth/session';
 import { LogoutButton } from './logout-button';
+import { LegalReacceptGate } from '@/features/legal/legal-reaccept-gate';
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -42,7 +43,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <LogoutButton />
         </div>
       </aside>
-      <main className="flex-1 p-6">{children}</main>
+      <main className="flex-1 p-6">
+        <LegalReacceptGate portal="franchise" agreementHref="/agreement">
+          {children}
+        </LegalReacceptGate>
+      </main>
     </div>
   );
 }

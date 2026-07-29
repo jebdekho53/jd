@@ -29,9 +29,11 @@ import { CategoryGovernanceModule } from '../category-governance/category-govern
 import { StoreVerticalModule } from '../store-vertical/store-vertical.module';
 import { FinanceModule } from '../finance/finance.module';
 import { CrmModule } from '../crm/crm.module';
+import { LegalModule } from '../legal/legal.module';
 
 @Module({
   imports: [
+    LegalModule,
     GeospatialModule,
     LogisticsModule,
     OrderTimelineModule,

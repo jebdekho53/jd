@@ -1,12 +1,9 @@
 # Rider Web — BFF + Captain PWA
 
-This is the **only** rider client. The Expo app (`apps/rider-mobile`) was removed
-on 2026-07-23 — it had fallen far behind this app and was never deployed.
+This app serves **two** roles:
 
-The app serves **two** roles:
-
-1. **BFF / API gateway** — `/api/rider/*` routes proxy to the NestJS API
-   (`/rider/*`), including the delivery-handover OTP verify routes
+1. **BFF / API gateway** for `@jebdekho/rider-mobile` — `/api/rider/*` routes proxy
+   to the NestJS API (`/rider/*`), including the delivery-handover OTP verify routes
    (`/api/rider/orders/[id]/verify-pickup`, `.../verify-delivery`). Auth tokens
    stay in httpOnly cookies and never reach the browser.
 2. **Captain PWA** — an authenticated rider web UI (`features/rider/rider-home.tsx`)

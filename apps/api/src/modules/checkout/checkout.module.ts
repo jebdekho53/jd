@@ -17,9 +17,11 @@ import { LocationDirectoryModule } from '../location-directory/location-director
 import { PushModule } from '../push/push.module';
 import { LogisticsModule } from '../logistics/logistics.module';
 import { CrmModule } from '../crm/crm.module';
+import { LegalModule } from '../legal/legal.module';
 
 @Module({
   imports: [
+    LegalModule,
     CartModule,
     InventoryModule,
     PromotionModule,
