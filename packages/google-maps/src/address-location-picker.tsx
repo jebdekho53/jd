@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Navigation } from 'lucide-react';
 import { GooglePlacesAutocomplete } from './google-places-autocomplete';
 import { GoogleMapPicker } from './google-map-picker';
@@ -46,14 +46,27 @@ export interface AddressLocationPickerProps {
   layout?: 'inline' | 'fullscreen';
 }
 
-function fromParsed(address: ParsedGoogleAddress): AddressLocationValue {
+/**
+ * `coords`, when given, pins the value to that exact point instead of the
+ * geocoded address's own lat/lng. Reverse geocoding snaps to the nearest
+ * known address (a building/road centroid), which can sit meters away from
+ * where the user actually dragged the pin or where their GPS fix landed —
+ * without this override the marker visibly jumps after every drag/click,
+ * which reads as "drag doesn't work" even though the coordinate did update.
+ * Search selection has no prior coordinate to preserve, so it always uses
+ * the geocoded lat/lng (coords omitted).
+ */
+function fromParsed(
+  address: ParsedGoogleAddress,
+  coords?: { lat: number; lng: number },
+): AddressLocationValue {
   return {
     locality: address.locality || address.line1 || address.formattedAddress || 'Pinned location',
     city: address.city,
     state: address.state,
     pincode: address.pincode,
-    lat: address.lat,
-    lng: address.lng,
+    lat: coords?.lat ?? address.lat,
+    lng: coords?.lng ?? address.lng,
     line1: address.line1,
     line2: address.line2,
     formattedAddress: address.formattedAddress,
@@ -110,10 +123,23 @@ export function AddressLocationPicker({
     lng: value.lng ?? MAP_INITIAL_VISUAL_CENTER.lng,
   };
 
+  // Soft-bias search results toward the current pin's neighbourhood instead
+  // of a hardcoded city — a fixed Delhi NCR box (the old default) buried
+  // real results for merchants/buyers anywhere else in the country.
+  const locationBias = useMemo<google.maps.LatLngBoundsLiteral>(
+    () => ({
+      north: position.lat + 3,
+      south: position.lat - 3,
+      east: position.lng + 3,
+      west: position.lng - 3,
+    }),
+    [position.lat, position.lng],
+  );
+
   const applyParsed = useCallback(
-    (parsed: ParsedGoogleAddress) => {
-      setPlaceViewport(parsed.viewport ?? null);
-      onChange(fromParsed(parsed));
+    (parsed: ParsedGoogleAddress, coords?: { lat: number; lng: number }) => {
+      setPlaceViewport(coords ? null : parsed.viewport ?? null);
+      onChange(fromParsed(parsed, coords));
       if (parsed.line1 && onLine1Suggestion) onLine1Suggestion(parsed.line1);
     },
     [onChange, onLine1Suggestion],
@@ -172,7 +198,7 @@ export function AddressLocationPicker({
       setPlaceViewport(null);
       const parsed = await reverse(coords.lat, coords.lng);
       if (parsed) {
-        applyParsed(parsed);
+        applyParsed(parsed, coords);
         if (!hasValidPincode(parsed)) {
           setGeocodeError('Could not detect pincode for this pin. Search your area on the map or enter pincode below.');
         }
@@ -208,7 +234,7 @@ export function AddressLocationPicker({
       });
       const parsed = await reverse(pos.lat, pos.lng);
       if (parsed) {
-        applyParsed(parsed);
+        applyParsed(parsed, pos);
         if (!hasValidPincode(parsed)) {
           setGeocodeError('Could not detect pincode for this location. Enter pincode manually below.');
         }
@@ -308,6 +334,7 @@ export function AddressLocationPicker({
               value={value.locality}
               onPlaceSelect={applyParsed}
               error={combinedError}
+              locationBias={locationBias}
             />
           </div>
           {geocodeError ? (
@@ -340,6 +367,7 @@ export function AddressLocationPicker({
         value={value.locality}
         onPlaceSelect={applyParsed}
         error={combinedError}
+        locationBias={locationBias}
       />
 
       {locationButton}

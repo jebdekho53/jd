@@ -431,9 +431,6 @@ export class AuthService {
 
     const phone = await this.generatePlaceholderPhone();
     const passwordHash = await this.passwordService.hash(dto.password);
-    const merchantRole = await this.prisma.role.findUniqueOrThrow({
-      where: { name: RoleName.MERCHANT },
-    });
 
     const user = await this.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
@@ -446,14 +443,13 @@ export class AuthService {
           merchantLoginPasswordHash: passwordHash,
         },
       });
-      await tx.userRole.upsert({
-        where: { userId_roleId: { userId: created.id, roleId: merchantRole.id } },
-        update: {},
-        create: { userId: created.id, roleId: merchantRole.id },
-      });
-      // Every merchant-scoped endpoint (stores, products, finance, ...) requires
-      // a MerchantProfile row to exist — without this, the account holds the
-      // MERCHANT role but 403s everywhere with "Merchant profile required."
+      // MERCHANT role is granted only after onboarding submit / admin approval
+      // (MerchantService.ensureMerchantRole) — matching the phone/OTP signup
+      // path. Granting it here made AuthGuard treat a brand-new signup as
+      // already-onboarded and skip the onboarding wizard entirely.
+      // merchant-onboarding.controller.ts only requires JwtAuthGuard (no
+      // MERCHANT role) for its draft-save endpoints, so onboarding still
+      // works fully without the role.
       await tx.merchantProfile.upsert({
         where: { userId: created.id },
         update: {},

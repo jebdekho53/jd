@@ -15,6 +15,9 @@ export interface GooglePlacesAutocompleteProps {
   error?: string;
   disabled?: boolean;
   className?: string;
+  /** Soft bias toward this box (results outside it can still appear) — pass
+   *  the current map position's neighbourhood, not a fixed city/region. */
+  locationBias?: google.maps.LatLngBoundsLiteral;
 }
 
 type PlaceWidget = HTMLElement & {
@@ -112,6 +115,7 @@ export function GooglePlacesAutocomplete({
   error,
   disabled,
   className,
+  locationBias,
 }: GooglePlacesAutocompleteProps) {
   const { isLoaded } = useGoogleMaps();
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -123,6 +127,9 @@ export function GooglePlacesAutocomplete({
   // below on every render, destroying and rebuilding the autocomplete widget mid-use.
   const onPlaceSelectRef = useRef(onPlaceSelect);
   onPlaceSelectRef.current = onPlaceSelect;
+
+  const locationBiasRef = useRef(locationBias);
+  locationBiasRef.current = locationBias;
 
   const handleSelect = useCallback(async (event: PlaceSelectEvent) => {
     const prediction = event.placePrediction ?? event.detail?.placePrediction;
@@ -150,12 +157,7 @@ export function GooglePlacesAutocomplete({
 
     const element = new AutocompleteElement() as PlaceWidget;
     element.includedRegionCodes = ['in'];
-    element.locationBias = {
-      north: 28.9,
-      south: 28.32,
-      east: 77.75,
-      west: 76.84,
-    };
+    if (locationBiasRef.current) element.locationBias = locationBiasRef.current;
     element.className = 'block w-full';
     // Maps JS renamed this event; listen for both so selection never silently no-ops.
     element.addEventListener('gmp-select', handleSelect as EventListener);
@@ -182,7 +184,8 @@ export function GooglePlacesAutocomplete({
     element.placeholder = placeholder;
     element.disabled = Boolean(disabled);
     if (value) element.value = value;
-  }, [placeholder, disabled, value]);
+    if (locationBias) element.locationBias = locationBias;
+  }, [placeholder, disabled, value, locationBias]);
 
   return (
     <div className={cn('space-y-1.5', className)}>
