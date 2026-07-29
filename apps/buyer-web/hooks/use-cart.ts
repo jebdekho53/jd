@@ -63,17 +63,6 @@ export function useReorderMutation() {
   });
 }
 
-export function useReorderMutation() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (orderId: string) => reorderFromOrder(orderId),
-    onSuccess: (result) => {
-      if (result.cart) qc.setQueryData(cartKeys.current(), result.cart);
-      else qc.invalidateQueries({ queryKey: cartKeys.all });
-    },
-  });
-}
-
 export function useUpdateCartItemMutation() {
   const qc = useQueryClient();
   return useMutation({

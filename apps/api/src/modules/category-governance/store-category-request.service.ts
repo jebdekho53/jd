@@ -48,18 +48,6 @@ export type CategoryTreeNode = {
   children: CategoryTreeNode[];
 };
 
-/** A node of the drill-down catalog tree returned to the merchant (any depth). */
-export type CategoryTreeNode = {
-  id: string;
-  name: string;
-  slug: string;
-  parentId: string | null;
-  sortOrder: number;
-  icon: string | null;
-  requestStatus: StoreCategoryRequestStatus | null;
-  children: CategoryTreeNode[];
-};
-
 @Injectable()
 export class StoreCategoryRequestService {
   private readonly logger = new Logger(StoreCategoryRequestService.name);
