@@ -1266,23 +1266,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
               <div className="space-y-4">
                 <StepHeader
                   title="Pickup address"
-                  subtitle="Add the exact shop address delivery partners will use for pickup"
-                />
-                <Input
-                  label="Shop / Building / Floor / Street address line 1 *"
-                  placeholder="Example: E-110, Ground Floor, Windsor Street"
-                  value={form.storeAddress}
-                  onChange={(e) => {
-                    setFieldErrors((prev) => ({ ...prev, storeAddress: undefined }));
-                    setForm({ ...form, storeAddress: e.target.value });
-                  }}
-                  error={fieldErrors.storeAddress}
-                />
-                <Input
-                  label="Address line 2 (optional)"
-                  placeholder="Market, complex, lane, or nearby gate"
-                  value={form.addressLine2}
-                  onChange={(e) => setForm({ ...form, addressLine2: e.target.value })}
+                  subtitle="Search your shop's location first, then fill in the exact unit/floor details"
                 />
                 <MerchantAddressPicker
                   searchLabel="Search exact store address on Google"
@@ -1318,6 +1302,22 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                   onLine1Suggestion={(line1) => setForm((f) => (
                     f.storeAddress.trim() ? f : { ...f, storeAddress: line1 }
                   ))}
+                />
+                <Input
+                  label="Shop / Building / Floor / Street address line 1 *"
+                  placeholder="Example: E-110, Ground Floor, Windsor Street"
+                  value={form.storeAddress}
+                  onChange={(e) => {
+                    setFieldErrors((prev) => ({ ...prev, storeAddress: undefined }));
+                    setForm({ ...form, storeAddress: e.target.value });
+                  }}
+                  error={fieldErrors.storeAddress}
+                />
+                <Input
+                  label="Address line 2 (optional)"
+                  placeholder="Market, complex, lane, or nearby gate"
+                  value={form.addressLine2}
+                  onChange={(e) => setForm({ ...form, addressLine2: e.target.value })}
                 />
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Input

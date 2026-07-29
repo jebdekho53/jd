@@ -103,15 +103,19 @@ export function parseGeocoderResult(result: google.maps.GeocoderResult): ParsedG
   );
 }
 
-/** Pick the best result from reverse geocode — scan all for a 6-digit pincode. */
+/**
+ * Pick the best result from reverse geocode. Google orders results from most
+ * specific (rooftop/street/sublocality) to least specific (city, then
+ * country) — this used to jump straight to any result independently typed as
+ * `postal_code`, which is a coarser, city/pincode-area-level result. That
+ * discarded a more specific sublocality-level result even when one existed
+ * earlier in the same list with the exact same valid pincode, collapsing
+ * `locality` down to just the city name (e.g. "Ghaziabad" / "Ghaziabad"
+ * instead of the actual neighbourhood). Now takes the first result in
+ * Google's own specificity order that has a usable 6-digit pincode.
+ */
 export function parseGeocoderResults(results: google.maps.GeocoderResult[]): ParsedGoogleAddress | null {
   if (!results.length) return null;
-
-  const postalTyped = results.find((r) => r.types?.includes('postal_code'));
-  if (postalTyped) {
-    const parsed = parseGeocoderResult(postalTyped);
-    if (parsed?.pincode) return parsed;
-  }
 
   let fallback: ParsedGoogleAddress | null = null;
   for (const result of results) {
