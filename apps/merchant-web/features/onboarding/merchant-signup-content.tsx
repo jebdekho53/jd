@@ -69,6 +69,12 @@ const DOC_TYPES = [
   { type: 'STORE_PHOTO', label: 'Store Photo' },
 ];
 
+/** Matches the backend's own submission-readiness check (assertSubmissionReady /
+ *  validateSubmissionReadiness) -- a plain count, not type-specific. Any 2 of
+ *  the types above satisfy it. Surfaced here so merchants find out on this
+ *  step instead of only at final submit. */
+const MIN_REQUIRED_DOCS = 2;
+
 const STEP_KEYS = [
   'VERIFY',
   'BUSINESS',
@@ -691,6 +697,10 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
     if (!form.panNumber.trim()) {
       setFieldErrors((prev) => ({ ...prev, panNumber: 'PAN number is required.' }));
       toast('PAN number is required', 'error');
+      return;
+    }
+    if (uploadedDocs.size < MIN_REQUIRED_DOCS) {
+      toast(`Upload at least ${MIN_REQUIRED_DOCS} documents to continue`, 'error');
       return;
     }
     try {
@@ -1655,7 +1665,12 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                   }}
                   error={fieldErrors.panNumber}
                 />
-                <p className="text-sm font-medium text-slate-700">Upload documents</p>
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Upload documents</p>
+                  <p className={`text-xs ${uploadedDocs.size >= MIN_REQUIRED_DOCS ? 'text-brand-600' : 'text-amber-600'}`}>
+                    {uploadedDocs.size} of {MIN_REQUIRED_DOCS} required uploaded — pick any {MIN_REQUIRED_DOCS} of the documents below.
+                  </p>
+                </div>
                 {DOC_TYPES.map((d) => (
                   <label
                     key={d.type}
