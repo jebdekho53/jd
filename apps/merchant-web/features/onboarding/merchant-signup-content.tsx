@@ -942,14 +942,29 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
       toast('Account numbers do not match', 'error');
       return;
     }
-    await saveBankAccount({
-      accountHolderName: form.accountHolderName.trim(),
-      accountNumber: form.accountNumber.trim(),
-      ifsc: form.ifsc.trim().toUpperCase(),
-      upiId: form.upiId.trim() || undefined,
-    });
-    await saveStep('BANK');
-    setStep(8);
+    // Matches backend's SaveBankAccountDto.ifsc @Matches regex — catching a
+    // malformed code here instead of only after the round-trip.
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(form.ifsc.trim().toUpperCase())) {
+      setFieldErrors((prev) => ({ ...prev, ifsc: 'Enter a valid 11-character IFSC code (e.g. HDFC0001234).' }));
+      toast('Enter a valid IFSC code', 'error');
+      return;
+    }
+    // Unlike every other nextFrom* handler, this one previously had no
+    // try/catch: a rejected saveBankAccount/saveStep call (e.g. duplicate
+    // account 409) surfaced as a silent unhandled rejection instead of a
+    // toast, leaving the merchant stuck on this step with no feedback.
+    try {
+      await saveBankAccount({
+        accountHolderName: form.accountHolderName.trim(),
+        accountNumber: form.accountNumber.trim(),
+        ifsc: form.ifsc.trim().toUpperCase(),
+        upiId: form.upiId.trim() || undefined,
+      });
+      await saveStep('BANK');
+      setStep(8);
+    } catch (e) {
+      handleStepError(e);
+    }
   };
 
   const handleSubmit = async () => {
@@ -1268,7 +1283,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                     onChange={(url) => setForm((f) => ({ ...f, ownerPhotoUrl: url }))}
                   />
                 </div>
-                <NavButtons saving={false} onBack={() => setStep(1)} onNext={nextFromStoreBasics} />
+                <NavButtons saving={saving} onBack={() => setStep(1)} onNext={nextFromStoreBasics} />
               </div>
             )}
 
@@ -1625,7 +1640,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                     );
                   })}
                 </div>
-                <NavButtons saving={false} onBack={() => setStep(4)} onNext={nextFromCategories} />
+                <NavButtons saving={saving} onBack={() => setStep(4)} onNext={nextFromCategories} />
               </div>
             )}
 
@@ -1751,9 +1766,19 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                   <ReviewRow label="Business" value={form.businessName} />
                   <ReviewRow label="Business types" value={form.businessTypes.map((t) => t.replace(/_/g, ' ')).join(', ')} />
                   <ReviewRow label="Store" value={form.storeName} />
+                  <ReviewRow
+                    label="Pickup address"
+                    value={[form.storeAddress, form.locality, form.city, form.state, form.pincode].filter(Boolean).join(', ')}
+                  />
                   <ReviewRow label="City" value={cities.find((c) => c.id === form.cityId)?.name ?? '—'} />
+                  <ReviewRow label="Delivery" value={form.deliveryMode === 'SELF' ? 'I deliver my own orders' : 'JebDekho delivery partners'} />
                   <ReviewRow label="Categories" value={form.preferredCategories.join(', ') || '—'} />
+                  <ReviewRow label="PAN" value={form.panNumber} />
                   <ReviewRow label="Documents" value={`${uploadedDocs.size} uploaded`} />
+                  <ReviewRow
+                    label="Bank account"
+                    value={form.accountNumber ? `${form.ifsc} · •••• ${form.accountNumber.slice(-4)}` : '—'}
+                  />
                 </dl>
                 {(form.storeLogoUrl || form.storeBannerUrl) && (
                   <div className="grid gap-3 sm:grid-cols-2">
