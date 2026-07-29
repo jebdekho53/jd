@@ -8,11 +8,20 @@ export class ApiError extends Error {
   }
 }
 
-function friendlyAdminMessage(status: number, message: string) {
+function isAuthAttemptRoute(path: string) {
+  return path === '/api/auth/login';
+}
+
+function friendlyAdminMessage(status: number, message: string, path = '') {
   const lower = message.toLowerCase();
   if (status === 0) return 'Network issue. Please try again.';
   if (status === 400 || status === 422) return message || 'Please check the highlighted fields.';
-  if (status === 401) return 'Your session expired. Please login again.';
+  if (status === 401) {
+    // A rejected login attempt (wrong password, etc.) is not an expired
+    // session — there was no session yet. Show the API's own reason.
+    if (isAuthAttemptRoute(path)) return message || 'Invalid email or password.';
+    return 'Your session expired. Please login again.';
+  }
   if (status === 403) return 'You do not have permission to perform this action.';
   if (status === 404) return 'The requested record was not found.';
   if (status === 500) return 'We could not complete this action. Please try again.';
@@ -46,14 +55,16 @@ export async function adminFetch<T>(path: string, init?: RequestInit): Promise<T
       },
     });
   } catch {
-    throw new ApiError(friendlyAdminMessage(0, ''), 0);
-  }
-
-  if (res.status === 401) {
-    throw new ApiError(friendlyAdminMessage(401, ''), 401);
+    throw new ApiError(friendlyAdminMessage(0, '', path), 0);
   }
 
   const body = await res.json().catch(() => ({}));
+
+  if (res.status === 401) {
+    const raw401 = (body as { message?: string | string[] })?.message ?? '';
+    const message401 = Array.isArray(raw401) ? raw401.join(', ') : String(raw401);
+    throw new ApiError(friendlyAdminMessage(401, message401, path), 401);
+  }
 
   if (res.status === 403) {
     if (body?.error === 'Step-Up Required' || body?.message?.includes('Step-Up Required') || body?.message?.includes('Re-authentication required')) {
@@ -63,13 +74,13 @@ export async function adminFetch<T>(path: string, init?: RequestInit): Promise<T
         return adminFetch(path, init);
       }
     }
-    throw new ApiError(friendlyAdminMessage(403, body?.message ?? ''), 403);
+    throw new ApiError(friendlyAdminMessage(403, body?.message ?? '', path), 403);
   }
 
   if (!res.ok) {
     const raw = (body as { message?: string | string[] })?.message ?? 'Request failed';
     const message = Array.isArray(raw) ? raw.join(', ') : String(raw);
-    throw new ApiError(friendlyAdminMessage(res.status, message), res.status);
+    throw new ApiError(friendlyAdminMessage(res.status, message, path), res.status);
   }
 
   return body as T;

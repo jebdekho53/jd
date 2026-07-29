@@ -19,12 +19,22 @@ export class ApiError extends Error {
   }
 }
 
+function isAuthAttemptRoute(path: string) {
+  return path === '/api/auth/login' || path === '/api/auth/signup';
+}
+
 function friendlyApiMessage(status: number, message: string, path: string) {
   const lower = message.toLowerCase();
 
   if (status === 0) return 'Network issue. Your draft is safe. Try again.';
   if (status === 400 || status === 422) return message && message !== 'Something went wrong' ? message : 'Please check the highlighted fields.';
-  if (status === 401) return 'Your session expired. Please login again.';
+  if (status === 401) {
+    // Login/signup 401s are a rejected attempt (wrong password, etc.), not an
+    // expired session — there was no session yet. Show the API's own reason
+    // instead of a misleading "session expired".
+    if (isAuthAttemptRoute(path)) return message || 'Invalid email or password.';
+    return 'Your session expired. Please login again.';
+  }
   if (status === 403) return 'You do not have permission to edit this onboarding.';
   if (status === 500) return 'We could not save this step. Please try again.';
 
@@ -108,8 +118,13 @@ export async function merchantFetch<T>(path: string, init?: RequestInit): Promis
   }
 
   if (res.status === 401 && path !== '/api/auth/me') {
-    useAuthStore.getState().clearSession();
-    throw new ApiError(friendlyApiMessage(401, '', path), 401);
+    const raw401 = (body as { message?: string | string[] })?.message ?? '';
+    const message401 = Array.isArray(raw401) ? raw401.join(', ') : String(raw401);
+    // Login/signup failing with 401 means the credentials were rejected —
+    // there was no session to clear, and doing so anyway is harmless but
+    // pointless.
+    if (!isAuthAttemptRoute(path)) useAuthStore.getState().clearSession();
+    throw new ApiError(friendlyApiMessage(401, message401, path), 401);
   }
 
   if (!res.ok) {
