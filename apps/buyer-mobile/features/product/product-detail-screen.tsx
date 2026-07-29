@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useProductQuery } from '@/hooks/use-buyer-queries';
 import { useAddCartItemMutation, useCartQuery } from '@/hooks/use-cart';
+import { useIsWishlisted, useToggleWishlistMutation } from '@/hooks/use-wishlist';
+import { ProductReviewsSection } from '@/features/product/product-reviews-section';
 import { Button } from '@/components/ui/button';
 import { Loader } from '@/components/ui/loader';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +14,8 @@ export function ProductDetailScreen({ productId, storeSlug }: { productId: strin
   const { data: product, isLoading } = useProductQuery(productId, storeSlug);
   const { data: cart } = useCartQuery();
   const addItem = useAddCartItemMutation();
+  const wishlisted = useIsWishlisted(productId);
+  const toggleWishlist = useToggleWishlistMutation();
   const [error, setError] = useState<string | null>(null);
 
   if (isLoading) return <Loader fullScreen />;
@@ -32,11 +36,23 @@ export function ProductDetailScreen({ productId, storeSlug }: { productId: strin
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {product.imageUrls[0] ? (
-        <Image source={{ uri: product.imageUrls[0] }} style={styles.image} />
-      ) : (
-        <View style={[styles.image, styles.imagePlaceholder]} />
-      )}
+      <View>
+        {product.imageUrls[0] ? (
+          <Image source={{ uri: product.imageUrls[0] }} style={styles.image} />
+        ) : (
+          <View style={[styles.image, styles.imagePlaceholder]} />
+        )}
+        <Pressable
+          style={styles.wishlistButton}
+          disabled={toggleWishlist.isPending}
+          accessibilityLabel={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+          onPress={() => toggleWishlist.mutate({ productId, wishlisted })}
+        >
+          <Text style={[styles.wishlistIcon, wishlisted && styles.wishlistIconOn]}>
+            {wishlisted ? '♥' : '♡'}
+          </Text>
+        </Pressable>
+      </View>
 
       <View style={styles.body}>
         {product.isVeg != null && (
@@ -69,6 +85,13 @@ export function ProductDetailScreen({ productId, storeSlug }: { productId: strin
           disabled={!variant || variant.availableQty <= 0}
         />
         <Button label="View cart" variant="secondary" onPress={() => router.push('/cart')} />
+
+        <ProductReviewsSection
+          productId={product.id}
+          productName={product.name}
+          storeName={product.store.name}
+          storeRatingAvg={product.store.ratingAvg}
+        />
       </View>
     </ScrollView>
   );
@@ -79,6 +102,19 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 32 },
   image: { width: '100%', height: 260 },
   imagePlaceholder: { backgroundColor: '#e2e8f0' },
+  wishlistButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wishlistIcon: { fontSize: 20, color: '#64748b', lineHeight: 24 },
+  wishlistIconOn: { color: '#dc2626' },
   body: { padding: 16, gap: 8 },
   name: { fontSize: 20, fontWeight: '700', color: '#0f172a' },
   brand: { fontSize: 13, color: '#64748b' },

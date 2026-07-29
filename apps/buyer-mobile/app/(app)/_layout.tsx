@@ -23,6 +23,7 @@ export default function AppLayout() {
         <Stack.Screen name="restaurant/[slug]" options={{ title: 'Restaurant' }} />
         <Stack.Screen name="food-cart" options={{ title: 'Food Cart' }} />
         <Stack.Screen name="food-checkout" options={{ title: 'Food Checkout' }} />
+        <Stack.Screen name="wishlist" options={{ title: 'Wishlist' }} />
       </Stack>
     </AuthGuard>
   );

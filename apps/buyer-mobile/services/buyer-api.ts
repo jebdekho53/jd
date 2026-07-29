@@ -18,6 +18,12 @@ import type {
   RestaurantSummary,
 } from '@/types/food';
 import type { OrderDetail, OrderListResponse } from '@/types/orders';
+import type {
+  CreateProductReviewPayload,
+  ProductReview,
+  ProductReviewsResult,
+} from '@/types/reviews';
+import type { WishlistItem } from '@/types/wishlist';
 
 export class BuyerApiError extends Error {
   public normalized: NormalizedError;
@@ -373,6 +379,67 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
     body: JSON.stringify({ reason }),
   });
   return res.data;
+}
+
+// ─── Product reviews ─────────────────────────────────────────────────────────
+
+/** The aggregate rating rides along in `meta`, not `data`. */
+export async function getProductReviews(
+  productId: string,
+  params?: { page?: number; limit?: number },
+): Promise<ProductReviewsResult> {
+  const res = await buyerFetch<{
+    success: boolean;
+    data: ProductReview[];
+    meta?: {
+      page: number;
+      limit: number;
+      total: number;
+      aggregate: ProductReviewsResult['aggregate'];
+    };
+  }>(`/buyer/products/${productId}/reviews${buildQuery(params ?? {})}`);
+  return {
+    reviews: res.data,
+    aggregate: res.meta?.aggregate ?? { ratingAvg: 0, ratingCount: 0 },
+    page: res.meta?.page ?? 1,
+    limit: res.meta?.limit ?? 20,
+    total: res.meta?.total ?? res.data.length,
+  };
+}
+
+/** Rejected with a 400 unless the buyer has a DELIVERED order containing the
+ *  product, and with a 409 if they have already reviewed it. */
+export async function createProductReview(
+  productId: string,
+  payload: CreateProductReviewPayload,
+): Promise<ProductReview> {
+  const res = await buyerFetch<ApiResponse<ProductReview>>(
+    `/buyer/products/${productId}/reviews`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+  return res.data;
+}
+
+// ─── Wishlist ────────────────────────────────────────────────────────────────
+
+export async function getWishlist(): Promise<WishlistItem[]> {
+  const res = await buyerFetch<ApiResponse<WishlistItem[]>>('/buyer/wishlist');
+  return res.data;
+}
+
+export async function addToWishlist(productId: string): Promise<void> {
+  await buyerFetch<ApiResponse<unknown>>('/buyer/wishlist', {
+    method: 'POST',
+    body: JSON.stringify({ productId }),
+  });
+}
+
+/** Keyed by productId, not the wishlist row id — see the controller's
+ *  `DELETE /buyer/wishlist/:productId`. */
+export async function removeFromWishlist(productId: string): Promise<void> {
+  await buyerFetch<ApiResponse<unknown>>(`/buyer/wishlist/${encodeURIComponent(productId)}`, {
+    method: 'DELETE',
+  });
 }
 
 // ─── Food: discovery ─────────────────────────────────────────────────────────
