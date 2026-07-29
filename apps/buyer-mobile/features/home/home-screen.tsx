@@ -66,6 +66,9 @@ export function HomeScreen() {
         <Pressable style={styles.utilityButton} onPress={() => router.push('/orders')}>
           <Text style={styles.utilityButtonText}>📦 Orders</Text>
         </Pressable>
+        <Pressable style={styles.utilityButton} onPress={() => router.push('/profile')}>
+          <Text style={styles.utilityButtonText}>👤 Profile</Text>
+        </Pressable>
         <Pressable style={[styles.utilityButton, styles.utilityButtonPrimary]} onPress={() => router.push('/cart')}>
           <Text style={styles.utilityButtonTextPrimary}>🛒 Cart</Text>
           {!!cart?.itemCount && <Badge label={String(cart.itemCount)} tone="success" />}

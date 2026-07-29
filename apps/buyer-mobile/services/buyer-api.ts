@@ -6,7 +6,12 @@ import type { BuyerAddress, UpsertAddressPayload } from '@/types/address';
 import type { AuthUser, RequestOtpResult, VerifyOtpResult } from '@/types/auth';
 import type { CategoryItem, StoreCard, StoreDetail, BuyerProduct, BuyerProductWithStore } from '@/types/buyer';
 import type { Cart } from '@/types/cart';
-import type { CheckoutPayload, CodCheckoutResult, LegalPendingDocument } from '@/types/checkout';
+import type {
+  CheckoutPayload,
+  CodCheckoutResult,
+  LegalDocument,
+  LegalPendingDocument,
+} from '@/types/checkout';
 import type {
   AddFoodCartItemPayload,
   Cuisine,
@@ -19,6 +24,16 @@ import type {
   RestaurantSummary,
 } from '@/types/food';
 import type { OrderDetail, OrderListResponse } from '@/types/orders';
+import type {
+  CreateTicketPayload,
+  InboxPage,
+  NotificationPreferences,
+  SupportArticle,
+  SupportCategory,
+  SupportTicket,
+  SupportTicketDetail,
+  SupportTicketsPage,
+} from '@/types/profile';
 import type {
   CreateProductReviewPayload,
   ProductReview,
@@ -333,6 +348,13 @@ export async function getPendingLegal(portal: 'buyer' = 'buyer'): Promise<LegalP
   return res.data;
 }
 
+/** Public. The buyer terms screen renders from here so its words are the exact
+ *  ones recorded against an acceptance — never a separately-maintained copy. */
+export async function getLegalDocument(code: string): Promise<LegalDocument> {
+  const res = await buyerFetch<ApiResponse<LegalDocument>>(`/legal/documents/${code}`);
+  return res.data;
+}
+
 export async function acceptLegal(code: string, version: string): Promise<void> {
   await buyerFetch<ApiResponse<unknown>>('/legal/accept', {
     method: 'POST',
@@ -381,6 +403,94 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
     body: JSON.stringify({ reason }),
   });
   return res.data;
+}
+
+// ─── Notification preferences & inbox ────────────────────────────────────────
+
+export async function getNotificationPreferences(): Promise<NotificationPreferences> {
+  const res = await buyerFetch<ApiResponse<NotificationPreferences>>('/buyer/crm/preferences');
+  return res.data;
+}
+
+export async function updateNotificationPreferences(
+  patch: Partial<Record<string, boolean>>,
+): Promise<NotificationPreferences> {
+  const res = await buyerFetch<ApiResponse<NotificationPreferences>>('/buyer/crm/preferences', {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+  return res.data;
+}
+
+export async function getInbox(page = 1): Promise<InboxPage> {
+  const res = await buyerFetch<ApiResponse<InboxPage>>(`/buyer/crm/inbox${buildQuery({ page })}`);
+  return res.data;
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await buyerFetch<ApiResponse<unknown>>(`/buyer/crm/inbox/${id}/read`, { method: 'PATCH' });
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await buyerFetch<ApiResponse<unknown>>('/buyer/crm/inbox/read-all', { method: 'PATCH' });
+}
+
+// ─── Support ─────────────────────────────────────────────────────────────────
+
+export async function getSupportCategories(): Promise<SupportCategory[]> {
+  const res = await buyerFetch<ApiResponse<SupportCategory[]>>('/buyer/support/categories');
+  return res.data;
+}
+
+export async function searchSupportArticles(params?: {
+  q?: string;
+  category?: string;
+}): Promise<SupportArticle[]> {
+  const res = await buyerFetch<ApiResponse<SupportArticle[]>>(
+    `/buyer/support/articles${buildQuery(params ?? {})}`,
+  );
+  return res.data;
+}
+
+export async function listSupportTickets(params?: {
+  page?: number;
+  limit?: number;
+}): Promise<SupportTicketsPage> {
+  const res = await buyerFetch<ApiResponse<SupportTicketsPage>>(
+    `/buyer/support/tickets${buildQuery(params ?? {})}`,
+  );
+  return res.data;
+}
+
+export async function getSupportTicket(id: string): Promise<SupportTicketDetail> {
+  const res = await buyerFetch<ApiResponse<SupportTicketDetail>>(`/buyer/support/tickets/${id}`);
+  return res.data;
+}
+
+export async function createSupportTicket(payload: CreateTicketPayload): Promise<SupportTicket> {
+  const res = await buyerFetch<ApiResponse<SupportTicket>>('/buyer/support/tickets', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.data;
+}
+
+export async function replyToSupportTicket(id: string, body: string): Promise<void> {
+  await buyerFetch<ApiResponse<unknown>>(`/buyer/support/tickets/${id}/reply`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
+}
+
+// ─── Security ────────────────────────────────────────────────────────────────
+
+/** Revokes every refresh token for this user, signing out all devices
+ *  including this one. */
+export async function logoutAllDevices(): Promise<void> {
+  await buyerFetch<ApiResponse<unknown>>('/auth/logout-all', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
 }
 
 // ─── Wallet, rewards & referrals ─────────────────────────────────────────────

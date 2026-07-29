@@ -19,6 +19,24 @@ export interface CheckoutPayload {
   buyerNote?: string;
 }
 
+/** Mirrors LegalSection in apps/api/src/modules/legal/legal-document.types.ts —
+ *  `body` paragraphs render as prose, `list` items as bullets. */
+export interface LegalSection {
+  heading: string;
+  body?: string[];
+  list?: string[];
+}
+
+/** The full document served by GET /legal/documents/:code. */
+export interface LegalDocument {
+  code: string;
+  title: string;
+  version: string;
+  effectiveDate: string;
+  summary: string;
+  sections: LegalSection[];
+}
+
 export interface LegalPendingDocument {
   code: string;
   title: string;
