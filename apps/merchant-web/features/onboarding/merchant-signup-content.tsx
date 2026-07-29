@@ -1569,7 +1569,7 @@ export function MerchantSignupContent({ onboardingOnly = false }: MerchantSignup
                       />
                       <span>
                         <span className="block font-medium text-slate-800">I&apos;ll deliver my own orders</span>
-                        <span className="block text-xs text-slate-500">Delivery is free to customers; you handle pickup &amp; drop yourself.</span>
+                        <span className="block text-xs text-slate-500">You handle pickup &amp; drop yourself — the delivery fee customers pay goes to you, not JebDekho.</span>
                       </span>
                     </label>
                   </div>
