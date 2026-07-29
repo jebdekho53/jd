@@ -1,14 +1,14 @@
 const WHATSAPP_NUMBER = '917348245145';
-const WHATSAPP_MESSAGE = 'Namaste, mujhe apni dukaan JebDekho par list karni hai';
 
 function whatsappLink(): string {
-  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
+  return `https://wa.me/${WHATSAPP_NUMBER}`;
 }
 
 /** Floating WhatsApp CTA shown across every merchant marketing page (landing,
  *  features, pricing, signup, onboarding-status) via MarketingShell — opens a
- *  chat with the recruitment number, pre-filled, so a merchant can reach out
- *  without typing anything. */
+ *  blank chat with the recruitment number. No pre-filled text: identical
+ *  boilerplate arriving from many different senders is a pattern WhatsApp's
+ *  spam detection can flag on the receiving number. */
 export function WhatsAppCtaButton() {
   return (
     <a
