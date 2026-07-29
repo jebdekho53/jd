@@ -60,6 +60,9 @@ export function HomeScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Utility row */}
       <View style={styles.utilityRow}>
+        <Pressable style={styles.utilityButton} onPress={() => router.push('/restaurants')}>
+          <Text style={styles.utilityButtonText}>🍽️ Food</Text>
+        </Pressable>
         <Pressable style={styles.utilityButton} onPress={() => router.push('/orders')}>
           <Text style={styles.utilityButtonText}>📦 Orders</Text>
         </Pressable>

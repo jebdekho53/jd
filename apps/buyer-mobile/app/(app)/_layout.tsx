@@ -19,6 +19,10 @@ export default function AppLayout() {
         <Stack.Screen name="checkout" options={{ title: 'Checkout' }} />
         <Stack.Screen name="orders/index" options={{ title: 'My Orders' }} />
         <Stack.Screen name="orders/[id]" options={{ title: 'Order' }} />
+        <Stack.Screen name="restaurants" options={{ title: 'Food' }} />
+        <Stack.Screen name="restaurant/[slug]" options={{ title: 'Restaurant' }} />
+        <Stack.Screen name="food-cart" options={{ title: 'Food Cart' }} />
+        <Stack.Screen name="food-checkout" options={{ title: 'Food Checkout' }} />
       </Stack>
     </AuthGuard>
   );

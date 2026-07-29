@@ -6,6 +6,17 @@ import type { AuthUser, RequestOtpResult, VerifyOtpResult } from '@/types/auth';
 import type { CategoryItem, StoreCard, StoreDetail, BuyerProduct, BuyerProductWithStore } from '@/types/buyer';
 import type { Cart } from '@/types/cart';
 import type { CheckoutPayload, CodCheckoutResult, LegalPendingDocument } from '@/types/checkout';
+import type {
+  AddFoodCartItemPayload,
+  Cuisine,
+  FoodCart,
+  FoodCodCheckoutResult,
+  InitiateFoodCheckoutPayload,
+  ListRestaurantsParams,
+  RestaurantDetail,
+  RestaurantMenu,
+  RestaurantSummary,
+} from '@/types/food';
 import type { OrderDetail, OrderListResponse } from '@/types/orders';
 
 export class BuyerApiError extends Error {
@@ -143,7 +154,11 @@ export async function buyerFetch<T>(
   if (!res.ok) {
     const raw = (body as { message?: string | string[] })?.message ?? 'Request failed';
     const message = Array.isArray(raw) ? raw.join(', ') : String(raw);
-    throw new BuyerApiError(message, res.status, errorCode(res.status), { path });
+    // Some endpoints throw a structured payload (e.g. the food cart's
+    // FOOD_CART_STORE_CONFLICT) — prefer its own code over the status-derived
+    // one so callers can branch on the specific failure.
+    const code = (body as { code?: string })?.code ?? errorCode(res.status);
+    throw new BuyerApiError(message, res.status, code, { path });
   }
 
   return body as T;
@@ -356,6 +371,98 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
   const res = await buyerFetch<ApiResponse<OrderDetail>>(`/buyer/orders/${orderId}/cancel`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
+  });
+  return res.data;
+}
+
+// ─── Food: discovery ─────────────────────────────────────────────────────────
+
+export async function listRestaurants(
+  params: ListRestaurantsParams = {},
+): Promise<RestaurantSummary[]> {
+  const res = await buyerFetch<ApiResponse<RestaurantSummary[]>>(
+    `/buyer/restaurants${buildQuery(params)}`,
+  );
+  return res.data;
+}
+
+export async function getRestaurant(slug: string): Promise<RestaurantDetail> {
+  const res = await buyerFetch<ApiResponse<RestaurantDetail>>(`/buyer/restaurants/${slug}`);
+  return res.data;
+}
+
+export async function getRestaurantMenu(slug: string): Promise<RestaurantMenu> {
+  const res = await buyerFetch<ApiResponse<RestaurantMenu>>(`/buyer/restaurants/${slug}/menu`);
+  return res.data;
+}
+
+export async function listCuisines(): Promise<Cuisine[]> {
+  const res = await buyerFetch<ApiResponse<Cuisine[]>>('/buyer/cuisines');
+  return res.data;
+}
+
+// ─── Food: cart ──────────────────────────────────────────────────────────────
+
+export async function getFoodCart(): Promise<FoodCart | null> {
+  const res = await buyerFetch<ApiResponse<FoodCart | null>>('/buyer/food-cart');
+  return res.data;
+}
+
+/** Rejects with a `FOOD_CART_STORE_CONFLICT` BuyerApiError when the cart
+ *  already holds items from a different restaurant — the food cart is
+ *  single-restaurant by design. */
+export async function addFoodCartItem(payload: AddFoodCartItemPayload): Promise<FoodCart> {
+  const res = await buyerFetch<ApiResponse<FoodCart>>('/buyer/food-cart/items', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return res.data;
+}
+
+export async function updateFoodCartItem(
+  itemId: string,
+  quantity: number,
+): Promise<FoodCart | null> {
+  const res = await buyerFetch<ApiResponse<FoodCart | null>>(`/buyer/food-cart/items/${itemId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ quantity }),
+  });
+  return res.data;
+}
+
+export async function removeFoodCartItem(itemId: string): Promise<FoodCart | null> {
+  const res = await buyerFetch<ApiResponse<FoodCart | null>>(`/buyer/food-cart/items/${itemId}`, {
+    method: 'DELETE',
+  });
+  return res.data;
+}
+
+export async function clearFoodCart(): Promise<void> {
+  await buyerFetch<ApiResponse<FoodCart | null>>('/buyer/food-cart', { method: 'DELETE' });
+}
+
+export async function reorderFoodFromOrder(
+  orderId: string,
+): Promise<{ cart: FoodCart | null; added: number; skipped: number }> {
+  const res = await buyerFetch<ApiResponse<{ cart: FoodCart | null; added: number; skipped: number }>>(
+    `/buyer/food-cart/reorder/${orderId}`,
+    { method: 'POST' },
+  );
+  return res.data;
+}
+
+// ─── Food: checkout ──────────────────────────────────────────────────────────
+
+/** Food COD checkout — creates the order immediately. Same idempotency
+ *  discipline as grocery checkout so a step-up retry can't double-order. */
+export async function foodCheckoutCod(
+  payload: InitiateFoodCheckoutPayload,
+  idempotencyKey: string = uid(),
+): Promise<FoodCodCheckoutResult> {
+  const res = await buyerFetch<ApiResponse<FoodCodCheckoutResult>>('/buyer/food-checkout/cod', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    idempotencyKey,
   });
   return res.data;
 }
