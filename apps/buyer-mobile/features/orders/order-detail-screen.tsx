@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader } from '@/components/ui/loader';
+import { DeliveryProgress } from '@/features/orders/delivery-progress';
 import { BUYER_CANCELLABLE } from '@/types/orders';
 
 export function OrderDetailScreen({ orderId }: { orderId: string }) {
@@ -40,10 +41,11 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
       {order.delivery && (
         <Card style={styles.card}>
           <Text style={styles.sectionTitle}>Delivery</Text>
-          <Text style={styles.rowValue}>{order.delivery.status ?? 'Awaiting assignment'}</Text>
-          {order.delivery.riderName && (
-            <Text style={styles.rowValue}>Rider: {order.delivery.riderName}</Text>
-          )}
+          <DeliveryProgress
+            delivery={order.delivery}
+            store={order.store ? { lat: order.store.latitude, lng: order.store.longitude } : null}
+            customer={{ lat: order.deliveryLat, lng: order.deliveryLng }}
+          />
         </Card>
       )}
 

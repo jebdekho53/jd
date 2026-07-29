@@ -15,6 +15,7 @@ export default function AppLayout() {
         <Stack.Screen name="search" options={{ title: 'Search' }} />
         <Stack.Screen name="store/[slug]" options={{ title: 'Store' }} />
         <Stack.Screen name="product/[id]" options={{ title: 'Product' }} />
+        <Stack.Screen name="compare/[productId]" options={{ title: 'Compare prices' }} />
         <Stack.Screen name="cart" options={{ title: 'Cart' }} />
         <Stack.Screen name="checkout" options={{ title: 'Checkout' }} />
         <Stack.Screen name="orders/index" options={{ title: 'My Orders' }} />

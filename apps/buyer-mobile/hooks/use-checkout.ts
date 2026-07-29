@@ -1,7 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { acceptLegal, checkoutCod, getPendingLegal } from '@/services/buyer-api';
+import {
+  acceptLegal,
+  checkoutCod,
+  createRazorpayOrder,
+  getPendingLegal,
+  initiateCheckout,
+  syncRazorpayPayment,
+  verifyRazorpayPayment,
+} from '@/services/buyer-api';
 import { cartKeys } from '@/hooks/use-cart';
-import type { CheckoutPayload } from '@/types/checkout';
+import type { CheckoutPayload, InitiateCheckoutPayload, VerifyPaymentPayload } from '@/types/checkout';
 
 export function usePendingLegalQuery(enabled: boolean) {
   return useQuery({
@@ -29,5 +37,49 @@ export function useCheckoutCodMutation() {
       // Cart is deleted server-side once the order is created.
       qc.setQueryData(cartKeys.current, null);
     },
+  });
+}
+
+/** Reserves inventory + creates a pending order for online payment. Cart
+ *  is cleared server-side once reservation succeeds, same as COD. */
+export function useInitiateCheckoutMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      payload,
+      idempotencyKey,
+    }: {
+      payload: InitiateCheckoutPayload;
+      idempotencyKey?: string;
+    }) => initiateCheckout(payload, idempotencyKey),
+    onSuccess: () => {
+      qc.setQueryData(cartKeys.current, null);
+    },
+  });
+}
+
+export function useCreateRazorpayOrderMutation() {
+  return useMutation({
+    mutationFn: ({ checkoutId, idempotencyKey }: { checkoutId: string; idempotencyKey?: string }) =>
+      createRazorpayOrder(checkoutId, idempotencyKey),
+  });
+}
+
+export function useVerifyRazorpayPaymentMutation() {
+  return useMutation({
+    mutationFn: ({
+      payload,
+      idempotencyKey,
+    }: {
+      payload: VerifyPaymentPayload;
+      idempotencyKey?: string;
+    }) => verifyRazorpayPayment(payload, idempotencyKey),
+  });
+}
+
+export function useSyncRazorpayPaymentMutation() {
+  return useMutation({
+    mutationFn: ({ checkoutId, idempotencyKey }: { checkoutId: string; idempotencyKey?: string }) =>
+      syncRazorpayPayment(checkoutId, idempotencyKey),
   });
 }

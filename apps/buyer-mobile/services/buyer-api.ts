@@ -6,11 +6,17 @@ import type { BuyerAddress, UpsertAddressPayload } from '@/types/address';
 import type { AuthUser, RequestOtpResult, VerifyOtpResult } from '@/types/auth';
 import type { CategoryItem, StoreCard, StoreDetail, BuyerProduct, BuyerProductWithStore } from '@/types/buyer';
 import type { Cart } from '@/types/cart';
+import type { CompareProductResult } from '@/types/compare';
 import type {
   CheckoutPayload,
   CodCheckoutResult,
+  InitiateCheckoutPayload,
+  InitiateCheckoutResult,
   LegalDocument,
   LegalPendingDocument,
+  RazorpayOrderResult,
+  VerifyPaymentPayload,
+  VerifyPaymentResult,
 } from '@/types/checkout';
 import type {
   AddFoodCartItemPayload,
@@ -301,6 +307,25 @@ export async function getProduct(id: string, storeSlug?: string): Promise<BuyerP
   return res.data;
 }
 
+/** Compares the anchor product's price across nearby grocery stores. Only
+ *  works for GROCERY/FRUITS_VEGETABLES stores — the server 400s otherwise
+ *  (restaurants, and stores without an approved grocery catalog). Returns
+ *  null when nothing comparable is found nearby. */
+export async function compareProduct(
+  productId: string,
+  params?: { lat?: number; lng?: number; pincode?: string },
+): Promise<CompareProductResult | null> {
+  try {
+    const res = await buyerFetch<ApiResponse<CompareProductResult>>(
+      `/buyer/compare/${productId}${buildQuery(params ?? {})}`,
+    );
+    return res.data;
+  } catch (e) {
+    if (e instanceof BuyerApiError && (e.status === 404 || e.status === 400)) return null;
+    throw e;
+  }
+}
+
 // ─── Cart ────────────────────────────────────────────────────────────────────
 
 export async function getCart(): Promise<Cart | null> {
@@ -373,6 +398,64 @@ export async function checkoutCod(
   const res = await buyerFetch<ApiResponse<CodCheckoutResult>>('/buyer/checkout/cod', {
     method: 'POST',
     body: JSON.stringify(payload),
+    idempotencyKey,
+  });
+  return res.data;
+}
+
+/** Initiates online (Razorpay) checkout — reserves inventory and creates a
+ *  pending order, but does not charge anything yet. Follow up with
+ *  createRazorpayOrder(checkoutId) to open the payment sheet. */
+export async function initiateCheckout(
+  payload: InitiateCheckoutPayload,
+  idempotencyKey: string = uid(),
+): Promise<InitiateCheckoutResult> {
+  const res = await buyerFetch<ApiResponse<InitiateCheckoutResult>>('/buyer/checkout', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    idempotencyKey,
+  });
+  return res.data;
+}
+
+/** Idempotent — re-calling with the same checkoutId returns the same
+ *  Razorpay order, so it is safe to retry after a step-up re-auth. */
+export async function createRazorpayOrder(
+  checkoutId: string,
+  idempotencyKey: string = uid(),
+): Promise<RazorpayOrderResult> {
+  const res = await buyerFetch<ApiResponse<RazorpayOrderResult>>('/payments/razorpay/create-order', {
+    method: 'POST',
+    body: JSON.stringify({ checkoutId }),
+    idempotencyKey,
+  });
+  return res.data;
+}
+
+/** Verifies the Razorpay signature server-side and confirms the order.
+ *  The signature is never trusted client-side. */
+export async function verifyRazorpayPayment(
+  payload: VerifyPaymentPayload,
+  idempotencyKey: string = uid(),
+): Promise<VerifyPaymentResult> {
+  const res = await buyerFetch<ApiResponse<VerifyPaymentResult>>('/payments/razorpay/verify', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    idempotencyKey,
+  });
+  return res.data;
+}
+
+/** Reconciles payment status from Razorpay's side when the client-side
+ *  verify call itself failed (e.g. app backgrounded) but the payment
+ *  actually captured. */
+export async function syncRazorpayPayment(
+  checkoutId: string,
+  idempotencyKey: string = uid(),
+): Promise<VerifyPaymentResult> {
+  const res = await buyerFetch<ApiResponse<VerifyPaymentResult>>('/payments/razorpay/sync', {
+    method: 'POST',
+    body: JSON.stringify({ checkoutId }),
     idempotencyKey,
   });
   return res.data;

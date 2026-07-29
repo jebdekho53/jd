@@ -41,11 +41,24 @@ export interface OrderDetailItem {
   totalPrice: number;
 }
 
+export interface OrderDeliveryRider {
+  id: string;
+  name: string;
+  phone: string | null;
+  vehicleType: string | null;
+  currentLat: number | null;
+  currentLng: number | null;
+}
+
 export interface OrderDelivery {
   status: string | null;
-  riderName: string | null;
-  riderPhone: string | null;
-  estimatedEtaMins: number | null;
+  distanceKm: number | null;
+  estimatedMins: number | null;
+  etaAvailable: boolean;
+  liveTrackingAvailable: boolean;
+  pickedUpAt: string | null;
+  deliveredAt: string | null;
+  rider: OrderDeliveryRider | null;
 }
 
 export interface OrderDetail {
@@ -62,11 +75,20 @@ export interface OrderDetail {
   taxAmount: number;
   totalAmount: number;
   deliveryAddress: Record<string, unknown> | null;
+  deliveryLat: number | null;
+  deliveryLng: number | null;
   buyerNote: string | null;
   cancelReason: string | null;
   createdAt: string;
   updatedAt: string;
-  store: { id: string; name: string; slug: string; phone: string | null } | null;
+  store: {
+    id: string;
+    name: string;
+    slug: string;
+    phone: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | null;
   items: OrderDetailItem[];
   statusHistory: OrderStatusHistoryEntry[];
   delivery: OrderDelivery | null;

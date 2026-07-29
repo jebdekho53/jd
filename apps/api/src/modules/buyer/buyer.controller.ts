@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Get,
   Logger,
@@ -19,12 +20,14 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
+import { PrismaService } from '../../database/prisma.service';
 import { BuyerStoreService } from './buyer-store.service';
 import { BuyerProductService } from './buyer-product.service';
 import { DiscoverStoresDto } from './dto/discover-stores.dto';
 import { StoreProductsDto } from './dto/store-products.dto';
 import { SearchProductsDto } from './dto/search-products.dto';
 import { CompareProductDto } from './dto/compare-product.dto';
+import { UpdateBuyerProfileDto } from './dto/update-buyer-profile.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { StepUpGuard } from '../../common/guards/step-up.guard';
@@ -34,7 +37,6 @@ import { RequireStepUp } from '../../common/decorators/require-step-up.decorator
 import { RequestUser } from '../../common/types';
 
 @ApiTags('buyer')
-@Public()
 @Controller('buyer')
 export class BuyerController {
   private readonly logger = new Logger(BuyerController.name);
@@ -43,6 +45,7 @@ export class BuyerController {
     private readonly storeService: BuyerStoreService,
     private readonly productService: BuyerProductService,
     private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
   ) {}
 
   private optionalUserId(req: Request): string | undefined {
@@ -59,6 +62,7 @@ export class BuyerController {
   // ── Store Discovery ─────────────────────────────────────────────────────
 
   @Get('stores')
+  @Public()
   @ApiOperation({
     summary: 'Discover APPROVED, active stores near a coordinate',
     description:
@@ -81,6 +85,7 @@ export class BuyerController {
   }
 
   @Get('stores/:slug')
+  @Public()
   @ApiParam({ name: 'slug', description: 'Store slug' })
   @ApiOperation({
     summary: 'Get full store detail including hours, service areas and category list',
@@ -95,6 +100,7 @@ export class BuyerController {
   // ── Store Products ──────────────────────────────────────────────────────
 
   @Get('stores/:slug/products')
+  @Public()
   @ApiParam({ name: 'slug', description: 'Store slug' })
   @ApiOperation({
     summary: 'List in-stock, active products for an approved store',
@@ -123,6 +129,7 @@ export class BuyerController {
   // ── Product Search ──────────────────────────────────────────────────────
 
   @Get('compare/:productId')
+  @Public()
   @ApiParam({ name: 'productId', description: 'Anchor product ID to compare across stores' })
   @ApiOperation({
     summary: 'Compare prices for the same product across nearby stores',
@@ -141,6 +148,7 @@ export class BuyerController {
   }
 
   @Get('products/search')
+  @Public()
   @ApiOperation({
     summary: 'Search products by name, brand, description or tags',
     description:
@@ -159,6 +167,7 @@ export class BuyerController {
   }
 
   @Get('products/search/grouped')
+  @Public()
   @ApiOperation({ summary: 'Search products grouped by store (store-centric results)' })
   async searchProductsGrouped(@Query() dto: SearchProductsDto) {
     const { groups, total } = await this.productService.searchProductsGrouped(dto);
@@ -166,6 +175,7 @@ export class BuyerController {
   }
 
   @Get('products/:id')
+  @Public()
   @ApiParam({ name: 'id', description: 'Product ID' })
   @ApiOperation({
     summary: 'Get a single in-stock product by ID',
@@ -186,6 +196,7 @@ export class BuyerController {
   }
 
   @Get('products/:id/offers')
+  @Public()
   @ApiParam({ name: 'id', description: 'Product ID' })
   @ApiOperation({
     summary: 'PDP offers bundle for a product',
@@ -202,6 +213,7 @@ export class BuyerController {
   }
 
   @Get('categories/:categoryId/stores')
+  @Public()
   @ApiOperation({ summary: 'List approved stores selling in a category near the buyer' })
   async listCategoryStores(
     @Param('categoryId') categoryId: string,
@@ -224,6 +236,7 @@ export class BuyerController {
   // ── Categories ──────────────────────────────────────────────────────────
 
   @Get('categories')
+  @Public()
   @ApiOperation({
     summary: 'List global categories (and optionally a store\'s custom categories)',
     description: 'Pass ?storeId= to include store-specific categories alongside global ones.',
@@ -237,6 +250,7 @@ export class BuyerController {
   }
 
   @Get('delivery-eta')
+  @Public()
   @ApiOperation({
     summary: 'Door-to-door delivery ETA from a store to a buyer coordinate',
     description: 'Used at checkout. Resolves road distance + traffic via the routing provider, with a road-adjusted fallback.',
@@ -262,8 +276,37 @@ export class BuyerController {
   @ApiOperation({ summary: 'Update buyer profile (requires step-up)' })
   async updateProfile(
     @CurrentUser() user: RequestUser,
-    @Body() dto: any,
+    @Body() dto: UpdateBuyerProfileDto,
   ) {
-    return { success: true, message: 'Profile updated successfully' };
+    if (dto.email !== undefined) {
+      const existing = await this.prisma.user.findUnique({
+        where: { email: dto.email },
+        select: { id: true },
+      });
+      if (existing && existing.id !== user.id) {
+        throw new ConflictException('Email is already in use by another account');
+      }
+    }
+
+    if (dto.email !== undefined) {
+      await this.prisma.user.update({ where: { id: user.id }, data: { email: dto.email } });
+    }
+
+    const buyerProfile = await this.prisma.buyerProfile.update({
+      where: { userId: user.id },
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name } : {}),
+        ...(dto.avatarUrl !== undefined ? { avatarUrl: dto.avatarUrl } : {}),
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        name: buyerProfile.name,
+        avatarUrl: buyerProfile.avatarUrl,
+      },
+    };
   }
 }

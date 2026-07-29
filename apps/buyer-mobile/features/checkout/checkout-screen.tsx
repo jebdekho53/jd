@@ -1,9 +1,18 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Modal, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCartQuery } from '@/hooks/use-cart';
-import { useAcceptLegalMutation, useCheckoutCodMutation, usePendingLegalQuery } from '@/hooks/use-checkout';
+import {
+  useAcceptLegalMutation,
+  useCheckoutCodMutation,
+  useCreateRazorpayOrderMutation,
+  useInitiateCheckoutMutation,
+  usePendingLegalQuery,
+  useVerifyRazorpayPaymentMutation,
+} from '@/hooks/use-checkout';
+import { useAuthStore } from '@/store/auth-store';
 import { CheckoutAddressPicker } from '@/features/addresses/checkout-address-picker';
+import { RazorpayWebView } from '@/features/checkout/razorpay-webview';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,7 +22,9 @@ import { StepUpRequiredError, LegalAcceptanceRequiredError } from '@/services/bu
 import { hasUsableCoordinates, toDeliveryAddress } from '@/lib/address';
 import { uid } from '@/lib/uid';
 import type { BuyerAddress } from '@/types/address';
-import type { CheckoutPayload } from '@/types/checkout';
+import type { CheckoutPayload, RazorpayOrderResult } from '@/types/checkout';
+
+type PaymentMethod = 'COD' | 'ONLINE';
 
 export function CheckoutScreen() {
   const router = useRouter();
@@ -21,17 +32,27 @@ export function CheckoutScreen() {
   const { data: pendingLegal, refetch: refetchLegal } = usePendingLegalQuery(true);
   const acceptLegal = useAcceptLegalMutation();
   const checkoutCod = useCheckoutCodMutation();
+  const initiateCheckout = useInitiateCheckoutMutation();
+  const createRazorpayOrder = useCreateRazorpayOrderMutation();
+  const verifyRazorpayPayment = useVerifyRazorpayPaymentMutation();
+  const user = useAuthStore((s) => s.user);
 
   const [address, setAddress] = useState<BuyerAddress | null>(null);
   const [buyerNote, setBuyerNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showStepUp, setShowStepUp] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
+  const [checkoutId, setCheckoutId] = useState<string | null>(null);
+  const [razorpayOrder, setRazorpayOrder] = useState<RazorpayOrderResult | null>(null);
   const [idempotencyKey] = useState(() => uid());
+  const [razorpayOrderKey] = useState(() => uid());
+  const [verifyKey] = useState(() => uid());
 
   if (!cart) {
     return <Loader fullScreen />;
   }
 
+  const canPayOnline = !!user?.name && !!user?.email;
   const canPlace = hasUsableCoordinates(address);
 
   const buildPayload = (): CheckoutPayload => ({
@@ -39,12 +60,37 @@ export function CheckoutScreen() {
     buyerNote: buyerNote.trim() || undefined,
   });
 
+  const placeCodOrder = async () => {
+    const result = await checkoutCod.mutateAsync({ payload: buildPayload(), idempotencyKey });
+    router.replace({ pathname: '/orders/[id]', params: { id: result.orderId } });
+  };
+
+  const startOnlinePayment = async () => {
+    let activeCheckoutId = checkoutId;
+    if (!activeCheckoutId) {
+      const result = await initiateCheckout.mutateAsync({
+        payload: { ...buildPayload(), payerContact: { name: user!.name!, email: user!.email!, phone: user!.phone } },
+        idempotencyKey,
+      });
+      activeCheckoutId = result.checkoutId;
+      setCheckoutId(activeCheckoutId);
+    }
+    const order = await createRazorpayOrder.mutateAsync({
+      checkoutId: activeCheckoutId,
+      idempotencyKey: razorpayOrderKey,
+    });
+    setRazorpayOrder(order);
+  };
+
   const placeOrder = async () => {
     if (!canPlace) return;
     setError(null);
     try {
-      const result = await checkoutCod.mutateAsync({ payload: buildPayload(), idempotencyKey });
-      router.replace({ pathname: '/orders/[id]', params: { id: result.orderId } });
+      if (paymentMethod === 'COD') {
+        await placeCodOrder();
+      } else {
+        await startOnlinePayment();
+      }
     } catch (e) {
       if (e instanceof StepUpRequiredError) {
         setShowStepUp(true);
@@ -63,7 +109,34 @@ export function CheckoutScreen() {
     await placeOrder();
   };
 
+  const handlePaymentSuccess = async (payload: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) => {
+    if (!checkoutId) return;
+    try {
+      const result = await verifyRazorpayPayment.mutateAsync({
+        payload: { checkoutId, ...payload },
+        idempotencyKey: verifyKey,
+      });
+      setRazorpayOrder(null);
+      router.replace({ pathname: '/orders/[id]', params: { id: result.orderId } });
+    } catch (e) {
+      setRazorpayOrder(null);
+      setError(
+        'Payment was captured but confirmation failed. Check My Orders — if it is missing, contact support with your payment reference.',
+      );
+    }
+  };
+
+  const handlePaymentDismiss = () => {
+    setRazorpayOrder(null);
+  };
+
+  const handlePaymentFailure = (message: string) => {
+    setRazorpayOrder(null);
+    setError(message);
+  };
+
   const hasPendingLegal = !!pendingLegal?.length;
+  const isPlacing = checkoutCod.isPending || initiateCheckout.isPending || createRazorpayOrder.isPending;
 
   return (
     <View style={styles.container}>
@@ -83,10 +156,46 @@ export function CheckoutScreen() {
         </Card>
 
         <Card style={styles.card}>
+          <Text style={styles.sectionTitle}>Payment method</Text>
+          <View style={styles.paymentRow}>
+            <Pressable
+              style={[styles.paymentOption, paymentMethod === 'COD' && styles.paymentOptionActive]}
+              onPress={() => setPaymentMethod('COD')}
+            >
+              <Text style={[styles.paymentLabel, paymentMethod === 'COD' && styles.paymentLabelActive]}>
+                Cash on Delivery
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.paymentOption,
+                paymentMethod === 'ONLINE' && styles.paymentOptionActive,
+                !canPayOnline && styles.paymentOptionDisabled,
+              ]}
+              onPress={() => canPayOnline && setPaymentMethod('ONLINE')}
+              disabled={!canPayOnline}
+            >
+              <Text style={[styles.paymentLabel, paymentMethod === 'ONLINE' && styles.paymentLabelActive]}>
+                Pay online
+              </Text>
+            </Pressable>
+          </View>
+          {!canPayOnline && (
+            <Text style={styles.warning}>
+              Add your name and email in Profile to pay online — UPI, cards, netbanking.
+            </Text>
+          )}
+        </Card>
+
+        <Card style={styles.card}>
           <Text style={styles.sectionTitle}>Order summary</Text>
           <Row label="Items" value={`₹${cart.totals.subtotal.toFixed(2)}`} />
           <Row label="Delivery" value={cart.totals.deliveryFee === 0 ? 'Free' : `₹${cart.totals.deliveryFee.toFixed(2)}`} />
-          <Row label="To pay (Cash on Delivery)" value={`₹${cart.totals.grandTotal.toFixed(2)}`} bold />
+          <Row
+            label={`To pay (${paymentMethod === 'COD' ? 'Cash on Delivery' : 'Online'})`}
+            value={`₹${cart.totals.grandTotal.toFixed(2)}`}
+            bold
+          />
         </Card>
 
         {error && <Text style={styles.error}>{error}</Text>}
@@ -94,12 +203,23 @@ export function CheckoutScreen() {
 
       <View style={styles.footer}>
         <Button
-          label={`Place order · ₹${cart.totals.grandTotal.toFixed(0)} COD`}
+          label={
+            paymentMethod === 'COD'
+              ? `Place order · ₹${cart.totals.grandTotal.toFixed(0)} COD`
+              : `Pay ₹${cart.totals.grandTotal.toFixed(0)} online`
+          }
           onPress={placeOrder}
-          loading={checkoutCod.isPending}
+          loading={isPlacing}
           disabled={!canPlace}
         />
       </View>
+
+      <RazorpayWebView
+        order={razorpayOrder}
+        onSuccess={handlePaymentSuccess}
+        onDismiss={handlePaymentDismiss}
+        onFailure={handlePaymentFailure}
+      />
 
       <StepUpPrompt visible={showStepUp} onVerified={handleStepUpVerified} onCancel={() => setShowStepUp(false)} />
 
@@ -139,6 +259,20 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
   card: { gap: 10 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
+  paymentRow: { flexDirection: 'row', gap: 10 },
+  paymentOption: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+  },
+  paymentOptionActive: { borderColor: '#2E5E4E', backgroundColor: '#ecf5f1' },
+  paymentOptionDisabled: { opacity: 0.5 },
+  paymentLabel: { fontSize: 13, fontWeight: '600', color: '#475569' },
+  paymentLabelActive: { color: '#2E5E4E' },
   warning: { fontSize: 12, color: '#b45309' },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   rowLabel: { fontSize: 14, color: '#475569' },

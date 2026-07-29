@@ -1406,6 +1406,8 @@ function serializeDetail(order: any) {
         name: order.store.name,
         slug: order.store.slug,
         phone: order.store.phone,
+        latitude: order.store.latitude ?? null,
+        longitude: order.store.longitude ?? null,
         merchant: order.store.merchantProfile
           ? {
               id: order.store.merchantProfile.id,
@@ -1429,6 +1431,8 @@ function serializeDetail(order: any) {
     taxAmount: Number(order.taxAmount),
     totalAmount: Number(order.totalAmount),
     deliveryAddress: order.deliveryAddress,
+    deliveryLat: order.deliveryLat ?? null,
+    deliveryLng: order.deliveryLng ?? null,
     buyerNote: order.buyerNote,
     cancelReason: order.cancelReason,
     paidAt: order.paidAt,

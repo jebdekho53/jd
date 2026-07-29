@@ -85,6 +85,11 @@ export function ProductDetailScreen({ productId, storeSlug }: { productId: strin
           disabled={!variant || variant.availableQty <= 0}
         />
         <Button label="View cart" variant="secondary" onPress={() => router.push('/cart')} />
+        <Button
+          label="Compare prices at nearby stores"
+          variant="secondary"
+          onPress={() => router.push({ pathname: '/compare/[productId]', params: { productId: product.id } })}
+        />
 
         <ProductReviewsSection
           productId={product.id}

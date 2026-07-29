@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import {
+  compareProduct,
   discoverStores,
   fetchCategories,
   getProduct,
@@ -17,6 +18,7 @@ export const buyerKeys = {
   storeProducts: (slug: string, params?: object) => ['stores', slug, 'products', params] as const,
   search: (params: SearchProductsParams) => ['products', 'search', params] as const,
   product: (id: string, storeSlug?: string) => ['products', 'detail', id, storeSlug] as const,
+  compare: (id: string, lat?: number, lng?: number) => ['products', 'compare', id, lat, lng] as const,
 };
 
 export function useCategoriesQuery() {
@@ -62,5 +64,14 @@ export function useProductQuery(id: string, storeSlug?: string) {
     queryKey: buyerKeys.product(id, storeSlug),
     queryFn: () => getProduct(id, storeSlug),
     enabled: !!id,
+  });
+}
+
+export function useCompareQuery(productId: string, lat?: number, lng?: number, pincode?: string) {
+  return useQuery({
+    queryKey: buyerKeys.compare(productId, lat, lng),
+    queryFn: () => compareProduct(productId, { lat, lng, pincode }),
+    enabled: !!productId,
+    staleTime: 30_000,
   });
 }
