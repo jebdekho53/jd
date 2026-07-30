@@ -28,6 +28,7 @@ import type {
 import type { AdminOrderListItem, ListOrdersParams, RiderQueueOrder, AvailableRider, AssignRiderResult } from '@/types/order';
 import type { OrderDetail } from '@/types/order-detail';
 import type { AdminUserListItem, ListUsersParams, SuspendUserPayload } from '@/types/user';
+import type { MerchantApplicationDetail } from '@/types/merchant';
 import type {
   AdminCategoryRequest,
   GlobalCategory,
@@ -287,7 +288,7 @@ export async function fetchOnboardingFunnel(rangeDays = 30): Promise<OnboardingF
 }
 
 export async function getMerchantApplication(id: string) {
-  const res = await adminFetch<ApiResponse<unknown>>(`/api/admin/merchant-applications/${id}`);
+  const res = await adminFetch<ApiResponse<MerchantApplicationDetail>>(`/api/admin/merchant-applications/${id}`);
   return res.data;
 }
 
