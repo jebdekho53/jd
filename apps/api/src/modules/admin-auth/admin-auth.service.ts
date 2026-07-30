@@ -593,7 +593,13 @@ export class AdminAuthService {
     }
     return {
       id: user.id,
-      phone: user.phone,
+      // Prefer AdminProfile.phone (kept up to date via Account Settings) over the
+      // raw User.phone column, which for ENV-bootstrapped admins is never a real
+      // number — tryEnvBootstrap() seeds it as `+9100${...}` placeholder and it's
+      // never touched again. Matches getSettingsForUser()'s same fallback so the
+      // sidebar and Account Settings show the same phone instead of two different
+      // ones for the same user.
+      phone: user.adminProfile?.phone ?? user.phone,
       email: user.email,
       status: user.status,
       phoneVerified: user.phoneVerified,

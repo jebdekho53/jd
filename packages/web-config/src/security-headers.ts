@@ -45,6 +45,18 @@ function localOriginFromEnv(envKey: string, allowedProtocols: readonly string[])
   }
 }
 
+function originFromEnv(envKey: string, allowedProtocols: readonly string[]): string | null {
+  const rawValue = process.env[envKey];
+  if (!rawValue) return null;
+
+  try {
+    const url = new URL(rawValue);
+    return allowedProtocols.includes(url.protocol) ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
+
 function connectSrcDirective(): string {
   const sources = new Set<string>(PRODUCTION_CONNECT_SRC);
 
@@ -73,6 +85,20 @@ function scriptSrcDirective(): string {
   return `script-src ${Array.from(sources).join(' ')}`;
 }
 
+function frameSrcDirective(): string {
+  const sources = new Set<string>(["'self'", 'https://checkout.razorpay.com', 'https://api.razorpay.com']);
+
+  // admin-web previews a merchant/store's uploaded KYC/GST/PAN documents in an
+  // iframe, served from the API origin (a different subdomain — never 'self').
+  // Without this, that preview is silently blocked by frame-src with no
+  // visible error beyond the browser's own "This content is blocked" iframe
+  // placeholder.
+  const apiOrigin = originFromEnv('NEXT_PUBLIC_API_ORIGIN', ['https:', 'http:']);
+  if (apiOrigin) sources.add(apiOrigin);
+
+  return `frame-src ${Array.from(sources).join(' ')}`;
+}
+
 function contentSecurityPolicy(): string {
   return [
     "default-src 'self'",
@@ -87,7 +113,7 @@ function contentSecurityPolicy(): string {
     "img-src 'self' data: blob: https:",
     "font-src 'self' https://fonts.gstatic.com",
     connectSrcDirective(),
-    "frame-src 'self' https://checkout.razorpay.com https://api.razorpay.com",
+    frameSrcDirective(),
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

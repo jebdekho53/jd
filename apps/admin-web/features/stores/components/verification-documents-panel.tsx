@@ -26,7 +26,12 @@ function DocumentPreview({ doc }: { doc: StoreVerificationDocument }) {
       <iframe
         src={doc.fileUrl}
         title={doc.fileName}
-        sandbox=""
+        // An empty sandbox gives the framed PDF an opaque/null origin, which
+        // some browsers refuse to render at all for a cross-origin document
+        // (blank "content blocked" box). allow-same-origin lets it render as
+        // its real origin (the API's upload host) — still no allow-scripts,
+        // so it can't execute anything or reach the parent page.
+        sandbox="allow-same-origin"
         className="h-72 w-full rounded-lg border border-slate-200 bg-white"
       />
     );
