@@ -59,7 +59,7 @@ export function ForgotPasswordContent() {
                 setEmail(e.target.value);
                 setError('');
               }}
-              placeholder="admin@jebdekho.com"
+              placeholder="Enter your email"
               error={error}
             />
             <Button type="submit" fullWidth loading={forgot.isPending}>

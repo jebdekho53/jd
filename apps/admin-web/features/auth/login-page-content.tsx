@@ -154,7 +154,7 @@ export function LoginPageContent() {
                 setEmail(e.target.value);
                 if (errors.email) setErrors((p) => ({ ...p, email: undefined }));
               }}
-              placeholder="admin@jebdekho.com"
+              placeholder="Enter your email"
               error={errors.email}
             />
 
