@@ -4,9 +4,6 @@ import { useRouter } from 'expo-router';
 import { useEnsureLocation } from '@/hooks/use-location';
 import { useLocationStore } from '@/store/location-store';
 import { useCategoriesQuery, useDiscoverStoresQuery, useProductSearchQuery } from '@/hooks/use-buyer-queries';
-import { useCartQuery } from '@/hooks/use-cart';
-import { useIsAuthenticated } from '@/hooks/use-auth';
-import { useGuestCartStore } from '@/store/guest-cart-store';
 import { Badge } from '@/components/ui/badge';
 import { Loader } from '@/components/ui/loader';
 import type { CategoryItem, StoreCard } from '@/types/buyer';
@@ -36,25 +33,18 @@ const COMMERCE_CTAS = [
   { title: 'Compare prices', text: 'Find the lowest nearby price before checkout.', emoji: '⚖️' },
 ];
 
-function flattenCategories(categories: CategoryItem[]): CategoryItem[] {
-  return categories;
-}
-
 export function HomeScreen() {
   const router = useRouter();
   useEnsureLocation();
   const { lat, lng, pincode, label, permissionDenied } = useLocationStore();
-  const isAuthenticated = useIsAuthenticated();
-  const { data: cart } = useCartQuery();
-  const guestCartItems = useGuestCartStore((s) => s.items);
-  const cartItemCount = isAuthenticated
-    ? (cart?.itemCount ?? 0)
-    : guestCartItems.reduce((sum, i) => sum + i.quantity, 0);
   const { data: categories = [] } = useCategoriesQuery();
 
   const hasLocation = lat != null && lng != null;
-  const chips = useMemo(() => flattenCategories(categories).slice(0, 6), [categories]);
-  const shelfCategories = useMemo(() => flattenCategories(categories).slice(0, 6), [categories]);
+  // Top-level departments only, matching buyer-web's homepage shortcuts —
+  // tapping one opens the same category/[slug] drill-down as the website's
+  // /categories/[slug], not a search filter.
+  const chips = useMemo(() => categories.slice(0, 6), [categories]);
+  const shelfCategories = useMemo(() => categories.slice(0, 6), [categories]);
 
   const storesResult = useDiscoverStoresQuery(
     hasLocation ? { lat: lat!, lng: lng!, pincode: pincode ?? undefined, sort: 'distance', limit: 8 } : null,
@@ -65,22 +55,17 @@ export function HomeScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Utility row */}
-      <View style={styles.utilityRow}>
-        <Pressable style={styles.utilityButton} onPress={() => router.push('/restaurants')}>
-          <Text style={styles.utilityButtonText}>🍽️ Food</Text>
-        </Pressable>
-        <Pressable style={styles.utilityButton} onPress={() => router.push('/orders')}>
-          <Text style={styles.utilityButtonText}>📦 Orders</Text>
-        </Pressable>
-        <Pressable style={styles.utilityButton} onPress={() => router.push('/profile')}>
-          <Text style={styles.utilityButtonText}>👤 Profile</Text>
-        </Pressable>
-        <Pressable style={[styles.utilityButton, styles.utilityButtonPrimary]} onPress={() => router.push('/cart')}>
-          <Text style={styles.utilityButtonTextPrimary}>🛒 Cart</Text>
-          {!!cartItemCount && <Badge label={String(cartItemCount)} tone="success" />}
-        </Pressable>
-      </View>
+      {/* Food quick-access — Orders/Profile/Cart moved to the bottom tab bar,
+          so only the one destination that isn't a tab (the food vertical)
+          stays here to avoid duplicating navigation. */}
+      <Pressable style={styles.foodBanner} onPress={() => router.push('/restaurants')}>
+        <Text style={styles.foodBannerEmoji}>🍽️</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.foodBannerTitle}>Order food</Text>
+          <Text style={styles.foodBannerSubtitle}>Restaurants and cafes near you</Text>
+        </View>
+        <Text style={styles.foodBannerArrow}>→</Text>
+      </Pressable>
 
       {/* Hero */}
       <View style={styles.hero}>
@@ -116,7 +101,7 @@ export function HomeScreen() {
             renderItem={({ item }) => (
               <Pressable
                 style={styles.heroChip}
-                onPress={() => router.push({ pathname: '/search', params: { categoryId: item.id } })}
+                onPress={() => router.push({ pathname: '/category/[slug]', params: { slug: item.slug } })}
               >
                 <Text style={styles.heroChipText}>{item.name}</Text>
               </Pressable>
@@ -145,13 +130,13 @@ export function HomeScreen() {
       {/* Shop by category */}
       {!!categories.length && (
         <View style={styles.section}>
-          <SectionHeader title="Shop by category" onSeeAll={() => router.push('/search')} />
+          <SectionHeader title="Shop by category" onSeeAll={() => router.push('/categories')} />
           <View style={styles.categoryGrid}>
             {categories.slice(0, 10).map((cat) => (
               <Pressable
                 key={cat.id}
                 style={styles.categoryTile}
-                onPress={() => router.push({ pathname: '/search', params: { categoryId: cat.id } })}
+                onPress={() => router.push({ pathname: '/category/[slug]', params: { slug: cat.slug } })}
               >
                 <View style={styles.categoryIconWrap}>
                   {cat.imageUrl ? (
@@ -371,22 +356,21 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   content: { padding: 16, gap: 20 },
 
-  utilityRow: { flexDirection: 'row', gap: 8 },
-  utilityButton: {
-    flex: 1,
+  foodBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 44,
-    borderRadius: 14,
+    gap: 12,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.cream,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  utilityButtonPrimary: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  utilityButtonText: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary },
-  utilityButtonTextPrimary: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  foodBannerEmoji: { fontSize: 24 },
+  foodBannerTitle: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary },
+  foodBannerSubtitle: { fontSize: 11, color: COLORS.textMuted, marginTop: 1 },
+  foodBannerArrow: { fontSize: 18, color: COLORS.primary, fontWeight: '700' },
 
   hero: {
     borderRadius: 28,

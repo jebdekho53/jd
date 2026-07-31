@@ -4,7 +4,7 @@ import { normalizeError, type NormalizedError } from '@/types/errors';
 import { uid } from '@/lib/uid';
 import type { BuyerAddress, UpsertAddressPayload } from '@/types/address';
 import type { AuthUser, RequestOtpResult, VerifyOtpResult } from '@/types/auth';
-import type { CategoryItem, StoreCard, StoreDetail, BuyerProduct, BuyerProductWithStore } from '@/types/buyer';
+import type { CategoryItem, StoreCard, StoreCardWithCount, StoreDetail, BuyerProduct, BuyerProductWithStore } from '@/types/buyer';
 import type { Cart } from '@/types/cart';
 import type { CompareProductResult } from '@/types/compare';
 import type { FlashSaleOffer, FreeDeliveryDeal, StorePromotionDeal } from '@/types/offers';
@@ -290,6 +290,24 @@ export async function resetPasswordWithCode(
 export async function fetchCategories(): Promise<CategoryItem[]> {
   const res = await buyerFetch<ApiResponse<CategoryItem[]>>('/buyer/categories');
   return res.data;
+}
+
+export async function fetchCategoryStores(
+  categoryId: string,
+  params: DiscoverStoresParams & { subcategoryId?: string },
+): Promise<{ stores: StoreCardWithCount[]; meta: ApiResponse<unknown>['meta'] }> {
+  const res = await buyerFetch<ApiResponse<StoreCardWithCount[]>>(
+    `/buyer/categories/${categoryId}/stores${buildQuery({
+      lat: params.lat,
+      lng: params.lng,
+      pincode: params.pincode,
+      radiusKm: params.radiusKm ?? 20,
+      page: params.page ?? 1,
+      limit: params.limit ?? 20,
+      subcategoryId: params.subcategoryId,
+    })}`,
+  );
+  return { stores: res.data, meta: res.meta };
 }
 
 export interface DiscoverStoresParams {

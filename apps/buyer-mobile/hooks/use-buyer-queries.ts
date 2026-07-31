@@ -3,6 +3,7 @@ import {
   compareProduct,
   discoverStores,
   fetchCategories,
+  fetchCategoryStores,
   getProduct,
   getStore,
   getStoreProducts,
@@ -13,6 +14,7 @@ import {
 
 export const buyerKeys = {
   categories: ['categories'] as const,
+  categoryStores: (categoryId: string, params: object) => ['categories', categoryId, 'stores', params] as const,
   stores: (params: DiscoverStoresParams) => ['stores', 'list', params] as const,
   store: (slug: string) => ['stores', 'detail', slug] as const,
   storeProducts: (slug: string, params?: object) => ['stores', slug, 'products', params] as const,
@@ -23,6 +25,18 @@ export const buyerKeys = {
 
 export function useCategoriesQuery() {
   return useQuery({ queryKey: buyerKeys.categories, queryFn: fetchCategories, staleTime: 5 * 60_000 });
+}
+
+export function useCategoryStoresQuery(
+  categoryId: string,
+  params: DiscoverStoresParams & { subcategoryId?: string },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: buyerKeys.categoryStores(categoryId, params),
+    queryFn: () => fetchCategoryStores(categoryId, params),
+    enabled: enabled && Boolean(categoryId && params.lat && params.lng),
+  });
 }
 
 export function useDiscoverStoresQuery(params: DiscoverStoresParams | null) {
@@ -42,7 +56,7 @@ export function useStoreQuery(slug: string) {
   });
 }
 
-export function useStoreProductsQuery(slug: string, params?: { categoryId?: string; page?: number }) {
+export function useStoreProductsQuery(slug: string, params?: { categoryId?: string; page?: number; limit?: number }) {
   return useQuery({
     queryKey: buyerKeys.storeProducts(slug, params),
     queryFn: () => getStoreProducts(slug, params),

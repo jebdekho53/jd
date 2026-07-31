@@ -5,6 +5,8 @@ export interface CategoryItem {
   icon: string | null;
   imageUrl: string | null;
   parentId: string | null;
+  sortOrder: number;
+  children: CategoryItem[];
 }
 
 export interface StoreCard {
@@ -20,6 +22,10 @@ export interface StoreCard {
   minOrderAmount: number;
   deliveryFee: number;
   avgPrepTimeMins: number;
+}
+
+export interface StoreCardWithCount extends StoreCard {
+  productCount?: number;
 }
 
 export interface StoreDetail extends StoreCard {

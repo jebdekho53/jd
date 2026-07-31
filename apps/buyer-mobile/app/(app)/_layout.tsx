@@ -15,16 +15,15 @@ export default function AppLayout() {
         headerTitleStyle: { fontWeight: '600' },
       }}
     >
-      <Stack.Screen name="home" options={{ title: 'JebDekho' }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="search" options={{ title: 'Search' }} />
       <Stack.Screen name="store/[slug]" options={{ title: 'Store' }} />
       <Stack.Screen name="product/[id]" options={{ title: 'Product' }} />
+      <Stack.Screen name="category/[slug]" options={{ title: 'Category' }} />
       <Stack.Screen name="compare/[productId]" options={{ title: 'Compare prices' }} />
       <Stack.Screen name="offers" options={{ title: 'Offers & deals' }} />
       <Stack.Screen name="plus" options={{ title: 'JebDekho Plus' }} />
-      <Stack.Screen name="cart" options={{ title: 'Cart' }} />
       <Stack.Screen name="checkout" options={{ title: 'Checkout' }} />
-      <Stack.Screen name="orders/index" options={{ title: 'My Orders' }} />
       <Stack.Screen name="orders/[id]" options={{ title: 'Order' }} />
       <Stack.Screen name="restaurants" options={{ title: 'Food' }} />
       <Stack.Screen name="restaurant/[slug]" options={{ title: 'Restaurant' }} />
@@ -32,7 +31,6 @@ export default function AppLayout() {
       <Stack.Screen name="food-checkout" options={{ title: 'Food Checkout' }} />
       <Stack.Screen name="wishlist" options={{ title: 'Wishlist' }} />
       <Stack.Screen name="wallet" options={{ title: 'Wallet' }} />
-      <Stack.Screen name="profile/index" options={{ title: 'Profile' }} />
       <Stack.Screen name="profile/edit" options={{ title: 'Edit Profile' }} />
       <Stack.Screen name="profile/addresses" options={{ title: 'Saved Addresses' }} />
       <Stack.Screen name="profile/rewards" options={{ title: 'Loyalty Rewards' }} />
