@@ -50,28 +50,52 @@ export async function getRefreshToken(): Promise<string | undefined> {
   return jar.get(REFRESH_COOKIE)?.value;
 }
 
+// Refresh tokens are single-use and rotated server-side (see
+// TokenService.rotateRefreshToken) — presenting an already-rotated token is
+// treated as theft and revokes every session. The merchant dashboard fires
+// several parallel data requests (dashboard stats, orders, notifications…),
+// so when the access-token cookie expires, each one independently lands here
+// with the SAME still-valid refresh token cookie. Without de-duping, the
+// first request rotates it and the rest race in with the now-stale token,
+// tripping reuse detection and force-logging-out an actively-browsing
+// merchant — exactly the "logged out after 15 min" symptom. Collapsing
+// concurrent calls onto one in-flight promise (keyed by the token, safe
+// since this server runs as a single PM2 fork instance) makes them share one
+// rotation instead of racing.
+const inFlightRefreshes = new Map<string, Promise<string | null>>();
+
 export async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = await getRefreshToken();
   if (!refreshToken) return null;
 
-  try {
-    const { data } = await backendFetch<ApiResponse<TokenPair>>('/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify({ refreshToken }),
-    });
-    const jar = await cookies();
-    jar.set(ACCESS_COOKIE, data.data.accessToken, {
-      ...cookieOptions,
-      maxAge: accessCookieMaxAge(data.data.expiresIn),
-    });
-    jar.set(REFRESH_COOKIE, data.data.refreshToken, {
-      ...cookieOptions,
-      maxAge: REFRESH_MAX_AGE,
-    });
-    return data.data.accessToken;
-  } catch {
-    return null;
-  }
+  const existing = inFlightRefreshes.get(refreshToken);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    try {
+      const { data } = await backendFetch<ApiResponse<TokenPair>>('/auth/refresh', {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken }),
+      });
+      const jar = await cookies();
+      jar.set(ACCESS_COOKIE, data.data.accessToken, {
+        ...cookieOptions,
+        maxAge: accessCookieMaxAge(data.data.expiresIn),
+      });
+      jar.set(REFRESH_COOKIE, data.data.refreshToken, {
+        ...cookieOptions,
+        maxAge: REFRESH_MAX_AGE,
+      });
+      return data.data.accessToken;
+    } catch {
+      return null;
+    } finally {
+      inFlightRefreshes.delete(refreshToken);
+    }
+  })();
+
+  inFlightRefreshes.set(refreshToken, promise);
+  return promise;
 }
 
 export async function fetchWithAuth<T>(path: string, init?: RequestInit): Promise<T> {
