@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { RedisService } from '../../redis/redis.service';
-import { parseGeocoderResponse } from './geocoding.util';
+import { parseGeocoderResponse, parseSingleResult } from './geocoding.util';
 
 export interface GeocodedAddress {
   formattedAddress: string;
@@ -14,6 +14,13 @@ export interface GeocodedAddress {
   pincode: string;
   lat: number;
   lng: number;
+}
+
+export interface PlaceSuggestion {
+  placeId: string;
+  mainText: string;
+  secondaryText: string;
+  description: string;
 }
 
 const CACHE_TTL_SEC = 60 * 60 * 24 * 7; // 7 days
@@ -111,6 +118,68 @@ export class GeocodingCacheService {
       return parsed;
     } catch (err) {
       this.logger.warn({ pincode, err }, 'Pincode geocode failed');
+      return null;
+    }
+  }
+
+  /**
+   * Address search-as-you-type. Only mobile clients hit this — buyer-web/
+   * merchant-web/admin-web load the Google Maps JS SDK directly in the
+   * browser (see @jebdekho/google-maps) and call google.maps.places from
+   * there. React Native has no DOM for that SDK, and the browser key
+   * (NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) is HTTP-referrer restricted so it
+   * wouldn't work from a device anyway — this proxies through the server
+   * key instead of ever shipping a Maps key inside the app bundle.
+   */
+  async autocomplete(input: string, sessionToken?: string): Promise<PlaceSuggestion[]> {
+    if (!this.isConfigured() || !input.trim()) return [];
+
+    try {
+      const { data } = await axios.get('https://maps.googleapis.com/maps/api/place/autocomplete/json', {
+        params: {
+          input,
+          key: this.apiKey,
+          components: 'country:in',
+          sessiontoken: sessionToken,
+        },
+        timeout: 8000,
+      });
+      if (data.status !== 'OK' || !Array.isArray(data.predictions)) return [];
+      return data.predictions.map(
+        (p: {
+          place_id: string;
+          description: string;
+          structured_formatting?: { main_text?: string; secondary_text?: string };
+        }) => ({
+          placeId: p.place_id,
+          mainText: p.structured_formatting?.main_text ?? p.description,
+          secondaryText: p.structured_formatting?.secondary_text ?? '',
+          description: p.description,
+        }),
+      );
+    } catch (err) {
+      this.logger.warn({ input, err }, 'Places autocomplete failed');
+      return [];
+    }
+  }
+
+  async placeDetails(placeId: string, sessionToken?: string): Promise<GeocodedAddress | null> {
+    if (!this.isConfigured() || !placeId.trim()) return null;
+
+    try {
+      const { data } = await axios.get('https://maps.googleapis.com/maps/api/place/details/json', {
+        params: {
+          place_id: placeId,
+          key: this.apiKey,
+          fields: 'formatted_address,address_component,geometry',
+          sessiontoken: sessionToken,
+        },
+        timeout: 8000,
+      });
+      if (data.status !== 'OK' || !data.result) return null;
+      return parseSingleResult(data.result, 0, 0);
+    } catch (err) {
+      this.logger.warn({ placeId, err }, 'Place details failed');
       return null;
     }
   }

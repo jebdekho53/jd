@@ -20,6 +20,7 @@ export default function AppLayout() {
       <Stack.Screen name="store/[slug]" options={{ title: 'Store' }} />
       <Stack.Screen name="product/[id]" options={{ title: 'Product' }} />
       <Stack.Screen name="category/[slug]" options={{ title: 'Category' }} />
+      <Stack.Screen name="location" options={{ title: 'Set delivery location' }} />
       <Stack.Screen name="compare/[productId]" options={{ title: 'Compare prices' }} />
       <Stack.Screen name="offers" options={{ title: 'Offers & deals' }} />
       <Stack.Screen name="plus" options={{ title: 'JebDekho Plus' }} />

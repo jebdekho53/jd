@@ -33,4 +33,27 @@ export class GeocodingController {
     const data = await this.geocoding.getByPincode(pincode ?? '');
     return { success: true, data };
   }
+
+  @Get('autocomplete')
+  @Public()
+  @Throttle({ default: { ttl: 60000, limit: 30 } })
+  @ApiOperation({
+    summary: 'Address search suggestions (server-proxied Google Places Autocomplete)',
+    description:
+      'For mobile clients, which have no browser to load the Google Maps JS SDK the web ' +
+      'apps use — keeps the Maps API key server-side instead of shipping it in the app.',
+  })
+  async autocomplete(@Query('input') input: string, @Query('sessionToken') sessionToken?: string) {
+    const data = await this.geocoding.autocomplete(input ?? '', sessionToken);
+    return { success: true, data };
+  }
+
+  @Get('place')
+  @Public()
+  @Throttle({ default: { ttl: 60000, limit: 30 } })
+  @ApiOperation({ summary: 'Resolve a Places autocomplete suggestion to a full address' })
+  async place(@Query('placeId') placeId: string, @Query('sessionToken') sessionToken?: string) {
+    const data = await this.geocoding.placeDetails(placeId ?? '', sessionToken);
+    return { success: true, data };
+  }
 }

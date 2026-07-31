@@ -285,6 +285,58 @@ export async function resetPasswordWithCode(
   return res.data;
 }
 
+// ─── Location / geocoding ──────────────────────────────────────────────────
+// Reverse geocode + address search are server-proxied (GOOGLE_MAPS_API_KEY
+// stays on the backend) rather than calling Google directly from the device —
+// buyer-web/merchant-web/admin-web can load the Google Maps JS SDK in the
+// browser and call google.maps.places client-side, but React Native has no
+// DOM for that, and the browser Maps key is HTTP-referrer restricted so it
+// wouldn't authenticate device requests anyway. See geocoding.controller.ts.
+
+export interface GeocodedAddress {
+  formattedAddress: string;
+  line1: string;
+  line2?: string;
+  locality: string;
+  city: string;
+  state: string;
+  pincode: string;
+  lat: number;
+  lng: number;
+}
+
+export interface PlaceSuggestion {
+  placeId: string;
+  mainText: string;
+  secondaryText: string;
+  description: string;
+}
+
+export async function reverseGeocode(lat: number, lng: number): Promise<GeocodedAddress | null> {
+  const res = await buyerFetch<ApiResponse<GeocodedAddress | null>>(
+    `/geo/geocode/reverse${buildQuery({ lat, lng })}`,
+  );
+  return res.data;
+}
+
+export async function fetchLocationSuggestions(
+  input: string,
+  sessionToken?: string,
+): Promise<PlaceSuggestion[]> {
+  if (!input.trim()) return [];
+  const res = await buyerFetch<ApiResponse<PlaceSuggestion[]>>(
+    `/geo/geocode/autocomplete${buildQuery({ input, sessionToken })}`,
+  );
+  return res.data;
+}
+
+export async function resolvePlace(placeId: string, sessionToken?: string): Promise<GeocodedAddress | null> {
+  const res = await buyerFetch<ApiResponse<GeocodedAddress | null>>(
+    `/geo/geocode/place${buildQuery({ placeId, sessionToken })}`,
+  );
+  return res.data;
+}
+
 // ─── Discovery ───────────────────────────────────────────────────────────────
 
 export async function fetchCategories(): Promise<CategoryItem[]> {

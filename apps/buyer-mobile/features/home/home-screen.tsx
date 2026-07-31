@@ -111,7 +111,7 @@ export function HomeScreen() {
       </View>
 
       {/* Location / delivering-to card */}
-      <Pressable style={styles.locationCard}>
+      <Pressable style={styles.locationCard} onPress={() => router.push('/location')}>
         <Text style={styles.locationEmoji}>📍</Text>
         <View style={{ flex: 1 }}>
           <Text style={styles.locationTitle}>
@@ -119,6 +119,7 @@ export function HomeScreen() {
           </Text>
           <Text style={styles.locationSubtitle}>See only sellers that can deliver to your area.</Text>
         </View>
+        <Text style={styles.locationChange}>Change</Text>
       </Pressable>
 
       {permissionDenied && (
@@ -420,6 +421,7 @@ const styles = StyleSheet.create({
   locationEmoji: { fontSize: 22 },
   locationTitle: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary },
   locationSubtitle: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
+  locationChange: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
   locationWarning: { fontSize: 12, color: '#b45309', textAlign: 'center' },
 
   section: { gap: 10 },

@@ -35,7 +35,7 @@ function normalizeIndianPincode(raw: string, formattedAddress?: string): string 
   return '';
 }
 
-function parseSingleResult(
+export function parseSingleResult(
   result: NonNullable<GoogleGeocodeResponse['results']>[number],
   fallbackLat: number,
   fallbackLng: number,
