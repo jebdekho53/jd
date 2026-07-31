@@ -334,23 +334,6 @@ export function MerchantLandingContent() {
           </div>
         </div>
       </section>
-
-      {/* FINAL CTA */}
-      <section className="bg-gradient-to-br from-[#0b1e3a] to-[#0f2a4a] px-4 py-16 text-center text-white">
-        <div className="mx-auto max-w-2xl">
-          <h2 className="text-2xl font-bold sm:text-3xl">Aaj hi apni dukaan online lao</h2>
-          <p className="mt-3 text-white/80">
-            Pehle 100 merchants ke liye zero commission + ₹500 credit. Offer jaldi khatam ho raha hai.
-          </p>
-          <Link
-            href="/signup"
-            className="mt-7 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-8 py-3.5 text-lg font-bold text-white shadow-lg shadow-orange-500/30 transition hover:bg-orange-600"
-          >
-            Register Now
-            <ArrowRight className="h-5 w-5" />
-          </Link>
-        </div>
-      </section>
     </MarketingShell>
   );
 }
