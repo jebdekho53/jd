@@ -37,8 +37,8 @@ export default function ContactPage() {
       <Section heading="Signing up, or a question before you join">
         <p>
           Email{' '}
-          <a href="mailto:partners@jebdekho.com" className="text-rider-accent underline">
-            partners@jebdekho.com
+          <a href="mailto:support@jebdekho.com" className="text-rider-accent underline">
+            support@jebdekho.com
           </a>
           . Most answers are already on the{' '}
           <Link href="/about" className="text-rider-accent underline">

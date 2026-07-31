@@ -36,8 +36,8 @@ export default async function FranchiseAgreementPage() {
       <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-300">
         <p className="mx-auto max-w-2xl text-sm">
           The agreement could not be loaded right now. Please refresh, or contact{' '}
-          <a className="text-emerald-300 underline" href="mailto:partners@jebdekho.com">
-            partners@jebdekho.com
+          <a className="text-emerald-300 underline" href="mailto:support@jebdekho.com">
+            support@jebdekho.com
           </a>
           .
         </p>

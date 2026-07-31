@@ -34,8 +34,8 @@ export default async function MerchantAgreementPage() {
       ) : (
         <p className="text-sm text-slate-600">
           The agreement could not be loaded right now. Please refresh, or contact{' '}
-          <a className="font-medium text-brand-600 hover:underline" href="mailto:merchant@jebdekho.com">
-            merchant@jebdekho.com
+          <a className="font-medium text-brand-600 hover:underline" href="mailto:support@jebdekho.com">
+            support@jebdekho.com
           </a>
           .
         </p>

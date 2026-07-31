@@ -29,19 +29,19 @@ const SUPPORT_OPTIONS = [
     title: 'Merchant Support',
     description: 'For store onboarding, product listing, orders, payouts, and seller help.',
     icon: Store,
-    email: 'merchant@jebdekho.com',
+    email: 'support@jebdekho.com',
   },
   {
     title: 'Business Enquiries',
     description: 'For partnerships, collaborations, integrations, and business proposals.',
     icon: Briefcase,
-    email: 'business@jebdekho.com',
+    email: 'support@jebdekho.com',
   },
   {
     title: 'Partnerships',
     description: 'For delivery, brand, marketing, franchise, and strategic partnerships.',
     icon: Handshake,
-    email: 'partners@jebdekho.com',
+    email: 'support@jebdekho.com',
   },
 ] as const;
 

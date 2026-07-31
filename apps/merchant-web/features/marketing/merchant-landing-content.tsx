@@ -175,7 +175,7 @@ export function MerchantLandingContent() {
               <ArrowRight className="h-5 w-5" />
             </Link>
             <a
-              href="mailto:partners@jebdekho.com?subject=JebDekho%20Merchant%20Demo"
+              href="mailto:support@jebdekho.com?subject=JebDekho%20Merchant%20Demo"
               className="rounded-xl border border-white/25 px-6 py-3.5 font-semibold text-white/90 transition hover:bg-white/10"
             >
               Book a demo

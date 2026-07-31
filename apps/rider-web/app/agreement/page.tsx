@@ -43,8 +43,8 @@ export default async function RiderAgreementPage() {
         <Section heading="Could not load the agreement">
           <p>
             Please refresh, or contact{' '}
-            <a className="text-rider-accent underline" href="mailto:partners@jebdekho.com">
-              partners@jebdekho.com
+            <a className="text-rider-accent underline" href="mailto:support@jebdekho.com">
+              support@jebdekho.com
             </a>
             .
           </p>

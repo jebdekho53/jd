@@ -48,11 +48,13 @@ export const LEGAL_ENTITY = {
    * Mariahu is a tehsil of Jaunpur district, so the district courts are at Jaunpur.
    */
   jurisdictionCity: 'Jaunpur, Uttar Pradesh' as string,
+  // Only support@ is a monitored mailbox today — every purpose-specific
+  // address below is unmonitored, so they all point at the one that works.
   contact: {
     support: 'support@jebdekho.com',
-    merchant: 'merchant@jebdekho.com',
-    partners: 'partners@jebdekho.com',
-    business: 'business@jebdekho.com',
+    merchant: 'support@jebdekho.com',
+    partners: 'support@jebdekho.com',
+    business: 'support@jebdekho.com',
   },
   website: 'https://jebdekho.com',
 } as const;
