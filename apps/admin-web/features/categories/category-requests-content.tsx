@@ -97,7 +97,9 @@ export function CategoryRequestsContent() {
               <div className="flex flex-wrap justify-between gap-2">
                 <div>
                   <p className="font-semibold text-slate-900">
-                    {item.category.name} → {item.subcategory.name}
+                    {item.category.id === item.subcategory.id
+                      ? `${item.category.name} (entire category)`
+                      : `${item.category.name} → ${item.subcategory.name}`}
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <Badge tone={item.category.catalogKind === 'MENU' ? 'info' : 'neutral'}>

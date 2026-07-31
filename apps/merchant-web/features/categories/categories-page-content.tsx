@@ -30,7 +30,9 @@ function RequestCard({ request }: { request: StoreCategoryRequest }) {
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="font-semibold text-slate-900">
-              {request.category.name} → {request.subcategory.name}
+              {request.category.id === request.subcategory.id
+                ? `${request.category.name} (entire category)`
+                : `${request.category.name} → ${request.subcategory.name}`}
             </p>
             {request.store && (
               <p className="text-xs text-slate-500">Store: {request.store.name}</p>
