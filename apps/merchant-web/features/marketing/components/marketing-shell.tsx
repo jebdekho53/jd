@@ -4,12 +4,10 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { BrandLockup } from '@/components/brand/brand-lockup';
 import { LogoLink } from '@/components/brand/logo';
-import { WhatsAppCtaButton } from './whatsapp-cta-button';
 
 export function MarketingShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-surface">
-      <WhatsAppCtaButton />
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <BrandLockup subtitle="Merchant" href="/" />
