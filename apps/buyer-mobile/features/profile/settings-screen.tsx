@@ -73,6 +73,7 @@ export function SettingsScreen() {
             { label: 'Terms of service', href: '/legal/terms' },
             { label: 'Privacy policy', href: '/legal/privacy' },
             { label: 'Refund policy', href: '/legal/refund-policy' },
+            { label: 'Data deletion', href: '/legal/data-deletion' },
           ] as const
         ).map((item) => (
           <Pressable key={item.href} style={styles.linkRow} onPress={() => router.push(item.href)}>

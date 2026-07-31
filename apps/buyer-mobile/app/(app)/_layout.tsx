@@ -49,6 +49,7 @@ export default function AppLayout() {
       <Stack.Screen name="legal/privacy" options={{ title: 'Privacy Policy' }} />
       <Stack.Screen name="legal/terms" options={{ title: 'Terms of Service' }} />
       <Stack.Screen name="legal/refund-policy" options={{ title: 'Refund Policy' }} />
+      <Stack.Screen name="legal/data-deletion" options={{ title: 'Data Deletion' }} />
     </Stack>
   );
 }

@@ -287,3 +287,120 @@ export const REFUND_POLICY_PAGE: StaticPage = {
     },
   ],
 };
+
+export const DATA_DELETION_PAGE: StaticPage = {
+  title: 'Data Deletion Instructions',
+  subtitle: 'Last updated: July 2026',
+  sections: [
+    {
+      body: [
+        'This page explains how JebDekho users, buyers, merchants, delivery partners, and franchise partners can request deletion of their account and eligible personal data from JebDekho and related services.',
+        'JebDekho is owned and operated by UrbanMove Services Private Limited.',
+      ],
+    },
+    {
+      heading: 'Who Can Request Data Deletion?',
+      body: ['You may request deletion if you have used JebDekho as:'],
+      list: [
+        'A buyer or customer.',
+        'A merchant, store owner, or seller partner.',
+        'A delivery/rider partner.',
+        'A franchise or business partner.',
+        'A user who contacted JebDekho support.',
+        'A user who interacted with JebDekho through WhatsApp, SMS, email, or push notifications.',
+      ],
+    },
+    {
+      heading: 'How to Request Deletion',
+      list: [
+        'Send an email to support@jebdekho.com from the email address linked to your JebDekho account.',
+        'Use the subject line "Data Deletion Request".',
+        'Include your registered mobile number, email address, and role on JebDekho, such as buyer, merchant, rider, or franchise partner.',
+        'Clearly confirm that you want your JebDekho account and eligible personal data deleted.',
+        'If your request relates to WhatsApp, include the WhatsApp phone number used with JebDekho.',
+      ],
+    },
+    {
+      heading: 'Information to Include',
+      list: [
+        'Full name.',
+        'Registered mobile number.',
+        'Registered email address.',
+        'WhatsApp number, if different.',
+        'Your account type: buyer, merchant, rider, franchise, or support user.',
+        'Store name or business name, if you are a merchant.',
+        'Any relevant order ID, ticket ID, or payment reference, if applicable.',
+      ],
+    },
+    {
+      heading: 'What We Delete',
+      list: [
+        'Account profile information.',
+        'Saved addresses and contact details.',
+        'Saved preferences, wishlist data, and notification preferences.',
+        'WhatsApp-linked identifiers and messaging preferences.',
+        'Support data that is no longer legally or operationally required.',
+        'Inactive device tokens used for push notifications.',
+        'Marketing communication preferences, where applicable.',
+      ],
+    },
+    {
+      heading: 'Merchant, Rider, and Partner Data',
+      body: [
+        'If you are a merchant, rider, franchise, or business partner, some business records may need to be retained for operational, contractual, tax, payment, compliance, fraud-prevention, and dispute-resolution purposes. Eligible personal or inactive account data will be deleted or deactivated after verification.',
+      ],
+    },
+    {
+      heading: 'WhatsApp Data',
+      body: [
+        'If you interacted with JebDekho through WhatsApp, we may process your WhatsApp phone number, message preferences, support messages, order updates, delivery updates, and communication logs. You can request deletion of eligible WhatsApp-linked data by mentioning your WhatsApp number in your deletion request.',
+      ],
+    },
+    {
+      heading: 'Data We May Retain',
+      body: [
+        'Some records may be retained where required by law, tax rules, fraud prevention, dispute resolution, payment reconciliation, merchant settlements, delivery reconciliation, legal claims, regulatory obligations, or platform security.',
+        'This may include:',
+      ],
+      list: [
+        'Order invoices and legally required transaction history.',
+        'Payment, refund, settlement, wallet, and reconciliation records.',
+        'Tax, GST, TDS/TCS, accounting, and audit records.',
+        'Fraud-prevention, abuse-prevention, and security logs.',
+        'Support tickets required for unresolved disputes.',
+        'Merchant onboarding, KYC, business verification, and compliance records where retention is legally required.',
+      ],
+    },
+    {
+      heading: 'Account Deactivation vs Deletion',
+      body: [
+        'In some cases, we may first deactivate your account to prevent further login or transactions while we verify and process the deletion request. Once eligible data is deleted, some retained records may remain in a restricted form only for legally required purposes.',
+      ],
+    },
+    {
+      heading: 'Processing Timeline',
+      body: [
+        'We will acknowledge your request and process eligible deletion requests within 30 days. If additional verification is required, we may contact you before completing the request.',
+      ],
+    },
+    {
+      heading: 'Verification',
+      body: [
+        'To protect users from unauthorized deletion requests, we may verify your identity through your registered email, mobile number, OTP, support history, or business account details before processing the request.',
+      ],
+    },
+    {
+      heading: 'After Deletion',
+      list: [
+        'You may lose access to your JebDekho account.',
+        'Saved addresses, preferences, and communication settings may be removed.',
+        'Past orders may no longer appear in your account, except where legally retained records are required.',
+        'Merchant, rider, or franchise access may be disabled after verification.',
+      ],
+    },
+    {
+      heading: 'Contact',
+      body: ['For data deletion, privacy, or WhatsApp data concerns, contact support@jebdekho.com.'],
+    },
+  ],
+};

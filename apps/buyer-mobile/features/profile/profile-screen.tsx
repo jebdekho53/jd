@@ -79,6 +79,7 @@ export function ProfileScreen() {
         { icon: '📄', title: 'Terms of service', href: '/legal/terms' },
         { icon: '📄', title: 'Privacy policy', href: '/legal/privacy' },
         { icon: '📄', title: 'Refund policy', href: '/legal/refund-policy' },
+        { icon: '📄', title: 'Data deletion', href: '/legal/data-deletion' },
       ],
     },
     {
