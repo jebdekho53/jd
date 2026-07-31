@@ -113,15 +113,15 @@ export function MerchantLandingContent() {
 
   return (
     <MarketingShell>
-      {/* HERO — matches the ad: navy + orange, JebDekho offer */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#0b1e3a] via-[#0f2a4a] to-[#0b1e3a] px-4 py-16 text-white sm:py-24">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-orange-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full bg-orange-400/10 blur-3xl" />
+      {/* HERO — brand green, matching login/signup/dashboard instead of the old one-off navy+orange ad palette */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-brand-900 via-brand-800 to-brand-900 px-4 py-16 text-white sm:py-24">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-brand-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full bg-brand-400/10 blur-3xl" />
         <div className="relative mx-auto max-w-4xl text-center">
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-orange-400/40 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-200"
+            className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-brand-400/40 bg-brand-500/10 px-4 py-1.5 text-sm font-medium text-brand-200"
           >
             <Sparkles className="h-4 w-4" />
             Launch offer · sirf pehle 100 merchants
@@ -135,7 +135,7 @@ export function MerchantLandingContent() {
             Apni dukaan{' '}
             <span className="whitespace-nowrap">
               <span className="text-white">Jeb</span>
-              <span className="text-orange-500">Dekho</span>
+              <span className="text-brand-400">Dekho</span>
             </span>{' '}
             par lao
           </motion.h1>
@@ -169,7 +169,7 @@ export function MerchantLandingContent() {
           >
             <Link
               href="/signup"
-              className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-8 py-3.5 text-lg font-bold text-white shadow-lg shadow-orange-500/30 transition hover:bg-orange-600"
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-8 py-3.5 text-lg font-bold text-white shadow-lg shadow-brand-600/30 transition hover:bg-brand-700"
             >
               Register Now
               <ArrowRight className="h-5 w-5" />
@@ -191,11 +191,11 @@ export function MerchantLandingContent() {
           >
             <div className="flex items-center justify-between text-xs text-white/70">
               <span>{claimed} merchants claimed</span>
-              <span className="font-semibold text-orange-300">sirf {spotsLeft} spots left</span>
+              <span className="font-semibold text-brand-300">sirf {spotsLeft} spots left</span>
             </div>
             <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/15">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-orange-400 to-orange-500"
+                className="h-full rounded-full bg-gradient-to-r from-brand-400 to-brand-500"
                 style={{ width: `${claimed}%` }}
               />
             </div>
@@ -218,7 +218,7 @@ export function MerchantLandingContent() {
             transition={{ delay: i * 0.05 }}
             className="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm"
           >
-            <p className="text-2xl font-bold text-[#0f2a4a]">{s.value}</p>
+            <p className="text-2xl font-bold text-brand-700">{s.value}</p>
             <p className="mt-1 text-xs text-slate-500">{s.label}</p>
           </motion.div>
         ))}
@@ -241,7 +241,7 @@ export function MerchantLandingContent() {
                 transition={{ delay: i * 0.04 }}
                 className="rounded-xl border border-slate-100 bg-surface p-5"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 text-brand-600">
                   <b.icon className="h-5 w-5" />
                 </div>
                 <h3 className="mt-3 font-semibold text-slate-900">{b.title}</h3>
@@ -268,10 +268,10 @@ export function MerchantLandingContent() {
                 transition={{ delay: i * 0.06 }}
                 className="relative rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
               >
-                <div className="absolute -top-3 left-6 flex h-7 w-7 items-center justify-center rounded-full bg-[#0f2a4a] text-sm font-bold text-white">
+                <div className="absolute -top-3 left-6 flex h-7 w-7 items-center justify-center rounded-full bg-brand-700 text-sm font-bold text-white">
                   {i + 1}
                 </div>
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0f2a4a]/5 text-[#0f2a4a]">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-700/5 text-brand-700">
                   <s.icon className="h-5 w-5" />
                 </div>
                 <h3 className="mt-3 font-semibold text-slate-900">{s.title}</h3>
@@ -300,7 +300,7 @@ export function MerchantLandingContent() {
               >
                 <p className="flex-1 text-slate-700">&ldquo;{t.quote}&rdquo;</p>
                 <footer className="mt-5 flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0f2a4a] text-sm font-bold text-white">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-700 text-sm font-bold text-white">
                     {t.initials}
                   </span>
                   <span className="text-sm">
@@ -325,7 +325,7 @@ export function MerchantLandingContent() {
                 className="group rounded-lg border border-slate-200 bg-white p-4"
               >
                 <summary className="flex cursor-pointer items-center gap-2 font-medium text-slate-900">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-orange-500" />
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-600" />
                   {item.q}
                 </summary>
                 <p className="mt-2 pl-6 text-sm text-slate-600">{item.a}</p>
@@ -366,7 +366,7 @@ function OfferChip({
     <span
       className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
         highlight
-          ? 'bg-orange-500 text-white'
+          ? 'bg-brand-600 text-white'
           : 'border border-white/20 bg-white/10 text-white'
       }`}
     >
