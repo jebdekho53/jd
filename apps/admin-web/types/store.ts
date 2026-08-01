@@ -119,6 +119,8 @@ export interface ListStoresParams {
   limit?: number;
   status?: StoreStatus;
   blacklisted?: boolean;
+  /** Search by store or merchant business name — ignores status/blacklisted when set. */
+  search?: string;
 }
 
 export interface RejectStorePayload {

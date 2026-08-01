@@ -7,17 +7,19 @@ import type { ListStoreProductsDto } from './dto/list-store-products.dto';
 export class AdminProductService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Superadmin visibility into a specific store's catalog — nothing like
+  /** Superadmin visibility into what stores actually sell — nothing like
    *  this existed before; admins could only audit one product at a time via
-   *  getProductAudit, with no way to browse what a store actually sells. */
+   *  getProductAudit, with no way to browse a store's catalog, let alone
+   *  search across every store's products at once. storeId is optional so
+   *  the same query backs both the per-store panel and the global browser. */
   async listProductsByStore(dto: ListStoreProductsDto) {
     const page = dto.page ?? 1;
     const limit = dto.limit ?? 20;
     const skip = (page - 1) * limit;
 
     const where: Prisma.ProductWhereInput = {
-      storeId: dto.storeId,
       deletedAt: null,
+      ...(dto.storeId && { storeId: dto.storeId }),
       ...(dto.categoryId && { categoryId: dto.categoryId }),
       ...(dto.isActive != null && { isActive: dto.isActive }),
       ...(dto.search && { name: { contains: dto.search, mode: 'insensitive' } }),
@@ -36,6 +38,7 @@ export class AdminProductService {
           isActive: true,
           createdAt: true,
           category: { select: { id: true, name: true, slug: true } },
+          store: { select: { id: true, name: true, slug: true } },
           variants: {
             select: { id: true, inventory: { select: { availableQty: true } } },
           },
@@ -57,6 +60,7 @@ export class AdminProductService {
         mrp: p.mrp != null ? Number(p.mrp) : null,
         isActive: p.isActive,
         category: p.category,
+        store: p.store,
         totalStock: p.variants.reduce((sum, v) => sum + (v.inventory?.availableQty ?? 0), 0),
         createdAt: p.createdAt.toISOString(),
       })),

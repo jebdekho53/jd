@@ -101,17 +101,26 @@ export class AdminStoreService {
     const limit = dto.limit ?? 20;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.StoreWhereInput = dto.blacklisted
+    const where: Prisma.StoreWhereInput = dto.search
       ? {
           deletedAt: null,
-          merchantProfile: { isBlacklisted: true },
           ...(dto.cityId && { cityId: dto.cityId }),
+          OR: [
+            { name: { contains: dto.search, mode: 'insensitive' } },
+            { merchantProfile: { businessName: { contains: dto.search, mode: 'insensitive' } } },
+          ],
         }
-      : {
-          status: dto.status ?? StoreStatus.PENDING_REVIEW,
-          deletedAt: null,
-          ...(dto.cityId && { cityId: dto.cityId }),
-        };
+      : dto.blacklisted
+        ? {
+            deletedAt: null,
+            merchantProfile: { isBlacklisted: true },
+            ...(dto.cityId && { cityId: dto.cityId }),
+          }
+        : {
+            status: dto.status ?? StoreStatus.PENDING_REVIEW,
+            deletedAt: null,
+            ...(dto.cityId && { cityId: dto.cityId }),
+          };
 
     const fifoStatuses: StoreStatus[] = [
       StoreStatus.PENDING_REVIEW,
@@ -119,11 +128,12 @@ export class AdminStoreService {
       StoreStatus.UNDER_REVIEW,
     ];
 
-    const orderBy: Prisma.StoreOrderByWithRelationInput = dto.blacklisted
-      ? { createdAt: 'desc' }
-      : fifoStatuses.includes(dto.status ?? StoreStatus.PENDING_REVIEW)
-        ? { submittedAt: 'asc' }
-        : { createdAt: 'desc' };
+    const orderBy: Prisma.StoreOrderByWithRelationInput =
+      dto.search || dto.blacklisted
+        ? { createdAt: 'desc' }
+        : fifoStatuses.includes(dto.status ?? StoreStatus.PENDING_REVIEW)
+          ? { submittedAt: 'asc' }
+          : { createdAt: 'desc' };
 
     const [stores, total] = await this.prisma.$transaction([
       this.prisma.store.findMany({

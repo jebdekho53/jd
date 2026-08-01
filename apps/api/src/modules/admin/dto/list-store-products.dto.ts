@@ -3,9 +3,10 @@ import { Transform } from 'class-transformer';
 import { IsBoolean, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class ListStoreProductsDto {
-  @ApiProperty({ required: true, description: 'Store to list products for' })
+  @ApiProperty({ required: false, description: 'Store to list products for; omit to browse all stores' })
+  @IsOptional()
   @IsString()
-  storeId!: string;
+  storeId?: string;
 
   @ApiProperty({ required: false, description: 'Filter by category (matches any depth)' })
   @IsOptional()

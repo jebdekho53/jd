@@ -43,6 +43,7 @@ export const NAV: NavItem[] = [
   { href: '/analytics/franchise', label: 'Franchise Analytics', icon: BarChart3, keywords: 'territory partner performance' },
   { href: '/control-room', label: 'Control Room', icon: Radio, keywords: 'live ops' },
   { href: '/stores', label: 'Stores', icon: Store, keywords: 'merchants shops sellers' },
+  { href: '/products', label: 'Products', icon: Package, keywords: 'catalog inventory which store sells' },
   { href: '/restaurant-ops', label: 'Restaurant Ops', icon: UtensilsCrossed, keywords: 'food kitchen menu' },
   { href: '/merchant-applications', label: 'Applications', icon: Store, keywords: 'onboarding kyc merchant signup' },
   { href: '/reviews', label: 'Reviews', icon: Star, keywords: 'ratings feedback' },

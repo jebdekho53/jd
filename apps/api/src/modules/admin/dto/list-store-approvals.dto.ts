@@ -28,6 +28,14 @@ export class ListStoreApprovalsDto {
   @IsString()
   cityId?: string;
 
+  @ApiProperty({
+    required: false,
+    description: 'Search by store name or merchant business name (ignores status/blacklisted filters when set)',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @ApiProperty({ required: false, default: 1 })
   @IsOptional()
   @IsNumber()

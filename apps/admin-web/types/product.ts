@@ -7,12 +7,13 @@ export interface AdminStoreProductItem {
   mrp: number | null;
   isActive: boolean;
   category: { id: string; name: string; slug: string } | null;
+  store: { id: string; name: string; slug: string } | null;
   totalStock: number;
   createdAt: string;
 }
 
 export interface ListStoreProductsParams {
-  storeId: string;
+  storeId?: string;
   categoryId?: string;
   isActive?: boolean;
   search?: string;
