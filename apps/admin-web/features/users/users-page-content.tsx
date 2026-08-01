@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { listUsers } from '@/services/admin-api';
 import type { UserRole } from '@/types/user';
 
@@ -73,6 +74,7 @@ export function UsersPageContent() {
                 <th className="px-4 py-3">User</th>
                 <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">Roles</th>
+                <th className="px-4 py-3">Store</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Created</th>
                 <th className="px-4 py-3">Last login</th>
@@ -87,6 +89,18 @@ export function UsersPageContent() {
                   </td>
                   <td className="px-4 py-3">{user.phone}</td>
                   <td className="px-4 py-3">{user.roles.join(', ')}</td>
+                  <td className="px-4 py-3">
+                    {user.stores.length === 0
+                      ? '—'
+                      : user.stores.map((store, index) => (
+                          <span key={store.id}>
+                            {index > 0 && ', '}
+                            <Link href={`/stores/${store.id}`} className="text-admin-700 hover:underline">
+                              {store.name}
+                            </Link>
+                          </span>
+                        ))}
+                  </td>
                   <td className="px-4 py-3">{user.status.replace(/_/g, ' ')}</td>
                   <td className="px-4 py-3">{new Date(user.createdAt).toLocaleDateString('en-IN')}</td>
                   <td className="px-4 py-3">

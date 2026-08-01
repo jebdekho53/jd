@@ -28,7 +28,12 @@ export class AdminUserService {
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
-        include: { roles: { include: { role: true } } },
+        include: {
+          roles: { include: { role: true } },
+          merchantProfile: {
+            select: { stores: { select: { id: true, name: true, status: true } } },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
@@ -43,6 +48,7 @@ export class AdminUserService {
         email: user.email,
         status: user.status,
         roles: user.roles.map((item) => item.role.name),
+        stores: user.merchantProfile?.stores ?? [],
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt,
       })),

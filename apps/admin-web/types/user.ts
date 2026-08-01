@@ -7,6 +7,8 @@ export interface AdminUserListItem {
   email: string | null;
   status: UserStatus;
   roles: UserRole[];
+  /** Populated for merchant users; a merchant can own more than one store. */
+  stores: { id: string; name: string; status: string }[];
   createdAt: string;
   lastLoginAt: string | null;
 }
