@@ -28,6 +28,7 @@ import type {
 import type { AdminOrderListItem, ListOrdersParams, RiderQueueOrder, AvailableRider, AssignRiderResult } from '@/types/order';
 import type { OrderDetail } from '@/types/order-detail';
 import type { AdminUserListItem, ListUsersParams, SuspendUserPayload } from '@/types/user';
+import type { AdminStoreProductItem, ListStoreProductsParams } from '@/types/product';
 import type { MerchantApplicationDetail } from '@/types/merchant';
 import type {
   AdminCategoryRequest,
@@ -164,6 +165,17 @@ export async function listStores(
 export async function getStore(id: string): Promise<AdminStoreDetail> {
   const res = await adminFetch<ApiResponse<AdminStoreDetail>>(`/api/admin/stores/${id}`);
   return res.data;
+}
+
+/** Superadmin visibility into a specific store's catalog — nothing showed
+ *  this before; store-detail-content.tsx only had merchant/compliance info. */
+export async function listStoreProducts(
+  params: ListStoreProductsParams,
+): Promise<{ data: AdminStoreProductItem[]; meta: PaginationMeta }> {
+  const res = await adminFetch<PaginatedResponse<AdminStoreProductItem[]>>(
+    `/api/admin/products${buildQuery(params)}`,
+  );
+  return { data: res.data, meta: res.meta };
 }
 
 export async function approveStore(id: string): Promise<AdminStoreDetail> {
@@ -359,6 +371,20 @@ export async function revokeCategoryRejection(
 ): Promise<AdminCategoryRequest> {
   const res = await adminFetch<ApiResponse<AdminCategoryRequest>>(
     `/api/admin/category-requests/${id}/revoke-rejection`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+  return res.data;
+}
+
+/** Revokes an already-APPROVED store category grant — deletes the
+ *  underlying StoreCategory row, so the store immediately loses buyer
+ *  visibility and product-creation rights in that category/subcategory. */
+export async function revokeCategoryApproval(
+  id: string,
+  payload: { reason: string },
+): Promise<AdminCategoryRequest> {
+  const res = await adminFetch<ApiResponse<AdminCategoryRequest>>(
+    `/api/admin/category-requests/${id}/revoke-approval`,
     { method: 'POST', body: JSON.stringify(payload) },
   );
   return res.data;

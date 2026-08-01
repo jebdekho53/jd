@@ -1,9 +1,68 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import type { ListStoreProductsDto } from './dto/list-store-products.dto';
 
 @Injectable()
 export class AdminProductService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /** Superadmin visibility into a specific store's catalog — nothing like
+   *  this existed before; admins could only audit one product at a time via
+   *  getProductAudit, with no way to browse what a store actually sells. */
+  async listProductsByStore(dto: ListStoreProductsDto) {
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ProductWhereInput = {
+      storeId: dto.storeId,
+      deletedAt: null,
+      ...(dto.categoryId && { categoryId: dto.categoryId }),
+      ...(dto.isActive != null && { isActive: dto.isActive }),
+      ...(dto.search && { name: { contains: dto.search, mode: 'insensitive' } }),
+    };
+
+    const [products, total] = await this.prisma.$transaction([
+      this.prisma.product.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          imageUrls: true,
+          basePrice: true,
+          mrp: true,
+          isActive: true,
+          createdAt: true,
+          category: { select: { id: true, name: true, slug: true } },
+          variants: {
+            select: { id: true, inventory: { select: { availableQty: true } } },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return {
+      products: products.map((p) => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        imageUrl: p.imageUrls[0] ?? null,
+        basePrice: Number(p.basePrice),
+        mrp: p.mrp != null ? Number(p.mrp) : null,
+        isActive: p.isActive,
+        category: p.category,
+        totalStock: p.variants.reduce((sum, v) => sum + (v.inventory?.availableQty ?? 0), 0),
+        createdAt: p.createdAt.toISOString(),
+      })),
+      total,
+    };
+  }
 
   async getProductAudit(productId: string) {
     const product = await this.prisma.product.findFirst({

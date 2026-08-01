@@ -23,6 +23,7 @@ import { Button } from '@/design-system';
 import { VerificationDocumentsPanel } from './components/verification-documents-panel';
 import { StoreModerationActions } from './components/store-moderation-actions';
 import { StoreApprovalChecklist } from './components/store-approval-checklist';
+import { StoreProductsPanel } from './components/store-products-panel';
 
 const DEFAULT_DOC_TYPES: StoreDocumentType[] = ['GST_CERTIFICATE', 'PAN_CARD', 'FSSAI_LICENSE'];
 
@@ -286,6 +287,14 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
           <InfoRow label="Min order" value={store.minOrderAmount != null ? `₹${store.minOrderAmount}` : '—'} />
           <InfoRow label="Delivery fee" value={store.deliveryFee != null ? `₹${store.deliveryFee}` : '—'} />
         </dl>
+      </section>
+
+      {/* Products */}
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">Products</h2>
+        <div className="mt-4">
+          <StoreProductsPanel storeId={storeId} />
+        </div>
       </section>
 
       {/* Verification documents */}

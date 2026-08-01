@@ -7,6 +7,7 @@ import {
   listCategoryRequests,
   rejectCategoryRequest,
   requestCategoryDocuments,
+  revokeCategoryApproval,
   revokeCategoryRejection,
 } from '@/services/admin-api';
 import type { StoreCategoryRequestStatus } from '@/types/category-governance';
@@ -54,6 +55,12 @@ export function CategoryRequestsContent() {
   const revokeMutation = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       revokeCategoryRejection(id, { reason }),
+    onSuccess: invalidate,
+  });
+
+  const revokeApprovalMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      revokeCategoryApproval(id, { reason }),
     onSuccess: invalidate,
   });
 
@@ -140,6 +147,25 @@ export function CategoryRequestsContent() {
                     }}
                   >
                     Request more info
+                  </Button>
+                </div>
+              )}
+
+              {item.status === 'APPROVED' && (
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-red-200 text-red-700 hover:bg-red-50"
+                    disabled={revokeApprovalMutation.isPending}
+                    onClick={() => {
+                      const reason = prompt(
+                        `Revoke this store's access to ${item.category.name}${item.category.id === item.subcategory.id ? '' : ` → ${item.subcategory.name}`}? Reason:`,
+                      );
+                      if (reason?.trim()) revokeApprovalMutation.mutate({ id: item.id, reason: reason.trim() });
+                    }}
+                  >
+                    Revoke access
                   </Button>
                 </div>
               )}
