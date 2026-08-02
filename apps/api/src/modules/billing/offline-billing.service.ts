@@ -221,8 +221,8 @@ export class OfflineBillingService {
     const addressLine = [bill.store.line1, bill.store.line2].filter(Boolean).join(', ');
     const itemLines = bill.items.map(
       (item) =>
-        `${item.productName} (${item.variantName}) x ${item.quantity} @ ₹${Number(item.unitPrice).toFixed(2)}` +
-        `  =  ₹${Number(item.lineTotal).toFixed(2)}` +
+        `${item.productName} (${item.variantName}) x ${item.quantity} @ INR ${Number(item.unitPrice).toFixed(2)}` +
+        `  =  INR ${Number(item.lineTotal).toFixed(2)}` +
         (item.shortfall > 0 ? `   [${item.shortfall} unit(s) beyond tracked stock]` : ''),
     );
 
@@ -248,7 +248,7 @@ export class OfflineBillingService {
         {
           heading: 'Total',
           lines: [
-            `Grand Total: ₹${Number(bill.totalAmount).toFixed(2)}`,
+            `Grand Total: INR ${Number(bill.totalAmount).toFixed(2)}`,
             ...(bill.note ? [`Note: ${bill.note}`] : []),
           ],
         },
