@@ -20,6 +20,7 @@ export interface OfflineBill {
   note: string | null;
   createdById: string;
   createdAt: string;
+  shareToken: string;
   items: OfflineBillItem[];
   shortfallTotal?: number;
 }

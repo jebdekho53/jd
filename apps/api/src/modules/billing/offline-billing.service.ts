@@ -1,9 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { DomainEventType } from '@prisma/client';
+import { DomainEventType, OfflineBill, OfflineBillItem } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { MerchantService } from '../merchant/merchant.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
+import { GstPdfService } from '../compliance/gst-pdf.service';
 import { CreateOfflineBillDto, ListOfflineBillsDto } from './dto/offline-bill.dto';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class OfflineBillingService {
     private readonly merchantService: MerchantService,
     private readonly inventoryService: InventoryService,
     private readonly domainEvents: DomainEventsService,
+    private readonly pdf: GstPdfService,
   ) {}
 
   private async assertStore(userId: string, storeId: string) {
@@ -189,5 +191,68 @@ export class OfflineBillingService {
     }
 
     return Array.from(byPhone.values()).sort((a, b) => b.lastBillAt.getTime() - a.lastBillAt.getTime());
+  }
+
+  async getBillPdf(userId: string, storeId: string, billId: string): Promise<Buffer> {
+    await this.assertStore(userId, storeId);
+    const bill = await this.prisma.offlineBill.findFirst({
+      where: { id: billId, storeId },
+      include: { items: true, store: { select: { name: true, phone: true, line1: true, line2: true } } },
+    });
+    if (!bill) throw new NotFoundException('Bill not found');
+    return this.renderBillPdf(bill);
+  }
+
+  async getBillPdfByShareToken(shareToken: string): Promise<{ pdf: Buffer; bill: OfflineBill }> {
+    const bill = await this.prisma.offlineBill.findUnique({
+      where: { shareToken },
+      include: { items: true, store: { select: { name: true, phone: true, line1: true, line2: true } } },
+    });
+    if (!bill) throw new NotFoundException('Bill not found');
+    return { pdf: await this.renderBillPdf(bill), bill };
+  }
+
+  private async renderBillPdf(
+    bill: OfflineBill & {
+      items: OfflineBillItem[];
+      store: { name: string; phone: string | null; line1: string; line2: string | null };
+    },
+  ): Promise<Buffer> {
+    const addressLine = [bill.store.line1, bill.store.line2].filter(Boolean).join(', ');
+    const itemLines = bill.items.map(
+      (item) =>
+        `${item.productName} (${item.variantName}) x ${item.quantity} @ ₹${Number(item.unitPrice).toFixed(2)}` +
+        `  =  ₹${Number(item.lineTotal).toFixed(2)}` +
+        (item.shortfall > 0 ? `   [${item.shortfall} unit(s) beyond tracked stock]` : ''),
+    );
+
+    return this.pdf.generate({
+      title: 'Bill / Receipt',
+      documentNumber: bill.id,
+      documentDate: bill.createdAt.toLocaleDateString('en-IN'),
+      sections: [
+        {
+          heading: bill.store.name,
+          lines: [addressLine, bill.store.phone ? `Phone: ${bill.store.phone}` : ''].filter(Boolean),
+        },
+        {
+          heading: 'Billed to',
+          lines: [
+            bill.customerName ? `${bill.customerName} (${bill.customerPhone})` : bill.customerPhone,
+          ],
+        },
+        {
+          heading: 'Items',
+          lines: itemLines,
+        },
+        {
+          heading: 'Total',
+          lines: [
+            `Grand Total: ₹${Number(bill.totalAmount).toFixed(2)}`,
+            ...(bill.note ? [`Note: ${bill.note}`] : []),
+          ],
+        },
+      ],
+    });
   }
 }

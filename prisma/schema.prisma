@@ -2060,6 +2060,11 @@ model OfflineBill {
   note          String?
   createdById   String   @map("created_by_id")
   createdAt     DateTime @default(now()) @map("created_at")
+  // Unauthenticated lookup key for the customer-facing invoice PDF link (shared
+  // manually by the merchant via their own WhatsApp — see PublicOfflineBillController).
+  // Deliberately separate from `id` so the primary key can be used elsewhere without
+  // also acting as a bearer credential.
+  shareToken    String   @unique @default(cuid()) @map("share_token")
 
   store Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
   items OfflineBillItem[]

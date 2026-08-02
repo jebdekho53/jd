@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Ip, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Header, HttpCode, HttpStatus, Ip, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -63,5 +64,20 @@ export class MerchantBillingController {
   ) {
     const data = await this.billing.getBill(user.id, storeId, billId);
     return { success: true, data };
+  }
+
+  @Get(':billId/pdf')
+  @Permissions('inventory:read')
+  @Header('Content-Type', 'application/pdf')
+  @ApiOperation({ summary: 'Download a bill as a PDF receipt' })
+  async pdf(
+    @CurrentUser() user: RequestUser,
+    @Param('storeId') storeId: string,
+    @Param('billId') billId: string,
+    @Res() res: Response,
+  ) {
+    const pdf = await this.billing.getBillPdf(user.id, storeId, billId);
+    res.setHeader('Content-Disposition', `attachment; filename="bill-${billId}.pdf"`);
+    res.send(pdf);
   }
 }

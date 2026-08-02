@@ -72,8 +72,9 @@ function buildHarness(overrides: {
   } as unknown as InventoryService;
 
   const domainEvents = { emit: jest.fn().mockResolvedValue(undefined) } as unknown as DomainEventsService;
+  const pdf = {} as never;
 
-  const service = new OfflineBillingService(prisma, merchantService, inventoryService, domainEvents);
+  const service = new OfflineBillingService(prisma, merchantService, inventoryService, domainEvents, pdf);
 
   return { service, prisma, merchantService, inventoryService, domainEvents };
 }
