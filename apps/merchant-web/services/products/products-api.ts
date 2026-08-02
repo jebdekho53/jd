@@ -5,6 +5,8 @@ import type {
   CreateProductPayload,
   UpdateProductPayload,
   UpdateInventoryPayload,
+  RecordOfflineSalePayload,
+  RecordOfflineSaleResult,
   UpdatePricePayload,
   ListProductsParams,
   Category,
@@ -71,6 +73,20 @@ export async function updateInventory(
   const res = await merchantFetch<ApiResponse<Product>>(
     `/api/merchant/stores/${storeId}/products/${productId}/inventory${q}`,
     { method: 'PATCH', body: JSON.stringify(payload) },
+  );
+  return res.data;
+}
+
+export async function recordOfflineSale(
+  storeId: string,
+  productId: string,
+  payload: RecordOfflineSalePayload,
+  variantId?: string,
+): Promise<RecordOfflineSaleResult> {
+  const q = variantId ? `?variantId=${variantId}` : '';
+  const res = await merchantFetch<ApiResponse<RecordOfflineSaleResult>>(
+    `/api/merchant/stores/${storeId}/products/${productId}/inventory/record-offline-sale${q}`,
+    { method: 'POST', body: JSON.stringify(payload) },
   );
   return res.data;
 }

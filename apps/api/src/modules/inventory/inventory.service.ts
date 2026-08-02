@@ -2,6 +2,7 @@ import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InventoryStatus, Prisma, ReservationStatus } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { InventoryCacheService } from './inventory-cache.service';
 import { InventoryAlertService } from './inventory-alert.service';
 import { INVENTORY_EVENTS, type InventoryBackInStockEvent } from './inventory.events';
@@ -29,6 +30,7 @@ export class InventoryService {
     private readonly cache: InventoryCacheService,
     private readonly alerts: InventoryAlertService,
     private readonly events: EventEmitter2,
+    private readonly audit: AuditService,
   ) {}
 
   getAvailableQty(inv: { availableQty: number; reservedQty: number; status: InventoryStatus } | null): number {
@@ -264,6 +266,58 @@ export class InventoryService {
       soldQty: updated.soldQty,
       status: updated.status,
     };
+  }
+
+  /**
+   * Records a sale that happened outside Jebdekho (in-store/offline) by
+   * decrementing available stock — the online listing has no other way to
+   * learn about it, so without this a merchant's own physical stock and
+   * what buyers see as "available" silently drift apart until an online
+   * order oversells against stock that's actually already gone.
+   *
+   * `shortfall` surfaces when the merchant reports selling more units than
+   * the system thought were available — a signal that this variant's
+   * online/offline stock was already out of sync before this correction,
+   * so the merchant should do a full recount rather than trust the result.
+   */
+  async recordOfflineSale(
+    variantId: string,
+    quantitySold: number,
+    actorUserId: string,
+    note: string | undefined,
+    context: { ipAddress?: string; userAgent?: string } = {},
+  ): Promise<{
+    availableQty: number;
+    reservedQty: number;
+    soldQty: number;
+    status: InventoryStatus;
+    shortfall: number;
+  }> {
+    const inv = await this.prisma.inventory.findUnique({ where: { variantId } });
+    if (!inv) throw inventoryChangedException(`Inventory not found for variant ${variantId}`);
+
+    const shortfall = Math.max(0, quantitySold - inv.availableQty);
+    const newAvailableQty = Math.max(0, inv.availableQty - quantitySold);
+
+    const result = await this.adjustAvailableQty(variantId, newAvailableQty, undefined, actorUserId);
+
+    await this.audit.log({
+      actorId: actorUserId,
+      action: 'INVENTORY_OFFLINE_SALE_RECORDED',
+      resourceType: 'inventory',
+      resourceId: variantId,
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+      metadata: {
+        quantitySold,
+        previousAvailableQty: inv.availableQty,
+        newAvailableQty: result.availableQty,
+        shortfall,
+        note: note ?? null,
+      },
+    });
+
+    return { ...result, shortfall };
   }
 
   async setStatus(variantId: string, status: InventoryStatus): Promise<void> {

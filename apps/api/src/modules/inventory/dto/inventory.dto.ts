@@ -71,3 +71,13 @@ export class BulkAdjustInventoryDto {
   @Min(0)
   availableQty!: number;
 }
+
+export class RecordOfflineSaleDto {
+  @IsInt()
+  @Min(1)
+  quantitySold!: number;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}

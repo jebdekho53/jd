@@ -32,6 +32,7 @@ import { CategoryService } from './category.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
+import { RecordOfflineSaleDto } from '../inventory/dto/inventory.dto';
 import { UpdatePriceDto } from './dto/update-price.dto';
 import { UpdateProductStatusDto } from './dto/update-status.dto';
 import { ListProductsDto } from './dto/list-products.dto';
@@ -196,6 +197,35 @@ export class ProductController {
   ) {
     const vid = await this.resolveVariantId(productId, variantId);
     const data = await this.productService.updateInventory(user.id, storeId, productId, vid, dto, ip);
+    return { success: true, data };
+  }
+
+  @Post('products/:id/inventory/record-offline-sale')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('inventory:write')
+  @ApiParam({ name: 'storeId' })
+  @ApiParam({ name: 'id', description: 'Product ID' })
+  @ApiOperation({
+    summary: 'Record units sold outside Jebdekho (in-store) so online stock stays accurate',
+  })
+  async recordOfflineSale(
+    @CurrentUser() user: RequestUser,
+    @Param('storeId') storeId: string,
+    @Param('id') productId: string,
+    @Query('variantId') variantId: string | undefined,
+    @Body() dto: RecordOfflineSaleDto,
+    @Ip() ip: string,
+  ) {
+    const vid = await this.resolveVariantId(productId, variantId);
+    const data = await this.productService.recordOfflineSale(
+      user.id,
+      storeId,
+      productId,
+      vid,
+      dto.quantitySold,
+      dto.note,
+      ip,
+    );
     return { success: true, data };
   }
 

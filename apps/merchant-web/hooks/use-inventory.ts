@@ -1,8 +1,8 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { updateInventory, updatePrice } from '@/services/products/products-api';
-import type { UpdateInventoryPayload, UpdatePricePayload } from '@/types/product';
+import { updateInventory, updatePrice, recordOfflineSale } from '@/services/products/products-api';
+import type { UpdateInventoryPayload, UpdatePricePayload, RecordOfflineSalePayload } from '@/types/product';
 
 export function useUpdateInventoryMutation(storeId: string, productId: string) {
   const qc = useQueryClient();
@@ -20,6 +20,15 @@ export function useUpdateInventoryMutation(storeId: string, productId: string) {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['products', storeId] });
     },
+  });
+}
+
+export function useRecordOfflineSaleMutation(storeId: string, productId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ payload, variantId }: { payload: RecordOfflineSalePayload; variantId?: string }) =>
+      recordOfflineSale(storeId, productId, payload, variantId),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products', storeId] }); },
   });
 }
 

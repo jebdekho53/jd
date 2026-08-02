@@ -578,6 +578,51 @@ export class ProductService {
     return this.prisma.inventory.findUniqueOrThrow({ where: { variantId } });
   }
 
+  /**
+   * Records a sale made outside Jebdekho (in-store) — the online listing has
+   * no other way to learn about it. Audit logging happens inside
+   * inventoryService.recordOfflineSale itself (not here, unlike
+   * updateInventory above) since this action should be traceable regardless
+   * of which controller reaches it.
+   */
+  async recordOfflineSale(
+    userId: string,
+    storeId: string,
+    productId: string,
+    variantId: string,
+    quantitySold: number,
+    note: string | undefined,
+    ipAddress?: string,
+  ): Promise<Inventory & { shortfall: number }> {
+    await this.assertStoreOwnership(userId, storeId);
+    await this.assertVariantBelongsToProduct(variantId, productId, storeId);
+
+    const inventory = await this.prisma.inventory.findUnique({ where: { variantId } });
+    if (!inventory) throw new NotFoundException(`Inventory not found for variant: ${variantId}`);
+
+    const result = await this.inventoryService.recordOfflineSale(variantId, quantitySold, userId, note, {
+      ipAddress,
+    });
+
+    await this.domainEvents.emit(
+      DomainEventType.INVENTORY_CHANGED,
+      'inventory',
+      inventory.id,
+      {
+        productId,
+        variantId,
+        storeId,
+        previousQty: inventory.availableQty,
+        newQty: result.availableQty,
+        isLowStock: result.availableQty <= inventory.lowStockThreshold,
+      },
+      { userId, ipAddress: ipAddress ?? null },
+    );
+
+    const updated = await this.prisma.inventory.findUniqueOrThrow({ where: { variantId } });
+    return { ...updated, shortfall: result.shortfall };
+  }
+
   // ---------------------------------------------------------------------------
   // Update price
   // ---------------------------------------------------------------------------

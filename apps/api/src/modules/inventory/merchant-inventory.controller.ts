@@ -10,7 +10,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { RequestUser } from '../../common/types';
 import { ApiTags as Tags } from '../../common/constants';
 import { InventoryService } from './inventory.service';
-import { BulkAdjustInventoryDto, ListStoreInventoryDto } from './dto/inventory.dto';
+import { BulkAdjustInventoryDto, ListStoreInventoryDto, RecordOfflineSaleDto } from './dto/inventory.dto';
 import { UpdateInventoryDto } from '../product/dto/update-inventory.dto';
 import { PrismaService } from '../../database/prisma.service';
 import { MerchantService } from '../merchant/merchant.service';
@@ -79,6 +79,26 @@ export class MerchantInventoryController {
       );
     }
     return { success: true, data: results };
+  }
+
+  @Post('variants/:variantId/record-offline-sale')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('inventory:write')
+  @ApiOperation({
+    summary: 'Record units sold outside Jebdekho (in-store) so online stock stays accurate',
+  })
+  async recordOfflineSale(
+    @CurrentUser() user: RequestUser,
+    @Param('storeId') storeId: string,
+    @Param('variantId') variantId: string,
+    @Body() dto: RecordOfflineSaleDto,
+    @Ip() ip: string,
+  ) {
+    await this.assertVariantInStore(user.id, storeId, variantId);
+    const data = await this.inventory.recordOfflineSale(variantId, dto.quantitySold, user.id, dto.note, {
+      ipAddress: ip,
+    });
+    return { success: true, data };
   }
 
   @Patch('variants/:variantId/disable')

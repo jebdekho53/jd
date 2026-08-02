@@ -148,6 +148,22 @@ export interface UpdateInventoryPayload {
   lowStockThreshold?: number;
 }
 
+export interface RecordOfflineSalePayload {
+  quantitySold: number;
+  note?: string;
+}
+
+export interface RecordOfflineSaleResult {
+  availableQty: number;
+  reservedQty: number;
+  soldQty: number;
+  status: string;
+  /** > 0 means the merchant reported selling more units offline than the
+   *  system thought were available — stock was already out of sync before
+   *  this correction; a full recount is worth doing. */
+  shortfall: number;
+}
+
 export interface UpdatePricePayload {
   price: number;
   mrp?: number;

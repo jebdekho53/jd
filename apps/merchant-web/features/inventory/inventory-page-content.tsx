@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { AlertTriangle, Search } from 'lucide-react';
 import { Card, Input, Badge, Table, THead, TBody, Tr, Th, Td, Skeleton } from '@/design-system/primitives';
 import { InventoryInlineEditor } from '@/features/products/components/inventory-inline-editor';
+import { RecordOfflineSaleButton } from '@/features/products/components/record-offline-sale-button';
 import { useProductsQuery } from '@/hooks/use-products';
 import { useStoreStore } from '@/store/store-store';
 import { useStoreCatalogKind } from '@/hooks/use-store-catalog-kind';
@@ -127,12 +128,20 @@ export function InventoryPageContent() {
                     </Td>
                     <Td><span className="font-mono text-xs text-slate-500">{r.sku}</span></Td>
                     <Td>
-                      <InventoryInlineEditor
-                        storeId={currentStore.id}
-                        productId={r.productId}
-                        variantId={r.variantId}
-                        currentQty={r.qty}
-                      />
+                      <div className="flex items-center gap-1">
+                        <InventoryInlineEditor
+                          storeId={currentStore.id}
+                          productId={r.productId}
+                          variantId={r.variantId}
+                          currentQty={r.qty}
+                        />
+                        <RecordOfflineSaleButton
+                          storeId={currentStore.id}
+                          productId={r.productId}
+                          variantId={r.variantId}
+                          productName={r.productName}
+                        />
+                      </div>
                     </Td>
                     <Td className="text-slate-500">{r.reserved}</Td>
                     <Td className="text-slate-500">{r.sold}</Td>
