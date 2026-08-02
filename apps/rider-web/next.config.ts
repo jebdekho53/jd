@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import withSerwistInit from '@serwist/next';
 import type { NextConfig } from 'next';
+import { nextSecurityHeaders } from '@jebdekho/web-config';
 
 const revision =
   spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf-8' }).stdout.trim() || randomUUID();
@@ -31,6 +32,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@jebdekho/web-config'],
   async headers() {
     return [
+      ...nextSecurityHeaders(),
       {
         source: '/api/:path*',
         headers: [
