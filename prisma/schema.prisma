@@ -1682,6 +1682,7 @@ model Store {
   @@index([status])
   @@index([status, isActive])
   @@index([status, submittedAt])
+  @@index([merchantProfileId])
   @@map("stores")
 }
 
@@ -2082,6 +2083,7 @@ model CartItem {
   variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
   @@unique([cartId, variantId])
+  @@index([productId])
   @@map("cart_items")
 }
 
@@ -2282,6 +2284,8 @@ model OrderItem {
   claimItems       OrderClaimItem[]
 
   @@index([orderId])
+  @@index([productId])
+  @@index([variantId])
   @@map("order_items")
 }
 
@@ -2625,6 +2629,8 @@ model Review {
   @@index([storeId, createdAt(sort: Desc)])
   @@index([productId])
   @@index([status])
+  @@index([userId])
+  @@index([buyerProfileId])
   @@map("reviews")
 }
 
@@ -2652,6 +2658,9 @@ model ProductReview {
   @@unique([userId, productId])
   @@index([productId, status])
   @@index([productId, createdAt(sort: Desc)])
+  @@index([buyerProfileId])
+  @@index([orderId])
+  @@index([orderItemId])
   @@map("product_reviews")
 }
 
@@ -7402,8 +7411,8 @@ model MerchantAiWalletTransaction {
   merchantProfileId  String                            @map("merchant_profile_id")
   storeId            String?                           @map("store_id")
   analysisId         String?                           @map("analysis_id")
-  razorpayOrderId    String?                           @map("razorpay_order_id")
-  razorpayPaymentId  String?                           @map("razorpay_payment_id")
+  razorpayOrderId    String?                           @unique @map("razorpay_order_id")
+  razorpayPaymentId  String?                           @unique @map("razorpay_payment_id")
   type               MerchantAiWalletTransactionType
   amountPaise        Int                               @map("amount_paise")
   balanceBeforePaise Int                               @map("balance_before_paise")
@@ -7420,7 +7429,6 @@ model MerchantAiWalletTransaction {
   @@index([merchantProfileId, createdAt(sort: Desc)])
   @@index([storeId, type])
   @@index([analysisId])
-  @@index([razorpayOrderId])
   @@map("merchant_ai_wallet_transactions")
 }
 
