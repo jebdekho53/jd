@@ -39,6 +39,7 @@ import { MerchantDashboardModule } from './modules/merchant-dashboard/merchant-d
 import { AdminDashboardModule } from './modules/admin-dashboard/admin-dashboard.module';
 import { SettlementModule } from './modules/settlement/settlement.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { BillingModule } from './modules/billing/billing.module';
 import { DeliveryTrackingModule } from './modules/delivery-tracking/delivery-tracking.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { StoreReviewModule } from './modules/store-review/store-review.module';
@@ -155,6 +156,7 @@ import { RequestIdInterceptor } from './common/interceptors/request-id.intercept
     AdminDashboardModule,
     SettlementModule,
     InventoryModule,
+    BillingModule,
     DeliveryTrackingModule,
     RealtimeModule,
     StoreReviewModule,

@@ -625,25 +625,25 @@ enum DayOfWeek {
 // =============================================================================
 
 model User {
-  id            String     @id @default(cuid())
+  id                         String     @id @default(cuid())
   /// Personal login email — used by the buyer app (and admin). Never written
   /// to by merchant onboarding; see merchantLoginEmail for that.
-  email         String?    @unique
-  phone         String     @unique
-  passwordHash  String?    @map("password_hash")
-  phoneVerified Boolean    @default(false) @map("phone_verified")
-  emailVerified Boolean    @default(false) @map("email_verified")
+  email                      String?    @unique
+  phone                      String     @unique
+  passwordHash               String?    @map("password_hash")
+  phoneVerified              Boolean    @default(false) @map("phone_verified")
+  emailVerified              Boolean    @default(false) @map("email_verified")
   /// Merchant-only login email, deliberately separate from `email` — a
   /// merchant's business contact address must never surface as this same
   /// account's personal buyer email if the account also shops as a buyer.
-  merchantLoginEmail         String?  @unique @map("merchant_login_email")
-  merchantLoginEmailVerified Boolean  @default(false) @map("merchant_login_email_verified")
-  merchantLoginPasswordHash  String?  @map("merchant_login_password_hash")
-  status        UserStatus @default(PENDING_VERIFICATION)
-  lastLoginAt   DateTime?  @map("last_login_at")
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
-  deletedAt     DateTime?  @map("deleted_at")
+  merchantLoginEmail         String?    @unique @map("merchant_login_email")
+  merchantLoginEmailVerified Boolean    @default(false) @map("merchant_login_email_verified")
+  merchantLoginPasswordHash  String?    @map("merchant_login_password_hash")
+  status                     UserStatus @default(PENDING_VERIFICATION)
+  lastLoginAt                DateTime?  @map("last_login_at")
+  createdAt                  DateTime   @default(now()) @map("created_at")
+  updatedAt                  DateTime   @updatedAt @map("updated_at")
+  deletedAt                  DateTime?  @map("deleted_at")
 
   roles                   UserRole[]
   refreshTokens           RefreshToken[]
@@ -1053,8 +1053,8 @@ model RiderProfile {
   fleetAlerts        FleetAlert[]
   bankAccount        RiderBankAccount?
   returnPickups      ReturnPickup[]
-  referralsMade      RiderReferral[]         @relation("RiderReferrer")
-  referredBy         RiderReferral?          @relation("RiderReferred")
+  referralsMade      RiderReferral[]          @relation("RiderReferrer")
+  referredBy         RiderReferral?           @relation("RiderReferred")
 
   @@index([status])
   @@index([kycStatus])
@@ -1673,6 +1673,7 @@ model Store {
   addonGroups            RestaurantAddonGroup[]
   orderClaims            OrderClaim[]
   returnPickups          ReturnPickup[]
+  offlineBills           OfflineBill[]
 
   @@index([franchiseId])
   @@index([cityId, isActive])
@@ -1951,6 +1952,7 @@ model Product {
   orderClaimItems        OrderClaimItem[]
   productAttributes      ProductAttribute[]
   aiImageAssets          AIProductImageAsset[]
+  offlineBillItems       OfflineBillItem[]
 
   // Merchant-controlled return / refund / replacement policy
   isReturnable             Boolean               @default(false) @map("is_returnable")
@@ -2019,6 +2021,7 @@ model ProductVariant {
   reservations          InventoryReservation[]
   transferItems         TransferItem[]
   fulfillmentOrderItems FulfillmentOrderItem[]
+  offlineBillItems      OfflineBillItem[]
 
   @@unique([productId, sku])
   @@index([productId])
@@ -2041,6 +2044,52 @@ model Inventory {
   @@index([availableQty])
   @@index([status])
   @@map("inventory")
+}
+
+// In-store billing: a merchant rings up a walk-in customer across one or more
+// existing products/variants. Stock decrements reuse InventoryService.recordOfflineSale
+// per line (same oversell-safe path as the single-item quick action), and the bill
+// row is persisted only after those decrements succeed. customerPhone is captured
+// so merchants can see their walk-in customer history; no marketing/ads wiring yet.
+model OfflineBill {
+  id            String   @id @default(cuid())
+  storeId       String   @map("store_id")
+  customerPhone String   @map("customer_phone")
+  customerName  String?  @map("customer_name")
+  totalAmount   Decimal  @map("total_amount") @db.Decimal(10, 2)
+  note          String?
+  createdById   String   @map("created_by_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  store Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  items OfflineBillItem[]
+
+  @@index([storeId, createdAt])
+  @@index([storeId, customerPhone])
+  @@map("offline_bills")
+}
+
+model OfflineBillItem {
+  id          String  @id @default(cuid())
+  billId      String  @map("bill_id")
+  productId   String  @map("product_id")
+  variantId   String  @map("variant_id")
+  productName String  @map("product_name")
+  variantName String  @map("variant_name")
+  sku         String
+  quantity    Int
+  unitPrice   Decimal @map("unit_price") @db.Decimal(10, 2)
+  lineTotal   Decimal @map("line_total") @db.Decimal(10, 2)
+  shortfall   Int     @default(0)
+
+  bill    OfflineBill    @relation(fields: [billId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@index([billId])
+  @@index([productId])
+  @@index([variantId])
+  @@map("offline_bill_items")
 }
 
 // =============================================================================
@@ -2935,14 +2984,14 @@ model Referral {
 /// have no in-app wallet, so the reward is credited via the next weekly
 /// RiderPayout's `incentives` line instead of a wallet credit.
 model RiderReferral {
-  id                      String         @id @default(cuid())
-  referrerRiderProfileId  String         @map("referrer_rider_profile_id")
-  referredRiderProfileId  String         @unique @map("referred_rider_profile_id")
-  status                  ReferralStatus @default(PENDING)
-  rewardAmount            Decimal?       @map("reward_amount") @db.Decimal(10, 2)
-  paidOut                 Boolean        @default(false) @map("paid_out")
-  completedAt             DateTime?      @map("completed_at")
-  createdAt               DateTime       @default(now()) @map("created_at")
+  id                     String         @id @default(cuid())
+  referrerRiderProfileId String         @map("referrer_rider_profile_id")
+  referredRiderProfileId String         @unique @map("referred_rider_profile_id")
+  status                 ReferralStatus @default(PENDING)
+  rewardAmount           Decimal?       @map("reward_amount") @db.Decimal(10, 2)
+  paidOut                Boolean        @default(false) @map("paid_out")
+  completedAt            DateTime?      @map("completed_at")
+  createdAt              DateTime       @default(now()) @map("created_at")
 
   referrer RiderProfile @relation("RiderReferrer", fields: [referrerRiderProfileId], references: [id], onDelete: Cascade)
   referred RiderProfile @relation("RiderReferred", fields: [referredRiderProfileId], references: [id], onDelete: Cascade)
@@ -5395,7 +5444,7 @@ model Vendor {
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
 
-  city             City?               @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  city             City?              @relation(fields: [cityId], references: [id], onDelete: SetNull)
   profile          VendorProfile?
   catalogs         VendorCatalog[]
   products         VendorProduct[]
@@ -5720,30 +5769,30 @@ enum VendorApplicationStatus {
 /// not the multi-step MerchantApplication) — Vendor itself has no KYC/workflow
 /// state, so there's no per-step draft to persist.
 model VendorApplication {
-  id           String                  @id @default(cuid())
-  businessName String                  @map("business_name")
-  vendorType   VendorType              @map("vendor_type")
-  phone        String
-  email        String?
-  cityId       String?                 @map("city_id")
-  line1        String?
-  pincode      String?
-  gstNumber    String?                 @map("gst_number")
-  panNumber    String?                 @map("pan_number")
-  status       VendorApplicationStatus @default(NEW)
-  notes        String?                 @db.Text
+  id                String                  @id @default(cuid())
+  businessName      String                  @map("business_name")
+  vendorType        VendorType              @map("vendor_type")
+  phone             String
+  email             String?
+  cityId            String?                 @map("city_id")
+  line1             String?
+  pincode           String?
+  gstNumber         String?                 @map("gst_number")
+  panNumber         String?                 @map("pan_number")
+  status            VendorApplicationStatus @default(NEW)
+  notes             String?                 @db.Text
   /// Argon2 hash of the password chosen on the public form. Only ever copied
   /// onto a BRAND-NEW user at approval — never onto an existing account, same
   /// rule as ExpansionLead.passwordHash.
-  passwordHash String?                 @map("password_hash")
-  reviewedAt   DateTime?               @map("reviewed_at")
-  reviewedBy   String?                 @map("reviewed_by")
-  rejectionReason  String?             @map("rejection_reason") @db.Text
+  passwordHash      String?                 @map("password_hash")
+  reviewedAt        DateTime?               @map("reviewed_at")
+  reviewedBy        String?                 @map("reviewed_by")
+  rejectionReason   String?                 @map("rejection_reason") @db.Text
   /// Which vendor this application became. Without it the link is
   /// unrecoverable after the fact.
-  convertedVendorId String?            @unique @map("converted_vendor_id")
-  createdAt    DateTime                @default(now()) @map("created_at")
-  updatedAt    DateTime                @updatedAt @map("updated_at")
+  convertedVendorId String?                 @unique @map("converted_vendor_id")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
 
   city            City?   @relation(fields: [cityId], references: [id], onDelete: SetNull)
   convertedVendor Vendor? @relation(fields: [convertedVendorId], references: [id], onDelete: SetNull)
@@ -7908,8 +7957,10 @@ model RestaurantMenuItem {
   servingSize               String?              @map("serving_size")
   cuisineName               String?              @map("cuisine_name")
   availability              MenuItemAvailability @default(AVAILABLE)
-  /** True only when HIDDEN because the FSSAI licence is missing — lets the
-   *  auto-release sweep tell that apart from a merchant's deliberate sold-out. */
+  /**
+   * True only when HIDDEN because the FSSAI licence is missing — lets the
+   * auto-release sweep tell that apart from a merchant's deliberate sold-out.
+   */
   fssaiHeld                 Boolean              @default(false) @map("fssai_held")
   allowsSpecialInstructions Boolean              @default(true) @map("allows_special_instructions")
   isCombo                   Boolean              @default(false) @map("is_combo")

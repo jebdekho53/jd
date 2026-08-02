@@ -34,7 +34,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const hasProductAccess = isProductStore || approvedProductCategories.length > 0;
 
   const filteredBaseNav = baseNav.filter((item) => {
-    if (!hasProductAccess && (item.href === '/products' || item.href === '/inventory')) {
+    if (!hasProductAccess && (item.href === '/products' || item.href === '/inventory' || item.href === '/billing')) {
       return false;
     }
     return true;

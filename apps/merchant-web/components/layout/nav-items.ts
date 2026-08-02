@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Share2,
   FileText,
+  Receipt,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -35,6 +36,7 @@ export const baseNav: NavItem[] = [
   { href: '/categories', label: 'Categories', icon: Tags },
   { href: '/products', label: 'Products', icon: Package, keywords: 'catalog items sku' },
   { href: '/inventory', label: 'Inventory', icon: Layers, keywords: 'stock quantity' },
+  { href: '/billing', label: 'In-Store Billing', icon: Receipt, keywords: 'pos vyapar walk-in bill customer phone' },
   { href: '/orders', label: 'Orders', icon: ShoppingBag, keywords: 'sales' },
   { href: '/orders/live', label: 'Live Orders', icon: Monitor, keywords: 'incoming new orders' },
   { href: '/claims', label: 'Returns & Claims', icon: RefreshCw, keywords: 'refund dispute' },
