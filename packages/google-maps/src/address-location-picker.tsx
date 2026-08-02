@@ -118,9 +118,16 @@ export function AddressLocationPicker({
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
   const [placeViewport, setPlaceViewport] = useState<google.maps.LatLngBoundsLiteral | null>(null);
 
+  // A caller can hand us `value.lat`/`lng` sourced from an unset form field
+  // (e.g. react-hook-form's `register()` on a hidden <input> with no default
+  // reads back as `""`, not `undefined`) — `??` doesn't catch that, and `"" + 3`
+  // is JS string concatenation ("3"), not arithmetic. That malformed bounds
+  // object crashes the whole page the moment the Places widget mounts, since
+  // Cannot set property "locationBias" to [object Object] is an uncaught
+  // exception. Guard for any non-finite value, not just null/undefined.
   const position = {
-    lat: value.lat ?? MAP_INITIAL_VISUAL_CENTER.lat,
-    lng: value.lng ?? MAP_INITIAL_VISUAL_CENTER.lng,
+    lat: typeof value.lat === 'number' && Number.isFinite(value.lat) ? value.lat : MAP_INITIAL_VISUAL_CENTER.lat,
+    lng: typeof value.lng === 'number' && Number.isFinite(value.lng) ? value.lng : MAP_INITIAL_VISUAL_CENTER.lng,
   };
 
   // Soft-bias search results toward the current pin's neighbourhood instead
