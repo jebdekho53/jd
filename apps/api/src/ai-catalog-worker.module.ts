@@ -6,6 +6,7 @@ import { resolveEnvFilePaths } from './config/env-path';
 import { PrismaModule } from './database/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { WebhooksModule } from './common/webhooks/webhooks.module';
 import { AiCatalogWorkerModule } from './modules/ai-catalog/ai-catalog-worker.module';
 
 /**
@@ -33,6 +34,13 @@ import { AiCatalogWorkerModule } from './modules/ai-catalog/ai-catalog-worker.mo
       maxListeners: 20,
       ignoreErrors: false,
     }),
+    // Same story as EventEmitterModule above: the global WebhooksModule
+    // (provides WebhookDedupService, needed by PaymentModule -> PaymentService)
+    // is only imported by app.module.ts. No HTTP listener runs in this
+    // process (see ai-catalog-worker.ts — createApplicationContext), so
+    // WebhooksModule's controller is never actually routed; only its
+    // provider registration matters here.
+    WebhooksModule,
     PrismaModule,
     RedisModule,
     AuditModule,
