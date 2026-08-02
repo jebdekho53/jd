@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { validationSchema } from './config/env.validation';
 import { resolveEnvFilePaths } from './config/env-path';
 import { PrismaModule } from './database/prisma.module';
@@ -20,6 +21,17 @@ import { AiCatalogWorkerModule } from './modules/ai-catalog/ai-catalog-worker.mo
       validationSchema,
       validationOptions: { abortEarly: false },
       expandVariables: true,
+    }),
+    // The global DomainEventsModule (pulled in transitively via
+    // RiderAssignmentModule -> ... -> ProductModule) needs EventEmitter2.
+    // app.module.ts registers this for the API process; the worker has its
+    // own root module and needs its own registration, or DomainEventsService
+    // fails to resolve and the whole worker refuses to boot.
+    EventEmitterModule.forRoot({
+      wildcard: false,
+      delimiter: '.',
+      maxListeners: 20,
+      ignoreErrors: false,
     }),
     PrismaModule,
     RedisModule,
