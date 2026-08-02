@@ -129,6 +129,9 @@ export const SECURITY_HEADERS = [
     key: 'Permissions-Policy',
     value: 'camera=(), microphone=(), geolocation=(self), payment=(self)',
   },
+  // Matches the value helmet already sends on api.jebdekho.com — these 6
+  // portals were the one gap (confirmed via live curl -I, no HSTS present).
+  { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
   {
     key: 'Content-Security-Policy',
     value: contentSecurityPolicy(),
