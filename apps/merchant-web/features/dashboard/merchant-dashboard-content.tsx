@@ -129,6 +129,12 @@ export function MerchantDashboardContent() {
             <MetricCard label="Avg order value" value={formatInr(o?.avgOrderValue ?? 0)} icon={IndianRupee} loading={overview.isLoading} />
             <MetricCard label="Customer rating" value={`${o?.customerRating ?? 0} (${o?.ratingCount ?? 0})`} icon={Star} loading={overview.isLoading} />
           </div>
+          {Boolean(o?.todayInStoreBills) && (
+            <p className="mt-2 text-xs text-slate-500">
+              Today's revenue and avg order value include {o!.todayInStoreBills} in-store bill
+              {o!.todayInStoreBills !== 1 ? 's' : ''} rung up via In-Store Billing.
+            </p>
+          )}
         </DashboardSection>
 
         {/* B — Live Orders */}

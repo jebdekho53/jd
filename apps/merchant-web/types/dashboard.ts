@@ -6,6 +6,7 @@ export interface SparkPoint {
 export interface MerchantOverview {
   todayOrders: number;
   todayRevenue: number;
+  todayInStoreBills: number;
   pendingOrders: number;
   preparingOrders: number;
   packingOrders: number;

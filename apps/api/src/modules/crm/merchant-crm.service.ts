@@ -2,6 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
+export interface CustomerAgg {
+  userId?: string;
+  name?: string | null;
+  phone: string;
+  orderCount: number;
+  totalSpent: number;
+}
+
 @Injectable()
 export class MerchantCrmService {
   constructor(private readonly prisma: PrismaService) {}
@@ -46,30 +54,67 @@ export class MerchantCrmService {
     });
     const profileMap = new Map(profiles.map((p) => [p.id, p]));
 
-    const repeatCustomers = orderGroups
-      .filter((g) => g._count._all >= 2)
-      .slice(0, 20)
-      .map((g) => {
-        const p = profileMap.get(g.buyerProfileId);
-        return {
-          userId: p?.userId,
-          name: p?.name,
-          phone: p?.user.phone,
+    // Merge in walk-in customers captured via in-store bills — a customer who
+    // buys both online and in-store should show up as one person, not two, so
+    // match by phone (normalizing away the online side's +91 prefix, since
+    // offline bills store a bare 10-digit number).
+    const normalizePhone = (phone: string) => phone.replace(/^\+91/, '');
+
+    const byPhone = new Map<string, CustomerAgg>();
+
+    for (const g of orderGroups) {
+      const p = profileMap.get(g.buyerProfileId);
+      if (!p) continue;
+      const phone = normalizePhone(p.user.phone);
+      byPhone.set(phone, {
+        userId: p.userId,
+        name: p.name,
+        phone,
+        orderCount: g._count._all,
+        totalSpent: Number(g._sum.totalAmount ?? 0),
+      });
+    }
+
+    const [offlineGroups, offlineNameRows] = await Promise.all([
+      this.prisma.offlineBill.groupBy({
+        by: ['customerPhone'],
+        where: { storeId: { in: storeIds } },
+        _count: { _all: true },
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.offlineBill.findMany({
+        where: { storeId: { in: storeIds }, customerName: { not: null } },
+        select: { customerPhone: true, customerName: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+    const offlineNameByPhone = new Map<string, string>();
+    for (const row of offlineNameRows) {
+      if (row.customerName && !offlineNameByPhone.has(row.customerPhone)) {
+        offlineNameByPhone.set(row.customerPhone, row.customerName);
+      }
+    }
+
+    for (const g of offlineGroups) {
+      const phone = normalizePhone(g.customerPhone);
+      const existing = byPhone.get(phone);
+      if (existing) {
+        existing.orderCount += g._count._all;
+        existing.totalSpent += Number(g._sum.totalAmount ?? 0);
+        if (!existing.name) existing.name = offlineNameByPhone.get(g.customerPhone) ?? existing.name;
+      } else {
+        byPhone.set(phone, {
+          name: offlineNameByPhone.get(g.customerPhone) ?? null,
+          phone,
           orderCount: g._count._all,
           totalSpent: Number(g._sum.totalAmount ?? 0),
-        };
-      });
+        });
+      }
+    }
 
-    const topSpenders = orderGroups.slice(0, 10).map((g) => {
-      const p = profileMap.get(g.buyerProfileId);
-      return {
-        userId: p?.userId,
-        name: p?.name,
-        phone: p?.user.phone,
-        totalSpent: Number(g._sum.totalAmount ?? 0),
-        orderCount: g._count._all,
-      };
-    });
+    const merged = [...byPhone.values()].sort((a, b) => b.totalSpent - a.totalSpent);
+    const repeatCustomers = merged.filter((c) => c.orderCount >= 2).slice(0, 20);
+    const topSpenders = merged.slice(0, 10);
 
     const loyaltyMembers = profiles
       .filter((p) => p.wallet && ['GOLD', 'PLATINUM'].includes(p.wallet.tier))

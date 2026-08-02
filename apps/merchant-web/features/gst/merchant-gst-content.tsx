@@ -51,6 +51,12 @@ export function MerchantGstContent() {
         <Stat label="GST collected" value={`₹${(summary?.gstCollected ?? 0).toLocaleString()}`} />
         <Stat label="Gross total" value={`₹${(summary?.grossTotal ?? 0).toLocaleString()}`} />
       </div>
+      {Boolean(summary?.inStoreBills) && (
+        <p className="text-xs text-slate-500">
+          Includes {summary!.inStoreBills} in-store bill{summary!.inStoreBills !== 1 ? 's' : ''} — ₹
+          {summary!.inStoreTaxableSales.toLocaleString()} taxable, ₹{summary!.inStoreGstCollected.toLocaleString()} GST.
+        </p>
+      )}
 
       <div className="flex gap-2 border-b">
         <TabButton active={tab === 'overview'} onClick={() => setTab('overview')}>
@@ -192,6 +198,9 @@ interface GstOverview {
     taxableSales: number;
     gstCollected: number;
     grossTotal: number;
+    inStoreBills: number;
+    inStoreTaxableSales: number;
+    inStoreGstCollected: number;
   };
   recentInvoices: Array<{
     id: string;

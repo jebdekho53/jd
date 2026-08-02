@@ -109,32 +109,53 @@ export class ComplianceService {
 
   async merchantGstDashboard(merchantProfileId: string, month?: string) {
     const where: Prisma.GSTInvoiceWhereInput = { merchantProfileId };
+    let billWhere: Prisma.OfflineBillWhereInput = {};
     if (month) {
       const [y, m] = month.split('-').map(Number);
-      where.invoiceDate = { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) };
+      const range = { gte: new Date(y, m - 1, 1), lt: new Date(y, m, 1) };
+      where.invoiceDate = range;
+      billWhere = { createdAt: range };
     }
 
-    const agg = await this.prisma.gSTInvoice.aggregate({
-      where,
-      _sum: { taxableAmount: true, totalTax: true, grandTotal: true },
-      _count: true,
+    const stores = await this.prisma.store.findMany({
+      where: { merchantProfileId, deletedAt: null },
+      select: { id: true },
     });
+    const storeIds = stores.map((s) => s.id);
+    billWhere = { ...billWhere, storeId: { in: storeIds } };
 
-    const recent = await this.prisma.gSTInvoice.findMany({
-      where: { merchantProfileId },
-      orderBy: { invoiceDate: 'desc' },
-      take: 10,
-      include: { order: { select: { orderNumber: true } } },
-    });
-
-    const tds = await this.tdsTcs.merchantTdsSummary(merchantProfileId, month);
+    const [agg, billCount, billItemAgg, recent, tds] = await Promise.all([
+      this.prisma.gSTInvoice.aggregate({
+        where,
+        _sum: { taxableAmount: true, totalTax: true, grandTotal: true },
+        _count: true,
+      }),
+      this.prisma.offlineBill.count({ where: billWhere }),
+      this.prisma.offlineBillItem.aggregate({
+        where: { bill: billWhere },
+        _sum: { taxableAmount: true, gstAmount: true, lineTotal: true },
+      }),
+      this.prisma.gSTInvoice.findMany({
+        where: { merchantProfileId },
+        orderBy: { invoiceDate: 'desc' },
+        take: 10,
+        include: { order: { select: { orderNumber: true } } },
+      }),
+      this.tdsTcs.merchantTdsSummary(merchantProfileId, month),
+    ]);
 
     return {
       summary: {
-        invoiceCount: agg._count,
-        taxableSales: Number(agg._sum.taxableAmount ?? 0),
-        gstCollected: Number(agg._sum.totalTax ?? 0),
-        grossTotal: Number(agg._sum.grandTotal ?? 0),
+        // Includes in-store bills alongside online GST invoices — both are
+        // taxable retail sales for this merchant, even though only online
+        // orders currently get a formal GSTInvoice record.
+        invoiceCount: agg._count + billCount,
+        taxableSales: Number(agg._sum.taxableAmount ?? 0) + Number(billItemAgg._sum.taxableAmount ?? 0),
+        gstCollected: Number(agg._sum.totalTax ?? 0) + Number(billItemAgg._sum.gstAmount ?? 0),
+        grossTotal: Number(agg._sum.grandTotal ?? 0) + Number(billItemAgg._sum.lineTotal ?? 0),
+        inStoreBills: billCount,
+        inStoreTaxableSales: Number(billItemAgg._sum.taxableAmount ?? 0),
+        inStoreGstCollected: Number(billItemAgg._sum.gstAmount ?? 0),
       },
       recentInvoices: recent.map((i) => ({
         id: i.id,

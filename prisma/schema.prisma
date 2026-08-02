@@ -2075,17 +2075,23 @@ model OfflineBill {
 }
 
 model OfflineBillItem {
-  id          String  @id @default(cuid())
-  billId      String  @map("bill_id")
-  productId   String  @map("product_id")
-  variantId   String  @map("variant_id")
-  productName String  @map("product_name")
-  variantName String  @map("variant_name")
-  sku         String
-  quantity    Int
-  unitPrice   Decimal @map("unit_price") @db.Decimal(10, 2)
-  lineTotal   Decimal @map("line_total") @db.Decimal(10, 2)
-  shortfall   Int     @default(0)
+  id            String  @id @default(cuid())
+  billId        String  @map("bill_id")
+  productId     String  @map("product_id")
+  variantId     String  @map("variant_id")
+  productName   String  @map("product_name")
+  variantName   String  @map("variant_name")
+  sku           String
+  quantity      Int
+  unitPrice     Decimal @map("unit_price") @db.Decimal(10, 2)
+  lineTotal     Decimal @map("line_total") @db.Decimal(10, 2)
+  shortfall     Int     @default(0)
+  // GST snapshot at time of sale — always intra-state (in-store == same location as the
+  // store), computed via GstCalculatorService so it matches the same math the online
+  // invoice pipeline uses (including each product's own taxInclusive setting).
+  hsnCode       String? @map("hsn_code")
+  taxableAmount Decimal @default(0) @map("taxable_amount") @db.Decimal(10, 2)
+  gstAmount     Decimal @default(0) @map("gst_amount") @db.Decimal(10, 2)
 
   bill    OfflineBill    @relation(fields: [billId], references: [id], onDelete: Cascade)
   product Product        @relation(fields: [productId], references: [id], onDelete: Restrict)

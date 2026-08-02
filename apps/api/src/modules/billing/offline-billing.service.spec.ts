@@ -23,7 +23,7 @@ function buildHarness(overrides: {
       name: '500g',
       sku: 'SKU-500G',
       price: 50,
-      product: { id: 'product-1', name: 'Amul Milk' },
+      product: { id: 'product-1', name: 'Amul Milk', gstSlab: 'FIVE', taxInclusive: false, hsnCodeRef: { code: '0401', defaultGstSlab: 'FIVE' } },
     },
     {
       id: 'variant-2',
@@ -31,7 +31,7 @@ function buildHarness(overrides: {
       name: '1kg',
       sku: 'SKU-1KG',
       price: 100,
-      product: { id: 'product-2', name: 'Amul Butter' },
+      product: { id: 'product-2', name: 'Amul Butter', gstSlab: 'TWELVE', taxInclusive: false, hsnCodeRef: { code: '0405', defaultGstSlab: 'TWELVE' } },
     },
   ];
 
@@ -73,8 +73,21 @@ function buildHarness(overrides: {
 
   const domainEvents = { emit: jest.fn().mockResolvedValue(undefined) } as unknown as DomainEventsService;
   const pdf = {} as never;
+  const gstCalculator = {
+    getRatesForSlab: jest.fn().mockResolvedValue({ cgstRate: 2.5, sgstRate: 2.5, igstRate: 5, totalRate: 5 }),
+    computeLine: jest.fn().mockReturnValue({
+      taxableAmount: 0,
+      cgstRate: 2.5,
+      sgstRate: 2.5,
+      igstRate: 5,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+      lineTotal: 0,
+    }),
+  } as never;
 
-  const service = new OfflineBillingService(prisma, merchantService, inventoryService, domainEvents, pdf);
+  const service = new OfflineBillingService(prisma, merchantService, inventoryService, domainEvents, pdf, gstCalculator);
 
   return { service, prisma, merchantService, inventoryService, domainEvents };
 }

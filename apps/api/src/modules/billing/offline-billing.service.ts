@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { DomainEventType, OfflineBill, OfflineBillItem } from '@prisma/client';
+import { DomainEventType, GstSlab, GstSupplyType, OfflineBill, OfflineBillItem } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { MerchantService } from '../merchant/merchant.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { DomainEventsService } from '../domain-events/domain-events.service';
 import { GstPdfService } from '../compliance/gst-pdf.service';
+import { GstCalculatorService } from '../compliance/gst-calculator.service';
 import { CreateOfflineBillDto, ListOfflineBillsDto } from './dto/offline-bill.dto';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class OfflineBillingService {
     private readonly inventoryService: InventoryService,
     private readonly domainEvents: DomainEventsService,
     private readonly pdf: GstPdfService,
+    private readonly gstCalculator: GstCalculatorService,
   ) {}
 
   private async assertStore(userId: string, storeId: string) {
@@ -37,7 +39,17 @@ export class OfflineBillingService {
 
     const variants = await this.prisma.productVariant.findMany({
       where: { id: { in: variantIds }, product: { storeId, deletedAt: null } },
-      include: { product: { select: { id: true, name: true } } },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            gstSlab: true,
+            taxInclusive: true,
+            hsnCodeRef: { select: { code: true, defaultGstSlab: true } },
+          },
+        },
+      },
     });
     if (variants.length !== uniqueVariantIds.size) {
       throw new BadRequestException('One or more items do not belong to this store');
@@ -59,6 +71,9 @@ export class OfflineBillingService {
       unitPrice: number;
       lineTotal: number;
       shortfall: number;
+      hsnCode: string;
+      taxableAmount: number;
+      gstAmount: number;
     }> = [];
 
     for (const item of dto.items) {
@@ -76,6 +91,17 @@ export class OfflineBillingService {
       totalAmount += lineTotal;
       totalShortfall += result.shortfall;
 
+      // In-store sale, so supply is always intra-state — the merchant and the
+      // walk-in customer are physically in the same place.
+      const gstSlab = variant.product.gstSlab ?? variant.product.hsnCodeRef?.defaultGstSlab ?? GstSlab.EIGHTEEN;
+      const hsnCode = variant.product.hsnCodeRef?.code ?? '9997';
+      const rates = await this.gstCalculator.getRatesForSlab(gstSlab);
+      const breakdown = this.gstCalculator.computeLine(
+        { quantity: item.quantity, unitPrice, gstSlab, taxInclusive: variant.product.taxInclusive },
+        GstSupplyType.INTRA_STATE,
+        rates,
+      );
+
       lineData.push({
         productId: variant.productId,
         variantId: variant.id,
@@ -86,6 +112,9 @@ export class OfflineBillingService {
         unitPrice,
         lineTotal,
         shortfall: result.shortfall,
+        hsnCode,
+        taxableAmount: breakdown.taxableAmount,
+        gstAmount: breakdown.cgstAmount + breakdown.sgstAmount,
       });
 
       await this.domainEvents.emit(
@@ -221,10 +250,12 @@ export class OfflineBillingService {
     const addressLine = [bill.store.line1, bill.store.line2].filter(Boolean).join(', ');
     const itemLines = bill.items.map(
       (item) =>
-        `${item.productName} (${item.variantName}) x ${item.quantity} @ INR ${Number(item.unitPrice).toFixed(2)}` +
-        `  =  INR ${Number(item.lineTotal).toFixed(2)}` +
+        `${item.productName} (${item.variantName}) HSN ${item.hsnCode ?? '-'} x ${item.quantity} @ INR ${Number(item.unitPrice).toFixed(2)}` +
+        `  =  INR ${Number(item.lineTotal).toFixed(2)} (incl. GST INR ${Number(item.gstAmount).toFixed(2)})` +
         (item.shortfall > 0 ? `   [${item.shortfall} unit(s) beyond tracked stock]` : ''),
     );
+    const totalGst = bill.items.reduce((sum, item) => sum + Number(item.gstAmount), 0);
+    const totalTaxable = bill.items.reduce((sum, item) => sum + Number(item.taxableAmount), 0);
 
     return this.pdf.generate({
       title: 'Bill / Receipt',
@@ -248,6 +279,8 @@ export class OfflineBillingService {
         {
           heading: 'Total',
           lines: [
+            `Taxable amount: INR ${totalTaxable.toFixed(2)}`,
+            `GST (CGST+SGST): INR ${totalGst.toFixed(2)}`,
             `Grand Total: INR ${Number(bill.totalAmount).toFixed(2)}`,
             ...(bill.note ? [`Note: ${bill.note}`] : []),
           ],

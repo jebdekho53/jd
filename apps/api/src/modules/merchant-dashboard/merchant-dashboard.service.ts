@@ -95,6 +95,8 @@ export class MerchantDashboardService {
       const [
         todayAgg,
         yesterdayAgg,
+        todayBillAgg,
+        yesterdayBillAgg,
         statusCounts,
         storeRating,
         sparklineRows,
@@ -114,6 +116,19 @@ export class MerchantDashboardService {
             createdAt: { gte: yesterdayStart, lt: todayStart },
             status: { notIn: CANCELLED_STATUSES },
           },
+          _count: { id: true },
+          _sum: { totalAmount: true },
+        }),
+        // In-store bills are completed, unconditional sales (no cancellation
+        // states), so today's revenue reflects the store's full business, not
+        // just what happened to route through online checkout.
+        this.prisma.offlineBill.aggregate({
+          where: { ...baseWhere, createdAt: { gte: todayStart } },
+          _count: { id: true },
+          _sum: { totalAmount: true },
+        }),
+        this.prisma.offlineBill.aggregate({
+          where: { ...baseWhere, createdAt: { gte: yesterdayStart, lt: todayStart } },
           _count: { id: true },
           _sum: { totalAmount: true },
         }),
@@ -146,11 +161,14 @@ export class MerchantDashboardService {
           .reduce((sum, r) => sum + r._count.id, 0);
 
       const todayOrders = todayAgg._count.id;
-      const todayRevenue = decimalToNumber(todayAgg._sum.totalAmount);
+      const todayBillCount = todayBillAgg._count.id;
+      const todayRevenue = decimalToNumber(todayAgg._sum.totalAmount) + decimalToNumber(todayBillAgg._sum.totalAmount);
       const yesterdayOrders = yesterdayAgg._count.id;
-      const yesterdayRevenue = decimalToNumber(yesterdayAgg._sum.totalAmount);
+      const yesterdayRevenue =
+        decimalToNumber(yesterdayAgg._sum.totalAmount) + decimalToNumber(yesterdayBillAgg._sum.totalAmount);
+      const todayTransactions = todayOrders + todayBillCount;
       const avgOrderValue =
-        todayOrders > 0 ? Math.round((todayRevenue / todayOrders) * 100) / 100 : 0;
+        todayTransactions > 0 ? Math.round((todayRevenue / todayTransactions) * 100) / 100 : 0;
 
       const sparkline: SparkPoint[] = sparklineRows.map((r) => ({
         date: r.day.toISOString().slice(0, 10),
@@ -160,6 +178,7 @@ export class MerchantDashboardService {
       return {
         todayOrders,
         todayRevenue,
+        todayInStoreBills: todayBillCount,
         pendingOrders: countByStatus([OrderStatus.PAID, OrderStatus.MERCHANT_ACCEPTED]),
         preparingOrders: countByStatus([OrderStatus.PREPARING]),
         packingOrders: countByStatus([OrderStatus.PACKING]),

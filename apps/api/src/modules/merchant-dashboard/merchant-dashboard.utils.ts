@@ -35,6 +35,7 @@ export const ORDER_TAB_STATUSES: Record<string, OrderStatus[]> = {
 export const EMPTY_MERCHANT_OVERVIEW = {
   todayOrders: 0,
   todayRevenue: 0,
+  todayInStoreBills: 0,
   pendingOrders: 0,
   preparingOrders: 0,
   packingOrders: 0,
