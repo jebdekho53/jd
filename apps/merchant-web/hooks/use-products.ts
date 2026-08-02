@@ -12,7 +12,7 @@ import {
 import type { CreateProductPayload, ListProductsParams, UpdateProductPayload } from '@/types/product';
 import { useSessionQuery } from '@/hooks/use-auth';
 
-function merchantStoreKey(userId: string | undefined, storeId: string, ...parts: string[]) {
+export function merchantStoreKey(userId: string | undefined, storeId: string, ...parts: string[]) {
   return ['merchant', userId ?? 'anonymous', storeId, ...parts] as const;
 }
 
