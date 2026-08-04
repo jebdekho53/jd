@@ -21,6 +21,7 @@ import { StepUpPrompt } from '@/features/auth/step-up-prompt';
 import { StepUpRequiredError, LegalAcceptanceRequiredError } from '@/services/buyer-api';
 import { hasUsableCoordinates, toDeliveryAddress } from '@/lib/address';
 import { uid } from '@/lib/uid';
+import { COD_CHECKOUT_ENABLED, COD_UNAVAILABLE_MESSAGE } from '@/lib/checkout-flags';
 import type { BuyerAddress } from '@/types/address';
 import type { CheckoutPayload, RazorpayOrderResult } from '@/types/checkout';
 
@@ -41,7 +42,9 @@ export function CheckoutScreen() {
   const [buyerNote, setBuyerNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showStepUp, setShowStepUp] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    COD_CHECKOUT_ENABLED ? 'COD' : 'ONLINE',
+  );
   const [checkoutId, setCheckoutId] = useState<string | null>(null);
   const [razorpayOrder, setRazorpayOrder] = useState<RazorpayOrderResult | null>(null);
   const [idempotencyKey] = useState(() => uid());
@@ -159,8 +162,13 @@ export function CheckoutScreen() {
           <Text style={styles.sectionTitle}>Payment method</Text>
           <View style={styles.paymentRow}>
             <Pressable
-              style={[styles.paymentOption, paymentMethod === 'COD' && styles.paymentOptionActive]}
-              onPress={() => setPaymentMethod('COD')}
+              style={[
+                styles.paymentOption,
+                paymentMethod === 'COD' && styles.paymentOptionActive,
+                !COD_CHECKOUT_ENABLED && styles.paymentOptionDisabled,
+              ]}
+              onPress={() => COD_CHECKOUT_ENABLED && setPaymentMethod('COD')}
+              disabled={!COD_CHECKOUT_ENABLED}
             >
               <Text style={[styles.paymentLabel, paymentMethod === 'COD' && styles.paymentLabelActive]}>
                 Cash on Delivery
@@ -180,6 +188,9 @@ export function CheckoutScreen() {
               </Text>
             </Pressable>
           </View>
+          {!COD_CHECKOUT_ENABLED && (
+            <Text style={styles.warning}>Cash on delivery: {COD_UNAVAILABLE_MESSAGE}</Text>
+          )}
           {!canPayOnline && (
             <Text style={styles.warning}>
               Add your name and email in Profile to pay online — UPI, cards, netbanking.

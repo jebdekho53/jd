@@ -12,6 +12,7 @@ import { StepUpPrompt } from '@/features/auth/step-up-prompt';
 import { LegalAcceptanceRequiredError, StepUpRequiredError } from '@/services/buyer-api';
 import { hasUsableCoordinates, toDeliveryAddress } from '@/lib/address';
 import { uid } from '@/lib/uid';
+import { COD_CHECKOUT_ENABLED } from '@/lib/checkout-flags';
 import type { BuyerAddress } from '@/types/address';
 import type { InitiateFoodCheckoutPayload } from '@/types/food';
 
@@ -78,7 +79,11 @@ export function FoodCheckoutScreen() {
   // 'SELF' stores deliver with their own staff — there is no rider to collect
   // cash, so the API only offers online payment. This app is COD-only today.
   const selfDelivery = cart.store.deliveryMode === 'SELF';
-  const canPlace = hasUsableCoordinates(address) && !selfDelivery;
+  // Food checkout has no online-payment path on mobile yet — it's COD-only.
+  // With COD temporarily off platform-wide, there's no way to actually place
+  // a food order here right now, so block it up front instead of letting the
+  // buyer fill out the whole form and hit a rejection at submit.
+  const canPlace = hasUsableCoordinates(address) && !selfDelivery && COD_CHECKOUT_ENABLED;
 
   const buildPayload = (): InitiateFoodCheckoutPayload => ({
     deliveryAddress: toDeliveryAddress(address!) as unknown as Record<string, unknown>,
@@ -158,6 +163,12 @@ export function FoodCheckoutScreen() {
             <Text style={styles.warning}>
               This restaurant delivers with its own staff and only accepts online payment. Order from
               the website to pay online.
+            </Text>
+          )}
+          {!COD_CHECKOUT_ENABLED && (
+            <Text style={styles.warning}>
+              Cash on delivery is not available in your location right now. Food ordering will be back
+              once online payment is added for the app.
             </Text>
           )}
         </Card>
