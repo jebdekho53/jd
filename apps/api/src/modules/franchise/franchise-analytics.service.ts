@@ -171,4 +171,76 @@ export class FranchiseAnalyticsService {
       pincodes: fp.territories.flatMap((t) => t.pincodes),
     };
   }
+
+  /**
+   * Full profile + 30d performance for every rider who has actually delivered
+   * for this franchise's stores — not a platform-wide rider list, which would
+   * include riders the partner has no relationship to or visibility into.
+   */
+  async getFranchiseRiders(franchiseId: string) {
+    const fp = await this.prisma.franchisePartner.findUnique({
+      where: { id: franchiseId },
+      select: { stores: { select: { storeId: true } } },
+    });
+    if (!fp) return { riders: [], totalRiders: 0 };
+
+    const storeIds = fp.stores.map((s) => s.storeId);
+    if (storeIds.length === 0) return { riders: [], totalRiders: 0 };
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const deliveries = await this.prisma.delivery.findMany({
+      where: {
+        order: { storeId: { in: storeIds } },
+        createdAt: { gte: thirtyDaysAgo },
+        riderProfileId: { not: null },
+      },
+      select: { riderProfileId: true, status: true, riderEarning: true },
+    });
+
+    const byRider = new Map<string, { deliveries: number; completed: number; earning: number }>();
+    for (const d of deliveries) {
+      const id = d.riderProfileId as string;
+      const cur = byRider.get(id) ?? { deliveries: 0, completed: 0, earning: 0 };
+      cur.deliveries += 1;
+      if (d.status === 'DELIVERED') cur.completed += 1;
+      cur.earning += Number(d.riderEarning ?? 0);
+      byRider.set(id, cur);
+    }
+
+    const profiles = await this.prisma.riderProfile.findMany({
+      where: { id: { in: [...byRider.keys()] } },
+      select: {
+        id: true,
+        name: true,
+        vehicleType: true,
+        status: true,
+        ratingAvg: true,
+        ratingCount: true,
+        totalDeliveries: true,
+        lastLocationAt: true,
+      },
+    });
+
+    const riders = profiles
+      .map((p) => {
+        const stats = byRider.get(p.id)!;
+        return {
+          id: p.id,
+          name: p.name,
+          vehicleType: p.vehicleType,
+          status: p.status,
+          ratingAvg: p.ratingAvg,
+          ratingCount: p.ratingCount,
+          totalDeliveries: p.totalDeliveries,
+          lastLocationAt: p.lastLocationAt,
+          deliveries30d: stats.deliveries,
+          completed30d: stats.completed,
+          earning30d: Math.round(stats.earning * 100) / 100,
+        };
+      })
+      .sort((a, b) => b.deliveries30d - a.deliveries30d);
+
+    return { riders, totalRiders: riders.length };
+  }
 }

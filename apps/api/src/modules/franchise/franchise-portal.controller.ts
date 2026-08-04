@@ -160,4 +160,22 @@ export class FranchisePortalController {
     const id = await this.franchise.resolveFranchiseId(user.id);
     return { success: true, data: await this.settlements.listSettlements(id) };
   }
+
+  /** Riders who actually delivered for this partner's stores in the last 30 days. */
+  @Get('riders')
+  async riders(@CurrentUser() user: RequestUser) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.analytics.getFranchiseRiders(id) };
+  }
+
+  /** Growth signals: leaderboard standing + recruitment funnel, scoped to this partner. */
+  @Get('growth')
+  async growth(@CurrentUser() user: RequestUser) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    const [standing, pipeline] = await Promise.all([
+      this.analytics.getMyStanding(id),
+      this.franchise.getPipeline(id),
+    ]);
+    return { success: true, data: { standing, pipeline } };
+  }
 }

@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useQuery, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Copy } from 'lucide-react';
+import { Copy, Trophy } from 'lucide-react';
+import { EmptyState, PageHeader, Panel, Pill, Stat } from '@/components/ui';
 
 async function fetchFranchise<T>(path: string): Promise<T> {
   const res = await fetch(`/api/franchise/${path}`);
@@ -17,8 +18,10 @@ function DashboardInner() {
   const pipeline = useQuery({ queryKey: ['franchise', 'pipeline'], queryFn: () => fetchFranchise<Pipeline>('pipeline') });
   const stores = useQuery({ queryKey: ['franchise', 'stores'], queryFn: () => fetchFranchise<StoresResponse>('stores') });
   const finance = useQuery({ queryKey: ['franchise', 'finance'], queryFn: () => fetchFranchise<Settlement[]>('finance') });
+  const leaderboard = useQuery({ queryKey: ['franchise', 'leaderboard'], queryFn: () => fetchFranchise<Standing>('leaderboard') });
 
   const data = dashboard.data;
+  const standing = leaderboard.data;
   const settlements = finance.data ?? [];
   const paid = settlements
     .filter((s) => s.status === 'PAID')
@@ -31,14 +34,22 @@ function DashboardInner() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="mb-4 text-2xl font-bold">{data?.businessName ?? 'Franchise Dashboard'}</h1>
-        <div className="grid gap-4 sm:grid-cols-4">
-          <Stat label="GMV (30d)" value={`₹${(data?.gmv30d ?? 0).toLocaleString()}`} />
-          <Stat label="Orders" value={String(data?.orders30d ?? 0)} />
-          <Stat label="Pending Earnings" value={`₹${pending.toLocaleString()}`} />
-          <Stat label="Paid" value={`₹${paid.toLocaleString()}`} />
-        </div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader title={data?.businessName ?? 'Franchise Dashboard'} subtitle={data?.status ? `Status: ${data.status}` : undefined} />
+        {standing?.rank && (
+          <Pill tone="emerald">
+            <span className="inline-flex items-center gap-1">
+              <Trophy className="h-3 w-3" /> Rank #{standing.rank} of {standing.totalPartners}
+            </span>
+          </Pill>
+        )}
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-4">
+        <Stat label="GMV (30d)" value={`₹${(data?.gmv30d ?? 0).toLocaleString()}`} />
+        <Stat label="Orders (30d)" value={String(data?.orders30d ?? 0)} />
+        <Stat label="Pending Earnings" value={`₹${pending.toLocaleString()}`} tone="amber" />
+        <Stat label="Paid" value={`₹${paid.toLocaleString()}`} tone="emerald" />
       </div>
 
       <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
@@ -47,7 +58,7 @@ function DashboardInner() {
           <div className="flex flex-wrap items-center gap-3">
             <code className="rounded-md bg-slate-950 px-3 py-2 text-sm text-emerald-300">{referral.data.inviteUrl}</code>
             <button
-              onClick={() => navigator.clipboard.writeText(referral.data.inviteUrl)}
+              onClick={() => navigator.clipboard.writeText(referral.data!.inviteUrl)}
               className="inline-flex items-center gap-2 rounded-md bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950"
             >
               <Copy className="h-4 w-4" />
@@ -77,7 +88,7 @@ function DashboardInner() {
                 <p className="mt-1 text-xs text-slate-500">{app.city ?? '-'} · {app.pincode ?? '-'}</p>
               </div>
             ))}
-            {(pipeline.data?.applications ?? []).length === 0 && <p className="text-sm text-slate-500">No recruited merchants yet.</p>}
+            {(pipeline.data?.applications ?? []).length === 0 && <EmptyState message="No recruited merchants yet." />}
           </div>
         </Panel>
 
@@ -99,7 +110,7 @@ function DashboardInner() {
               <span className="text-xs text-slate-400">{s.status}</span>
             </div>
           ))}
-          {settlements.length === 0 && <p className="text-sm text-slate-500">No settlements yet.</p>}
+          {settlements.length === 0 && <EmptyState message="No settlements yet." />}
         </div>
       </Panel>
     </div>
@@ -126,24 +137,6 @@ function StoreGroup({ label, links }: { label: string; links: FranchiseStoreLink
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className="text-xl font-bold text-white">{value}</p>
-    </div>
-  );
-}
-
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <h2 className="mb-3 text-sm font-semibold text-white">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
 export default function DashboardPage() {
   const [client] = useState(() => new QueryClient());
   return (
@@ -155,8 +148,13 @@ export default function DashboardPage() {
 
 interface Dashboard {
   businessName?: string;
+  status?: string;
   gmv30d?: number;
   orders30d?: number;
+}
+interface Standing {
+  rank: number | null;
+  totalPartners: number;
 }
 interface Referral {
   referralCode: string;
