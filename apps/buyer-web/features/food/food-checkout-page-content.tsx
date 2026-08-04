@@ -21,6 +21,7 @@ import { getDefaultSavedDeliveryAddress } from '@/lib/saved-delivery-address';
 import { formatCurrency } from '@/lib/utils';
 import { CheckoutTrustBadges } from '@/features/checkout/components/checkout-trust-badges';
 import { SessionError } from '@/services/auth/auth-api';
+import { COD_CHECKOUT_ENABLED } from '@/lib/checkout-flags';
 import type { DeliveryAddress, PayerContact, PaymentMethod } from '@/types/checkout';
 
 function deliveryToFoodPayload(addr: DeliveryAddress, paymentMethod: PaymentMethod) {
@@ -40,7 +41,9 @@ export function FoodCheckoutPageContent() {
   const { step, deliveryAddress, setStep, setDeliveryAddress, reset } = useCheckoutStore();
   const [checkoutReady, setCheckoutReady] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState<{ orderId: string; orderNumber: string } | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    COD_CHECKOUT_ENABLED ? 'COD' : 'RAZORPAY',
+  );
   const [payerContact, setPayerContact] = useState<PayerContact | null>(null);
   const [checkoutId, setCheckoutId] = useState<string | null>(null);
   const [autoOpenPay, setAutoOpenPay] = useState(false);
@@ -51,7 +54,7 @@ export function FoodCheckoutPageContent() {
   const initiateOnline = useInitiateFoodCheckoutMutation();
 
   useEffect(() => {
-    if (isSelfDelivery && paymentMethod === 'COD') setPaymentMethod('RAZORPAY');
+    if ((isSelfDelivery || !COD_CHECKOUT_ENABLED) && paymentMethod === 'COD') setPaymentMethod('RAZORPAY');
   }, [isSelfDelivery, paymentMethod]);
 
   useEffect(() => {
@@ -214,7 +217,7 @@ export function FoodCheckoutPageContent() {
                 <h2 className="mb-3 text-sm font-semibold">Payment</h2>
                 <PaymentMethodSelector
                   value={paymentMethod}
-                  codDisabled={isSelfDelivery}
+                  codDisabled={isSelfDelivery || !COD_CHECKOUT_ENABLED}
                   onChange={(method) => {
                     setPaymentMethod(method);
                     setCheckoutId(null);
@@ -224,7 +227,9 @@ export function FoodCheckoutPageContent() {
                 <p className="mt-2 text-xs text-jd-text-muted">
                   {isSelfDelivery
                     ? 'This store delivers itself — online payment only.'
-                    : 'Choose how you want to pay.'}
+                    : !COD_CHECKOUT_ENABLED
+                      ? 'Cash on delivery is not available in your location right now.'
+                      : 'Choose how you want to pay.'}
                 </p>
                 {paymentMethod === 'RAZORPAY' && (
                   <div className="mt-4">

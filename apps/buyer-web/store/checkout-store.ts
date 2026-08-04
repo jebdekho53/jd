@@ -45,7 +45,8 @@ const INITIAL: Omit<
   | 'reset'
 > = {
   step: 'address',
-  paymentMethod: 'COD',
+  // COD is temporarily disabled platform-wide — see lib/checkout-flags.ts.
+  paymentMethod: 'RAZORPAY',
   deliveryAddress: null,
   buyerNote: '',
   walletAmountToUse: 0,

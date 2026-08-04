@@ -14,6 +14,7 @@ import { useToast } from '@/design-system/primitives';
 import { formatCurrency } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth-store';
 import { useGuestCartStore } from '@/store/guest-cart-store';
+import { COD_CHECKOUT_ENABLED } from '@/lib/checkout-flags';
 
 export function CartPageContent() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -165,9 +166,11 @@ export function CartPageContent() {
                     <ShoppingBag className="h-4 w-4 text-primary" aria-hidden />
                     <span className="text-sm font-semibold group-hover:text-primary">{cart.store.name}</span>
                   </span>
-                  <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-                    COD available
-                  </span>
+                  {COD_CHECKOUT_ENABLED && (
+                    <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                      COD available
+                    </span>
+                  )}
                 </Link>
                 <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-jd-text-muted">
                   <span className="inline-flex items-center gap-1">

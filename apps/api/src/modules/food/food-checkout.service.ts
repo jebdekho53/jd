@@ -27,6 +27,7 @@ import { InitiateFoodCheckoutDto } from './dto/initiate-food-checkout.dto';
 import { GeospatialService } from '../geospatial/geospatial.service';
 import { OrderFinancialsService } from '../finance/order-financials.service';
 import { MarketingEventService } from '../crm/marketing-event.service';
+import { COD_CHECKOUT_ENABLED, COD_UNAVAILABLE_MESSAGE } from '../../common/constants';
 
 const CHECKOUT_TTL_MINUTES = 15;
 const FOOD_CHECKOUT_PENDING = 'PENDING';
@@ -152,6 +153,10 @@ export class FoodCheckoutService {
     const expiresAt = new Date(Date.now() + CHECKOUT_TTL_MINUTES * 60 * 1000);
 
     if (dto.paymentMethod === PaymentMethod.COD) {
+      if (!COD_CHECKOUT_ENABLED) {
+        throw new BadRequestException(COD_UNAVAILABLE_MESSAGE);
+      }
+
       // Self-delivery stores have no rider to act as the cash-collection
       // intermediary that normally hands the platform its commission share —
       // see checkout.service.ts's initiateCodCheckout for the same guard on

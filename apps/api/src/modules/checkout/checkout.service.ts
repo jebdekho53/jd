@@ -38,6 +38,7 @@ import {
 } from '../../common/utils/delivery-pricing.util';
 import { WalletLoyaltyCheckoutService } from '../wallet-loyalty/wallet-loyalty-checkout.service';
 import { ReferralService } from '../wallet-loyalty/referral.service';
+import { COD_CHECKOUT_ENABLED, COD_UNAVAILABLE_MESSAGE } from '../../common/constants';
 import { WalletService } from '../wallet-loyalty/wallet.service';
 import { OrderFinancialsService } from '../finance/order-financials.service';
 import { TrustSafetyHookService } from '../trust-safety/trust-safety-hook.service';
@@ -267,6 +268,10 @@ export class CheckoutService {
     dto: InitiateCheckoutDto,
     ipAddress?: string,
   ) {
+    if (!COD_CHECKOUT_ENABLED) {
+      throw new BadRequestException(COD_UNAVAILABLE_MESSAGE);
+    }
+
     const cart = await this.cartService.getCart(userId);
     if (!cart || cart.items.length === 0) {
       throw new BadRequestException('Cart is empty');

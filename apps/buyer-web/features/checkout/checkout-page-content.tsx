@@ -24,6 +24,7 @@ import { useCartQuery } from '@/hooks/use-cart';
 import { formatCurrency } from '@/lib/utils';
 import { trackReach } from '@/lib/analytics/track';
 import { getDefaultSavedDeliveryAddress, isDeliveryAddressComplete } from '@/lib/saved-delivery-address';
+import { COD_CHECKOUT_ENABLED } from '@/lib/checkout-flags';
 import { useInitiateCodCheckoutMutation, useInitiateCheckoutMutation } from '@/hooks/use-checkout';
 import { useProfileQuery } from '@/features/profile/hooks/use-profile';
 import { useCheckoutStore } from '@/store/checkout-store';
@@ -97,6 +98,14 @@ export function CheckoutPageContent() {
     setIsDeliverable(deliverable);
     setDeliverabilityLoading(loading);
   }, []);
+
+  // COD is temporarily disabled platform-wide — a returning buyer's persisted
+  // checkout state may still have 'COD' selected from before, so force it off.
+  useEffect(() => {
+    if (!COD_CHECKOUT_ENABLED && paymentMethod === 'COD') {
+      setPaymentMethod('RAZORPAY');
+    }
+  }, [paymentMethod, setPaymentMethod]);
 
   useEffect(() => {
     const applySavedAddress = () => {
@@ -392,7 +401,7 @@ export function CheckoutPageContent() {
                     <div className="mt-4">
                       <PaymentMethodSelector
                         value={paymentMethod}
-                        codDisabled={cart?.delivery?.mode === 'SELF'}
+                        codDisabled={!COD_CHECKOUT_ENABLED || cart?.delivery?.mode === 'SELF'}
                         onChange={(method) => {
                           setPaymentMethod(method);
                           setCheckoutId(null);

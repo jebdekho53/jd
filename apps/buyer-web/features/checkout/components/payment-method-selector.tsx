@@ -3,6 +3,7 @@
 import { CreditCard, Banknote } from 'lucide-react';
 import { Text } from '@/design-system/primitives';
 import { cn } from '@/lib/cn';
+import { COD_UNAVAILABLE_MESSAGE } from '@/lib/checkout-flags';
 import type { PaymentMethod } from '@/types/checkout';
 
 interface PaymentMethodSelectorProps {
@@ -60,7 +61,7 @@ export function PaymentMethodSelector({ value, onChange, codDisabled }: PaymentM
             </div>
             <div>
               <Text variant="label">{label}</Text>
-              <Text variant="caption">{disabled ? 'Not available for this store — pay online instead' : sub}</Text>
+              <Text variant="caption">{disabled ? COD_UNAVAILABLE_MESSAGE : sub}</Text>
             </div>
             {!disabled && (
               <div
