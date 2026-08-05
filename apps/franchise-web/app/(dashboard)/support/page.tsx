@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { LifeBuoy, Search } from 'lucide-react';
+import { LifeBuoy, Search, Sparkles } from 'lucide-react';
 import { EmptyState, PageHeader, Panel, Pill } from '@/components/ui';
+import { useDebounce } from '@/hooks/use-debounce';
 
 interface TicketSummary {
   id: string;
@@ -70,6 +71,13 @@ function SupportInner() {
   const articles = useQuery({
     queryKey: ['franchise', 'support', 'articles', articleQuery],
     queryFn: () => api<HelpArticle[]>(`articles${articleQuery ? `?q=${encodeURIComponent(articleQuery)}` : ''}`),
+  });
+
+  const deflectionQuery = useDebounce(`${form.subject} ${form.description}`.trim(), 350);
+  const deflection = useQuery({
+    queryKey: ['franchise', 'support', 'deflect', deflectionQuery],
+    queryFn: () => api<HelpArticle[]>(`articles?q=${encodeURIComponent(deflectionQuery)}`),
+    enabled: view === 'new' && deflectionQuery.length >= 6,
   });
 
   const ticketId = view !== 'list' && view !== 'new' ? view : null;
@@ -140,6 +148,19 @@ function SupportInner() {
               rows={4}
               className={INPUT}
             />
+            {(deflection.data ?? []).length > 0 && (
+              <div className="space-y-2 rounded-md border border-emerald-900/60 bg-emerald-950/40 p-3">
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-300">
+                  <Sparkles className="h-3.5 w-3.5" /> This might already answer it
+                </p>
+                {(deflection.data ?? []).slice(0, 3).map((a) => (
+                  <div key={a.id} className="rounded-md bg-slate-950 p-2.5">
+                    <p className="text-sm font-medium text-white">{a.title}</p>
+                    <p className="mt-0.5 text-xs text-slate-400">{a.body}</p>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex gap-2">
               <button
                 onClick={() => create.mutate()}

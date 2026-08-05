@@ -156,8 +156,7 @@ export interface SupportTicket {
 export interface KnowledgeArticle {
   id: string;
   title: string;
-  summary?: string | null;
-  content?: string | null;
+  body: string;
   category?: string | null;
 }
 

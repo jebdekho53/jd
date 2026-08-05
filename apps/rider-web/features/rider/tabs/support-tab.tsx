@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createSupportTicket, listSupportArticles, listSupportTickets } from '@/lib/api';
 import { pretty } from '@/lib/rider-format';
 import { Button, Panel, QueryList } from '@/design-system/primitives';
+import { useDebounce } from '@/hooks/use-debounce';
 
 const CATEGORIES = [
   ['APP_ISSUE', 'App issue'],
@@ -37,6 +38,13 @@ export function SupportTab() {
     categoryCode: orderId ? 'DELIVERY_DISPUTE' : 'APP_ISSUE',
     subject: orderId ? `Issue with order ${orderId}` : '',
     description: '',
+  });
+
+  const deflectionQuery = useDebounce(`${form.subject} ${form.description}`.trim(), 350);
+  const deflection = useQuery({
+    queryKey: ['rider', 'support', 'deflect', deflectionQuery],
+    queryFn: () => listSupportArticles(deflectionQuery),
+    enabled: deflectionQuery.length >= 6,
   });
 
   const create = useMutation({
@@ -80,6 +88,17 @@ export function SupportTab() {
             placeholder="Describe the issue"
             className="min-h-24 w-full rounded-xl border border-rider-border bg-rider-bg p-3 text-sm text-rider-text"
           />
+          {(deflection.data ?? []).length > 0 && (
+            <div className="space-y-2 rounded-xl bg-rider-accent/10 p-3">
+              <p className="text-xs font-bold text-rider-accent">This might already answer it</p>
+              {(deflection.data ?? []).slice(0, 3).map((a) => (
+                <div key={a.id} className="rounded-xl bg-rider-bg p-2.5">
+                  <p className="text-sm font-bold text-rider-text">{a.title}</p>
+                  <p className="mt-0.5 text-xs text-rider-muted">{a.body}</p>
+                </div>
+              ))}
+            </div>
+          )}
           <Button
             onClick={() => create.mutate()}
             disabled={create.isPending || form.subject.length < 3 || form.description.length < 10}
@@ -134,7 +153,7 @@ export function SupportTab() {
               {(articleQuery ? items : items.slice(0, 5)).map((a) => (
                 <li key={a.id} className="rounded-xl bg-rider-bg p-3">
                   <p className="font-bold text-rider-text">{a.title}</p>
-                  {a.summary && <p className="text-sm text-rider-muted">{a.summary}</p>}
+                  <p className="text-sm text-rider-muted">{a.body}</p>
                 </li>
               ))}
             </ul>

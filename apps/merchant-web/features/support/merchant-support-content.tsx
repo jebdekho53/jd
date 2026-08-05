@@ -2,6 +2,13 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useDebounce } from '@/hooks/use-debounce';
+
+interface HelpArticle {
+  id: string;
+  title: string;
+  body: string;
+}
 
 const MERCHANT_CATEGORIES = [
   { code: 'SETTLEMENT_ISSUE', label: 'Settlement Issues' },
@@ -25,7 +32,20 @@ async function merchantFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function MerchantSupportContent() {
   const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ categoryCode: MERCHANT_CATEGORIES[0].code, subject: '', description: '' });
   const qc = useQueryClient();
+
+  const deflectionQuery = useDebounce(`${form.subject} ${form.description}`.trim(), 350);
+  const { data: suggestions } = useQuery({
+    queryKey: ['merchant', 'support', 'deflect', deflectionQuery],
+    queryFn: async () => {
+      const res = await merchantFetch<{ success: boolean; data: HelpArticle[] }>(
+        `/api/merchant/support/articles?q=${encodeURIComponent(deflectionQuery)}`,
+      );
+      return res.data;
+    },
+    enabled: showForm && deflectionQuery.length >= 6,
+  });
 
   const { data } = useQuery({
     queryKey: ['merchant', 'support', 'tickets'],
@@ -47,6 +67,7 @@ export function MerchantSupportContent() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['merchant', 'support'] });
       setShowForm(false);
+      setForm({ categoryCode: MERCHANT_CATEGORIES[0].code, subject: '', description: '' });
     },
   });
 
@@ -68,21 +89,46 @@ export function MerchantSupportContent() {
           className="rounded-xl border bg-white p-4 space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            const fd = new FormData(e.currentTarget);
-            mutate({
-              categoryCode: String(fd.get('categoryCode')),
-              subject: String(fd.get('subject')),
-              description: String(fd.get('description')),
-            });
+            mutate(form);
           }}
         >
-          <select name="categoryCode" className="w-full rounded-lg border px-3 py-2 text-sm">
+          <select
+            value={form.categoryCode}
+            onChange={(e) => setForm((f) => ({ ...f, categoryCode: e.target.value }))}
+            className="w-full rounded-lg border px-3 py-2 text-sm"
+          >
             {MERCHANT_CATEGORIES.map((c) => (
               <option key={c.code} value={c.code}>{c.label}</option>
             ))}
           </select>
-          <input name="subject" required minLength={3} placeholder="Subject" className="w-full rounded-lg border px-3 py-2 text-sm" />
-          <textarea name="description" required minLength={10} rows={4} placeholder="Describe the issue" className="w-full rounded-lg border px-3 py-2 text-sm" />
+          <input
+            value={form.subject}
+            onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
+            required
+            minLength={3}
+            placeholder="Subject"
+            className="w-full rounded-lg border px-3 py-2 text-sm"
+          />
+          <textarea
+            value={form.description}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            required
+            minLength={10}
+            rows={4}
+            placeholder="Describe the issue"
+            className="w-full rounded-lg border px-3 py-2 text-sm"
+          />
+          {(suggestions ?? []).length > 0 && (
+            <div className="space-y-2 rounded-lg border border-brand-200 bg-brand-50 p-3">
+              <p className="text-xs font-semibold text-brand-700">This might already answer it</p>
+              {(suggestions ?? []).slice(0, 3).map((a) => (
+                <div key={a.id} className="rounded-lg bg-white p-2.5">
+                  <p className="text-sm font-medium text-slate-900">{a.title}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{a.body}</p>
+                </div>
+              ))}
+            </div>
+          )}
           <button type="submit" disabled={isPending} className="rounded-lg bg-brand-600 px-4 py-2 text-sm text-white disabled:opacity-50">
             Submit
           </button>

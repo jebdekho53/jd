@@ -33,7 +33,7 @@ export default function TrainingPage() {
               {items.slice(0, 8).map((article) => (
                 <li key={article.id} className="rounded-xl bg-white/5 p-3 text-sm text-rider-text">
                   <b>{article.title}</b>
-                  {article.summary && <p className="text-rider-muted">{article.summary}</p>}
+                  <p className="text-rider-muted">{article.body}</p>
                 </li>
               ))}
             </ul>
