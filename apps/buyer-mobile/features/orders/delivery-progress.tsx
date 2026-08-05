@@ -1,4 +1,7 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Linking } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { OrderChatModal } from '@/features/orders/order-chat-modal';
 import type { OrderDelivery } from '@/types/orders';
 
 const STEPS = [
@@ -23,6 +26,7 @@ function formatDistance(km: number | null): string | null {
 }
 
 export interface DeliveryProgressProps {
+  orderId: string;
   delivery: OrderDelivery;
   store: { lat: number | null; lng: number | null } | null;
   customer: { lat: number | null; lng: number | null };
@@ -33,9 +37,10 @@ export interface DeliveryProgressProps {
  *  react-native-maps in a managed Expo Go workflow) — this is the visual
  *  substitute, same idea as most delivery apps' fallback when a live map isn't
  *  available. */
-export function DeliveryProgress({ delivery, customer }: DeliveryProgressProps) {
+export function DeliveryProgress({ orderId, delivery, customer }: DeliveryProgressProps) {
   const active = currentStepIndex(delivery);
   const distanceLabel = formatDistance(delivery.distanceKm);
+  const [chatOpen, setChatOpen] = useState(false);
 
   return (
     <View>
@@ -79,11 +84,38 @@ export function DeliveryProgress({ delivery, customer }: DeliveryProgressProps) 
               {delivery.rider.vehicleType ? delivery.rider.vehicleType.replace(/_/g, ' ') : 'Delivery partner'}
             </Text>
           </View>
+          <View style={styles.riderActions}>
+            {delivery.rider.phone && (
+              <Pressable
+                style={styles.callButton}
+                onPress={() => Linking.openURL(`tel:${delivery.rider!.phone}`)}
+                accessibilityLabel={`Call ${delivery.rider.name}`}
+              >
+                <Ionicons name="call" size={16} color="#fff" />
+              </Pressable>
+            )}
+            <Pressable
+              style={styles.callButton}
+              onPress={() => setChatOpen(true)}
+              accessibilityLabel={`Chat with ${delivery.rider.name}`}
+            >
+              <Ionicons name="chatbubble" size={16} color="#fff" />
+            </Pressable>
+          </View>
         </View>
       )}
 
       {customer.lat == null && (
         <Text style={styles.hint}>Delivery location has no pin — distance shown is store-only.</Text>
+      )}
+
+      {delivery.rider && (
+        <OrderChatModal
+          visible={chatOpen}
+          onClose={() => setChatOpen(false)}
+          orderId={orderId}
+          riderName={delivery.rider.name}
+        />
       )}
     </View>
   );
@@ -126,5 +158,14 @@ const styles = StyleSheet.create({
   riderInfo: { flex: 1 },
   riderName: { fontSize: 13, fontWeight: '700', color: '#0f172a' },
   riderVehicle: { fontSize: 11, color: '#64748b', marginTop: 1, textTransform: 'capitalize' },
+  riderActions: { flexDirection: 'row', gap: 8 },
+  callButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#2E5E4E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   hint: { fontSize: 11, color: '#94a3b8', marginTop: 10 },
 });

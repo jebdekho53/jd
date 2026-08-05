@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, AlertCircle, RotateCcw } from 'lucide-react';
+import { ArrowLeft, AlertCircle, RotateCcw, Phone } from 'lucide-react';
 import { PageShell } from '@/components/layout/site-shell';
 import { AuthGuard } from '@/features/auth/components/auth-guard';
 import { OrderStatusBadge } from '@/features/orders/components/order-status-badge';
@@ -152,7 +152,18 @@ export function OrderDetailContent({ orderId }: OrderDetailContentProps) {
                 </div>
 
                 <div className="rounded-2xl border bg-card p-5 shadow-sm">
-                  <h2 className="mb-3 text-sm font-semibold">{order.store.name}</h2>
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h2 className="text-sm font-semibold">{order.store.name}</h2>
+                    {order.store.phone && (
+                      <a
+                        href={`tel:${order.store.phone}`}
+                        aria-label={`Call ${order.store.name}`}
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-600 text-white shadow-sm transition hover:bg-brand-700"
+                      >
+                        <Phone className="h-4 w-4" aria-hidden />
+                      </a>
+                    )}
+                  </div>
                   <div className="divide-y divide-border/60">
                     {order.items.map((item) => (
                       <div key={item.id} className="flex items-center justify-between py-2.5">
@@ -248,7 +259,7 @@ export function OrderDetailContent({ orderId }: OrderDetailContentProps) {
                     </div>
                   )}
                   <DeliveryOtpCard orderId={order.id} orderStatus={order.status} />
-                  <RiderDeliveryPanel orderStatus={order.status} delivery={order.delivery} />
+                  <RiderDeliveryPanel orderId={order.id} orderStatus={order.status} delivery={order.delivery} />
                 </>
               )}
             </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useOrderDetailQuery, useCancelOrderMutation } from '@/hooks/use-orders';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +36,18 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
           <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
           <Badge label={order.status.replace(/_/g, ' ')} tone="info" />
         </View>
-        <Text style={styles.storeName}>{order.store?.name}</Text>
+        <View style={styles.storeRow}>
+          <Text style={styles.storeName}>{order.store?.name}</Text>
+          {order.store?.phone && (
+            <Pressable
+              style={styles.callButton}
+              onPress={() => Linking.openURL(`tel:${order.store!.phone}`)}
+              accessibilityLabel={`Call ${order.store?.name}`}
+            >
+              <Ionicons name="call" size={15} color="#fff" />
+            </Pressable>
+          )}
+        </View>
         <Text style={styles.meta}>{new Date(order.createdAt).toLocaleString()}</Text>
       </Card>
 
@@ -43,6 +55,7 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
         <Card style={styles.card}>
           <Text style={styles.sectionTitle}>Delivery</Text>
           <DeliveryProgress
+            orderId={order.id}
             delivery={order.delivery}
             store={order.store ? { lat: order.store.latitude, lng: order.store.longitude } : null}
             customer={{ lat: order.deliveryLat, lng: order.deliveryLng }}
@@ -110,7 +123,16 @@ const styles = StyleSheet.create({
   card: { gap: 8 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   orderNumber: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
-  storeName: { fontSize: 14, color: '#334155' },
+  storeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  storeName: { fontSize: 14, color: '#334155', flex: 1 },
+  callButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#2E5E4E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   meta: { fontSize: 12, color: '#94a3b8' },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: '#0f172a', marginBottom: 4 },
   itemRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },

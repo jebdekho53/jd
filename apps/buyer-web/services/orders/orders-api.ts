@@ -1,6 +1,7 @@
 import { buyerFetch } from '@/services/api/buyer-auth-client';
 import type { ApiResponse } from '@/types/buyer';
 import type { OrderDetail, OrderListResponse, ListOrdersParams } from '@/types/orders';
+import type { OrderChatMessage } from '@/types/chat';
 
 function buildQuery(params: ListOrdersParams): string {
   const q = new URLSearchParams();
@@ -35,6 +36,20 @@ export async function getDeliveryOtp(orderId: string): Promise<DeliveryOtpResult
   const res = await buyerFetch<ApiResponse<DeliveryOtpResult>>(
     `/api/buyer/orders/${orderId}/delivery-otp`,
   );
+  return res.data;
+}
+
+export async function getOrderChatMessages(orderId: string, after?: string): Promise<OrderChatMessage[]> {
+  const qs = after ? `?after=${encodeURIComponent(after)}` : '';
+  const res = await buyerFetch<ApiResponse<OrderChatMessage[]>>(`/api/buyer/orders/${orderId}/chat${qs}`);
+  return res.data;
+}
+
+export async function sendOrderChatMessage(orderId: string, body: string): Promise<OrderChatMessage> {
+  const res = await buyerFetch<ApiResponse<OrderChatMessage>>(`/api/buyer/orders/${orderId}/chat`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
   return res.data;
 }
 

@@ -2313,6 +2313,7 @@ model Order {
   corporatePurchaseRequests PurchaseRequest[]
   claims                    OrderClaim[]
   orderRefunds              OrderRefund[]
+  chatMessages              OrderChatMessage[]
 
   @@index([buyerProfileId, status])
   @@index([storeId, status])
@@ -2320,6 +2321,28 @@ model Order {
   @@index([createdAt(sort: Desc)])
   @@index([paymentMethod, paymentStatus])
   @@map("orders")
+}
+
+enum ChatSenderType {
+  BUYER
+  RIDER
+}
+
+/// Lightweight in-order chat between a buyer and their assigned rider, scoped
+/// to a single order (Swiggy-style delivery chat) — separate from the
+/// OrderClaim/SupportTicket systems, which are for post-delivery issues, not
+/// live coordination during an active delivery.
+model OrderChatMessage {
+  id         String         @id @default(cuid())
+  orderId    String         @map("order_id")
+  order      Order          @relation(fields: [orderId], references: [id])
+  senderType ChatSenderType @map("sender_type")
+  senderId   String         @map("sender_id")
+  body       String         @db.Text
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  @@index([orderId, createdAt])
+  @@map("order_chat_messages")
 }
 
 model OrderItem {

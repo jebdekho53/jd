@@ -2,6 +2,7 @@
 
 import { MapPin, Navigation, Phone } from 'lucide-react';
 import { useCountdownMins } from '@/hooks/use-countdown-mins';
+import { OrderChatPanel } from '@/features/orders/components/order-chat-panel';
 import type { OrderDetail, OrderStatus } from '@/types/orders';
 
 const POST_ASSIGNMENT_STATUSES = new Set<OrderStatus>([
@@ -47,11 +48,12 @@ function riderStatusLabel(orderStatus: OrderStatus, deliveryStatus?: string) {
 }
 
 interface RiderDeliveryPanelProps {
+  orderId: string;
   orderStatus: OrderStatus;
   delivery: NonNullable<OrderDetail['delivery']>;
 }
 
-export function RiderDeliveryPanel({ orderStatus, delivery }: RiderDeliveryPanelProps) {
+export function RiderDeliveryPanel({ orderId, orderStatus, delivery }: RiderDeliveryPanelProps) {
   const rider = delivery.rider;
   const countdownMins = useCountdownMins(delivery.estimatedArrivalAt);
   if (!rider) return null;
@@ -95,15 +97,18 @@ export function RiderDeliveryPanel({ orderStatus, delivery }: RiderDeliveryPanel
             <span className="text-[10px] font-bold uppercase leading-none text-white/90">min</span>
           </span>
         )}
-        {rider.phone && (
-          <a
-            href={`tel:${rider.phone}`}
-            aria-label={`Call ${rider.name}`}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-600 text-white shadow-sm transition hover:bg-brand-700"
-          >
-            <Phone className="h-4 w-4" aria-hidden />
-          </a>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {rider.phone && (
+            <a
+              href={`tel:${rider.phone}`}
+              aria-label={`Call ${rider.name}`}
+              className="grid h-10 w-10 place-items-center rounded-full bg-brand-600 text-white shadow-sm transition hover:bg-brand-700"
+            >
+              <Phone className="h-4 w-4" aria-hidden />
+            </a>
+          )}
+          {showTrackingSection && <OrderChatPanel orderId={orderId} riderName={rider.name} />}
+        </div>
       </div>
 
       <div className="space-y-3 text-sm">

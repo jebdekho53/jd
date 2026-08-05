@@ -33,6 +33,7 @@ import type {
 } from '@/types/food';
 import type { OrderDetail, OrderListResponse } from '@/types/orders';
 import type { CreateOrderClaimInput, OrderClaim, OrderClaimEligibility } from '@/types/claims';
+import type { OrderChatMessage } from '@/types/chat';
 import type {
   CreateTicketPayload,
   InboxPage,
@@ -661,6 +662,19 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
   const res = await buyerFetch<ApiResponse<OrderDetail>>(`/buyer/orders/${orderId}/cancel`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
+  });
+  return res.data;
+}
+
+export async function getOrderChatMessages(orderId: string): Promise<OrderChatMessage[]> {
+  const res = await buyerFetch<ApiResponse<OrderChatMessage[]>>(`/buyer/orders/${orderId}/chat`);
+  return res.data;
+}
+
+export async function sendOrderChatMessage(orderId: string, body: string): Promise<OrderChatMessage> {
+  const res = await buyerFetch<ApiResponse<OrderChatMessage>>(`/buyer/orders/${orderId}/chat`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
   });
   return res.data;
 }

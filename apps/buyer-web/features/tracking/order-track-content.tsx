@@ -141,10 +141,19 @@ export function OrderTrackContent({ orderId }: OrderTrackContentProps) {
                     <div className="space-y-3 text-sm">
                       <div className="flex items-start gap-2">
                         <Store className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <p className="font-medium">{order.store.name}</p>
                           <p className="text-xs text-muted-foreground">Pickup store</p>
                         </div>
+                        {order.store.phone && (
+                          <a
+                            href={`tel:${order.store.phone}`}
+                            aria-label={`Call ${order.store.name}`}
+                            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-600 text-white shadow-sm transition hover:bg-brand-700"
+                          >
+                            <Phone className="h-4 w-4" aria-hidden />
+                          </a>
+                        )}
                       </div>
                       <div className="flex items-start gap-2">
                         <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -206,7 +215,7 @@ export function OrderTrackContent({ orderId }: OrderTrackContentProps) {
                 <DeliveryOtpCard orderId={order.id} orderStatus={order.status} />
 
                 {order.delivery?.rider && (
-                  <RiderDeliveryPanel orderStatus={order.status} delivery={order.delivery} />
+                  <RiderDeliveryPanel orderId={order.id} orderStatus={order.status} delivery={order.delivery} />
                 )}
                 {!order.delivery?.rider && tracking?.rider && (
                   <div className="rounded-2xl border bg-card p-5 shadow-sm">

@@ -315,6 +315,23 @@ export const setStatus = (status: RiderStatus) =>
 
 export const listOrders = () => jfetch<RiderOrder[]>('/api/rider/orders');
 export const getOrder = (orderId: string) => jfetch<RiderOrderDetail>(`/api/rider/orders/${orderId}`);
+
+export interface OrderChatMessage {
+  id: string;
+  senderType: 'BUYER' | 'RIDER';
+  body: string;
+  createdAt: string;
+}
+
+export const listOrderChat = (orderId: string) =>
+  jfetch<OrderChatMessage[]>(`/api/rider/orders/${orderId}/chat`);
+
+export const sendOrderChat = (orderId: string, body: string) =>
+  jfetch<OrderChatMessage>(`/api/rider/orders/${orderId}/chat`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
+
 export const getEarnings = () => jfetch<RiderEarnings>('/api/rider/finance/earnings');
 
 export const getEarningsHistory = (params: { page?: number; dateFrom?: string; dateTo?: string } = {}) => {

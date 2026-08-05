@@ -31,6 +31,7 @@ import { OrderClaimModule } from './modules/order-claim/order-claim.module';
 import { OrderTimelineModule } from './modules/order/order-timeline.module';
 import { RiderAssignmentModule } from './modules/rider-assignment/rider-assignment.module';
 import { RiderModule } from './modules/rider/rider.module';
+import { OrderChatModule } from './modules/order-chat/order-chat.module';
 import { GeoModule } from './modules/geo/geo.module';
 import { LocationDirectoryModule } from './modules/location-directory/location-directory.module';
 import { UploadModule } from './modules/upload/upload.module';
@@ -148,6 +149,7 @@ import { RequestIdInterceptor } from './common/interceptors/request-id.intercept
     GeocodingModule,
     RiderAssignmentModule,
     RiderModule,
+    OrderChatModule,
     GeoModule,
     LocationDirectoryModule,
     UploadModule,

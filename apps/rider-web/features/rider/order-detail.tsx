@@ -12,6 +12,7 @@ import { Button, EmptyState, Panel, Stop } from '@/design-system/primitives';
 import { OfferCard } from './offer-card';
 import { OrderCard, HeroStatCard } from './order-card';
 import { HandoverOtpForm } from './handover-otp-form';
+import { OrderChatPanel } from './order-chat-panel';
 import { useOrderActions } from './use-order-actions';
 
 export function OrderDetail({ orderId }: { orderId: string }) {
@@ -116,6 +117,7 @@ export function OrderDetail({ orderId }: { orderId: string }) {
         >
           <Navigation className="h-4 w-4" aria-hidden /> Navigate
         </a>
+        <OrderChatPanel orderId={order.orderId} customerArea={order.customerArea} />
       </Panel>
 
       <Panel title="Items">

@@ -1,7 +1,14 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { cancelOrder, getDeliveryOtp, getOrderDetail, listOrders } from '@/services/orders/orders-api';
+import {
+  cancelOrder,
+  getDeliveryOtp,
+  getOrderChatMessages,
+  getOrderDetail,
+  listOrders,
+  sendOrderChatMessage,
+} from '@/services/orders/orders-api';
 import type { ListOrdersParams, OrderStatus } from '@/types/orders';
 
 export const orderKeys = {
@@ -9,7 +16,30 @@ export const orderKeys = {
   list: (params: ListOrdersParams) => [...orderKeys.all, 'list', params] as const,
   detail: (id: string) => [...orderKeys.all, 'detail', id] as const,
   deliveryOtp: (id: string) => [...orderKeys.all, 'delivery-otp', id] as const,
+  chat: (id: string) => [...orderKeys.all, 'chat', id] as const,
 };
+
+/** Polls for new messages every 4s while the chat panel is open. */
+export function useOrderChatQuery(orderId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: orderKeys.chat(orderId),
+    queryFn: () => getOrderChatMessages(orderId),
+    enabled: Boolean(orderId) && enabled,
+    refetchInterval: enabled ? 4_000 : false,
+  });
+}
+
+export function useSendOrderChatMutation(orderId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) => sendOrderChatMessage(orderId, body),
+    onSuccess: (message) => {
+      qc.setQueryData<typeof message[]>(orderKeys.chat(orderId), (prev) =>
+        prev ? [...prev, message] : [message],
+      );
+    },
+  });
+}
 
 // Statuses during which a buyer may need to read out the delivery OTP.
 const OTP_VISIBLE_STATUSES = new Set<OrderStatus>([
