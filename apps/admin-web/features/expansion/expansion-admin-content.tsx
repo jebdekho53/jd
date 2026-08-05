@@ -44,6 +44,9 @@ export function ExpansionAdminContent() {
   const [docRejectReason, setDocRejectReason] = useState('');
   const [resolveLinkId, setResolveLinkId] = useState<string | null>(null);
   const [linkReason, setLinkReason] = useState('');
+  const [storeQuery, setStoreQuery] = useState('');
+  const [attributeStoreId, setAttributeStoreId] = useState<string | null>(null);
+  const [attributeFranchiseId, setAttributeFranchiseId] = useState('');
 
   const { data: overview, isLoading } = useQuery({
     queryKey: ['admin', 'expansion'],
@@ -144,6 +147,24 @@ export function ExpansionAdminContent() {
   const { data: leaderboard = [] } = useQuery<LeaderRow[]>({
     queryKey: ['admin', 'expansion', 'leaderboard'],
     queryFn: () => fetchExpansion('leaderboard'),
+  });
+
+  const { data: storeResults = [], isFetching: storeSearchLoading } = useQuery<StoreSearchResult[]>({
+    queryKey: ['admin', 'expansion', 'store-search', storeQuery],
+    queryFn: () => fetchExpansion(`stores/search?q=${encodeURIComponent(storeQuery)}`),
+    enabled: storeQuery.trim().length >= 2,
+  });
+
+  const attributeStore = useMutation({
+    mutationFn: () => sendExpansion(`stores/${attributeStoreId}/attribute`, 'POST', { franchiseId: attributeFranchiseId }),
+    onSuccess: async () => {
+      setAttributeStoreId(null);
+      setAttributeFranchiseId('');
+      setStoreQuery('');
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'expansion', 'store-search'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'expansion', 'store-links'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'expansion', 'leaderboard'] });
+    },
   });
 
   const resolveLink = useMutation({
@@ -413,6 +434,83 @@ export function ExpansionAdminContent() {
         {resolveLink.isError && (
           <p className="mt-3 rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-300">
             {(resolveLink.error as Error).message}
+          </p>
+        )}
+      </section>
+
+      {/* Manual attribution — for a store that should have been credited via
+          referral but wasn't (broken cookie, late click, support fixing a
+          mis-click). Runs the same conflict guard as the automatic path. */}
+      <section className="rounded-lg border border-slate-700 bg-slate-800 p-4">
+        <h2 className="mb-1 text-sm font-semibold text-slate-200">Manually Attribute a Store</h2>
+        <p className="mb-3 text-xs text-slate-500">
+          Credit a store to a franchise partner directly — for a referral that should have landed
+          but didn&apos;t. Territory conflicts still park the link for review.
+        </p>
+
+        <input
+          value={storeQuery}
+          onChange={(e) => setStoreQuery(e.target.value)}
+          placeholder="Search store by name..."
+          className="mb-3 w-full max-w-md rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-600 outline-none focus:border-emerald-400"
+        />
+
+        {storeSearchLoading && <p className="text-xs text-slate-500">Searching...</p>}
+
+        <div className="space-y-2">
+          {storeResults.map((s) => (
+            <div
+              key={s.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-700 bg-slate-900/40 p-3"
+            >
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-200">
+                  {s.name} <span className="text-slate-500">({s.pincode ?? '—'})</span>
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  {s.franchise ? `Currently: ${s.franchise.businessName}` : 'Not attributed to any franchise'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={attributeStoreId === s.id ? attributeFranchiseId : ''}
+                  onChange={(e) => {
+                    setAttributeStoreId(s.id);
+                    setAttributeFranchiseId(e.target.value);
+                  }}
+                  className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
+                >
+                  <option value="">Choose franchise...</option>
+                  {franchises.map((f: FranchiseRow) => (
+                    <option key={f.id} value={f.id}>
+                      {f.businessName}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => attributeStore.mutate()}
+                  disabled={attributeStore.isPending || attributeStoreId !== s.id || !attributeFranchiseId}
+                  className="rounded-md bg-emerald-500 px-2 py-1 text-[11px] font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-40"
+                >
+                  {attributeStore.isPending && attributeStoreId === s.id ? 'Attributing…' : 'Attribute'}
+                </button>
+              </div>
+            </div>
+          ))}
+          {!storeSearchLoading && storeQuery.trim().length >= 2 && storeResults.length === 0 && (
+            <p className="text-xs text-slate-500">No stores match &quot;{storeQuery}&quot;.</p>
+          )}
+        </div>
+
+        {attributeStore.isError && (
+          <p className="mt-3 rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            {(attributeStore.error as Error).message}
+          </p>
+        )}
+        {attributeStore.isSuccess && (
+          <p className="mt-3 rounded-md bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+            Store attributed.
           </p>
         )}
       </section>
@@ -730,6 +828,15 @@ const DOC_LABEL: Record<string, string> = {
   SIGNED_AGREEMENT: 'Signed agreement',
   OTHER: 'Other',
 };
+
+interface StoreSearchResult {
+  id: string;
+  name: string;
+  slug: string;
+  pincode?: string | null;
+  franchiseId?: string | null;
+  franchise?: { businessName: string } | null;
+}
 
 interface PendingLink {
   id: string;

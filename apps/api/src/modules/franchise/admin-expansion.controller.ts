@@ -20,6 +20,7 @@ import { FranchiseBankAccountService } from './franchise-bank-account.service';
 import { FranchiseKycService } from './franchise-kyc.service';
 import {
   ApproveExpansionLeadDto,
+  AttributeStoreDto,
   CreateCityLaunchDto,
   CreateFranchiseDto,
   GenerateFranchiseSettlementsDto,
@@ -242,6 +243,30 @@ export class AdminExpansionController {
   @Permissions('settlements:manage')
   async verifyBankAccount(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return { success: true, data: await this.bankAccounts.verify(user.id, id) };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Manual store attribution — corrects a store that should have been credited
+  // to a franchise via referral but wasn't (bad cookie, late click, support fix).
+  // ---------------------------------------------------------------------------
+
+  @Get('stores/search')
+  @Permissions('settlements:read')
+  async searchStores(@Query('q') q?: string) {
+    return { success: true, data: await this.franchise.searchStoresForAttribution(q) };
+  }
+
+  @Post('stores/:storeId/attribute')
+  @Permissions('settlements:manage')
+  async attributeStore(
+    @Param('storeId') storeId: string,
+    @Body() dto: AttributeStoreDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return {
+      success: true,
+      data: await this.franchise.manuallyAttributeStore(user.id, storeId, dto.franchiseId),
+    };
   }
 }
 

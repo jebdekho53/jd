@@ -256,6 +256,12 @@ export class RejectFranchiseDocumentDto {
 }
 
 /** Resolve a store attribution parked by an exclusive-territory clash. */
+export class AttributeStoreDto {
+  @ApiProperty({ example: 'cln...', description: 'Franchise partner to credit for this store.' })
+  @IsString()
+  franchiseId!: string;
+}
+
 export class ResolveStoreLinkDto {
   @ApiProperty({ example: true, description: 'true credits the recruiter, false rejects the claim' })
   @IsBoolean()

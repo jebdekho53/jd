@@ -196,6 +196,71 @@ export class FranchiseService {
   }
 
   /**
+   * Admin override for a store that should have been attributed via referral but
+   * wasn't — a corrupted attribution cookie, a merchant who signed up before
+   * clicking the link, support fixing a mis-click. Runs the exact same
+   * territory-conflict guard as the automatic path (`linkStore`), so a manual
+   * attribution can still land as PENDING_REVIEW rather than silently
+   * double-claiming a pincode.
+   */
+  async manuallyAttributeStore(adminId: string, storeId: string, franchiseId: string) {
+    const [store, partner] = await Promise.all([
+      this.prisma.store.findUnique({ where: { id: storeId }, select: { id: true } }),
+      this.prisma.franchisePartner.findUnique({
+        where: { id: franchiseId },
+        select: { id: true, referralCode: true, status: true },
+      }),
+    ]);
+    if (!store) throw new NotFoundException('Store not found');
+    if (!partner) throw new NotFoundException('Franchise partner not found');
+    if (partner.status !== FranchisePartnerStatus.ACTIVE) {
+      throw new BadRequestException('This franchise partner is not active');
+    }
+
+    await this.prisma.store.update({
+      where: { id: storeId },
+      data: { franchiseId, referralCode: partner.referralCode },
+    });
+
+    // Backfill the originating application too, if one exists and isn't already
+    // credited elsewhere — keeps the recruitment-pipeline history consistent with
+    // what actually happened, rather than leaving it permanently unattributed.
+    await this.prisma.merchantApplication.updateMany({
+      where: { storeId, franchiseId: null },
+      data: { franchiseId, referralCode: partner.referralCode },
+    });
+
+    // linkStore creates the FranchiseStore row, runs the territory-conflict guard,
+    // and emits the STORE_LINKED / STORE_DISPUTED event that notifies the partner —
+    // no separate audit entry needed here.
+    return this.storeLink.linkStore(franchiseId, storeId, adminId);
+  }
+
+  /** Store picker for manual attribution — name/slug match, capped small since this is a lookup, not a listing. */
+  async searchStoresForAttribution(query?: string) {
+    const q = query?.trim();
+    if (!q || q.length < 2) return [];
+    return this.prisma.store.findMany({
+      where: {
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { slug: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        pincode: true,
+        franchiseId: true,
+        franchise: { select: { businessName: true } },
+      },
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
    * The partner's referral code and the invite link they share with merchants.
    * Generates a code on demand for partners created before referral codes existed,
    * so no partner is ever left without a working invite link.
