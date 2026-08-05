@@ -32,6 +32,7 @@ import type {
   RestaurantSummary,
 } from '@/types/food';
 import type { OrderDetail, OrderListResponse } from '@/types/orders';
+import type { CreateOrderClaimInput, OrderClaim, OrderClaimEligibility } from '@/types/claims';
 import type {
   CreateTicketPayload,
   InboxPage,
@@ -660,6 +661,24 @@ export async function cancelOrder(orderId: string, reason: string): Promise<Orde
   const res = await buyerFetch<ApiResponse<OrderDetail>>(`/buyer/orders/${orderId}/cancel`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
+  });
+  return res.data;
+}
+
+export async function getOrderClaimEligibility(orderId: string): Promise<OrderClaimEligibility> {
+  const res = await buyerFetch<ApiResponse<OrderClaimEligibility>>(
+    `/buyer/orders/${orderId}/claims/eligibility`,
+  );
+  return res.data;
+}
+
+export async function createOrderClaim(
+  orderId: string,
+  input: CreateOrderClaimInput,
+): Promise<OrderClaim> {
+  const res = await buyerFetch<ApiResponse<OrderClaim>>(`/buyer/orders/${orderId}/claims`, {
+    method: 'POST',
+    body: JSON.stringify(input),
   });
   return res.data;
 }

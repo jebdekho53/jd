@@ -8356,6 +8356,12 @@ model OrderClaim {
   replacementOrderId  String?           @map("replacement_order_id")
   returnPickupEnabled Boolean           @default(false) @map("return_pickup_enabled")
   returnShipmentId    String?           @map("return_shipment_id")
+  /// Set when this claim skipped merchant review under the platform's low-value
+  /// instant-refund rule (small amount, low-risk reason, buyer under the abuse
+  /// cap) rather than the per-product AUTO approval policy a merchant configured.
+  /// Kept separate from that so the abuse-cap count only looks at platform-driven
+  /// approvals, not a merchant's own generous per-product settings.
+  autoApprovedByPlatform Boolean        @default(false) @map("auto_approved_by_platform")
   resolvedAt          DateTime?         @map("resolved_at")
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
@@ -8375,6 +8381,7 @@ model OrderClaim {
   @@index([storeId, status])
   @@index([buyerProfileId, status])
   @@index([status, createdAt(sort: Desc)])
+  @@index([buyerProfileId, autoApprovedByPlatform, createdAt])
   @@map("order_claims")
 }
 

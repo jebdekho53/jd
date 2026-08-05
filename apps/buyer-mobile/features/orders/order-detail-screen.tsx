@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader } from '@/components/ui/loader';
 import { DeliveryProgress } from '@/features/orders/delivery-progress';
+import { OrderClaimPanel } from '@/features/orders/order-claim-panel';
 import { BUYER_CANCELLABLE } from '@/types/orders';
 
 export function OrderDetailScreen({ orderId }: { orderId: string }) {
@@ -88,6 +89,8 @@ export function OrderDetailScreen({ orderId }: { orderId: string }) {
       {canCancel && (
         <Button label="Cancel order" variant="danger" onPress={handleCancel} loading={cancelOrder.isPending} />
       )}
+
+      <OrderClaimPanel orderId={order.id} />
     </ScrollView>
   );
 }

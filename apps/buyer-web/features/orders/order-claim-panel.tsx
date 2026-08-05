@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { Button, Input } from '@/design-system/primitives';
 import { useToast } from '@/design-system/primitives';
-import type { OrderClaimEligibility } from '@/types/claims';
+import type { OrderClaim, OrderClaimEligibility } from '@/types/claims';
+
+const INSTANT_REFUND_REASONS = new Set(['MISSING_ITEM', 'WRONG_ITEM']);
 
 const REASON_LABELS: Record<string, string> = {
   WRONG_ITEM: 'Wrong item',
@@ -41,6 +43,7 @@ export function OrderClaimPanel({ orderId, eligibility, onSubmitted }: Props) {
 
   const item = eligibility.items[0];
   const reasons = item?.reasons ?? [];
+  const mayInstantRefund = claimType === 'REFUND' && INSTANT_REFUND_REASONS.has(reason);
 
   const handleSubmit = async () => {
     if (!item || !reason) {
@@ -62,7 +65,12 @@ export function OrderClaimPanel({ orderId, eligibility, onSubmitted }: Props) {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message ?? 'Could not submit claim');
-      toast('Claim submitted', 'success');
+      const claim: OrderClaim | undefined = json.data;
+      if (claim?.autoApprovedByPlatform) {
+        toast('Refunded instantly — no need to wait for review', 'success');
+      } else {
+        toast('Claim submitted — sent to the store for review', 'success');
+      }
       onSubmitted?.();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Could not submit claim', 'error');
@@ -127,6 +135,11 @@ export function OrderClaimPanel({ orderId, eligibility, onSubmitted }: Props) {
             ))}
           </select>
         </label>
+        {mayInstantRefund && (
+          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+            Eligible for instant refund — small, low-risk claims like this are refunded right away without waiting for store review.
+          </p>
+        )}
         <label className="block text-sm">
           <span className="mb-1 block font-medium">Description</span>
           <textarea

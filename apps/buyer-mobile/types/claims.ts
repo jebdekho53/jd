@@ -1,5 +1,3 @@
-import type { ReturnPolicySummary } from './return-policy';
-
 export interface OrderClaimEligibility {
   orderId: string;
   deliveredAt: string | null;
@@ -13,7 +11,6 @@ export interface OrderClaimEligibility {
     productId: string;
     productName: string;
     maxQuantity: number;
-    policy: ReturnPolicySummary;
     claimTypes: string[];
     reasons: string[];
   }>;
@@ -28,4 +25,12 @@ export interface OrderClaim {
   requestedAmount: number;
   autoApprovedByPlatform: boolean;
   createdAt: string;
+}
+
+export interface CreateOrderClaimInput {
+  claimType: 'REFUND' | 'REPLACEMENT' | 'RETURN';
+  reason: string;
+  reasonNote?: string;
+  items: Array<{ orderItemId: string; quantity: number }>;
+  evidence?: Array<{ kind: 'PHOTO' | 'VIDEO'; url: string }>;
 }

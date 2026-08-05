@@ -183,6 +183,21 @@ export class OrderClaimService {
 
     const restockingFee = policies.reduce((max, p) => Math.max(max, p.restockingFee), 0);
     const netAmount = Math.max(0, requestedAmount - restockingFee);
+
+    // Most merchants never configure per-product AUTO approval, so without this,
+    // "one item missing" always meant waiting on manual review no matter how
+    // small. Only kicks in when the product policy didn't already auto-approve.
+    let autoApprovedByPlatform = false;
+    if (!autoApprove) {
+      autoApprovedByPlatform = await this.eligibility.checkPlatformAutoApproval(
+        order.buyerProfile.id,
+        dto.claimType,
+        dto.reason,
+        requestedAmount,
+      );
+      if (autoApprovedByPlatform) autoApprove = true;
+    }
+
     const initialStatus = autoApprove ? OrderClaimStatus.APPROVED : OrderClaimStatus.PENDING;
 
     const claim = await this.prisma.$transaction(async (tx) => {
@@ -200,6 +215,7 @@ export class OrderClaimService {
           approvedAmount: autoApprove ? netAmount : null,
           restockingFee,
           idempotencyKey: dto.idempotencyKey,
+          autoApprovedByPlatform,
           items: {
             create: dto.items.map((line) => {
               const oi = itemMap.get(line.orderItemId)!;
@@ -240,7 +256,9 @@ export class OrderClaimService {
           OrderClaimStatus.APPROVED,
           ClaimActorType.SYSTEM,
           null,
-          'Auto-approved per product policy',
+          autoApprovedByPlatform
+            ? 'Instantly refunded — low-value claim, no merchant review needed'
+            : 'Auto-approved per product policy',
         );
       }
 
@@ -655,6 +673,7 @@ export class OrderClaimService {
       storeId: claim.storeId,
       claimType: claim.claimType,
       status: claim.status,
+      autoApprovedByPlatform: claim.autoApprovedByPlatform,
       reason: claim.reason,
       reasonNote: claim.reasonNote,
       requestedAmount: Number(claim.requestedAmount),
