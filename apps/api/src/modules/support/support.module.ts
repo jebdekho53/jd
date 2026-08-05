@@ -10,6 +10,7 @@ import { MembershipModule } from '../membership/membership.module';
 import { BuyerSupportController } from './buyer-support.controller';
 import { MerchantSupportController } from './merchant-support.controller';
 import { RiderSupportController } from './rider-support.controller';
+import { FranchiseSupportController } from './franchise-support.controller';
 import { AdminSupportController } from './admin-support.controller';
 
 @Module({
@@ -18,6 +19,7 @@ import { AdminSupportController } from './admin-support.controller';
     BuyerSupportController,
     MerchantSupportController,
     RiderSupportController,
+    FranchiseSupportController,
     AdminSupportController,
   ],
   providers: [

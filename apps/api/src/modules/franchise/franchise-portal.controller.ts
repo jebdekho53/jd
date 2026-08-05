@@ -12,6 +12,7 @@ import { FranchiseSettlementService } from './franchise-settlement.service';
 import { FranchiseBankAccountService } from './franchise-bank-account.service';
 import { FranchisePayoutService } from './franchise-payout.service';
 import { FranchiseKycService } from './franchise-kyc.service';
+import { TerritoryService } from './territory.service';
 import {
   AcceptFranchiseAgreementDto,
   SaveFranchiseBankAccountDto,
@@ -32,6 +33,7 @@ export class FranchisePortalController {
     private readonly bankAccounts: FranchiseBankAccountService,
     private readonly payouts: FranchisePayoutService,
     private readonly kyc: FranchiseKycService,
+    private readonly territoryService: TerritoryService,
   ) {}
 
   /** Where this partner stands against everyone else. */
@@ -159,6 +161,20 @@ export class FranchisePortalController {
   async finance(@CurrentUser() user: RequestUser) {
     const id = await this.franchise.resolveFranchiseId(user.id);
     return { success: true, data: await this.settlements.listSettlements(id) };
+  }
+
+  /** Territory-vs-territory disputes touching this partner, on either side. */
+  @Get('territory-conflicts')
+  async territoryConflicts(@CurrentUser() user: RequestUser) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.territoryService.listConflictsForFranchise(id) };
+  }
+
+  /** Read-only audit trail of what has happened on this account and why. */
+  @Get('activity')
+  async activity(@CurrentUser() user: RequestUser) {
+    const id = await this.franchise.resolveFranchiseId(user.id);
+    return { success: true, data: await this.franchise.getActivity(id) };
   }
 
   /** Riders who actually delivered for this partner's stores in the last 30 days. */

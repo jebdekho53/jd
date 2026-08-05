@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { IdCard, LayoutDashboard, Landmark, Map, ShieldCheck, Store, Users, TrendingUp, Wallet } from 'lucide-react';
+import { IdCard, LayoutDashboard, Landmark, LifeBuoy, ListTree, Map, ShieldCheck, Store, Users, TrendingUp, Wallet } from 'lucide-react';
 import { requireFranchiseUser } from '@/lib/auth/session';
 import { LogoutButton } from './logout-button';
 import { LegalReacceptGate } from '@/features/legal/legal-reaccept-gate';
@@ -14,6 +14,8 @@ const NAV = [
   { href: '/bank-account', label: 'Bank account', icon: Landmark },
   { href: '/card', label: 'My card', icon: IdCard },
   { href: '/kyc', label: 'Verification', icon: ShieldCheck },
+  { href: '/activity', label: 'Activity', icon: ListTree },
+  { href: '/support', label: 'Support', icon: LifeBuoy },
 ];
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {

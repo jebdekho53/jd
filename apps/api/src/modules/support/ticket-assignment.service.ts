@@ -19,6 +19,11 @@ const CATEGORY_TEAM: Record<string, SupportTeam> = {
   STORE_VERIFICATION: SupportTeam.MERCHANT_OPS,
   CAMPAIGN_PROBLEM: SupportTeam.MERCHANT_OPS,
   ORDER_DISPUTE: SupportTeam.MERCHANT_OPS,
+  FRANCHISE_PAYOUT: SupportTeam.FINANCE,
+  TERRITORY_DISPUTE: SupportTeam.FRANCHISE_OPS,
+  STORE_LINK_ISSUE: SupportTeam.FRANCHISE_OPS,
+  FRANCHISE_KYC: SupportTeam.COMPLIANCE,
+  MERCHANT_RECRUITMENT: SupportTeam.FRANCHISE_OPS,
 };
 
 @Injectable()
@@ -29,6 +34,7 @@ export class TicketAssignmentService {
     if (CATEGORY_TEAM[categoryCode]) return CATEGORY_TEAM[categoryCode];
     if (actorType === SupportActorType.MERCHANT) return SupportTeam.MERCHANT_OPS;
     if (actorType === SupportActorType.RIDER) return SupportTeam.RIDER_OPS;
+    if (actorType === SupportActorType.FRANCHISE) return SupportTeam.FRANCHISE_OPS;
     return SupportTeam.CUSTOMER_SUPPORT;
   }
 

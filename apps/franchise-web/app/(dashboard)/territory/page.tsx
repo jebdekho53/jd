@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useQuery, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Copy, MapPin, ShieldCheck } from 'lucide-react';
-import { EmptyState, PageHeader, Pill, Stat } from '@/components/ui';
+import { AlertTriangle, Copy, MapPin, ShieldCheck } from 'lucide-react';
+import { EmptyState, PageHeader, Panel, Pill, Stat } from '@/components/ui';
 
 interface Territory {
   id: string;
@@ -19,6 +19,16 @@ interface TerritoryResponse {
   pincodes: string[];
 }
 
+interface Conflict {
+  id: string;
+  pincode: string;
+  status: 'OPEN' | 'RESOLVED';
+  resolution: string | null;
+  createdAt: string;
+  franchise: { businessName: string };
+  conflictingTerritory: { franchise: { businessName: string } };
+}
+
 function TerritoryInner() {
   const { data, isLoading } = useQuery({
     queryKey: ['franchise', 'territory'],
@@ -29,8 +39,17 @@ function TerritoryInner() {
     },
   });
 
+  const conflicts = useQuery({
+    queryKey: ['franchise', 'territory-conflicts'],
+    queryFn: async (): Promise<Conflict[]> => {
+      const res = await fetch('/api/franchise/territory-conflicts');
+      const json = await res.json();
+      return json.data ?? [];
+    },
+  });
+
   const territories = data?.territories ?? [];
-  const exclusiveCount = territories.filter((t) => t.exclusivityEnabled).length;
+  const openConflicts = (conflicts.data ?? []).filter((c) => c.status === 'OPEN');
 
   if (isLoading) return <p className="text-sm text-slate-500">Loading...</p>;
 
@@ -41,7 +60,11 @@ function TerritoryInner() {
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Territories" value={String(territories.length)} />
         <Stat label="Pincodes covered" value={String(data?.pincodes.length ?? 0)} />
-        <Stat label="Exclusive territories" value={String(exclusiveCount)} tone="emerald" />
+        <Stat
+          label="Open conflicts"
+          value={String(openConflicts.length)}
+          tone={openConflicts.length > 0 ? 'amber' : 'emerald'}
+        />
       </div>
 
       {territories.length === 0 ? (
@@ -53,6 +76,31 @@ function TerritoryInner() {
           ))}
         </div>
       )}
+
+      <Panel title="Territory conflicts">
+        {(conflicts.data ?? []).length === 0 ? (
+          <EmptyState message="No overlapping-territory disputes on record." />
+        ) : (
+          <div className="space-y-2">
+            {(conflicts.data ?? []).map((c) => (
+              <div key={c.id} className="rounded-md border border-slate-800 bg-slate-950 p-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-1.5 font-medium text-white">
+                    {c.status === 'OPEN' && <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />}
+                    Pincode {c.pincode}
+                  </span>
+                  <Pill tone={c.status === 'OPEN' ? 'amber' : 'emerald'}>{c.status}</Pill>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">
+                  {c.franchise.businessName} vs {c.conflictingTerritory.franchise.businessName}
+                </p>
+                {c.resolution && <p className="mt-2 text-xs text-emerald-300">Resolution: {c.resolution}</p>}
+                <p className="mt-2 text-xs text-slate-600">{new Date(c.createdAt).toLocaleDateString()}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }

@@ -38,6 +38,14 @@ const CATEGORIES: {
   { code: 'APP_ISSUE', name: 'App issue', audience: SupportActorType.RIDER, description: 'Rider app bugs or technical problems', sortOrder: 30 },
   { code: 'RIDER_ACCOUNT', name: 'Account', audience: SupportActorType.RIDER, description: 'Account access or profile issues', sortOrder: 40 },
   { code: 'RIDER_KYC', name: 'KYC / documents', audience: SupportActorType.RIDER, description: 'Onboarding or document verification', sortOrder: 50 },
+
+  // Franchise
+  { code: 'FRANCHISE_PAYOUT', name: 'Payout / settlement', audience: SupportActorType.FRANCHISE, description: 'Commission settlement or payout not received', sortOrder: 10 },
+  { code: 'TERRITORY_DISPUTE', name: 'Territory dispute', audience: SupportActorType.FRANCHISE, description: 'Overlapping or contested pincode territory', sortOrder: 20 },
+  { code: 'STORE_LINK_ISSUE', name: 'Store attribution', audience: SupportActorType.FRANCHISE, description: 'A recruited store is missing, wrongly attributed, or stuck in review', sortOrder: 30 },
+  { code: 'FRANCHISE_KYC', name: 'KYC / documents', audience: SupportActorType.FRANCHISE, description: 'Agreement, PAN, GST, or bank verification', sortOrder: 40 },
+  { code: 'MERCHANT_RECRUITMENT', name: 'Merchant recruitment', audience: SupportActorType.FRANCHISE, description: 'Referral link, application status, or recruitment questions', sortOrder: 50 },
+  { code: 'FRANCHISE_GENERAL', name: 'General query', audience: SupportActorType.FRANCHISE, description: 'Anything else', sortOrder: 60 },
 ];
 
 async function main() {

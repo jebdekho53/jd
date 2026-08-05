@@ -303,6 +303,19 @@ export class FranchiseService {
     };
   }
 
+  /**
+   * Franchise-level audit trail (onboarding, status changes, territory
+   * assignment, conflicts, settlements) — this was already being recorded on
+   * every action but never surfaced to the partner it happened to.
+   */
+  async getActivity(franchiseId: string) {
+    return this.prisma.franchiseAudit.findMany({
+      where: { franchiseId },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  }
+
   async getOverview() {
     const [active, pending, suspended, conflicts] = await Promise.all([
       this.prisma.franchisePartner.count({ where: { status: FranchisePartnerStatus.ACTIVE } }),

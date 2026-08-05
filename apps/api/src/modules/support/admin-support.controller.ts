@@ -90,6 +90,12 @@ export class AdminSupportController {
     return this.listTickets({ ...query, actorType: SupportActorType.RIDER });
   }
 
+  @Get('tickets/franchise-related')
+  @Permissions('settlements:read')
+  async franchiseRelated(@Query() query: AdminListTicketsDto) {
+    return this.listTickets({ ...query, actorType: SupportActorType.FRANCHISE });
+  }
+
   @Get('tickets/refund-related')
   @Permissions('settlements:read')
   async refundRelated(@Query() query: AdminListTicketsDto) {

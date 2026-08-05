@@ -224,6 +224,27 @@ export class TerritoryService {
     });
   }
 
+  /**
+   * Conflicts touching this partner, on either side — the reporter (`franchiseId`
+   * on the conflict) or the incumbent whose territory was overlapped
+   * (`conflictingTerritory.franchiseId`). Without both sides, the incumbent would
+   * never see that someone else is now disputing their pincode.
+   */
+  async listConflictsForFranchise(franchiseId: string) {
+    return this.prisma.territoryConflict.findMany({
+      where: {
+        OR: [{ franchiseId }, { conflictingTerritory: { franchiseId } }],
+      },
+      include: {
+        franchise: { select: { businessName: true } },
+        primaryTerritory: true,
+        conflictingTerritory: { include: { franchise: { select: { businessName: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  }
+
   async previewConflicts(pincodes: string[], excludeFranchiseId?: string) {
     const uniquePincodes = [...new Set(pincodes)];
     if (uniquePincodes.length === 0) return [];

@@ -4389,6 +4389,7 @@ enum SupportActorType {
   BUYER
   MERCHANT
   RIDER
+  FRANCHISE
   ADMIN
   SYSTEM
 }
@@ -4399,6 +4400,7 @@ enum SupportTeam {
   MERCHANT_OPS
   RIDER_OPS
   COMPLIANCE
+  FRANCHISE_OPS
 }
 
 enum SupportMessageVisibility {
