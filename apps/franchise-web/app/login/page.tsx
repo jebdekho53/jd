@@ -21,7 +21,7 @@ export default function LoginPage() {
 
         <p className="mt-6 text-center text-sm text-slate-400">
           Not a partner yet?{' '}
-          <a href="/" className="font-semibold text-emerald-300 hover:text-emerald-200">
+          <a href="/signup" className="font-semibold text-emerald-300 hover:text-emerald-200">
             Apply for a franchise
           </a>
         </p>
