@@ -93,7 +93,9 @@ export function StoreDetailContent({ storeId }: { storeId: string }) {
     !mp.isBlacklisted;
 
   const showReviewActions =
-    store.status === 'PENDING_REVIEW' || store.status === 'UNDER_REVIEW';
+    store.status === 'PENDING_REVIEW' ||
+    store.status === 'UNDER_REVIEW' ||
+    store.status === 'DOCUMENTS_REQUIRED';
 
   const actionPending =
     approveMutation.isPending ||

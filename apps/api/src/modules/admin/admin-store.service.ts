@@ -35,11 +35,13 @@ import { FranchiseStoreLinkService } from '../franchise/franchise-store-link.ser
 const APPROVABLE_STATUSES: StoreStatus[] = [
   StoreStatus.PENDING_REVIEW,
   StoreStatus.UNDER_REVIEW,
+  StoreStatus.DOCUMENTS_REQUIRED,
 ];
 
 const REJECTABLE_STATUSES: StoreStatus[] = [
   StoreStatus.PENDING_REVIEW,
   StoreStatus.UNDER_REVIEW,
+  StoreStatus.DOCUMENTS_REQUIRED,
 ];
 
 const REQUEST_DOCUMENTS_STATUSES: StoreStatus[] = [
@@ -189,7 +191,7 @@ export class AdminStoreService {
     if (!APPROVABLE_STATUSES.includes(store.status)) {
       throw new BadRequestException(
         `Store cannot be approved from status: ${store.status}. ` +
-          `Only PENDING_REVIEW or UNDER_REVIEW stores can be approved.`,
+          `Only PENDING_REVIEW, UNDER_REVIEW, or DOCUMENTS_REQUIRED stores can be approved.`,
       );
     }
     if (store.merchantProfile?.isBlacklisted) {
@@ -406,7 +408,7 @@ export class AdminStoreService {
     if (!REJECTABLE_STATUSES.includes(store.status)) {
       throw new BadRequestException(
         `Store cannot be rejected from status: ${store.status}. ` +
-          `Only PENDING_REVIEW or UNDER_REVIEW stores can be rejected.`,
+          `Only PENDING_REVIEW, UNDER_REVIEW, or DOCUMENTS_REQUIRED stores can be rejected.`,
       );
     }
 

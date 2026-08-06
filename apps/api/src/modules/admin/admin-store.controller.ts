@@ -92,7 +92,7 @@ export class AdminStoreController {
   @HttpCode(HttpStatus.OK)
   @Permissions('stores:approve')
   @ApiParam({ name: 'id', description: 'Store ID' })
-  @ApiOperation({ summary: 'Approve a PENDING_REVIEW or UNDER_REVIEW store — makes it live on the platform' })
+  @ApiOperation({ summary: 'Approve a PENDING_REVIEW, UNDER_REVIEW, or DOCUMENTS_REQUIRED store — makes it live on the platform' })
   @ApiResponse({ status: 200, description: 'Store approved and now live' })
   @ApiResponse({ status: 400, description: 'Store not in approvable status' })
   async approveStore(

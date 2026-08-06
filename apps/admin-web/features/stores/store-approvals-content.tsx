@@ -149,7 +149,9 @@ export function StoreApprovalsContent() {
     revokeMutation.isPending;
 
   const showReviewActions = (itemStatus: StoreStatus) =>
-    itemStatus === 'PENDING_REVIEW' || itemStatus === 'UNDER_REVIEW';
+    itemStatus === 'PENDING_REVIEW' ||
+    itemStatus === 'UNDER_REVIEW' ||
+    itemStatus === 'DOCUMENTS_REQUIRED';
 
   const canRevoke = (item: AdminStoreListItem) =>
     item.status === 'REJECTED' &&
