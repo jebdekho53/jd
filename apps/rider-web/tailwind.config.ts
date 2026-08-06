@@ -29,6 +29,23 @@ const config: Config = {
           danger: 'var(--rider-danger)',
           info: 'var(--rider-info)',
         },
+        // Matches the brand green used on merchant-web/buyer-web/franchise-web
+        // login screens — used only on the rider login page. The amber
+        // `rider-accent` stays the accent everywhere else in the app (home,
+        // earnings, active-delivery) — that's a deliberate design system, not
+        // being re-themed here.
+        brand: {
+          50: '#f0fdf4',
+          100: '#dcfce7',
+          200: '#bbf7d0',
+          300: '#86efac',
+          400: '#4ade80',
+          500: '#22c55e',
+          600: '#16a34a',
+          700: '#15803d',
+          800: '#166534',
+          900: '#14532d',
+        },
       },
       borderRadius: {
         '2xl': '1.25rem',

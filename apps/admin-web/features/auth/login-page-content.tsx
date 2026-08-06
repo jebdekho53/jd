@@ -83,7 +83,7 @@ export function LoginPageContent() {
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
       {/* Left panel */}
-      <div className="relative flex flex-1 flex-col justify-between bg-gradient-to-br from-slate-900 via-admin-900 to-slate-950 p-8 text-white lg:p-12">
+      <div className="relative flex flex-1 flex-col justify-between bg-gradient-to-br from-slate-900 via-brand-900 to-slate-950 p-8 text-white lg:p-12">
         <div>
           <div className="mb-10">
             <BrandLockup subtitle="Admin Control Tower" inverted className="gap-3" />
@@ -134,7 +134,7 @@ export function LoginPageContent() {
         <div className="w-full max-w-md">
           <div className="mb-8 lg:hidden">
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-admin-800 text-sm font-bold text-white">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-700 text-sm font-bold text-white">
                 JD
               </div>
               <span className="font-semibold text-slate-900">Admin Control Tower</span>
@@ -176,16 +176,21 @@ export function LoginPageContent() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded border-slate-300 text-admin-700 focus:ring-admin-500"
+                  className="rounded border-slate-300 text-brand-700 focus:ring-brand-500"
                 />
                 Remember me
               </label>
-              <Link href="/forgot-password" className="font-medium text-admin-700 hover:underline">
+              <Link href="/forgot-password" className="font-medium text-brand-700 hover:underline">
                 Forgot password?
               </Link>
             </div>
 
-            <Button type="submit" fullWidth loading={login.isPending}>
+            <Button
+              type="submit"
+              fullWidth
+              loading={login.isPending}
+              className="bg-brand-700 hover:bg-brand-800 focus-visible:ring-brand-500 disabled:bg-brand-100 disabled:text-brand-300"
+            >
               Sign in
             </Button>
           </form>

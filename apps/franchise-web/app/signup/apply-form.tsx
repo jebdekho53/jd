@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 const INPUT =
-  'w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none';
+  'w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-brand-400 focus:outline-none';
 
 export function ApplyForm() {
   const [form, setForm] = useState({
@@ -63,8 +63,8 @@ export function ApplyForm() {
 
   if (done) {
     return (
-      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-center">
-        <p className="text-lg font-semibold text-emerald-300">Thank you</p>
+      <div className="rounded-2xl border border-brand-500/30 bg-brand-500/10 p-6 text-center">
+        <p className="text-lg font-semibold text-brand-300">Thank you</p>
         <p className="mt-2 text-sm text-slate-300">{done}</p>
       </div>
     );
@@ -157,7 +157,7 @@ export function ApplyForm() {
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-lg bg-emerald-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:opacity-50"
+        className="w-full rounded-lg bg-brand-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-brand-300 disabled:opacity-50"
       >
         {busy ? 'Submitting…' : 'Apply for a franchise'}
       </button>

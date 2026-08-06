@@ -7,7 +7,7 @@ function Wordmark() {
   return (
     <span className="text-lg font-extrabold tracking-tight">
       <span className="text-white">Jeb</span>
-      <span className="text-emerald-400">Dekho</span>
+      <span className="text-brand-400">Dekho</span>
       <span className="ml-2 align-middle text-[11px] font-semibold uppercase tracking-wider text-slate-500">
         Franchise
       </span>
@@ -35,7 +35,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             </Link>
             <Link
               href="/signup"
-              className="rounded-lg bg-emerald-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-emerald-300"
+              className="rounded-lg bg-brand-400 px-4 py-2 font-semibold text-slate-950 transition hover:bg-brand-300"
             >
               Apply now
             </Link>

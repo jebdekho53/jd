@@ -108,10 +108,10 @@ export function FranchiseLandingContent() {
     <>
       {/* HERO */}
       <section className="relative overflow-hidden px-4 py-20 sm:px-6 sm:py-28">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full bg-emerald-400/5 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full bg-brand-400/5 blur-3xl" />
         <div className="relative mx-auto max-w-3xl text-center">
-          <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 py-1.5 text-sm font-medium text-emerald-300">
+          <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-brand-400/30 bg-brand-500/10 px-4 py-1.5 text-sm font-medium text-brand-300">
             JebDekho Franchise Program
           </p>
           <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
@@ -124,7 +124,7 @@ export function FranchiseLandingContent() {
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href="/signup"
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-8 py-3.5 text-base font-bold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-300"
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-400 px-8 py-3.5 text-base font-bold text-slate-950 shadow-lg shadow-brand-500/20 transition hover:bg-brand-300"
             >
               Apply for a franchise
               <ArrowRight className="h-5 w-5" />
@@ -149,7 +149,7 @@ export function FranchiseLandingContent() {
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {BENEFITS.map((b) => (
               <div key={b.title} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 text-brand-400">
                   <b.icon className="h-5 w-5" />
                 </div>
                 <h3 className="mt-3 font-semibold text-white">{b.title}</h3>
@@ -167,10 +167,10 @@ export function FranchiseLandingContent() {
           <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {STEPS.map((s, i) => (
               <div key={s.title} className="relative rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-                <div className="absolute -top-3 left-5 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-400 text-sm font-bold text-slate-950">
+                <div className="absolute -top-3 left-5 flex h-7 w-7 items-center justify-center rounded-full bg-brand-400 text-sm font-bold text-slate-950">
                   {i + 1}
                 </div>
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-500/10 text-brand-400">
                   <s.icon className="h-5 w-5" />
                 </div>
                 <h3 className="mt-3 font-semibold text-white">{s.title}</h3>
@@ -189,7 +189,7 @@ export function FranchiseLandingContent() {
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {PORTAL_FEATURES.map((f) => (
               <div key={f.label} className="flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-500/10 text-brand-400">
                   <f.icon className="h-4 w-4" />
                 </div>
                 <div>
@@ -210,7 +210,7 @@ export function FranchiseLandingContent() {
             {FAQ.map((item) => (
               <details key={item.q} className="group rounded-lg border border-slate-800 bg-slate-900/40 p-4">
                 <summary className="flex cursor-pointer list-none items-center gap-2 font-medium text-white">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-400" />
                   {item.q}
                 </summary>
                 <p className="mt-2 pl-6 text-sm leading-6 text-slate-400">{item.a}</p>
@@ -228,7 +228,7 @@ export function FranchiseLandingContent() {
         </p>
         <Link
           href="/signup"
-          className="mt-7 inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-8 py-3.5 text-base font-bold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-300"
+          className="mt-7 inline-flex items-center gap-2 rounded-xl bg-brand-400 px-8 py-3.5 text-base font-bold text-slate-950 shadow-lg shadow-brand-500/20 transition hover:bg-brand-300"
         >
           Apply for a franchise
           <ArrowRight className="h-5 w-5" />

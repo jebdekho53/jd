@@ -31,7 +31,7 @@ export default function SignupPage() {
         <section>
           <Link
             href="/"
-            className="mb-3 inline-block text-sm font-semibold uppercase tracking-wide text-emerald-300 hover:text-emerald-200"
+            className="mb-3 inline-block text-sm font-semibold uppercase tracking-wide text-brand-300 hover:text-brand-200"
           >
             ← JebDekho Franchise
           </Link>
@@ -54,7 +54,7 @@ export default function SignupPage() {
 
           <p className="mt-10 text-sm text-slate-400">
             Already a partner?{' '}
-            <Link href="/login" className="font-semibold text-emerald-300 hover:text-emerald-200">
+            <Link href="/login" className="font-semibold text-brand-300 hover:text-brand-200">
               Sign in
             </Link>
           </p>

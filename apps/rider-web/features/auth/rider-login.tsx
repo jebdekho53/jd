@@ -44,7 +44,7 @@ export function RiderLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
   return (
     <main className="flex min-h-screen flex-col justify-center bg-rider-bg px-6 py-12 text-rider-text">
       <div className="mx-auto w-full max-w-sm">
-        <p className="text-sm font-bold uppercase tracking-wide text-rider-accent">JebDekho</p>
+        <p className="text-sm font-bold uppercase tracking-wide text-brand-400">JebDekho</p>
         <h1 className="mt-1 text-3xl font-black">Rider Partner</h1>
         <p className="mt-2 text-sm text-rider-muted">
           {step === 'phone'
@@ -69,7 +69,7 @@ export function RiderLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
             <button
               onClick={sendOtp}
               disabled={busy}
-              className="h-14 w-full rounded-xl bg-rider-accent font-bold text-rider-accent-foreground disabled:opacity-60"
+              className="h-14 w-full rounded-xl bg-brand-400 font-bold text-slate-950 disabled:opacity-60"
             >
               {busy ? 'Sending…' : 'Send OTP'}
             </button>
@@ -100,7 +100,7 @@ export function RiderLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
             <button
               onClick={verify}
               disabled={busy || code.length < 4}
-              className="h-14 w-full rounded-xl bg-rider-accent font-bold text-rider-accent-foreground disabled:opacity-60"
+              className="h-14 w-full rounded-xl bg-brand-400 font-bold text-slate-950 disabled:opacity-60"
             >
               {busy ? 'Verifying…' : 'Verify & Sign in'}
             </button>

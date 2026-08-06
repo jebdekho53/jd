@@ -13,9 +13,9 @@ import { useState } from 'react';
 type Mode = 'otp' | 'password' | 'set-password';
 
 const INPUT =
-  'w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none';
+  'w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-brand-400 focus:outline-none';
 const BUTTON =
-  'w-full rounded-lg bg-emerald-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:opacity-50';
+  'w-full rounded-lg bg-brand-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-brand-300 disabled:opacity-50';
 
 async function post(path: string, body: unknown): Promise<{ ok: boolean; message?: string }> {
   const res = await fetch(path, {
@@ -120,7 +120,7 @@ export function LoginForm() {
       </div>
 
       {notice && (
-        <p className="mb-3 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+        <p className="mb-3 rounded-lg bg-brand-500/10 px-3 py-2 text-sm text-brand-300">
           {notice}
         </p>
       )}

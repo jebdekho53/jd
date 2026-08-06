@@ -7,7 +7,7 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-16 text-white">
       <section className="w-full max-w-md">
-        <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-emerald-300">
+        <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-brand-300">
           JebDekho
         </p>
         <h1 className="text-3xl font-bold">Partner login</h1>
@@ -21,7 +21,7 @@ export default function LoginPage() {
 
         <p className="mt-6 text-center text-sm text-slate-400">
           Not a partner yet?{' '}
-          <a href="/signup" className="font-semibold text-emerald-300 hover:text-emerald-200">
+          <a href="/signup" className="font-semibold text-brand-300 hover:text-brand-200">
             Apply for a franchise
           </a>
         </p>
